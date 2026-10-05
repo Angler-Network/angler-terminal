@@ -4,7 +4,7 @@ import { ExternalLink, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { useT } from "@/lib/i18n/client";
-import { alertSounds, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
+import { alertSounds, navModeChange, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
@@ -125,6 +125,33 @@ function LayoutSettings() {
       <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
         Turn panels on or off; the chart takes the free space. Also from Layout in the sidebar.
       </p>
+      <SettingRow title="Navigation" description="The menu in the left rail, or in the top bar to give the terminal the full width.">
+        <SegmentedControl
+          label="Navigation"
+          value={preferences.navMode}
+          options={[
+            { value: "sidebar", label: "Sidebar" },
+            { value: "top", label: "Top bar" },
+          ]}
+          onChange={(value) => {
+            const next = navModeChange(value, preferences.tapePosition);
+            updatePreference("navMode", next.navMode);
+            updatePreference("tapePosition", next.tapePosition);
+          }}
+        />
+      </SettingRow>
+      <SettingRow title="Price tape" description="In the top bar, in a strip at the bottom, or hidden.">
+        <SegmentedControl
+          label="Price tape"
+          value={preferences.tapePosition}
+          options={[
+            { value: "top", label: "Top" },
+            { value: "bottom", label: "Bottom" },
+            { value: "off", label: "Off" },
+          ]}
+          onChange={(value) => updatePreference("tapePosition", value)}
+        />
+      </SettingRow>
       {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
         <SettingRow key={key} title={panelNames[key]} description={descriptions[key]}>
           <Toggle

@@ -69,7 +69,7 @@ export function LayoutRevealButtons() {
 
   return (
     <>
-      {!preferences.showSidebar && (
+      {!preferences.showSidebar && preferences.navMode !== "top" && (
         <button
           type="button"
           onClick={() => updatePreference("showSidebar", true)}

@@ -4,7 +4,7 @@ import { Check, FlaskConical } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { accentSwatches, themeOptions } from "@/lib/appearance";
-import { layoutPresets, panelNames, type TerminalPanels } from "@/lib/preferences";
+import { layoutPresets, navModeChange, panelNames, type NavMode, type TapePosition, type TerminalPanels } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
 
 /** Bump the version when the onboarding changes so everyone sees it again. */
@@ -106,6 +106,64 @@ function LookStep() {
             </button>
           );
         })}
+      </div>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Navigation">
+        {(
+          [
+            { mode: "sidebar", label: "Sidebar", hint: "Menu on the left" },
+            { mode: "top", label: "Top bar", hint: "Menu on top, full width" },
+          ] as Array<{ mode: NavMode; label: string; hint: string }>
+        ).map((option) => {
+          const active = preferences.navMode === option.mode;
+          return (
+            <button
+              key={option.mode}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => {
+                const next = navModeChange(option.mode, preferences.tapePosition);
+                updatePreference("navMode", next.navMode);
+                updatePreference("tapePosition", next.tapePosition);
+              }}
+              className={`flex items-center gap-3 rounded-xl border p-2 text-left transition-colors ${active ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"}`}
+            >
+              <span className={`flex h-10 w-14 shrink-0 gap-0.5 overflow-hidden rounded-md bg-app-chip p-0.5 ${option.mode === "top" ? "flex-col" : ""}`}>
+                <span className={`rounded-sm bg-app-hairline-strong ${option.mode === "top" ? "h-1.5" : "w-2"}`} />
+                <span className="flex-1 rounded-sm border border-app-hairline-strong bg-app-card" />
+              </span>
+              <span>
+                <span className="block text-[13px] font-semibold text-app-ink">{option.label}</span>
+                <span className="block text-[11px] text-app-muted">{option.hint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3" role="radiogroup" aria-label="Price tape">
+        <span className="text-[12px] font-semibold text-app-muted">Price tape</span>
+        <div className="flex flex-1 gap-0.5 rounded-lg bg-app-chip p-0.5">
+          {(
+            [
+              { value: "top", label: "Top" },
+              { value: "bottom", label: "Bottom" },
+              { value: "off", label: "Off" },
+            ] as Array<{ value: TapePosition; label: string }>
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={preferences.tapePosition === option.value}
+              onClick={() => updatePreference("tapePosition", option.value)}
+              className={`h-7 flex-1 rounded-md text-[12px] font-semibold ${
+                preferences.tapePosition === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

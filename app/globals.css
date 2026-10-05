@@ -303,6 +303,26 @@ html[data-topbar="hidden"] .app-topbar {
   display: none;
 }
 
+/* Navigation in the top bar instead of the rail; set before hydration so the rail never flashes. */
+html[data-nav="top"] .app-sidebar,
+html[data-nav="top"] .app-sidebar-toggle {
+  display: none;
+}
+
+.app-topnav {
+  display: none;
+}
+
+html[data-nav="top"] .app-topnav {
+  display: flex;
+}
+
+/* The tape renders where the preference puts it; this hides the default slot until hydration moves it. */
+html[data-tape="bottom"] .app-tape-top,
+html[data-tape="off"] .app-tape-top {
+  visibility: hidden;
+}
+
 html[data-frame="off"] .app-frame {
   padding: 0;
 }

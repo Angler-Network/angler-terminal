@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APPEARANCE_VERSION, parsePreferences } from "./preferences";
+import { APPEARANCE_VERSION, navModeChange, parsePreferences } from "./preferences";
 
 describe("appearance defaults", () => {
   it("defaults to the OLED theme with the Liquid surface", () => {
@@ -35,5 +35,21 @@ describe("panel preferences", () => {
   it("shows every panel by default and keeps the stored choices", () => {
     expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true });
     expect(parsePreferences(JSON.stringify({ panels: { orderbook: false, news: "no" } })).panels).toMatchObject({ orderbook: false, news: true });
+  });
+});
+
+describe("navigation and tape preferences", () => {
+  it("defaults to the sidebar with the tape on top and reads stored choices", () => {
+    expect(parsePreferences(null)).toMatchObject({ navMode: "sidebar", tapePosition: "top" });
+    expect(parsePreferences(JSON.stringify({ navMode: "top", tapePosition: "bottom" }))).toMatchObject({ navMode: "top", tapePosition: "bottom" });
+    expect(parsePreferences(JSON.stringify({ navMode: "left", tapePosition: "side" }))).toMatchObject({ navMode: "sidebar", tapePosition: "top" });
+  });
+});
+
+describe("navModeChange", () => {
+  it("drops the tape to the footer when navigation moves to the top bar", () => {
+    expect(navModeChange("top", "top")).toEqual({ navMode: "top", tapePosition: "bottom" });
+    expect(navModeChange("top", "off")).toEqual({ navMode: "top", tapePosition: "off" });
+    expect(navModeChange("sidebar", "bottom")).toEqual({ navMode: "sidebar", tapePosition: "bottom" });
   });
 });

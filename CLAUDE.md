@@ -123,6 +123,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     orderEntry, positions, news, account; edited from Layout in the sidebar (`layout-menu.tsx`: presets, panels,
     sidebar/top bar) and Settings → Layout). Grid columns are computed from the enabled panels; the chart takes the
     rest. The sidebar and top bar hide like angler-news (`layout-toggles.tsx`, always available here).
+  - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
+    navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
+    tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
+    rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in onboarding,
+    the layout menu and Settings → Layout.
   - Order panel (`order-panel.tsx`): the chart's asset on every venue that lists it (perps in `perpOrder`, then
     Jupiter/Arcus spot). Perps: market/limit, leverage slider, cross/isolated, reduce-only, % of available, estimated
     isolated liquidation (`lib/trading/order-math.ts`); calls `placeOrder` directly. Spot goes through
@@ -163,7 +168,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
 - Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "Make it yours" (theme,
-  accent, framed or full screen; applied live) → "What do you want on your
+  accent, framed or full screen, sidebar or top navigation, tape position; applied live) → "What do you want on your
   screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
   notice. Bump `ACK_KEY` to show it again; Settings → About reopens it. Keep it short: no text-heavy slides.
 - Wallets: one Connect button opens `wallet-modal.tsx`: a grid of colored venue tiles (logo, name, kind; built to take

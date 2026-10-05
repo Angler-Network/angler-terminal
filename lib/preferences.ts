@@ -39,6 +39,14 @@ export type AlertSound = "chime" | "ping" | "bell" | "pulse" | "rise" | "fall" |
 
 export const alertSounds: AlertSound[] = ["chime", "ping", "bell", "pulse", "rise", "fall", "none"];
 
+export type NavMode = "sidebar" | "top";
+export type TapePosition = "top" | "bottom" | "off";
+
+/** Moving navigation to the top bar crowds it, so the tape drops to the footer unless the user already moved it. */
+export function navModeChange(next: NavMode, tapePosition: TapePosition): { navMode: NavMode; tapePosition: TapePosition } {
+  return { navMode: next, tapePosition: next === "top" && tapePosition === "top" ? "bottom" : tapePosition };
+}
+
 /** One-tap layouts offered in onboarding and the layout menu; the chart is always shown. */
 export const layoutPresets: Array<{ id: string; name: string; description: string; panels: TerminalPanels }> = [
   {
@@ -101,6 +109,10 @@ export interface Preferences extends Appearance {
   framedLayout: boolean;
   containerHeaders: boolean;
   showSidebar: boolean;
+  /** Navigation in the left rail or in the top bar. */
+  navMode: NavMode;
+  /** Where the price tape sits, or off. */
+  tapePosition: TapePosition;
   showTopBar: boolean;
   sidebarHiding: boolean;
   topBarHiding: boolean;
@@ -173,6 +185,8 @@ export const defaultPreferences: Preferences = {
   framedLayout: true,
   containerHeaders: true,
   showSidebar: true,
+  navMode: "sidebar",
+  tapePosition: "top",
   showTopBar: true,
   sidebarHiding: false,
   topBarHiding: false,
@@ -287,6 +301,8 @@ export function parsePreferences(raw: string | null): Preferences {
       containerHeaders: readBoolean(stored.containerHeaders, defaultPreferences.containerHeaders),
       // The terminal always offers the hide buttons (angler-news gates them behind sidebarHiding / topBarHiding).
       showSidebar: readBoolean(stored.showSidebar, true),
+      navMode: stored.navMode === "top" ? "top" : "sidebar",
+      tapePosition: stored.tapePosition === "bottom" || stored.tapePosition === "off" ? stored.tapePosition : "top",
       showTopBar: readBoolean(stored.showTopBar, true),
       sidebarHiding: readBoolean(stored.sidebarHiding, defaultPreferences.sidebarHiding),
       topBarHiding: readBoolean(stored.topBarHiding, defaultPreferences.topBarHiding),
@@ -366,10 +382,14 @@ export function applyPreferencesToDocument(preferences: Preferences) {
   else dataset.sidebar = "hidden";
   if (preferences.showTopBar) delete dataset.topbar;
   else dataset.topbar = "hidden";
+  if (preferences.navMode === "top") dataset.nav = "top";
+  else delete dataset.nav;
+  if (preferences.tapePosition === "top") delete dataset.tape;
+  else dataset.tape = preferences.tapePosition;
 }
 
 export const preferencesScript = `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
   PREFERENCES_STORAGE_KEY,
-)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.showSidebar===false)d.sidebar="hidden";if(p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
+)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.showSidebar===false)d.sidebar="hidden";if(p.showTopBar===false)d.topbar="hidden";if(p.navMode==="top")d.nav="top";if(p.tapePosition==="bottom"||p.tapePosition==="off")d.tape=p.tapePosition;(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
   CUSTOM_CSS_ELEMENT_ID,
 )})}catch(e){}`;
