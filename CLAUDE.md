@@ -11,6 +11,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   pull request titles or pull request descriptions.
 - Commit messages follow Conventional Commits, are a single line, and are 72 characters or fewer
   (e.g. `feat(news): upsert enriched items by id`).
+- Work on and push to `main`. Never create or push branches with "claude" (or any AI reference) in the name.
 
 ## Secrets
 
@@ -37,9 +38,23 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     token). A ticket opens one connection only, so a new one is minted on every connect and reconnect.
   - Channels `news.raw` (arrives first, no enrichment) and `news.enriched` (same id, later). Items are upserted by news
     id with `mergeApiNews`; `toNewsItem` maps them to the angler-news `NewsItem` shape.
+- Venues (`lib/venues/*`): the `Venue` interface in `types.ts`; Hyperliquid in `hyperliquid/`, built on
+  `@nktkas/hyperliquid`.
+  - Network comes from `NEXT_PUBLIC_HL_NETWORK` (testnet default); switching to mainnet needs no code change.
+  - Markets: `perpDexs` + `metaAndAssetCtxs` per dex, cached 60s by `/api/hl/markets`. HIP-3 coins are named
+    `dex:COIN`, with asset id `100000 + dexIndex * 10000 + index`.
+  - Onboarding: `approveBuilderFee` (user wallet, max fee from config), then `approveAgent` with a key generated in
+    the browser. The agent key is stored per network and user in localStorage (`agent-store.ts`), used only to sign
+    locally, and must never be logged or sent anywhere. Revoke = approveAgent with the zero address and the same name.
+  - Market orders are IOC limits at mid ± 5% slippage, rounded to 5 significant figures and 6 - szDecimals
+    decimals. Every order carries `builder: { b, f }` (f in tenths of a bp). Leverage is updated before an order
+    only when it changed.
+  - Positions and orders stream over the browser WebSocket (`allDexsClearinghouseState` + `openOrders` per dex).
+  - Exchange errors go through `errors.ts` (`humanizeHlError`) and are shown as toasts.
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
 ## Checks
 
-`npm run typecheck` and `npm run build` must pass before pushing.
+`npm test` (vitest, `*.test.ts` next to the module), `npm run typecheck` and `npm run build` must pass before
+pushing. Pure logic (pricing, parsing, error mapping, storage) gets unit tests; network and wallet code does not.

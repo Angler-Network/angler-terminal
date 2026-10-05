@@ -16,6 +16,10 @@ npm run dev                  # http://localhost:3000
 | `ANGLER_API_URL` | server           | Angler News API base URL (`https://api.angler.network`) |
 | `ANGLER_API_KEY` | server only      | API key for `/v1/news` and `/v1/ws/ticket`              |
 | `ANGLER_WS_URL`  | server → browser | Optional realtime endpoint override                     |
+| `NEXT_PUBLIC_HL_NETWORK` | browser | `testnet` (default) or `mainnet` |
+| `NEXT_PUBLIC_HL_BUILDER_ADDRESS` | browser | Builder address added to every order (required to trade) |
+| `NEXT_PUBLIC_HL_BUILDER_FEE` | browser | Builder fee per order, in tenths of a basis point (max 100) |
+| `NEXT_PUBLIC_HL_MAX_BUILDER_FEE` | browser | Max fee users approve during setup, same unit |
 
 ## How the news feed works
 
@@ -27,6 +31,22 @@ npm run dev                  # http://localhost:3000
    replaces it in place, matched by news id.
 
 The API key never reaches the browser.
+
+## Trading on Hyperliquid
+
+1. Connect a browser wallet (MetaMask, Rabby, …).
+2. On the first trade, a 2-step setup asks for two signatures: approve the builder fee, then create a trading key.
+   The key is generated in the browser, can place and cancel orders but cannot withdraw, and can be revoked from the
+   order panel at any time.
+3. After that, orders sign locally without wallet popups. Positions and open orders stream live in the bottom bar.
+
+Testnet funds: https://app.hyperliquid-testnet.xyz/drip
+
+## Tests
+
+```bash
+npm test
+```
 
 ## Layout
 
