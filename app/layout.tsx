@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { TickerBar } from "@/components/app/ticker-bar";
 import { ToastProvider } from "@/components/app/toast-provider";
+import { UpdateNotice } from "@/components/app/update-notice";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { TradingProvider } from "@/components/terminal/trading-provider";
@@ -34,12 +35,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#030c15",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-US" className={sora.variable} data-theme="deepnavy" data-tone="dark" suppressHydrationWarning>
+    <html lang="en-US" className={sora.variable} data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
       </head>
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <main className="min-h-0 flex-1 p-2">{children}</main>
                     </div>
                     <TradingSetupDialog />
+                    <UpdateNotice />
                   </TradeTicketProvider>
                   </TradingProvider>
                 </SelectedAssetProvider>

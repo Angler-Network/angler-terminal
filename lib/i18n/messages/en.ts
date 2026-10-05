@@ -23,6 +23,10 @@ export const en = {
   "chart.interval": "Interval",
   "chart.label": "{symbol} price chart",
   "chart.unavailable": "No price data for this symbol right now.",
+  "update.title": "New version available",
+  "update.text": "Refresh to get the latest version ({version}).",
+  "update.dismiss": "Dismiss update notice",
+  "about.refresh": "Refresh",
 } as const;
 
 export type MessageKey = keyof typeof en;
