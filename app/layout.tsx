@@ -2,7 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { TickerBar } from "@/components/app/ticker-bar";
+import { ToastProvider } from "@/components/app/toast-provider";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
+import { TradingProvider } from "@/components/terminal/trading-provider";
+import { TradingSetupDialog } from "@/components/terminal/trading-setup-dialog";
+import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { preferencesScript } from "@/lib/preferences";
 import "./globals.css";
@@ -40,12 +44,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="app-frame h-dvh overflow-hidden font-sans antialiased">
         <I18nProvider>
           <PreferencesProvider>
-            <SelectedAssetProvider>
-              <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
-                <TickerBar />
-                <main className="min-h-0 flex-1 p-2">{children}</main>
-              </div>
-            </SelectedAssetProvider>
+            <ToastProvider>
+              <WalletProvider>
+                <SelectedAssetProvider>
+                  <TradingProvider>
+                    <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
+                      <TickerBar />
+                      <main className="min-h-0 flex-1 p-2">{children}</main>
+                    </div>
+                    <TradingSetupDialog />
+                  </TradingProvider>
+                </SelectedAssetProvider>
+              </WalletProvider>
+            </ToastProvider>
           </PreferencesProvider>
         </I18nProvider>
       </body>

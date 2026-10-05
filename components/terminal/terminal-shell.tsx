@@ -24,7 +24,7 @@ export function TerminalShell() {
   );
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-2 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_280px_360px] lg:grid-rows-[minmax(0,1fr)_200px] lg:overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-2 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_290px_360px] lg:grid-rows-[minmax(0,1fr)_220px] lg:overflow-hidden">
       <div className="h-[460px] min-h-0 lg:col-start-1 lg:row-start-1 lg:h-auto">
         <ChartPanel items={chartItems} />
       </div>
