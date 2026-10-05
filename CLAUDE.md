@@ -129,6 +129,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Order book (`order-book.tsx` + `use-order-book.ts`): plain WebSockets (HL `l2Book`/`trades`, Lighter
     `order_book/{id}`/`trade/{id}` with deltas), parsers and grouping in `lib/trading/orderbook.ts`. Clicking a price
     hands it to the order panel through `order-draft.tsx`.
+  - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
+    from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
+    and in total), and close-all (all, per filter or per venue) behind a confirm press.
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
   and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
   Notifications, About; `openSettings(section)` opens a given section),
