@@ -7,18 +7,24 @@ import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
 import { fromBaseUnits, usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { spendableBalance } from "@/lib/venues/jupiter/balances";
-import { SOLSCAN_TOKEN_URL, spotSizePresets, WSOL_MINT } from "@/lib/venues/jupiter/config";
+import { trackTrade } from "@/lib/analytics/client";
+import { sizePresets } from "@/lib/trading/presets";
+import { SOLSCAN_TOKEN_URL, WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { MESSAGES } from "@/lib/venues/jupiter/errors";
 import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import type { OrderSide, SpotBalances, SpotQuote, SpotSwapResult, SpotToken } from "@/lib/venues/types";
+import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
+import { TicketBanner } from "./ticket-banner";
+import { useTradeTicket, type TradeTicket } from "./trade-ticket";
+import { useTicketBinding, type PanelStatus } from "./use-ticket-binding";
 
 const QUOTE_REFRESH_MS = 5_000;
 const BALANCE_REFRESH_MS = 15_000;
 /** Lamports to keep for fees on top of what the quote reports (ATA rent, retries). */
 const SOL_FEE_BUFFER = 2_000_000n;
 
-const presets = spotSizePresets({ NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_SPOT_SIZE_PRESETS: process.env.NEXT_PUBLIC_SPOT_SIZE_PRESETS });
+const presets = sizePresets.spot;
 
 const field =
   "h-9 w-full rounded-lg border border-app-hairline-strong bg-app-chip px-3 text-[13px] tabular-nums text-app-ink placeholder:text-app-faint focus:border-app-focus focus:outline-none";
@@ -172,14 +178,14 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
             ? MESSAGES.insufficientSol
             : quote?.error ?? (quote ? null : quoteError ?? "Getting quote…");
 
-  const swap = async () => {
-    if (!signTransaction || blocker) return;
+  const swap = async (source?: TradeTicket) => {
+    if (!signTransaction || blocker) return false;
     isSwappingRef.current = true;
     setIsSwapping(true);
     try {
       // Re-quote right before signing so the user signs the freshest price.
       const fresh = await fetchQuote();
-      if (!fresh) return;
+      if (!fresh) return false;
       setQuote(fresh);
       if (fresh.error || !fresh.transaction) throw new Error(fresh.error ?? "This quote can't be executed.");
       const result = await jupiterVenue.executeQuote(fresh, signTransaction);
@@ -191,6 +197,8 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
         link: { href: result.explorerUrl, label: "View on Solscan" },
       });
       void loadBalances();
+      trackTrade({ venue: "jupiter", side, newsId: source?.newsId ?? null, oneClick: Boolean(source?.oneClick) });
+      return true;
     } catch (error) {
       toast({
         tone: "error",
@@ -198,11 +206,34 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
         message: error instanceof Error ? error.message : String(error),
         link: error instanceof SwapFailedError && error.explorerUrl ? { href: error.explorerUrl, label: "View on Solscan" } : undefined,
       });
+      return false;
     } finally {
       isSwappingRef.current = false;
       setIsSwapping(false);
     }
   };
+
+  const status: PanelStatus = !address
+    ? { state: "blocked", reason: "Connect a Solana wallet to trade on Jupiter." }
+    : blocker === "Loading…" || blocker === "Getting quote…"
+      ? { state: "loading" }
+      : blocker
+        ? { state: "blocked", reason: blocker }
+        : { state: "ready" };
+
+  const { confirm } = useTradeTicket();
+  const { symbol: selectedSymbol } = useSelectedAsset();
+  const ticket = useTicketBinding({
+    venue: "spot",
+    symbol: selectedSymbol,
+    current: { side, sizeUsd: Number(usd) },
+    apply: (nextSide, sizeUsd) => {
+      setSide(nextSide);
+      setUsd(String(sizeUsd));
+    },
+    status,
+    submit: swap,
+  });
 
   const price =
     quote && quote.inAmount > 0n && quote.outAmount > 0n
@@ -229,7 +260,8 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
         className="scrollbar-subtle flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
         onSubmit={(event) => {
           event.preventDefault();
-          void swap();
+          if (ticket && ticket.confirmNonce === 0) confirm();
+          else void swap();
         }}
       >
         <div className="flex items-center gap-1.5 text-[11px] text-app-muted">
@@ -255,6 +287,7 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
           </button>
         </div>
 
+        {ticket && <TicketBanner ticket={ticket} />}
         <div role="group" aria-label="Side" className="grid grid-cols-2 gap-1 rounded-lg bg-app-chip p-0.5">
           {(["buy", "sell"] as const).map((value) => (
             <button
@@ -311,7 +344,7 @@ export function SpotOrderPanel({ token, venueTabs }: { token: SpotToken; venueTa
             }`}
           >
             {isSwapping && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            <span className="truncate">{isSwapping ? "Confirm in your wallet…" : blocker ?? `${side === "buy" ? "Buy" : "Sell"} ${token.symbol}`}</span>
+            <span className="truncate">{isSwapping ? "Confirm in your wallet…" : blocker ?? `${ticket && ticket.confirmNonce === 0 ? "Confirm " : ""}${side === "buy" ? "Buy" : "Sell"} ${token.symbol}`}</span>
           </button>
         ) : (
           <SolanaConnect />

@@ -4,6 +4,7 @@ import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { TickerBar } from "@/components/app/ticker-bar";
 import { ToastProvider } from "@/components/app/toast-provider";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
+import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { TradingSetupDialog } from "@/components/terminal/trading-setup-dialog";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
@@ -50,11 +51,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SolanaWalletProvider>
                 <SelectedAssetProvider>
                   <TradingProvider>
+                  <TradeTicketProvider>
                     <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <TickerBar />
                       <main className="min-h-0 flex-1 p-2">{children}</main>
                     </div>
                     <TradingSetupDialog />
+                  </TradeTicketProvider>
                   </TradingProvider>
                 </SelectedAssetProvider>
               </SolanaWalletProvider>

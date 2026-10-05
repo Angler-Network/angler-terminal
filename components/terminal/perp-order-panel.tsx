@@ -6,7 +6,12 @@ import { MarketIcon } from "@/components/app/market-icon";
 import { formatPrice } from "@/lib/format";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import type { OrderKind, OrderSide } from "@/lib/venues/types";
+import { trackTrade } from "@/lib/analytics/client";
+import { sizePresets } from "@/lib/trading/presets";
 import { useSelectedAsset } from "./selected-asset";
+import { TicketBanner } from "./ticket-banner";
+import { useTradeTicket, type TradeTicket } from "./trade-ticket";
+import { useTicketBinding, type PanelStatus } from "./use-ticket-binding";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
 
@@ -90,6 +95,7 @@ export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
   const { symbol } = useSelectedAsset();
   const { address, connect } = useWallet();
   const { market, markets, account, placeOrder, venueName, network } = useTrading();
+  const { confirm } = useTradeTicket();
   const [side, setSide] = useState<OrderSide>("buy");
   const [kind, setKind] = useState<OrderKind>("market");
   const [usd, setUsd] = useState("");
@@ -126,20 +132,45 @@ export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
               ? "Size below the minimum lot"
               : null;
 
-  const submit = async () => {
-    if (!market || disabledReason) return;
+  const submit = async (source?: TradeTicket) => {
+    if (!market || disabledReason) return false;
     setIsSubmitting(true);
     const placed = await placeOrder({
       market,
       side,
-      kind,
+      kind: source ? "market" : kind,
       size,
-      limitPx: kind === "limit" ? Number(limitPx) : undefined,
+      limitPx: !source && kind === "limit" ? Number(limitPx) : undefined,
       leverage,
     });
     setIsSubmitting(false);
-    if (placed) setUsd("");
+    if (placed) {
+      setUsd("");
+      trackTrade({ venue: "hyperliquid", side, newsId: source?.newsId ?? null, oneClick: Boolean(source?.oneClick) });
+    }
+    return placed;
   };
+
+  const status: PanelStatus = !address
+    ? { state: "blocked", reason: "Connect a wallet to trade on Hyperliquid." }
+    : market === undefined
+      ? { state: "loading" }
+      : disabledReason
+        ? { state: "blocked", reason: disabledReason }
+        : { state: "ready" };
+
+  const ticket = useTicketBinding({
+    venue: "perp",
+    symbol,
+    current: { side, sizeUsd: Number(usd) },
+    apply: (nextSide, sizeUsd) => {
+      setSide(nextSide);
+      setUsd(String(sizeUsd));
+      setKind("market");
+    },
+    status,
+    submit,
+  });
 
   return (
     <section
@@ -160,9 +191,12 @@ export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
         className="scrollbar-subtle flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
         onSubmit={(event) => {
           event.preventDefault();
-          void submit();
+          // With a news trade armed, the panel button is its confirm click (keeps the news attribution).
+          if (ticket && ticket.confirmNonce === 0) confirm();
+          else void submit();
         }}
       >
+        {ticket && <TicketBanner ticket={ticket} />}
         <Segmented
           name="Side"
           value={side}
@@ -206,6 +240,20 @@ export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
             ≈ {size > 0 ? size : 0} {market?.symbol ?? symbol}
           </span>
         </label>
+        <div className="flex gap-1">
+          {sizePresets.perp.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setUsd(String(preset))}
+              className={`h-7 flex-1 rounded-md border text-[12px] font-semibold tabular-nums ${
+                Number(usd) === preset ? "border-app-hairline-strong bg-app-card text-app-ink" : "border-app-hairline text-app-muted hover:text-app-ink"
+              }`}
+            >
+              ${preset}
+            </button>
+          ))}
+        </div>
         <label className={label}>
           <span className="flex justify-between">
             Leverage <span className="tabular-nums text-app-ink">{leverage}x</span>
@@ -238,7 +286,7 @@ export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
             }`}
           >
             {isSubmitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
-            {disabledReason ?? `${side === "buy" ? "Long" : "Short"} ${market?.symbol ?? symbol}`}
+            {disabledReason ?? `${ticket && ticket.confirmNonce === 0 ? "Confirm " : ""}${side === "buy" ? "Long" : "Short"} ${market?.symbol ?? symbol}`}
           </button>
         ) : (
           <button

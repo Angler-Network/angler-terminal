@@ -4,27 +4,31 @@ import { useEffect, useState } from "react";
 import { PerpOrderPanel } from "./perp-order-panel";
 import { useSelectedAsset } from "./selected-asset";
 import { SpotOrderPanel } from "./spot-order-panel";
-import { useTrading } from "./trading-provider";
-import { useSpotToken } from "./use-spot-token";
+import { useTradeTicket } from "./trade-ticket";
+import { useAssetVenues } from "./use-asset-venue";
 
 type VenueChoice = "perp" | "spot";
 
+export const DISCLAIMER = "Not financial advice. Scores are model outputs.";
+
 /**
- * Venue resolver for the selected asset: Hyperliquid perps when listed, Jupiter spot when a verified Solana token
- * exists. A mint from the news item points straight at spot. Tabs appear when both are available.
+ * Order panel for the selected asset, routed by the venue resolver (useAssetVenues). An armed news trade picks
+ * its venue; otherwise the user can switch with tabs when both venues list the asset.
  */
 export function OrderPanel() {
   const { symbol, mint } = useSelectedAsset();
-  const { market } = useTrading();
-  const token = useSpotToken(symbol, mint);
+  const { ticket } = useTradeTicket();
+  const venues = useAssetVenues(symbol, mint, { needSpot: true });
   const [choice, setChoice] = useState<VenueChoice | null>(null);
 
   useEffect(() => setChoice(null), [symbol, mint]);
 
-  const hasPerp = Boolean(market);
-  const hasSpot = Boolean(token);
-  const preferred: VenueChoice = mint && hasSpot ? "spot" : hasPerp ? "perp" : hasSpot ? "spot" : "perp";
-  const active = choice && (choice === "perp" ? hasPerp : hasSpot) ? choice : preferred;
+  const hasPerp = Boolean(venues?.perp);
+  const hasSpot = Boolean(venues?.spot);
+  const ticketVenue = ticket && ticket.symbol === symbol ? ticket.venue : null;
+  const requested = ticketVenue ?? choice;
+  const active: VenueChoice =
+    requested && (requested === "perp" ? hasPerp : hasSpot) ? requested : (venues?.preferred ?? "perp");
 
   const tabs =
     hasPerp && hasSpot ? (
@@ -51,6 +55,16 @@ export function OrderPanel() {
       </div>
     ) : null;
 
-  if (active === "spot" && token) return <SpotOrderPanel key={token.mint} token={token} venueTabs={tabs} />;
-  return <PerpOrderPanel venueTabs={tabs} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-1">
+      <div className="min-h-0 flex-1">
+        {active === "spot" && venues?.spot ? (
+          <SpotOrderPanel key={venues.spot.mint} token={venues.spot} venueTabs={tabs} />
+        ) : (
+          <PerpOrderPanel venueTabs={tabs} />
+        )}
+      </div>
+      <p className="shrink-0 px-1 text-center text-[10px] leading-tight text-app-faint">{DISCLAIMER}</p>
+    </div>
+  );
 }
