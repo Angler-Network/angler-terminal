@@ -99,6 +99,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 - Keep the disclaimer "Not financial advice. Scores are model outputs." next to the account panel and in settings.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
+- Chart intervals: `lib/chart/candles.ts` lists the 14 intervals Binance and Hyperliquid both accept (1m–1M);
+  `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons.
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 

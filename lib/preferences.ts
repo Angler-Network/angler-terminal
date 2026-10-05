@@ -20,7 +20,7 @@ import {
   type TapeMotion,
   type TapeSpeed,
 } from "./markets/model";
-import { chartIntervals, type ChartInterval } from "./chart/candles";
+import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from "./chart/candles";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -45,6 +45,8 @@ export interface Preferences extends Appearance {
   showChart: boolean;
   chartSymbol: string;
   chartInterval: ChartInterval;
+  /** Starred intervals shown as quick buttons above the chart. */
+  chartFavoriteIntervals: ChartInterval[];
   timeZone: string;
   showScrollbars: boolean;
   framedLayout: boolean;
@@ -104,6 +106,7 @@ export const defaultPreferences: Preferences = {
   showChart: true,
   chartSymbol: "BTC",
   chartInterval: "1h",
+  chartFavoriteIntervals: DEFAULT_FAVORITE_INTERVALS,
   timeZone: "UTC",
   showScrollbars: true,
   framedLayout: true,
@@ -193,7 +196,10 @@ export function parsePreferences(raw: string | null): Preferences {
         typeof stored.chartSymbol === "string" && /^[A-Za-z0-9]{1,20}$/.test(stored.chartSymbol)
           ? stored.chartSymbol
           : defaultPreferences.chartSymbol,
-      chartInterval: chartIntervals.includes(stored.chartInterval) ? stored.chartInterval : defaultPreferences.chartInterval,
+      chartInterval: isChartInterval(stored.chartInterval) ? stored.chartInterval : defaultPreferences.chartInterval,
+      chartFavoriteIntervals: Array.isArray(stored.chartFavoriteIntervals)
+        ? [...new Set((stored.chartFavoriteIntervals as unknown[]).filter(isChartInterval))]
+        : defaultPreferences.chartFavoriteIntervals,
       timeZone: isValidTimeZone(stored.timeZone) ? stored.timeZone : defaultPreferences.timeZone,
       showScrollbars: readBoolean(stored.showScrollbars, defaultPreferences.showScrollbars),
       framedLayout: readBoolean(stored.framedLayout, defaultPreferences.framedLayout),

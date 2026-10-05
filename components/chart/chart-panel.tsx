@@ -9,10 +9,11 @@ import { useMarketList } from "@/components/app/use-market-list";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useT } from "@/lib/i18n/client";
-import { chartIntervals } from "@/lib/chart/candles";
 import { formatPercent, formatPrice } from "@/lib/format";
 import { pickQuote, type Market } from "@/lib/markets/model";
 import type { NewsItem } from "@/lib/types";
+
+import { IntervalPicker } from "./interval-picker";
 
 const AnglerChart = dynamic(() => import("./angler-chart").then((module) => module.AnglerChart), { ssr: false });
 
@@ -48,7 +49,7 @@ export function ChartPanel({ items }: { items: NewsItem[] }) {
 
 function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   const t = useT();
-  const { preferences, updatePreference } = usePreferences();
+  const { preferences } = usePreferences();
   const { symbol, selectAsset } = useSelectedAsset();
   const { market: venueMarket } = useTrading();
   const interval = preferences.chartInterval;
@@ -99,21 +100,7 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
             </span>
           </div>
         )}
-        <div role="group" aria-label={t("chart.interval")} className="ml-auto flex gap-0.5 rounded-lg bg-app-chip p-0.5">
-          {chartIntervals.map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={interval === value}
-              onClick={() => updatePreference("chartInterval", value)}
-              className={`h-7 rounded-md px-2 text-[12px] font-semibold uppercase transition-colors ${
-                interval === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
-              }`}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
+        <IntervalPicker />
       </header>
       {isStock === undefined || venueMarket === undefined ? (
         <div aria-hidden className="m-3 flex-1 animate-pulse rounded-xl bg-app-chip/60" />
