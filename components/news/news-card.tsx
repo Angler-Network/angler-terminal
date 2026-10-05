@@ -65,6 +65,38 @@ function ImpactMeter({ item }: { item: NewsItem }) {
   );
 }
 
+/** Where the model's sentiment sits between -1 (bearish) and +1 (bullish): a dot on a red-to-green track. */
+function SentimentMeter({ sentiment }: { sentiment: number }) {
+  const value = Math.max(-1, Math.min(1, sentiment));
+  const color = value >= NEUTRAL_SENTIMENT ? "bg-app-up" : value <= -NEUTRAL_SENTIMENT ? "bg-app-down" : "bg-app-muted";
+  const text = value >= NEUTRAL_SENTIMENT ? "text-app-up" : value <= -NEUTRAL_SENTIMENT ? "text-app-down" : "text-app-muted";
+  return (
+    <span className="inline-flex items-center gap-1.5" title={`Sentiment ${value.toFixed(2)} on a -1 to +1 scale (model output)`}>
+      <span aria-hidden className="text-[10px] font-semibold tabular-nums text-app-faint">-1</span>
+      <span
+        role="meter"
+        aria-label="Sentiment"
+        aria-valuemin={-1}
+        aria-valuemax={1}
+        aria-valuenow={Number(value.toFixed(2))}
+        className="relative h-1.5 w-16 rounded-full bg-gradient-to-r from-app-down/50 via-app-chip to-app-up/50"
+      >
+        <span aria-hidden className="absolute left-1/2 top-1/2 h-2.5 w-px -translate-x-1/2 -translate-y-1/2 bg-app-hairline-strong" />
+        <span
+          aria-hidden
+          className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-app-card ${color}`}
+          style={{ left: `${((value + 1) / 2) * 100}%` }}
+        />
+      </span>
+      <span aria-hidden className="text-[10px] font-semibold tabular-nums text-app-faint">+1</span>
+      <span className={`min-w-[2.5em] text-right text-[11px] font-semibold tabular-nums ${text}`}>
+        {value > 0 ? "+" : ""}
+        {value.toFixed(2)}
+      </span>
+    </span>
+  );
+}
+
 function SentimentPill({ sentiment }: { sentiment: number }) {
   const tone =
     sentiment >= NEUTRAL_SENTIMENT
@@ -196,8 +228,9 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
               </button>
             </span>
           ))}
+          {item.enriched && item.hasSentiment !== false && <SentimentMeter sentiment={item.sentiment} />}
           <span className="ml-auto inline-flex items-center gap-2">
-            {item.enriched && <SentimentPill sentiment={item.sentiment} />}
+            {item.enriched && item.hasSentiment !== false && <SentimentPill sentiment={item.sentiment} />}
             <ImpactMeter item={item} />
           </span>
         </div>

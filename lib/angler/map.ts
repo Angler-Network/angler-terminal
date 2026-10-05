@@ -233,6 +233,7 @@ export function toNewsItem(news: FeedNews, now = Date.now(), names?: SourceNames
     coins,
     predictions,
     enriched: news.importanceScore !== undefined,
+    hasSentiment: news.sentiment !== undefined,
   };
 }
 

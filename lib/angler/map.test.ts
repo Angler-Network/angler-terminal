@@ -50,6 +50,7 @@ describe("GET /v1/news", () => {
       score: 28,
       severity: "notable",
       sentiment: 0,
+      hasSentiment: false,
       enriched: true,
       publishedAt: Date.parse("2026-10-05T15:10:53Z"),
       minutesAgo: 9,
@@ -95,6 +96,7 @@ describe("realtime stage messages", () => {
     const item = toNewsItem(news, NOW, names);
     expect(item).toMatchObject({ enriched: true, symbol: "ETH", direction: "up", sources: ["Bitcoin.com News"], sourceDomain: "news.bitcoin.com" });
     expect(item.sentiment).toBeCloseTo(enrichedMessage.item.sentiment.confidence);
+    expect(item.hasSentiment).toBe(true);
   });
 
   it("leads with the strongest impact prediction", () => {

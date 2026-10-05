@@ -35,6 +35,8 @@ export interface NewsItem {
   /** Every asset the news touches, strongest predicted impact first. */
   coins?: string[];
   predictions?: ImpactPrediction[];
+  /** False when the API sent no sentiment (REST items), so `sentiment: 0` means unknown, not neutral. */
+  hasSentiment?: boolean;
   /** Solana mints by symbol, when the API provides them. */
   mints?: Record<string, string>;
   /** False while only the raw item has arrived. */
