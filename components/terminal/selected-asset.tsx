@@ -1,11 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 
 interface SelectedAssetValue {
   symbol: string;
-  selectAsset: (symbol: string) => void;
+  /** Solana mint for the asset when the source (e.g. a news item) provided one. */
+  mint?: string;
+  selectAsset: (symbol: string, mint?: string) => void;
 }
 
 const SelectedAssetContext = createContext<SelectedAssetValue | null>(null);
@@ -20,13 +22,17 @@ export function useSelectedAsset() {
 export function SelectedAssetProvider({ children }: { children: React.ReactNode }) {
   const { preferences, updatePreference } = usePreferences();
   const symbol = preferences.chartSymbol;
+  const [mintFor, setMintFor] = useState<{ symbol: string; mint: string } | null>(null);
   const selectAsset = useCallback(
-    (next: string) => {
+    (next: string, mint?: string) => {
       const clean = next.toUpperCase();
-      if (/^[A-Z0-9]{1,20}$/.test(clean)) updatePreference("chartSymbol", clean);
+      if (!/^[A-Z0-9]{1,20}$/.test(clean)) return;
+      updatePreference("chartSymbol", clean);
+      setMintFor(mint ? { symbol: clean, mint } : null);
     },
     [updatePreference],
   );
-  const value = useMemo(() => ({ symbol, selectAsset }), [symbol, selectAsset]);
+  const mint = mintFor?.symbol === symbol ? mintFor.mint : undefined;
+  const value = useMemo(() => ({ symbol, mint, selectAsset }), [symbol, mint, selectAsset]);
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }

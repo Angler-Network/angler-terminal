@@ -16,7 +16,7 @@ const MAX_CHIPS = 4;
 interface NewsCardProps {
   item: NewsItem;
   /** Clicking an asset chip selects that asset in the chart. */
-  onSelectAsset?: (symbol: string) => void;
+  onSelectAsset?: (symbol: string, mint?: string) => void;
   selectedSymbol?: string;
 }
 
@@ -84,7 +84,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol }: NewsCardProps)
               <button
                 key={chip.symbol}
                 type="button"
-                onClick={() => onSelectAsset?.(chip.symbol)}
+                onClick={() => onSelectAsset?.(chip.symbol, item.mints?.[chip.symbol])}
                 aria-pressed={selectedSymbol === chip.symbol}
                 title={`Show ${chip.symbol} on the chart`}
                 className={`rounded-md px-1 py-0.5 transition-colors hover:bg-app-chip ${

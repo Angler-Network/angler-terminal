@@ -36,6 +36,8 @@ export interface ApiNews {
   summary_short?: string;
   /** 0-100 */
   importance_score?: number;
+  /** Solana mints by symbol, if the payload carries any (see readMints in map.ts). */
+  mints?: Record<string, string>;
 }
 
 export interface NewsPage {

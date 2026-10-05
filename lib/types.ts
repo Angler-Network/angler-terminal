@@ -33,6 +33,8 @@ export interface NewsItem {
   /** Every asset the news touches, strongest predicted impact first. */
   coins?: string[];
   predictions?: ImpactPrediction[];
+  /** Solana mints by symbol, when the API provides them. */
+  mints?: Record<string, string>;
   /** False while only the raw item has arrived. */
   enriched?: boolean;
 }

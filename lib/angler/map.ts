@@ -51,6 +51,31 @@ function readPredictions(value: unknown): ImpactPrediction[] {
   });
 }
 
+const MINT_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/**
+ * Solana mints by symbol. The payload shape isn't specified, so accept a `mints` map, a `tokens` array of
+ * { symbol, mint }, or a `mint` on impact predictions.
+ */
+function readMints(record: Record<string, unknown>) {
+  const mints: Record<string, string> = {};
+  const add = (symbol: unknown, mint: unknown) => {
+    const clean = toSymbol(symbol);
+    if (clean && typeof mint === "string" && MINT_PATTERN.test(mint)) mints[clean] = mint;
+  };
+  if (record.mints && typeof record.mints === "object" && !Array.isArray(record.mints)) {
+    for (const [symbol, mint] of Object.entries(record.mints as Record<string, unknown>)) add(symbol, mint);
+  }
+  for (const list of [record.tokens, record.impact_predictions]) {
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      const item = (entry ?? {}) as Record<string, unknown>;
+      add(item.symbol, item.mint ?? item.address);
+    }
+  }
+  return Object.keys(mints).length > 0 ? mints : undefined;
+}
+
 /** Validates one news object from REST or the socket. Returns null when it has no id or headline. */
 export function readApiNews(value: unknown): ApiNews | null {
   const record = (value ?? {}) as Record<string, unknown>;
@@ -71,6 +96,7 @@ export function readApiNews(value: unknown): ApiNews | null {
     impact_predictions: readPredictions(record.impact_predictions),
     summary_short: text(record.summary_short),
     importance_score: numberIn(record.importance_score ?? record.importance, 0, 100),
+    mints: readMints(record),
   };
 }
 
@@ -127,6 +153,7 @@ export function toNewsItem(news: ApiNews, now = Date.now()): NewsItem {
     summary: news.summary_short,
     coins,
     predictions,
+    mints: news.mints,
     enriched: isEnriched(news),
   };
 }
@@ -149,6 +176,7 @@ export function mergeApiNews(previous: ApiNews | undefined, next: ApiNews): ApiN
     published_at: previous.published_at ?? next.published_at,
     sentiment: pick("sentiment"),
     summary_short: pick("summary_short"),
+    mints: next.mints ? { ...previous.mints, ...next.mints } : previous.mints,
     importance_score: pick("importance_score"),
     coins: pickList("coins"),
     impact_predictions: pickList("impact_predictions"),
