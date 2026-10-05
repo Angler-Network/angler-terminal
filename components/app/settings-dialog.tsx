@@ -14,6 +14,7 @@ import { useMarketList } from "@/components/app/use-market-list";
 import type { Market } from "@/lib/markets/model";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters, type Sentiment } from "@/lib/news/filter";
 import type { Severity } from "@/lib/types";
+import { openWelcomeTour } from "./alpha-notice";
 import { AppearanceSettings } from "./appearance-settings";
 import { MarketIcon } from "./market-icon";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
@@ -57,6 +58,20 @@ function GeneralSettings() {
   const zones = useMemo(() => getTimeZoneOptions(Intl.DateTimeFormat().resolvedOptions().timeZone, utcLabel), [utcLabel]);
   return (
     <>
+      <SettingRow
+        title="Chart"
+        description="Angler chart (TradingView Lightweight Charts) marks headlines on the candles and uses Binance + Hyperliquid prices. The TradingView widget is TradingView's full chart with its own indicators and drawing tools."
+      >
+        <SelectField
+          label="Chart"
+          value={preferences.chart}
+          options={[
+            { value: "angler", label: "Angler (Lightweight)" },
+            { value: "tradingview", label: "TradingView widget" },
+          ]}
+          onChange={(value) => updatePreference("chart", value === "tradingview" ? "tradingview" : "angler")}
+        />
+      </SettingRow>
       <div className="border-b border-app-line py-4">
         <p className="text-[15px] font-semibold text-app-ink">{t("settings.timeZone")}</p>
         <p className="mt-1 text-[13px] leading-relaxed text-app-muted">{t("settings.timeZoneText")}</p>
@@ -440,10 +455,23 @@ function NotificationSettings() {
 }
 
 function AboutSettings() {
+  const { closeSettings } = usePreferences();
   return (
     <>
       <SettingRow title="Version" description="The terminal checks for new deployments and asks you to refresh.">
         <span className="font-mono text-[13px] text-app-muted">{shortCommitSha || "dev"}</span>
+      </SettingRow>
+      <SettingRow title="Welcome tour" description="What the terminal does, how it differs, and the alpha notice.">
+        <button
+          type="button"
+          onClick={() => {
+            closeSettings();
+            openWelcomeTour();
+          }}
+          className="inline-flex h-10 items-center rounded-xl border border-app-field-border bg-app-field px-4 text-[14px] text-app-ink hover:bg-app-field-hover"
+        >
+          Show again
+        </button>
       </SettingRow>
       <SettingRow title="Angler News" description="The news feed behind the terminal.">
         <a

@@ -115,8 +115,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
-- `components/app/alpha-notice.tsx` shows the alpha warning once per browser (bump `ACK_KEY` to show it again) and
-  the "Alpha" badge in the top bar.
+- `components/app/alpha-notice.tsx` shows a welcome tour (copy in `welcome-slides.ts`) followed by the alpha warning
+  once per browser (bump `ACK_KEY` to show it again; Settings → About reopens it) and the "Alpha" badge in the top bar.
 - Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter live; Titan,
   Arcus "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
@@ -127,6 +127,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 - Keep the disclaimer "Not financial advice. Scores are model outputs." next to the account panel and in settings.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
+- Chart engine: the `chart` preference (Settings → General) picks the Angler chart (Lightweight Charts, news markers)
+  or the TradingView advanced chart widget from angler-news, opened on the selected asset (`lib/chart/tradingview.ts`:
+  crypto → `BINANCE:<SYM>USDT.P`, stocks → ticker). The widget has its own interval bar, so ours is hidden.
 - Chart intervals: `lib/chart/candles.ts` lists the 14 intervals Binance and Hyperliquid both accept (1m–1M);
   `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons.
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. Clicking a ticker
