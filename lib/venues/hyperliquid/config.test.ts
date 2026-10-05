@@ -17,8 +17,9 @@ describe("readHlConfig", () => {
     expect(config.builder).toEqual({ address: BUILDER.toLowerCase(), fee: 100, maxFee: 100 });
   });
 
-  it("ignores malformed builder addresses", () => {
+  it("ignores malformed builder addresses and the zero-address placeholder", () => {
     expect(readHlConfig({ NEXT_PUBLIC_HL_BUILDER_ADDRESS: "0x123" }).builder).toBeNull();
+    expect(readHlConfig({ NEXT_PUBLIC_HL_BUILDER_ADDRESS: `0x${"0".repeat(40)}` }).builder).toBeNull();
   });
 });
 

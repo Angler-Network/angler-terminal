@@ -28,7 +28,8 @@ function readFee(value: string | undefined, fallback: number) {
 }
 
 function readAddress(value: string | undefined) {
-  return value && /^0x[a-fA-F0-9]{40}$/.test(value) ? (value.toLowerCase() as `0x${string}`) : null;
+  // The zero address is the .env.example placeholder, never a real builder.
+  return value && /^0x[a-fA-F0-9]{40}$/.test(value) && !/^0x0{40}$/.test(value) ? (value.toLowerCase() as `0x${string}`) : null;
 }
 
 export interface HlConfig {
