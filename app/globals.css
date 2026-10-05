@@ -383,3 +383,26 @@ html[data-scrollbars="hidden"] .scrollbar-subtle::-webkit-scrollbar {
     scrollbar-color: rgb(var(--app-ink) / 0.35) transparent;
   }
 }
+
+/* Terminal: brief highlight for high-impact news arrivals */
+@keyframes news-flash {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  15%,
+  60% {
+    background-color: rgb(var(--app-accent) / 0.16);
+  }
+}
+
+.news-flash {
+  animation: news-flash 4s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-flash {
+    animation: none;
+    background-color: rgb(var(--app-accent) / 0.12);
+  }
+}

@@ -15,6 +15,12 @@ const MAX_CHIPS = 4;
 
 interface NewsCardProps {
   item: NewsItem;
+  /** Rendered right after the lead asset chip (trade buttons). */
+  renderLeadActions?: (lead: { symbol: string; direction: Direction; mint?: string }) => React.ReactNode;
+  isSelected?: boolean;
+  /** Briefly highlights a high-impact arrival. */
+  isFlashing?: boolean;
+  onSelect?: () => void;
   /** Clicking an asset chip selects that asset in the chart. */
   onSelectAsset?: (symbol: string, mint?: string) => void;
   selectedSymbol?: string;
@@ -28,13 +34,19 @@ function chipsFor(item: NewsItem): { symbol: string; direction: Direction }[] {
   });
 }
 
-export function NewsCard({ item, onSelectAsset, selectedSymbol }: NewsCardProps) {
+export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadActions, isSelected, isFlashing, onSelect }: NewsCardProps) {
   const t = useT();
   const chips = chipsFor(item);
   const hasAsset = chips.length > 0;
 
   return (
-    <article className="flex gap-3 border-b border-app-hairline py-[var(--news-padding)] last:border-b-0">
+    <article
+      onClick={onSelect}
+      aria-current={isSelected || undefined}
+      className={`-mx-3 flex gap-3 border-b border-l-2 border-b-app-hairline px-3 py-[var(--news-padding)] transition-colors duration-700 last:border-b-0 ${
+        isSelected ? "border-l-app-accent bg-app-chip/40" : "border-l-transparent"
+      } ${isFlashing ? "news-flash" : ""}`}
+    >
       {hasAsset ? (
         <MarketIcon symbol={item.symbol} size={32} />
       ) : (
@@ -80,11 +92,15 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol }: NewsCardProps)
 
         <div className="mt-2 flex items-center gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1">
-            {chips.map((chip) => (
+            {chips.map((chip, index) => (
+              <span key={chip.symbol} className="inline-flex items-center gap-1">
               <button
-                key={chip.symbol}
                 type="button"
-                onClick={() => onSelectAsset?.(chip.symbol, item.mints?.[chip.symbol])}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect?.();
+                  onSelectAsset?.(chip.symbol, item.mints?.[chip.symbol]);
+                }}
                 aria-pressed={selectedSymbol === chip.symbol}
                 title={`Show ${chip.symbol} on the chart`}
                 className={`rounded-md px-1 py-0.5 transition-colors hover:bg-app-chip ${
@@ -93,6 +109,8 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol }: NewsCardProps)
               >
                 <SymbolChip symbol={chip.symbol} direction={chip.direction} />
               </button>
+              {index === 0 && renderLeadActions?.({ symbol: chip.symbol, direction: chip.direction, mint: item.mints?.[chip.symbol] })}
+              </span>
             ))}
           </div>
           {item.enriched && <ScoreBadge score={item.score} />}

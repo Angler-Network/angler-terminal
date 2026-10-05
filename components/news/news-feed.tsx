@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
+import { useTradeTicket } from "@/components/terminal/trade-ticket";
+import { playAlertSound } from "@/lib/alerts/sounds";
 import { useNewsFeed, type FeedStatus } from "@/lib/angler/use-news-feed";
+import { detectHighImpact, isTypingTarget } from "@/lib/trading/high-impact";
+import type { NewsItem } from "@/lib/types";
 import { NewsCard } from "./news-card";
+import { NewsTradeButtons, type ResolvedNewsTrade } from "./news-trade-buttons";
 import { useNewsSound } from "./use-news-sound";
 
 const IMPORTANCE_FILTERS = [0, 40, 60, 80];
+const FLASH_MS = 4_000;
 
 const statusLabels: Record<FeedStatus, { label: string; dot: string }> = {
   connecting: { label: "Connecting", dot: "bg-app-faint animate-pulse" },
@@ -26,6 +33,32 @@ function FeedStatusBadge({ status }: { status: FeedStatus }) {
   );
 }
 
+/** Highlights high-impact arrivals for a few seconds and optionally plays a sound. Never trades. */
+function useHighImpactFlash(items: NewsItem[]) {
+  const { preferences } = usePreferences();
+  const knownRef = useRef<Set<string> | null>(null);
+  const [flashing, setFlashing] = useState<Set<string>>(() => new Set());
+  const soundRef = useRef({ on: preferences.highImpactSound, volume: preferences.alertVolume });
+  soundRef.current = { on: preferences.highImpactSound, volume: preferences.alertVolume };
+
+  useEffect(() => {
+    // Wait for the first real load so history doesn't flash.
+    if (items.length === 0 && !knownRef.current) return;
+    const { known, fresh } = detectHighImpact(knownRef.current, items, preferences.highImpactThreshold);
+    knownRef.current = known;
+    if (fresh.length === 0) return;
+    setFlashing((current) => new Set([...current, ...fresh]));
+    if (soundRef.current.on) playAlertSound("bell", soundRef.current.volume);
+    const timer = window.setTimeout(
+      () => setFlashing((current) => new Set([...current].filter((id) => !fresh.includes(id)))),
+      FLASH_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [items, preferences.highImpactThreshold]);
+
+  return flashing;
+}
+
 interface NewsFeedProps {
   /** Owned by the shell so the chart can mark the same news on its candles. */
   feed: ReturnType<typeof useNewsFeed>;
@@ -35,10 +68,54 @@ interface NewsFeedProps {
 
 export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps) {
   const { symbol, selectAsset } = useSelectedAsset();
+  const { ticket, arm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
   const [onlySelected, setOnlySelected] = useState(false);
   const { items, status, hasMore, isLoadingMore, loadMore, historyError } = feed;
   const shown = onlySelected ? items.filter((item) => item.coins?.includes(symbol)) : items;
+  const flashing = useHighImpactFlash(items);
   useNewsSound(items, shown, status === "live");
+
+  const [resolved, setResolved] = useState<Record<string, ResolvedNewsTrade | null>>({});
+  const onResolved = useCallback((newsId: string, trade: ResolvedNewsTrade | null) => {
+    setResolved((current) => {
+      const previous = current[newsId];
+      if (previous === trade || (previous && trade && previous.venue === trade.venue && previous.symbol === trade.symbol && previous.mint === trade.mint)) {
+        return current;
+      }
+      return { ...current, [newsId]: trade };
+    });
+  }, []);
+
+  // Shortcuts act on the selected news item: L long/buy, S short/sell (again to confirm), 1-3 size, Esc cancel.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target, event)) return;
+      const key = event.key.toLowerCase();
+      if (key === "escape") {
+        if (ticket) {
+          cancel();
+          event.preventDefault();
+        }
+        return;
+      }
+      if (["1", "2", "3"].includes(key)) {
+        if (ticket && ticket.confirmNonce === 0) {
+          setSizePreset(Number(key) - 1);
+          event.preventDefault();
+        }
+        return;
+      }
+      if (key !== "l" && key !== "s") return;
+      const trade = selectedNewsId ? resolved[selectedNewsId] : null;
+      if (!trade || !selectedNewsId) return;
+      event.preventDefault();
+      arm({ ...trade, side: key === "l" ? "buy" : "sell", newsId: selectedNewsId });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ticket, cancel, setSizePreset, arm, selectedNewsId, resolved]);
+
+  const selectedTrade = selectedNewsId ? resolved[selectedNewsId] : null;
 
   return (
     <section
@@ -86,7 +163,18 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
           <p className="py-6 text-center text-[12px] text-app-muted">Waiting for news…</p>
         )}
         {shown.map((item) => (
-          <NewsCard key={item.id} item={item} onSelectAsset={selectAsset} selectedSymbol={symbol} />
+          <NewsCard
+            key={item.id}
+            item={item}
+            onSelectAsset={selectAsset}
+            selectedSymbol={symbol}
+            isSelected={selectedNewsId === item.id}
+            isFlashing={flashing.has(item.id)}
+            onSelect={() => selectNews(item.id)}
+            renderLeadActions={(lead) => (
+              <NewsTradeButtons newsId={item.id} symbol={lead.symbol} mint={lead.mint} direction={lead.direction} onResolved={onResolved} />
+            )}
+          />
         ))}
         {hasMore && (
           <div className="py-3 text-center">
@@ -101,6 +189,23 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
           </div>
         )}
       </div>
+      <footer className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-app-hairline px-3 py-1.5 text-[10px] text-app-faint">
+        {selectedTrade ? (
+          <>
+            <Kbd>L</Kbd> {selectedTrade.venue === "perp" ? "long" : "buy"}
+            <Kbd>S</Kbd> {selectedTrade.venue === "perp" ? "short" : "sell"}
+            <Kbd>1-3</Kbd> size
+            <Kbd>Esc</Kbd> cancel
+            <span>· press again to confirm</span>
+          </>
+        ) : (
+          <span>Select a news item to trade it with the keyboard (L / S).</span>
+        )}
+      </footer>
     </section>
   );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return <kbd className="rounded border border-app-hairline-strong bg-app-chip px-1 font-sans font-semibold text-app-muted">{children}</kbd>;
 }
