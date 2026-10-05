@@ -86,7 +86,7 @@ function TradingKeyStatus() {
   );
 }
 
-export function OrderPanel() {
+export function PerpOrderPanel({ venueTabs }: { venueTabs?: React.ReactNode }) {
   const { symbol } = useSelectedAsset();
   const { address, connect } = useWallet();
   const { market, markets, account, placeOrder, venueName, network } = useTrading();
@@ -154,6 +154,7 @@ export function OrderPanel() {
           {network === "testnet" ? " · Testnet" : ""}
         </span>
       </header>
+      {venueTabs}
 
       <form
         className="scrollbar-subtle flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"

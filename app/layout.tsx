@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/app/toast-provider";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { TradingSetupDialog } from "@/components/terminal/trading-setup-dialog";
+import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { preferencesScript } from "@/lib/preferences";
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PreferencesProvider>
             <ToastProvider>
               <WalletProvider>
+              <SolanaWalletProvider>
                 <SelectedAssetProvider>
                   <TradingProvider>
                     <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
@@ -55,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <TradingSetupDialog />
                   </TradingProvider>
                 </SelectedAssetProvider>
+              </SolanaWalletProvider>
               </WalletProvider>
             </ToastProvider>
           </PreferencesProvider>

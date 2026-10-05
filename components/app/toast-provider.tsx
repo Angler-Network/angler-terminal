@@ -10,6 +10,7 @@ interface Toast {
   tone: ToastTone;
   title: string;
   message?: string;
+  link?: { href: string; label: string };
 }
 
 interface ToastContextValue {
@@ -51,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[340px] flex-col gap-2">
-        {toasts.map(({ id, tone, title, message }) => {
+        {toasts.map(({ id, tone, title, message, link }) => {
           const { Icon, className } = tones[tone];
           return (
             <div
@@ -63,6 +64,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold text-app-ink">{title}</p>
                 {message && <p className="mt-0.5 text-[12px] leading-snug text-app-muted">{message}</p>}
+                {link && (
+                  <a href={link.href} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12px] font-semibold text-app-ink underline">
+                    {link.label}
+                  </a>
+                )}
               </div>
               <button type="button" onClick={() => dismiss(id)} aria-label="Dismiss" className="text-app-faint hover:text-app-ink">
                 <X className="size-3.5" />
