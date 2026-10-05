@@ -5,7 +5,13 @@ import { getMarkets } from "@/lib/markets/server";
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const market = params.get("market");
-  const markets = await getMarkets(isMarketType(market) ? market : DEFAULT_TAPE_MARKET);
+  let markets;
+  try {
+    markets = await getMarkets(isMarketType(market) ? market : DEFAULT_TAPE_MARKET);
+  } catch {
+    // Every source failed and nothing is cached yet: say so without letting the CDN keep the failure.
+    return NextResponse.json([], { status: 503, headers: { "cache-control": "no-store" } });
+  }
   const requested = params.get("symbols");
   const body = requested === null ? markets : pickMarkets(markets, readTapeSymbols(requested.split(",")) ?? []);
 

@@ -9,7 +9,9 @@ type TapeCookie = ReturnType<typeof parseTapeCookie>;
 /** Server-rendered first prices; streamed in so the page shell doesn't wait for the market APIs. */
 async function InitialTape({ settings }: { settings: TapeCookie }) {
   const symbols = settings.symbols ?? DEFAULT_TAPE_SYMBOLS;
-  const markets = symbols.length > 0 ? pickMarkets(await getMarkets(settings.market), symbols) : [];
+  // When every source fails, the tape starts empty and its own browser refresh fills it.
+  const all = symbols.length > 0 ? await getMarkets(settings.market).catch(() => []) : [];
+  const markets = pickMarkets(all, symbols);
   return <TickerTape initial={settings} initialMarkets={markets} />;
 }
 

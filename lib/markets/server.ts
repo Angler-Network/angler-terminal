@@ -5,9 +5,11 @@ import type { Market, MarketSource, MarketType, Quote } from "./model";
 const HYPERLIQUID_INFO = "https://api.hyperliquid.xyz/info";
 const BINANCE_SPOT = "https://data-api.binance.vision/api/v3/ticker/24hr?type=MINI";
 const BINANCE_PERP = "https://fapi.binance.com/fapi/v1/ticker/24hr";
+const LIGHTER_MARKETS = "https://mainnet.zklighter.elliot.ai/api/v1/orderBookDetails";
 const STOCK_DEX = "xyz";
 const REVALIDATE_SECONDS = 20;
-const TIMEOUT_MS = 4000;
+const TIMEOUT_MS = 8000;
+const RETRY_DELAY_MS = 600;
 const QUOTE = "USDT";
 const EXCLUDED_BASES = new Set(["USDC", "FDUSD", "TUSD", "USDP", "DAI", "BUSD", "EUR", "EURI", "AEUR", "USD1", "XUSD", "BFUSD", "USDE"]);
 const LEVERAGED_TOKEN = /(UP|DOWN|BULL|BEAR)$/;
@@ -44,7 +46,12 @@ function toQuote(price: number, previous: number): Quote | null {
   return { price, changePct: ((price - previous) / previous) * 100 };
 }
 
-async function requestJson<T>(url: string, body?: unknown): Promise<T | null> {
+/**
+ * One retry for rate limits (shared server IPs hit them) and timeouts; failures are logged so an empty tape shows
+ * up in the server logs instead of passing silently. Geo-blocks (Binance answers 451 to US servers) aren't retried.
+ */
+async function requestJson<T>(url: string, body?: unknown, attempt = 0): Promise<T | null> {
+  const host = new URL(url).host;
   try {
     const response = await fetch(url, {
       method: body ? "POST" : "GET",
@@ -53,9 +60,16 @@ async function requestJson<T>(url: string, body?: unknown): Promise<T | null> {
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    return response.ok ? ((await response.json()) as T) : null;
-  } catch {
+    if (response.ok) return (await response.json()) as T;
+    if (response.status !== 451) console.warn(`[markets] ${host} answered ${response.status}`);
+    if ((response.status === 429 || response.status >= 500) && attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      return requestJson<T>(url, body, 1);
+    }
     return null;
+  } catch (error) {
+    console.warn(`[markets] ${host} failed: ${error instanceof Error ? error.name : "error"}`);
+    return attempt === 0 ? requestJson<T>(url, body, 1) : null;
   }
 }
 
@@ -109,6 +123,28 @@ async function binance(url: string): Promise<Listing[]> {
   });
 }
 
+interface LighterDetail {
+  symbol?: string;
+  market_type?: string;
+  status?: string;
+  last_trade_price?: number;
+  daily_price_change?: number;
+  daily_quote_token_volume?: number;
+}
+
+/** Lighter mainnet perps: last price, 24h change in percent and USD volume. */
+async function lighterPerps(): Promise<Listing[]> {
+  const data = await requestJson<{ order_book_details?: LighterDetail[] }>(LIGHTER_MARKETS);
+  return (data?.order_book_details ?? []).flatMap((detail) => {
+    const symbol = detail.symbol?.toUpperCase() ?? "";
+    const price = Number(detail.last_trade_price);
+    const changePct = Number(detail.daily_price_change);
+    if (detail.status !== "active" || (detail.market_type && detail.market_type !== "perp") || !SYMBOL_PATTERN.test(symbol)) return [];
+    if (!(price > 0) || !Number.isFinite(changePct)) return [];
+    return [{ symbol, kind: "crypto", volume: Number(detail.daily_quote_token_volume) || 0, source: "lighter", quote: { price, changePct } }];
+  });
+}
+
 function merge(listings: Listing[]): Market[] {
   const bySymbol = new Map<string, Market>();
   for (const listing of listings) {
@@ -125,8 +161,11 @@ async function loadMarkets(type: MarketType): Promise<Market[]> {
   const sources =
     type === "spot"
       ? [binance(BINANCE_SPOT), hyperliquidSpot()]
-      : [binance(BINANCE_PERP), hyperliquidPerps(), hyperliquidPerps(STOCK_DEX)];
-  return merge((await Promise.all(sources)).flat());
+      : [binance(BINANCE_PERP), hyperliquidPerps(), hyperliquidPerps(STOCK_DEX), lighterPerps()];
+  const markets = merge((await Promise.all(sources)).flat());
+  // Throwing keeps the cache's last good list instead of caching an empty one (and an empty tape) for everyone.
+  if (markets.length === 0) throw new Error(`No ${type} market source answered`);
+  return markets;
 }
 
 export const getMarkets = unstable_cache(loadMarkets, ["markets-v3"], { revalidate: REVALIDATE_SECONDS });

@@ -29,7 +29,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   `components/chart/*`, `components/app/ticker-*`, `market-icon`, `preferences-provider`, `searchable-select`,
   `lib/markets/*`, `lib/chart/candles.ts`, `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`.
   `lib/i18n` is an English-only shim so the copied components keep calling `t()`.
-- Markets: `lib/markets/server.ts` lists Binance + Hyperliquid perps, spot and HIP-3 stock perps (dex `xyz`). It is the
+- Markets: `lib/markets/server.ts` lists Binance + Hyperliquid perps, spot and HIP-3 stock perps (dex `xyz`), plus
+  Lighter mainnet perps as a fallback quote (Binance answers 451 to US servers and Hyperliquid can rate limit shared
+  IPs). Requests retry once and log failures; an all-empty load throws so the cache keeps the last good list. It is the
   market source for the venue resolver.
 - Angler News API (`lib/angler/*`, spec at api.angler.network/openapi.yaml). `types.ts` holds the wire shapes checked
   against live responses; `lib/angler/fixtures/*.json` are real samples the tests read.

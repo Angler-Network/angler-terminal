@@ -1,4 +1,5 @@
-export type MarketSource = "binance" | "hyperliquid";
+/** Lighter is a fallback only (not offered as the tape source): it answers from US servers when the others don't. */
+export type MarketSource = "binance" | "hyperliquid" | "lighter";
 
 export type MarketType = "spot" | "perp";
 
@@ -73,10 +74,9 @@ export function parseTapeCookie(value: string | undefined): TapeSettings {
 }
 
 export function pickQuote(market: Market, source: MarketSource) {
-  const fallback = marketSources.find((candidate) => candidate !== source)!;
-  if (market.quotes[source]) return { source, quote: market.quotes[source]! };
-  if (market.quotes[fallback]) return { source: fallback, quote: market.quotes[fallback]! };
-  return null;
+  const order: MarketSource[] = [source, ...marketSources.filter((candidate) => candidate !== source), "lighter"];
+  const found = order.find((candidate) => market.quotes[candidate]);
+  return found ? { source: found, quote: market.quotes[found]! } : null;
 }
 
 export function pickMarkets(markets: Market[], symbols: string[]) {
