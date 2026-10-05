@@ -9,8 +9,12 @@ import { NEWS_CHANNELS, type ApiNews, type WsTicketResponse } from "./types";
 const PAGE_SIZE = 50;
 const MAX_ITEMS = 600;
 const CLOCK_MS = 30_000;
+/** If realtime isn't up by then, poll REST so the feed keeps moving. */
+const LIVE_GRACE_MS = 10_000;
+const POLL_MS = 15_000;
+const POLL_SIZE = 30;
 
-export type FeedStatus = "connecting" | "live" | "reconnecting" | "offline" | "unconfigured";
+export type FeedStatus = "connecting" | "live" | "reconnecting" | "polling" | "offline" | "unconfigured";
 
 class UnconfiguredError extends Error {}
 
@@ -42,6 +46,8 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  /** Last realtime problem, readable, for the status tooltip. Never contains the ticket. */
+  const [liveError, setLiveError] = useState<string | null>(null);
   const minImportanceRef = useRef(minImportance);
   minImportanceRef.current = minImportance;
 
@@ -99,13 +105,18 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
   }, [cursor, isLoadingMore, loadPage]);
 
   useEffect(() => {
-    let wsUrl: string | null = null;
     let client: Centrifuge | null = null;
     let isActive = true;
+    let retryTimer: number | undefined;
 
     const onPublication = (context: PublicationContext) => {
       const news = readPublication(context.data);
       if (news) upsert([news]);
+    };
+    const report = (message: string) => {
+      if (!isActive) return;
+      setLiveError(message);
+      console.warn(`[angler] realtime: ${message}`);
     };
 
     // The first ticket tells us where to connect; getData then mints a fresh one for every later attempt.
@@ -117,29 +128,42 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
         if (!isActive) return;
         if (error instanceof UnconfiguredError) setStatus("unconfigured");
         else {
-          setStatus("offline");
-          window.setTimeout(() => isActive && void start(), 5000);
+          report(error instanceof Error ? error.message : "Ticket request failed");
+          setStatus((current) => (current === "polling" ? current : "offline"));
+          retryTimer = window.setTimeout(() => isActive && void start(), 5000);
         }
         return;
       }
       if (!isActive) return;
-      wsUrl = first.url;
-      client = new Centrifuge(wsUrl, {
+      client = new Centrifuge(first.url, {
         getData: async () => {
           const ticket = first ?? (await fetchTicket());
           first = null;
           return { ticket: ticket.ticket };
         },
       });
-      client.on("connecting", () => setStatus((current) => (current === "live" ? "reconnecting" : current)));
-      client.on("connected", () => setStatus("live"));
-      client.on("disconnected", () => setStatus("offline"));
+      client.on("connecting", (context) => {
+        // Code 0 is the initial connect; anything else is a retry after a failure.
+        if (context.code !== 0) report(`${context.reason} (code ${context.code})`);
+        setStatus((current) => (current === "live" ? "reconnecting" : current));
+      });
+      client.on("connected", () => {
+        setLiveError(null);
+        setStatus("live");
+      });
+      client.on("disconnected", (context) => {
+        report(`disconnected: ${context.reason} (code ${context.code})`);
+        setStatus("offline");
+      });
       client.on("error", (context) => {
-        if (context.error?.message?.includes("ANGLER_API_KEY")) setStatus("unconfigured");
+        const message = context.error?.message ?? context.type;
+        if (message.includes("ANGLER_API_KEY")) setStatus("unconfigured");
+        else report(`${context.type} error: ${message}`);
       });
       for (const channel of NEWS_CHANNELS) {
         const subscription = client.newSubscription(channel);
         subscription.on("publication", onPublication);
+        subscription.on("error", (context) => report(`subscribe ${channel}: ${context.error?.message ?? "failed"}`));
         subscription.subscribe();
       }
       client.connect();
@@ -148,9 +172,37 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
     void start();
     return () => {
       isActive = false;
+      window.clearTimeout(retryTimer);
       client?.disconnect();
     };
   }, [upsert]);
+
+  // Fallback: while realtime isn't live, poll the latest page so new headlines still arrive.
+  useEffect(() => {
+    if (status === "live" || status === "unconfigured") return;
+    let isActive = true;
+    const poll = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const params = new URLSearchParams({ limit: String(POLL_SIZE) });
+        if (minImportanceRef.current > 0) params.set("min_importance", String(minImportanceRef.current));
+        const response = await fetch(`/api/news?${params}`, { cache: "no-store" });
+        if (!isActive || !response.ok) return;
+        upsert(readNewsPage(await response.json()).items);
+        setStatus((current) => (current === "live" || current === "unconfigured" ? current : "polling"));
+      } catch {}
+    };
+    const grace = window.setTimeout(() => {
+      void poll();
+      timer = window.setInterval(poll, POLL_MS);
+    }, status === "polling" ? 0 : LIVE_GRACE_MS);
+    let timer: number | undefined;
+    return () => {
+      isActive = false;
+      window.clearTimeout(grace);
+      window.clearInterval(timer);
+    };
+  }, [status === "live" || status === "unconfigured", upsert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), CLOCK_MS);
@@ -166,5 +218,5 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
     [store, now, minImportance],
   );
 
-  return { items, status, hasMore: Boolean(cursor), isLoadingMore, loadMore, historyError };
+  return { items, status, liveError, hasMore: Boolean(cursor), isLoadingMore, loadMore, historyError };
 }
