@@ -55,11 +55,11 @@ interface VenueOption {
 }
 
 const VENUES: VenueOption[] = [
-  { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#0f3d36", live: true },
+  { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#11806a", live: true },
   { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
-  { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#2a2a2a", live: true },
+  { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#3a3f4b", live: true },
   { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: true },
-  { id: "arcus", name: "Arcus", kind: "Stock tokens", chain: "evm", domain: "arcus.xyz", color: "#0d6e4f", live: true },
+  { id: "arcus", name: "Arcus", kind: "Stocks", chain: "evm", domain: "arcus.xyz", color: "#2f8f4e", live: true },
 ];
 
 const chainLabel: Record<Chain, string> = { evm: "EVM", solana: "Solana" };
@@ -162,56 +162,43 @@ function WalletPicker({ venue, onBack, onDone }: { venue: VenueOption; onBack: (
   );
 }
 
-function VenueCard({ venue, address, walletName, network, onConnect, onDisconnect }: {
-  venue: VenueOption;
-  address: string | null;
-  walletName?: string;
-  network?: string;
-  onConnect: () => void;
-  onDisconnect: () => void;
-}) {
-  const connected = venue.live && Boolean(address);
+/**
+ * One venue as a colored logo tile: compact so the grid keeps room as venues are added. A green dot marks a venue
+ * whose chain already has a wallet connected.
+ */
+function VenueTile({ venue, connected, network, onPick }: { venue: VenueOption; connected: boolean; network?: string; onPick: () => void }) {
   return (
-    <div
-      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors ${
-        connected ? "border-app-up/40 bg-app-up/5" : venue.live ? "border-app-hairline hover:border-app-hairline-strong" : "border-app-hairline opacity-60"
+    <button
+      type="button"
+      onClick={onPick}
+      disabled={!venue.live}
+      title={`${venue.name} · ${venue.kind} · ${chainLabel[venue.chain]}${connected ? " · connected" : ""}`}
+      style={{ background: `linear-gradient(145deg, ${venue.color}, color-mix(in srgb, ${venue.color} 55%, black))` }}
+      className={`relative flex h-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl border text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 ${
+        connected ? "border-app-up/70 ring-1 ring-app-up/40" : "border-white/10"
       }`}
     >
-      <VenueIcon venue={venue} />
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 text-[15px] font-semibold text-app-ink">
-          {venue.name}
-          {network && <span className="rounded bg-app-chip px-1.5 py-[2px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{network}</span>}
-        </p>
-        <p className="truncate text-[12px] text-app-muted">
-          {connected && address ? (
-            <>
-              <span className="font-mono text-app-ink">{shortAddress(address)}</span>
-              {walletName ? ` · ${walletName}` : ""}
-            </>
-          ) : (
-            `${venue.kind} · ${chainLabel[venue.chain]}`
-          )}
-        </p>
-      </div>
-      {!venue.live ? (
-        <span className="rounded-lg border border-app-hairline px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-muted">Soon</span>
-      ) : connected ? (
-        <span className="flex items-center gap-2">
-          <Check className="size-4 text-app-up" aria-label="Connected" />
-          <button type="button" onClick={onDisconnect} className="text-[12px] font-semibold text-app-muted hover:text-app-ink">
-            Disconnect
-          </button>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={onConnect}
-          className="h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent transition-colors hover:bg-app-accent/85"
-        >
-          Connect
-        </button>
+      {network === "testnet" && (
+        <span className="absolute left-1.5 top-1.5 rounded bg-black/35 px-1 py-[1px] text-[8px] font-bold uppercase tracking-[0.08em] text-white/80">Test</span>
       )}
+      {connected && <span aria-label="Connected" className="absolute right-2 top-2 size-2 rounded-full bg-app-up shadow-[0_0_0_3px_rgba(0,0,0,0.25)]" />}
+      <VenueIcon venue={venue} size={38} />
+      <span className="text-[12px] font-semibold leading-none">{venue.name}</span>
+      <span className="text-[10px] leading-none text-white/70">{venue.kind}</span>
+    </button>
+  );
+}
+
+function ConnectedWallet({ chain, address, walletName, onDisconnect }: { chain: Chain; address: string; walletName?: string; onDisconnect: () => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-app-up/30 bg-app-up/5 px-3 py-2 text-[12px]">
+      <Check className="size-3.5 text-app-up" aria-hidden />
+      <span className="font-semibold text-app-ink">{chainLabel[chain]}</span>
+      <span className="font-mono text-app-muted">{shortAddress(address)}</span>
+      {walletName && <span className="truncate text-app-faint">· {walletName}</span>}
+      <button type="button" onClick={onDisconnect} className="ml-auto font-semibold text-app-muted hover:text-app-ink">
+        Disconnect
+      </button>
     </div>
   );
 }
@@ -255,7 +242,7 @@ function WalletModal() {
             <h2 id="wallet-modal-title" className="text-[18px] font-semibold text-app-ink">
               Connect a venue
             </h2>
-            <p className="mt-1 text-[12px] text-app-muted">Pick where you want to trade. One wallet per chain covers every venue on it.</p>
+            <p className="mt-1 text-[12px] text-app-muted">Tap a venue to connect. One wallet per chain covers every venue on it.</p>
           </div>
           <button type="button" onClick={close} aria-label="Close" className="text-app-faint hover:text-app-ink">
             <X className="size-4" />
@@ -265,22 +252,25 @@ function WalletModal() {
         {picking ? (
           <WalletPicker venue={picking} onBack={() => setPicking(null)} onDone={() => setPicking(null)} />
         ) : (
-          <div className="flex flex-col gap-2">
-            {VENUES.map((venue) => {
-              const state = chainState(venue.chain);
-              return (
-                <VenueCard
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {VENUES.map((venue) => (
+                <VenueTile
                   key={venue.id}
                   venue={venue}
-                  address={state.address}
-                  walletName={state.walletName}
+                  connected={Boolean(chainState(venue.chain).address)}
                   network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : venue.id === "arcus" ? arcusConfig.network : undefined}
-                  onConnect={() => setPicking(venue)}
-                  onDisconnect={state.disconnect}
+                  onPick={() => setPicking(venue)}
                 />
-              );
+              ))}
+            </div>
+            {(["evm", "solana"] as const).map((chain) => {
+              const state = chainState(chain);
+              return state.address ? (
+                <ConnectedWallet key={chain} chain={chain} address={state.address} walletName={state.walletName} onDisconnect={state.disconnect} />
+              ) : null;
             })}
-          </div>
+          </>
         )}
       </div>
     </div>

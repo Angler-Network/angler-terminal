@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
+import { LayoutMenu } from "./layout-menu";
 import { usePreferences } from "./preferences-provider";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
@@ -59,6 +60,7 @@ export function Sidebar() {
           <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Markets</NavLabel>
         </Link>
+        <LayoutMenu className={navItemClass(false)} labelNode={<NavLabel>Layout</NavLabel>} />
         <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>
           <Newspaper className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>News</NavLabel>

@@ -123,7 +123,7 @@ function LayoutSettings() {
   return (
     <>
       <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
-        Turn panels on or off; the chart takes the free space. Also from the layout button in the top bar.
+        Turn panels on or off; the chart takes the free space. Also from Layout in the sidebar.
       </p>
       {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
         <SettingRow key={key} title={panelNames[key]} description={descriptions[key]}>
@@ -493,7 +493,7 @@ function AboutSettings() {
       <SettingRow title="Version" description="The terminal checks for new deployments and asks you to refresh.">
         <span className="font-mono text-[13px] text-app-muted">{shortCommitSha || "dev"}</span>
       </SettingRow>
-      <SettingRow title="Welcome tour" description="What the terminal does, how it differs, and the alpha notice.">
+      <SettingRow title="Onboarding" description="The welcome screen, the layout picker and the alpha notice.">
         <button
           type="button"
           onClick={() => {

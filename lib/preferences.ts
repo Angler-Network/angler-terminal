@@ -39,6 +39,28 @@ export type AlertSound = "chime" | "ping" | "bell" | "pulse" | "rise" | "fall" |
 
 export const alertSounds: AlertSound[] = ["chime", "ping", "bell", "pulse", "rise", "fall", "none"];
 
+/** One-tap layouts offered in onboarding and the layout menu; the chart is always shown. */
+export const layoutPresets: Array<{ id: string; name: string; description: string; panels: TerminalPanels }> = [
+  {
+    id: "news",
+    name: "News trader",
+    description: "Live news with trade buttons, the chart and your positions.",
+    panels: { news: true, orderEntry: true, positions: true, orderbook: false, account: true },
+  },
+  {
+    id: "pro",
+    name: "Pro trader",
+    description: "Everything: order book, order entry, positions and news.",
+    panels: { news: true, orderEntry: true, positions: true, orderbook: true, account: true },
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    description: "Just the chart, an order form and your positions.",
+    panels: { news: false, orderEntry: true, positions: true, orderbook: false, account: true },
+  },
+];
+
 export interface TerminalPanels {
   orderbook: boolean;
   orderEntry: boolean;
@@ -263,8 +285,9 @@ export function parsePreferences(raw: string | null): Preferences {
       showScrollbars: readBoolean(stored.showScrollbars, defaultPreferences.showScrollbars),
       framedLayout: readBoolean(stored.framedLayout, defaultPreferences.framedLayout),
       containerHeaders: readBoolean(stored.containerHeaders, defaultPreferences.containerHeaders),
-      showSidebar: stored.sidebarHiding === true ? readBoolean(stored.showSidebar, true) : true,
-      showTopBar: stored.topBarHiding === true ? readBoolean(stored.showTopBar, true) : true,
+      // The terminal always offers the hide buttons (angler-news gates them behind sidebarHiding / topBarHiding).
+      showSidebar: readBoolean(stored.showSidebar, true),
+      showTopBar: readBoolean(stored.showTopBar, true),
       sidebarHiding: readBoolean(stored.sidebarHiding, defaultPreferences.sidebarHiding),
       topBarHiding: readBoolean(stored.topBarHiding, defaultPreferences.topBarHiding),
       tapeSymbols: readTapeSymbols(stored.tapeSymbols),
@@ -347,6 +370,6 @@ export function applyPreferencesToDocument(preferences: Preferences) {
 
 export const preferencesScript = `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
   PREFERENCES_STORAGE_KEY,
-)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.sidebarHiding===true&&p.showSidebar===false)d.sidebar="hidden";if(p.topBarHiding===true&&p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
+)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.showSidebar===false)d.sidebar="hidden";if(p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
   CUSTOM_CSS_ELEMENT_ID,
 )})}catch(e){}`;

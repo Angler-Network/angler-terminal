@@ -1,38 +1,108 @@
 "use client";
 
-import { FlaskConical } from "lucide-react";
+import { Check, FlaskConical } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { welcomeSlides } from "./welcome-slides";
+import { layoutPresets, panelNames, type TerminalPanels } from "@/lib/preferences";
+import { usePreferences } from "./preferences-provider";
 
-/** Bump the version when the tour or notice content changes so everyone sees it again. */
-const ACK_KEY = "angler-terminal:alpha-ack:v2";
+/** Bump the version when the onboarding changes so everyone sees it again. */
+const ACK_KEY = "angler-terminal:alpha-ack:v3";
 const OPEN_EVENT = "angler-terminal:welcome";
 
 const points = [
-  "This is an alpha prototype. Expect bugs, missing features and changes without notice.",
-  "Hyperliquid runs on testnet by default (mock funds). Jupiter swaps are on Solana mainnet and use real funds.",
-  "Start with small sizes and double-check every confirmation in your wallet.",
-  "Not financial advice. Impact scores and sentiment are model outputs and can be wrong.",
+  "Alpha prototype: expect bugs and changes.",
+  "Perps run on testnet by default (mock funds). Jupiter swaps use real funds on Solana.",
+  "Not financial advice. Scores are model outputs.",
 ];
 
-/** Opens the welcome tour again (Settings → About). */
+/** Opens the onboarding again (Settings → About). */
 export function openWelcomeTour() {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
+function WelcomeStep() {
+  return (
+    <div className="flex flex-col items-center gap-4 py-6 text-center">
+      <Image src="/blacklogo.png" alt="" width={56} height={56} className="[html[data-tone=dark]_&]:hidden" />
+      <Image src="/whitelogo.png" alt="" width={56} height={56} className="hidden [html[data-tone=dark]_&]:block" />
+      <h2 id="alpha-notice-title" className="text-[26px] font-semibold leading-tight">
+        Welcome to Angler Terminal
+      </h2>
+      <p className="max-w-[340px] text-[15px] leading-relaxed text-app-muted">Every perp DEX on one screen, with AI-scored news you can trade in two taps.</p>
+    </div>
+  );
+}
+
+function samePanels(a: TerminalPanels, b: TerminalPanels) {
+  return (Object.keys(a) as Array<keyof TerminalPanels>).every((key) => a[key] === b[key]);
+}
+
+/** Asks what the user wants to see and shapes the layout from it; changeable later from Layout in the sidebar. */
+function LayoutStep() {
+  const { preferences, updatePreference } = usePreferences();
+  const panels = preferences.panels;
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h2 id="alpha-notice-title" className="text-[20px] font-semibold">
+          What do you want on your screen?
+        </h2>
+        <p className="mt-1 text-[13px] text-app-muted">Pick a starting point. You can change it anytime from Layout in the sidebar.</p>
+      </div>
+      <div className="flex flex-col gap-2">
+        {layoutPresets.map((preset) => {
+          const active = samePanels(preset.panels, panels);
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => updatePreference("panels", preset.panels)}
+              className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                active ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"
+              }`}
+            >
+              <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border ${active ? "border-app-accent bg-app-accent text-app-on-accent" : "border-app-hairline-strong"}`}>
+                {active && <Check className="size-3" />}
+              </span>
+              <span>
+                <span className="block text-[14px] font-semibold text-app-ink">{preset.name}</span>
+                <span className="block text-[12px] leading-snug text-app-muted">{preset.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-1.5 pt-1" aria-label="Panels">
+        {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={panels[key]}
+            onClick={() => updatePreference("panels", { ...panels, [key]: !panels[key] })}
+            className={`h-8 rounded-full border px-3 text-[12px] font-semibold transition-colors ${
+              panels[key] ? "border-app-ink bg-app-chip text-app-ink" : "border-app-hairline text-app-faint hover:text-app-ink"
+            }`}
+          >
+            {panelNames[key]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AlphaStep() {
   return (
-    <>
+    <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <span className="inline-flex size-10 items-center justify-center rounded-xl bg-[#fbefd6] text-[#87500a]">
           <FlaskConical className="size-5" aria-hidden />
         </span>
-        <div>
-          <h2 id="alpha-notice-title" className="text-[18px] font-semibold">
-            Angler Terminal is in alpha
-          </h2>
-          <p className="text-[13px] text-app-muted">Please read before trading.</p>
-        </div>
+        <h2 id="alpha-notice-title" className="text-[18px] font-semibold">
+          One last thing
+        </h2>
       </div>
       <ul className="flex flex-col gap-2.5">
         {points.map((point) => (
@@ -42,49 +112,21 @@ function AlphaStep() {
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }
 
-function SlideStep({ index }: { index: number }) {
-  const slide = welcomeSlides[index];
-  const Icon = slide.icon;
-  const isFirst = index === 0;
-  return (
-    <>
-      <div className={`flex gap-3 ${isFirst ? "flex-col items-start pt-2" : "items-center"}`}>
-        <span className={`inline-flex items-center justify-center rounded-xl bg-app-accent/15 text-app-accent ${isFirst ? "size-12" : "size-10"}`}>
-          <Icon className={isFirst ? "size-6" : "size-5"} aria-hidden />
-        </span>
-        <h2 id="alpha-notice-title" className={`font-semibold ${isFirst ? "text-[24px] leading-tight" : "text-[18px]"}`}>
-          {slide.title}
-        </h2>
-      </div>
-      <p className={`leading-relaxed text-app-muted ${isFirst ? "text-[15px]" : "text-[14px]"}`}>{slide.intro}</p>
-      {slide.points.length > 0 && (
-        <ul className="flex flex-col gap-2.5">
-          {slide.points.map((point) => (
-            <li key={point} className="flex gap-2.5 text-[14px] leading-snug text-app-ink/90">
-              <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-app-accent" />
-              {point}
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
-}
+const STEPS = 3;
 
 /**
- * Welcome tour, then the alpha notice, once per browser on the first visit; "I understand" on the last step stores
- * the acknowledgement. Slide copy lives in welcome-slides.ts.
+ * First-visit onboarding: welcome, pick a layout, a short alpha notice. Shown once per browser; "Start trading" on
+ * the last step stores the acknowledgement. No skip: the layout step is what keeps the first screen simple.
  */
 export function AlphaNotice() {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const alphaStep = welcomeSlides.length;
-  const isAlpha = step === alphaStep;
+  const isLast = step === STEPS - 1;
 
   useEffect(() => {
     try {
@@ -107,7 +149,7 @@ export function AlphaNotice() {
     if (!isOpen && dialog.open) dialog.close();
   }, [isOpen]);
 
-  const acknowledge = () => {
+  const finish = () => {
     try {
       localStorage.setItem(ACK_KEY, "1");
     } catch {}
@@ -118,31 +160,19 @@ export function AlphaNotice() {
     <dialog
       ref={dialogRef}
       aria-labelledby="alpha-notice-title"
-      // Escape closes it for this visit only; it comes back until acknowledged.
-      onClose={() => setIsOpen(false)}
-      className="surface-menu m-auto w-[min(500px,calc(100vw-2rem))] max-w-none rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/65 backdrop:backdrop-blur-[2px]"
+      // Escape is ignored: onboarding finishes with its own button.
+      onCancel={(event) => event.preventDefault()}
+      className="surface-menu m-auto w-[min(480px,calc(100vw-2rem))] max-w-none rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
     >
-      <div className="flex min-h-[380px] flex-col gap-4 p-6">
-        {isAlpha ? <AlphaStep /> : <SlideStep index={step} />}
-        <div className="mt-auto flex items-center gap-3 pt-2">
-          <div aria-label={`Step ${step + 1} of ${alphaStep + 1}`} className="flex gap-1.5">
-            {Array.from({ length: alphaStep + 1 }, (_, index) => (
-              <button
-                key={index}
-                type="button"
-                aria-label={`Go to step ${index + 1}`}
-                aria-current={index === step ? "step" : undefined}
-                onClick={() => setStep(index)}
-                className={`h-1.5 rounded-full transition-all ${index === step ? "w-5 bg-app-ink" : "w-1.5 bg-app-hairline-strong hover:bg-app-muted"}`}
-              />
+      <div className="flex flex-col gap-5 p-6">
+        {step === 0 ? <WelcomeStep /> : step === 1 ? <LayoutStep /> : <AlphaStep />}
+        <div className="flex items-center gap-3">
+          <div aria-label={`Step ${step + 1} of ${STEPS}`} className="flex gap-1.5">
+            {Array.from({ length: STEPS }, (_, index) => (
+              <span key={index} className={`h-1.5 rounded-full transition-all ${index === step ? "w-5 bg-app-ink" : "w-1.5 bg-app-hairline-strong"}`} />
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {!isAlpha && (
-              <button type="button" onClick={() => setStep(alphaStep)} className="h-10 px-2 text-[13px] font-semibold text-app-muted hover:text-app-ink">
-                Skip
-              </button>
-            )}
             {step > 0 && (
               <button
                 type="button"
@@ -154,27 +184,15 @@ export function AlphaNotice() {
             )}
             <button
               type="button"
-              onClick={isAlpha ? acknowledge : () => setStep(step + 1)}
+              onClick={isLast ? finish : () => setStep(step + 1)}
               autoFocus
               className="h-10 rounded-xl bg-app-accent px-5 text-[14px] font-semibold text-app-on-accent transition-colors hover:bg-app-accent/85"
             >
-              {isAlpha ? "I understand" : step === 0 ? "Get started" : "Next"}
+              {step === 0 ? "Get started" : isLast ? "Start trading" : "Continue"}
             </button>
           </div>
         </div>
       </div>
     </dialog>
-  );
-}
-
-/** Small persistent marker next to the ticker. */
-export function AlphaBadge() {
-  return (
-    <span
-      title="Alpha prototype: expect bugs. Not financial advice."
-      className="shrink-0 rounded-md bg-[#fbefd6] px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-[#87500a]"
-    >
-      Alpha
-    </span>
   );
 }

@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { LazyDialogs } from "@/components/app/lazy-dialogs";
+import { LayoutRevealButtons } from "@/components/app/layout-toggles";
 import { Sidebar } from "@/components/app/sidebar";
 import { TickerBar } from "@/components/app/ticker-bar";
 import { ToastProvider } from "@/components/app/toast-provider";
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <WalletModalProvider>
                   <TradeTicketProvider>
                     <div className="app-shell relative flex h-full overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
+                      <LayoutRevealButtons />
                       <Sidebar />
                       <div className="flex min-w-0 flex-1 flex-col">
                         <TickerBar />

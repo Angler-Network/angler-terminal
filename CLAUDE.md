@@ -120,8 +120,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
 - Multi-venue trading UI (the product is now a multi perp DEX terminal, news is the differentiator):
   - Layout (`terminal-shell.tsx`): every panel but the chart can be hidden (`panels` preference: orderbook,
-    orderEntry, positions, news, account; Settings → Layout and the top-bar `panels-menu.tsx`). Grid columns are
-    computed from the enabled panels; the chart takes the rest.
+    orderEntry, positions, news, account; edited from Layout in the sidebar (`layout-menu.tsx`: presets, panels,
+    sidebar/top bar) and Settings → Layout). Grid columns are computed from the enabled panels; the chart takes the
+    rest. The sidebar and top bar hide like angler-news (`layout-toggles.tsx`, always available here).
   - Order panel (`order-panel.tsx`): the chart's asset on every venue that lists it (perps in `perpOrder`, then
     Jupiter/Arcus spot). Perps: market/limit, leverage slider, cross/isolated, reduce-only, % of available, estimated
     isolated liquidation (`lib/trading/order-math.ts`); calls `placeOrder` directly. Spot goes through
@@ -161,9 +162,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
-- `components/app/alpha-notice.tsx` shows a welcome tour (copy in `welcome-slides.ts`) followed by the alpha warning
-  once per browser (bump `ACK_KEY` to show it again; Settings → About reopens it) and the "Alpha" badge in the top bar.
-- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter, Titan, Arcus). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
+- Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "What do you want on your
+  screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
+  notice. Bump `ACK_KEY` to show it again; Settings → About reopens it. Keep it short: no text-heavy slides.
+- Wallets: one Connect button opens `wallet-modal.tsx`: a grid of colored venue tiles (logo, name, kind; built to take
+  more venues), connected wallets listed once per chain below. Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).

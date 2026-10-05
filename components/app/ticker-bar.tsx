@@ -4,8 +4,7 @@ import { Suspense } from "react";
 import { ConnectButton } from "@/components/terminal/connect-button";
 import { DEFAULT_TAPE_SYMBOLS, parseTapeCookie, pickMarkets, TAPE_COOKIE } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
-import { AlphaBadge } from "./alpha-notice";
-import { PanelsMenu } from "./panels-menu";
+import { SidebarToggle, TopBarToggle } from "./layout-toggles";
 import { TickerTape } from "./ticker-tape";
 
 type TapeCookie = ReturnType<typeof parseTapeCookie>;
@@ -26,15 +25,15 @@ export async function TickerBar() {
         <Image src="/blacklogo.png" alt="Angler" width={28} height={28} priority className="[html[data-tone=dark]_&]:hidden" />
         <Image src="/whitelogo.png" alt="" aria-hidden width={28} height={28} className="hidden [html[data-tone=dark]_&]:block" />
       </span>
-      <AlphaBadge />
+      <SidebarToggle />
       {/* Until the server's prices stream in (slow when its cache is cold), the tape fetches its own. */}
       <Suspense fallback={<TickerTape initial={settings} initialMarkets={[]} />}>
         <InitialTape settings={settings} />
       </Suspense>
 
       <div className="flex shrink-0 items-center gap-2 border-l border-app-hairline pl-3">
-        <PanelsMenu />
         <ConnectButton />
+        <TopBarToggle />
       </div>
     </header>
   );
