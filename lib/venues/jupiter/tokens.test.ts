@@ -17,6 +17,16 @@ describe("pickVerifiedToken", () => {
     expect(pickVerifiedToken(records, { mint: "FakeWif111111111111111111111111111111111111" })).toBeNull();
   });
 
+  it("matches verified symbols written with a $ (real Jupiter data: dogwifhat is \"$WIF\")", () => {
+    const real = [
+      { id: "PlainWif11111111111111111111111111111111111", symbol: "WIF", decimals: 6, liquidity: 1_000, isVerified: false },
+      { id: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", symbol: "$WIF", name: "dogwifhat", decimals: 6, liquidity: 7_299_571, isVerified: true },
+      { id: "4y3oUrsJfSp431R3wJrWiaLxRPsnYtpkVJmoV2bYpBiy", symbol: "WIFE", decimals: 6, liquidity: 29_657, isVerified: true },
+    ];
+    expect(pickVerifiedToken(real, { symbol: "WIF" })?.mint).toBe("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm");
+    expect(pickVerifiedToken(real, { symbol: "$wif" })?.name).toBe("dogwifhat");
+  });
+
   it("returns null when nothing verified matches", () => {
     expect(pickVerifiedToken(records, { symbol: "DOGE" })).toBeNull();
   });

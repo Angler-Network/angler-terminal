@@ -27,6 +27,11 @@ export function toSpotToken(record: JupTokenRecord): SpotToken | null {
   };
 }
 
+/** Some verified tokens carry a "$" in their symbol (e.g. "$WIF"); compare without it. */
+export function normalizeSymbol(symbol: string) {
+  return symbol.trim().replace(/^\$/, "").toUpperCase();
+}
+
 /**
  * Picks the token to trade. A mint must match exactly and be verified. A symbol matches case-insensitively among
  * verified tokens only; when several share it, the one with the most liquidity wins.
@@ -34,9 +39,9 @@ export function toSpotToken(record: JupTokenRecord): SpotToken | null {
 export function pickVerifiedToken(records: JupTokenRecord[], query: { symbol?: string; mint?: string }) {
   const tokens = records.flatMap((record) => toSpotToken(record) ?? []).filter((token) => token.isVerified);
   if (query.mint) return tokens.find((token) => token.mint === query.mint) ?? null;
-  const wanted = query.symbol?.trim().toUpperCase();
+  const wanted = query.symbol ? normalizeSymbol(query.symbol) : "";
   if (!wanted) return null;
-  const matches = tokens.filter((token) => token.symbol.toUpperCase() === wanted);
+  const matches = tokens.filter((token) => normalizeSymbol(token.symbol) === wanted);
   matches.sort((a, b) => (b.liquidity ?? 0) - (a.liquidity ?? 0));
   return matches[0] ?? null;
 }
