@@ -76,21 +76,44 @@ function readMints(record: Record<string, unknown>) {
   return Object.keys(mints).length > 0 ? mints : undefined;
 }
 
+function sourceName(value: unknown): string | undefined {
+  if (typeof value === "string") return text(value);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return text(record.name) ?? text(record.title) ?? text(record.domain);
+  }
+  return undefined;
+}
+
+function hostname(url: string | undefined) {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
 /** Validates one news object from REST or the socket. Returns null when it has no id or headline. */
 export function readApiNews(value: unknown): ApiNews | null {
   const record = (value ?? {}) as Record<string, unknown>;
   const id = record.id ?? record.news_id;
   const headline = text(record.headline) ?? text(record.title);
   if ((typeof id !== "string" && typeof id !== "number") || !headline) return null;
-  const source = text(record.source);
+  const url = text(record.url) ?? text(record.link) ?? text(record.source_url) ?? text(record.article_url);
+  const source =
+    sourceName(record.source) ?? text(record.source_name) ?? text(record.publisher) ?? text(record.provider) ?? text(record.site) ?? hostname(url);
   return {
     id: String(id),
     headline,
-    url: text(record.url) ?? text(record.link),
+    url,
     source,
-    sources: strings(record.sources),
+    sources: [
+      ...strings(record.sources),
+      ...(Array.isArray(record.sources) ? record.sources.flatMap((entry) => (typeof entry === "object" ? (sourceName(entry) ?? []) : [])) : []),
+    ],
     published_at: (record.published_at ?? record.created_at ?? record.timestamp ?? record.time) as string | number | undefined,
-    categories: strings(record.categories),
+    categories: [...strings(record.categories), ...strings(record.tags), ...strings(record.topics)],
     coins: strings(record.coins).flatMap((coin) => toSymbol(coin) ?? []),
     sentiment: numberIn(record.sentiment, -1, 1),
     impact_predictions: readPredictions(record.impact_predictions),
