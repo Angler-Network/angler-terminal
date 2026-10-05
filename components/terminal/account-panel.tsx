@@ -84,6 +84,19 @@ function TradingKeyStatus() {
   );
 }
 
+function FundsButton({ venue }: { venue: "hyperliquid" | "lighter" }) {
+  const { openDeposit } = useTrading();
+  return (
+    <button
+      type="button"
+      onClick={() => openDeposit(venue)}
+      className="h-7 rounded-md border border-app-hairline-strong bg-app-chip text-[12px] font-semibold text-app-ink hover:bg-app-card"
+    >
+      {venue === "hyperliquid" ? "Deposit / Withdraw" : "Deposit"}
+    </button>
+  );
+}
+
 function HyperliquidSection() {
   const { accounts, network } = useTrading();
   const account = accounts.hyperliquid ?? null;
@@ -91,6 +104,7 @@ function HyperliquidSection() {
     <Section title="Hyperliquid perps" badge={network === "testnet" ? "Testnet" : "Mainnet"}>
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Withdrawable">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <FundsButton venue="hyperliquid" />
       <TradingKeyStatus />
     </Section>
   );
@@ -154,6 +168,7 @@ function LighterSection() {
     <Section title="Lighter perps" badge={lighterNetwork === "testnet" ? "Testnet" : "Mainnet"}>
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <FundsButton venue="lighter" />
       <LighterKeyStatus />
     </Section>
   );

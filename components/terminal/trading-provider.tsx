@@ -9,6 +9,7 @@ import {
   approveBuilderFee,
   getOnboardingStatus,
   revokeAgent,
+  withdrawUsdc,
   type OnboardingStatus,
 } from "@/lib/venues/hyperliquid/onboarding";
 import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
@@ -74,6 +75,11 @@ interface TradingContextValue {
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
   closePosition: (position: VenuePosition) => Promise<void>;
   setPositionTpsl: (position: VenuePosition, levels: PositionTpsl) => Promise<boolean>;
+  /** Venue the deposit window is open for, or null. */
+  depositVenue: PerpVenueId | null;
+  openDeposit: (venue: PerpVenueId) => void;
+  closeDeposit: () => void;
+  withdrawHyperliquid: (amount: string) => Promise<boolean>;
 }
 
 const TradingContext = createContext<TradingContextValue | null>(null);
@@ -118,6 +124,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [hlAccount, setHlAccount] = useState<AccountSnapshot | null>(null);
   const [lighterAccount, setLighterAccount] = useState<AccountSnapshot | null>(null);
   const [setupVenue, setSetupVenue] = useState<PerpVenueId | null>(null);
+  const [depositVenue, setDepositVenue] = useState<PerpVenueId | null>(null);
+  const openDeposit = useCallback((venue: PerpVenueId) => setDepositVenue(venue), []);
+  const closeDeposit = useCallback(() => setDepositVenue(null), []);
 
   const fail = useCallback(
     (venue: PerpVenueId, title: string, error: unknown) => toast({ tone: "error", title, message: venueError(venue, error).message }),
@@ -339,6 +348,21 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     [address, isVenueReady, toast, fail],
   );
 
+  const withdrawHyperliquid = useCallback(
+    async (amount: string) => {
+      if (!address || !getWalletClient) return false;
+      try {
+        await withdrawUsdc(await getWalletClient(), address, amount);
+        toast({ tone: "success", title: `Withdrawing ${amount} USDC`, message: "It arrives in your wallet on Arbitrum in 3-4 minutes (1 USDC fee)." });
+        return true;
+      } catch (error) {
+        fail("hyperliquid", "Withdrawal failed", error);
+        return false;
+      }
+    },
+    [address, getWalletClient, toast, fail],
+  );
+
   const closePosition = useCallback(
     async (position: VenuePosition) => {
       if (!address) return;
@@ -402,6 +426,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       cancelOrder,
       closePosition,
       setPositionTpsl,
+      depositVenue,
+      openDeposit,
+      closeDeposit,
+      withdrawHyperliquid,
     }),
     [
       markets,
@@ -426,6 +454,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       cancelOrder,
       closePosition,
       setPositionTpsl,
+      depositVenue,
+      openDeposit,
+      closeDeposit,
+      withdrawHyperliquid,
     ],
   );
 

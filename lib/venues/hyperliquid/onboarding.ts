@@ -94,6 +94,18 @@ export async function revokeAgent(wallet: AbstractWallet, user: `0x${string}`) {
   forgetAgent(user);
 }
 
+/**
+ * Withdraws USDC to the user's own wallet on Arbitrum: the wallet signs on Hyperliquid only, validators send it in
+ * 3-4 minutes, and Hyperliquid charges a 1 USDC fee. Agent keys can't withdraw, so this always asks the wallet.
+ */
+export async function withdrawUsdc(wallet: AbstractWallet, user: `0x${string}`, amount: string) {
+  try {
+    await (await userExchange(wallet)).withdraw3({ destination: user, amount });
+  } catch (error) {
+    throw toVenueError(error);
+  }
+}
+
 /** Drops the local key without an on-chain call (e.g. after revoking from Hyperliquid's own UI). */
 export function forgetAgent(user: `0x${string}`) {
   update(user, ({ agent: _dropped, ...rest }) => rest);

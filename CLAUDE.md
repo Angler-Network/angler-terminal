@@ -145,6 +145,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     coarser size step), sent together; a half-filled pair is reported so the user can close the unhedged leg.
   - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
     actually used.
+  - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel; `lib/venues/deposits.ts` +
+    `deposit-client.ts`, viem on demand): mainnet Hyperliquid = native USDC transfer on Arbitrum to Bridge2
+    (`0x2Df1…3dF7`, min 5 USDC, less is lost); mainnet Lighter = USDC on Arbitrum/Base to the wallet's CCTP intent
+    address (`createIntentAddress`); testnets link to each venue's faucet. Hyperliquid withdrawals: `withdraw3`
+    signed by the wallet (1 USDC fee, 3-4 min). Lighter's universal deposit address needs a builder key (not used).
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.

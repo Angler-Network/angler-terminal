@@ -7,9 +7,11 @@ import { usePreferences } from "./preferences-provider";
 
 const loadSettings = () => import("./settings-dialog");
 const loadSetup = () => import("@/components/terminal/trading-setup-dialog");
+const loadDeposit = () => import("@/components/terminal/deposit-dialog");
 
 const SettingsDialog = dynamic(() => loadSettings().then((module) => module.SettingsDialog), { ssr: false });
 const TradingSetupDialog = dynamic(() => loadSetup().then((module) => module.TradingSetupDialog), { ssr: false });
+const DepositDialog = dynamic(() => loadDeposit().then((module) => module.DepositDialog), { ssr: false });
 
 /** Mounts once `open` first turns true, and stays mounted so closing keeps its state. */
 function useOpenedOnce(open: boolean) {
@@ -26,9 +28,10 @@ function useOpenedOnce(open: boolean) {
  */
 export function LazyDialogs() {
   const { isSettingsOpen } = usePreferences();
-  const { isSetupOpen } = useTrading();
+  const { isSetupOpen, depositVenue } = useTrading();
   const showSettings = useOpenedOnce(isSettingsOpen);
   const showSetup = useOpenedOnce(isSetupOpen);
+  const showDeposit = useOpenedOnce(depositVenue !== null);
 
   useEffect(() => {
     const prefetch = () => void Promise.all([loadSettings(), loadSetup()]).catch(() => {});
@@ -44,6 +47,7 @@ export function LazyDialogs() {
     <>
       {showSettings && <SettingsDialog />}
       {showSetup && <TradingSetupDialog />}
+      {showDeposit && <DepositDialog />}
     </>
   );
 }
