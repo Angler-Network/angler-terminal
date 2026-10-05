@@ -1,6 +1,9 @@
 /**
- * Venue abstraction: one implementation per exchange. The terminal talks to venues only through this
- * interface, so adding a venue never touches the order panel, positions bar or chart.
+ * Venue abstraction: one implementation per exchange. The terminal talks to venues only through these
+ * interfaces, so adding a venue never touches the order panel, positions bar or chart.
+ *
+ * - PerpVenue: leveraged perpetuals with positions and resting orders (Hyperliquid).
+ * - SpotVenue: quote-then-sign token swaps settled in the user's own wallet (Jupiter).
  */
 
 export type OrderSide = "buy" | "sell";
@@ -92,7 +95,8 @@ export interface Candle {
   volume: number;
 }
 
-export interface Venue {
+export interface PerpVenue {
+  kind: "perp";
   id: string;
   name: string;
   network: "mainnet" | "testnet";
@@ -106,6 +110,85 @@ export interface Venue {
   subscribeAccount(user: `0x${string}`, handlers: AccountHandlers): () => void;
   loadCandles(market: VenueMarket, interval: string, startTime: number): Promise<Candle[]>;
 }
+
+export interface SpotToken {
+  mint: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon?: string;
+  usdPrice?: number;
+  liquidity?: number;
+  isVerified: boolean;
+}
+
+export interface SpotQuoteInput {
+  inputToken: SpotToken;
+  outputToken: SpotToken;
+  /** Input amount in the input token's smallest unit. */
+  amount: bigint;
+  /** Wallet that will sign; without it the venue returns a price-only quote. */
+  taker?: string;
+}
+
+export interface SpotQuote {
+  /** Opaque id the venue needs to execute this exact quote. */
+  requestId: string;
+  inputToken: SpotToken;
+  outputToken: SpotToken;
+  inAmount: bigint;
+  outAmount: bigint;
+  /** Minimum output after slippage. */
+  minOutAmount: bigint;
+  slippageBps: number;
+  /** Percentage points, e.g. -0.12 means -0.12%. */
+  priceImpactPct: number;
+  /** Total swap fee in bps (venue + integrator) and the mint it is taken in. */
+  feeBps: number;
+  feeMint?: string;
+  /** Network fees in lamports the taker pays (signature + priority + rent), when known. */
+  networkFeeLamports: number;
+  inUsdValue?: number;
+  outUsdValue?: number;
+  router?: string;
+  /** Base64 transaction to sign, or null when the quote can't be executed (see error). */
+  transaction: string | null;
+  /** Why the quote can't be executed, already readable. */
+  error?: string;
+  fetchedAt: number;
+}
+
+export interface SpotSwapResult {
+  signature: string;
+  inAmount: bigint;
+  outAmount: bigint;
+  explorerUrl: string;
+}
+
+export interface SpotBalances {
+  /** Native SOL in lamports. */
+  lamports: bigint;
+  /** Raw token amounts by mint. */
+  tokens: Record<string, bigint>;
+}
+
+/** Signs a base64 transaction with the connected wallet and returns the signed base64 transaction. */
+export type TransactionSigner = (transactionBase64: string) => Promise<string>;
+
+export interface SpotVenue {
+  kind: "spot";
+  id: string;
+  name: string;
+  /** The stablecoin positions are sized in (USDC). */
+  quoteToken(): Promise<SpotToken>;
+  /** Resolves a symbol, or a mint when one is known, to the single verified token to trade. */
+  resolveToken(query: { symbol: string; mint?: string }): Promise<SpotToken | null>;
+  getQuote(input: SpotQuoteInput): Promise<SpotQuote>;
+  executeQuote(quote: SpotQuote, sign: TransactionSigner): Promise<SpotSwapResult>;
+  getBalances(owner: string, mints: string[]): Promise<SpotBalances>;
+}
+
+export type Venue = PerpVenue | SpotVenue;
 
 /** An error the UI can show as is. */
 export class VenueError extends Error {

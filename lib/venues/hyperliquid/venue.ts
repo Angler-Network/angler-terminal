@@ -4,8 +4,8 @@ import type {
   AccountSnapshot,
   Candle,
   OrderResult,
+  PerpVenue,
   PlaceOrderInput,
-  Venue,
   VenueMarket,
   VenueOpenOrder,
   VenuePosition,
@@ -223,7 +223,7 @@ export function toOpenOrders(dex: string, orders: FrontendOrder[]): VenueOpenOrd
   }));
 }
 
-function subscribeAccount(user: `0x${string}`, handlers: Parameters<Venue["subscribeAccount"]>[1]) {
+function subscribeAccount(user: `0x${string}`, handlers: Parameters<PerpVenue["subscribeAccount"]>[1]) {
   const subs = subscriptionClient();
   const positionsByDex = new Map<string, VenuePosition[]>();
   const ordersByDex = new Map<string, VenueOpenOrder[]>();
@@ -300,7 +300,8 @@ async function loadCandles(market: VenueMarket, interval: string, startTime: num
   }));
 }
 
-export const hyperliquidVenue: Venue = {
+export const hyperliquidVenue: PerpVenue = {
+  kind: "perp",
   id: "hyperliquid",
   name: "Hyperliquid",
   network: hlConfig.network,
