@@ -1,4 +1,4 @@
-import { defineChain } from "viem";
+import type { Chain } from "viem";
 
 /**
  * Arcus spot (stock tokens on Robinhood Chain) settings from public env vars. Switching network is a config change
@@ -33,14 +33,16 @@ export function robinhoodChain(network: ArcusNetwork, rpcUrl?: string) {
   const isTestnet = network === "testnet";
   const rpc = rpcUrl || (isTestnet ? "https://rpc.testnet.chain.robinhood.com" : "https://rpc.chain.robinhood.com");
   const explorer = isTestnet ? "https://explorer.testnet.chain.robinhood.com" : "https://explorer.chain.robinhood.com";
-  return defineChain({
+  // A plain Chain object (not viem's defineChain) so this config doesn't pull viem into pages that only read it.
+  const chain: Chain = {
     id: CHAIN_IDS[network],
     name: isTestnet ? "Robinhood Chain Testnet" : "Robinhood Chain",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
     blockExplorers: { default: { name: "Robinhood Chain Explorer", url: explorer } },
     testnet: isTestnet,
-  });
+  };
+  return chain;
 }
 
 export const arcusNetwork = readArcusNetwork(process.env.NEXT_PUBLIC_ARCUS_NETWORK);
@@ -54,5 +56,5 @@ export const arcusConfig = {
 };
 
 export function explorerTxUrl(hash: string) {
-  return `${arcusConfig.chain.blockExplorers.default.url}/tx/${hash}`;
+  return `${arcusConfig.chain.blockExplorers?.default.url}/tx/${hash}`;
 }

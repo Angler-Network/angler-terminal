@@ -105,7 +105,7 @@ function useVenueMarkets(venue: PerpVenue, enabled: boolean) {
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
-  const { address, walletClient } = useWallet();
+  const { address, getWalletClient } = useWallet();
   const { symbol } = useSelectedAsset();
   const lighterEnabled = preferences.venueLighter;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
@@ -196,21 +196,21 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const isVenueReady = useCallback((venue: PerpVenueId) => (venue === "lighter" ? lighterReady : isReady), [isReady, lighterReady]);
 
   const approveBuilder = useCallback(async () => {
-    if (!address || !walletClient) return false;
+    if (!address || !getWalletClient) return false;
     try {
-      await approveBuilderFee(walletClient, address);
+      await approveBuilderFee(await getWalletClient(), address);
       setOnboarding((current) => ({ agentAddress: current?.agentAddress ?? null, builderApproved: true }));
       return true;
     } catch (error) {
       fail("hyperliquid", "Builder fee approval failed", error);
       return false;
     }
-  }, [address, walletClient, fail]);
+  }, [address, getWalletClient, fail]);
 
   const createAgent = useCallback(async () => {
-    if (!address || !walletClient) return false;
+    if (!address || !getWalletClient) return false;
     try {
-      const agentAddress = await approveAgent(walletClient, address);
+      const agentAddress = await approveAgent(await getWalletClient(), address);
       setOnboarding((current) => ({ builderApproved: current?.builderApproved ?? false, agentAddress }));
       toast({ tone: "success", title: "Trading key active", message: "Orders now sign in the browser without a wallet popup." });
       return true;
@@ -218,29 +218,29 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       fail("hyperliquid", "Couldn't create the trading key", error);
       return false;
     }
-  }, [address, walletClient, fail, toast]);
+  }, [address, getWalletClient, fail, toast]);
 
   const revoke = useCallback(async () => {
-    if (!address || !walletClient) return;
+    if (!address || !getWalletClient) return;
     try {
-      await revokeAgent(walletClient, address);
+      await revokeAgent(await getWalletClient(), address);
       setOnboarding((current) => ({ builderApproved: current?.builderApproved ?? false, agentAddress: null }));
       toast({ tone: "info", title: "Trading key revoked" });
     } catch (error) {
       fail("hyperliquid", "Couldn't revoke the trading key", error);
     }
-  }, [address, walletClient, fail, toast]);
+  }, [address, getWalletClient, fail, toast]);
 
   const signMessage = useCallback(
-    (message: string) => {
-      if (!walletClient) throw new Error("Connect an EVM wallet first.");
-      return walletClient.signMessage({ message });
+    async (message: string) => {
+      if (!getWalletClient) throw new Error("Connect an EVM wallet first.");
+      return (await getWalletClient()).signMessage({ message });
     },
-    [walletClient],
+    [getWalletClient],
   );
 
   const registerLighter = useCallback(async () => {
-    if (!address || !walletClient) return false;
+    if (!address || !getWalletClient) return false;
     try {
       await registerLighterKey(signMessage, address);
       await refreshLighter();
@@ -250,10 +250,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       fail("lighter", "Couldn't register the Lighter key", error);
       return false;
     }
-  }, [address, walletClient, signMessage, refreshLighter, fail, toast]);
+  }, [address, getWalletClient, signMessage, refreshLighter, fail, toast]);
 
   const approveLighter = useCallback(async () => {
-    if (!address || !walletClient) return false;
+    if (!address || !getWalletClient) return false;
     try {
       await approveLighterIntegrator(signMessage, address);
       await refreshLighter();
@@ -262,10 +262,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       fail("lighter", "Lighter approval failed", error);
       return false;
     }
-  }, [address, walletClient, signMessage, refreshLighter, fail]);
+  }, [address, getWalletClient, signMessage, refreshLighter, fail]);
 
   const revokeLighter = useCallback(async () => {
-    if (!address || !walletClient) return;
+    if (!address || !getWalletClient) return;
     try {
       await revokeLighterKey(signMessage, address);
       await refreshLighter();
@@ -273,7 +273,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       fail("lighter", "Couldn't revoke the Lighter key", error);
     }
-  }, [address, walletClient, signMessage, refreshLighter, fail, toast]);
+  }, [address, getWalletClient, signMessage, refreshLighter, fail, toast]);
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput) => {

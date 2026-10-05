@@ -1,5 +1,7 @@
 "use client";
 
+/** Swaps and balances: loaded on demand (viem + the Arcus SDK), token lookups live in catalog.ts. */
+
 import {
   MAX_UINT256,
   PermitUnsupportedError,
@@ -11,52 +13,13 @@ import {
 import { createPublicClient, createWalletClient, custom, erc20Abi, http, type EIP1193Provider } from "viem";
 import { VenueError, type OrderSide } from "../types";
 import { ARCUS_MIN_NOTIONAL_USD, ARCUS_SLIPPAGE_BPS, arcusConfig, explorerTxUrl } from "./config";
+import { arcusQuoteToken, call } from "./catalog";
 import { arcusErrorMessage, arcusPriceImpactPct, pickArcusQuote, readReferencePrice } from "./quote";
-import { findArcusToken, findQuoteToken, readArcusTokens, type ArcusToken } from "./tokens";
+import type { ArcusToken } from "./tokens";
 
-const TOKEN_TTL_MS = 5 * 60_000;
 const STATUS_TIMEOUT_MS = 45_000;
 
 const publicClient = createPublicClient({ chain: arcusConfig.chain, transport: http() });
-
-let tokenCache: { at: number; promise: Promise<ArcusToken[]> } | null = null;
-
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/arcus/${path}`, { cache: "no-store", ...init });
-  } catch {
-    throw new VenueError("Arcus is unreachable right now.");
-  }
-  let body: Record<string, unknown> = {};
-  try {
-    body = (await response.json()) as Record<string, unknown>;
-  } catch {}
-  if (!response.ok) {
-    const code = typeof body.code === "string" ? body.code : undefined;
-    const message = typeof body.message === "string" ? body.message : typeof body.error === "string" ? body.error : `Arcus request failed (${response.status}).`;
-    throw new VenueError(arcusErrorMessage(code, message), code);
-  }
-  return body as T;
-}
-
-export function loadArcusTokens() {
-  if (tokenCache && Date.now() - tokenCache.at < TOKEN_TTL_MS) return tokenCache.promise;
-  const promise = call<unknown>("tokens").then(readArcusTokens);
-  tokenCache = { at: Date.now(), promise };
-  promise.catch(() => (tokenCache = null));
-  return promise;
-}
-
-export async function resolveArcusToken(symbol: string) {
-  return findArcusToken(await loadArcusTokens(), symbol);
-}
-
-export async function arcusQuoteToken() {
-  const token = findQuoteToken(await loadArcusTokens(), arcusConfig.quoteSymbol);
-  if (!token) throw new VenueError(`${arcusConfig.quoteSymbol} isn't available on Arcus right now.`);
-  return token;
-}
 
 export async function getArcusBalances(owner: `0x${string}`, tokens: ArcusToken[]) {
   const amounts = await Promise.all(

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { createWalletClient, custom, type Account, type Chain, type EIP1193Provider, type Transport, type WalletClient } from "viem";
+import type { Account, Chain, EIP1193Provider, Transport, WalletClient } from "viem";
 
 /** A wallet client with the connected account bound, so signTypedData needs no explicit account. */
 export type AccountWalletClient = WalletClient<Transport, Chain | undefined, Account>;
@@ -16,8 +16,8 @@ export interface EvmWallet {
 
 interface WalletContextValue {
   address: `0x${string}` | null;
-  /** viem wallet client bound to the connected account; signs Hyperliquid approvals. */
-  walletClient: AccountWalletClient | null;
+  /** viem wallet client bound to the connected account (signs Hyperliquid approvals); viem loads on first call. */
+  getWalletClient: (() => Promise<AccountWalletClient>) | null;
   wallets: EvmWallet[];
   wallet: EvmWallet | null;
   isConnecting: boolean;
@@ -158,14 +158,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const walletClient = useMemo(
-    () => (address && wallet ? createWalletClient({ account: address, transport: custom(wallet.provider) }) : null),
+  const getWalletClient = useMemo(
+    () =>
+      address && wallet
+        ? async () => {
+            const { createWalletClient, custom } = await import("viem");
+            return createWalletClient({ account: address, transport: custom(wallet.provider) });
+          }
+        : null,
     [address, wallet],
   );
 
   const value = useMemo(
-    () => ({ address, walletClient, wallets, wallet, isConnecting, connect, disconnect }),
-    [address, walletClient, wallets, wallet, isConnecting, connect, disconnect],
+    () => ({ address, getWalletClient, wallets, wallet, isConnecting, connect, disconnect }),
+    [address, getWalletClient, wallets, wallet, isConnecting, connect, disconnect],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

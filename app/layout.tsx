@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
 import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
-import { SettingsDialog } from "@/components/app/settings-dialog";
+import { LazyDialogs } from "@/components/app/lazy-dialogs";
 import { Sidebar } from "@/components/app/sidebar";
 import { TickerBar } from "@/components/app/ticker-bar";
 import { ToastProvider } from "@/components/app/toast-provider";
@@ -10,7 +10,6 @@ import { UpdateNotice } from "@/components/app/update-notice";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { TradingProvider } from "@/components/terminal/trading-provider";
-import { TradingSetupDialog } from "@/components/terminal/trading-setup-dialog";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
 import { WalletModalProvider } from "@/components/terminal/wallet-modal";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
@@ -65,9 +64,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <main className="min-h-0 flex-1 p-2">{children}</main>
                       </div>
                     </div>
-                    <SettingsDialog />
+                    <LazyDialogs />
                     <AlphaNotice />
-                    <TradingSetupDialog />
                     <UpdateNotice />
                   </TradeTicketProvider>
                   </WalletModalProvider>

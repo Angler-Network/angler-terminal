@@ -15,7 +15,7 @@ import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { pickBestSpotQuote } from "@/lib/trading/best-quote";
 import { executeTitanQuote, getTitanQuote } from "@/lib/venues/titan/venue";
-import { ArcusSwapFailedError, arcusSwap, resolveArcusToken } from "@/lib/venues/arcus/venue";
+import { resolveArcusToken } from "@/lib/venues/arcus/catalog";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
 import type { OrderSide, PerpVenueId, SpotQuote, SpotToken, SpotVenueId } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
@@ -162,6 +162,7 @@ export function useNewsTrader() {
       try {
         const token = await resolveArcusToken(trade.symbol);
         if (!token) return fail(`${trade.symbol} isn't listed on Arcus.`), false;
+        const { arcusSwap } = await import("@/lib/venues/arcus/venue");
         const result = await arcusSwap({
           provider: evmWallet.provider,
           account: evmAddress,
@@ -187,7 +188,10 @@ export function useNewsTrader() {
           tone: "error",
           title: "Arcus swap failed",
           message: error instanceof Error ? error.message : String(error),
-          link: error instanceof ArcusSwapFailedError ? { href: error.explorerUrl, label: "View transaction" } : undefined,
+          link:
+            error instanceof Error && "explorerUrl" in error && typeof error.explorerUrl === "string"
+              ? { href: error.explorerUrl, label: "View transaction" }
+              : undefined,
         });
         return false;
       }

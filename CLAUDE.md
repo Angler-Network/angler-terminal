@@ -155,6 +155,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   history is requested with `coin`.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
+- First load stays light: the Hyperliquid SDK (`hyperliquid/clients.ts`), viem's wallet client (`getWalletClient`),
+  the Arcus SDK (`arcus/venue.ts`; lookups in `arcus/catalog.ts`) and the settings/setup dialogs (`lazy-dialogs.tsx`)
+  load on demand. Don't import them statically from components on the first screen. The ticker bar streams its
+  server-fetched prices through Suspense so the page shell never waits on market APIs.
+
 ## Checks
 
 `npm test` (vitest, `*.test.ts` next to the module), `npm run typecheck` and `npm run build` must pass before

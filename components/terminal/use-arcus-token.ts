@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resolveArcusToken } from "@/lib/venues/arcus/venue";
+import { resolveArcusToken } from "@/lib/venues/arcus/catalog";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 
 /** Arcus stock token for a symbol. undefined while loading, null when there's none or `enabled` is false. */

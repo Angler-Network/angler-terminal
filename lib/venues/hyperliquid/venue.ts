@@ -24,7 +24,7 @@ let marketCache: { at: number; promise: Promise<VenueMarket[]> } | null = null;
 
 /** Fallback when /api/hl/markets is down: same Info API calls, from the browser. */
 async function loadMarketsDirect() {
-  const info = infoClient();
+  const info = await infoClient();
   const [main, perpDexs] = await Promise.all([info.metaAndAssetCtxs(), info.perpDexs()]);
   const hip3 = await Promise.allSettled(
     builderDexes(perpDexs, hlConfig.hip3Dexes).map(async (dex) => {
@@ -71,7 +71,7 @@ function requireTradingSetup(user: `0x${string}`) {
 const appliedLeverage = new Map<string, string>();
 
 async function midPrice(market: VenueMarket) {
-  const mids = await infoClient().allMids(market.dex ? { dex: market.dex } : undefined);
+  const mids = await (await infoClient()).allMids(market.dex ? { dex: market.dex } : undefined);
   const mid = Number(mids[market.coin]);
   if (!(mid > 0)) throw new VenueError(`No mid price for ${market.symbol} right now.`);
   return mid;
@@ -85,7 +85,7 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
   if (!(size > 0)) throw new VenueError(`Size is below ${market.symbol}'s lot size (${10 ** -market.szDecimals}).`);
 
   try {
-    const exchange = agentExchange(agent.privateKey);
+    const exchange = await agentExchange(agent.privateKey);
 
     if (input.leverage && !input.reduceOnly) {
       const isCross = market.onlyIsolated ? false : (input.isCross ?? true);
@@ -138,7 +138,7 @@ async function cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coi
   const market = findMarket(await listMarkets(), order.coin);
   if (!market) throw new VenueError(`Unknown market ${order.coin}.`);
   try {
-    await agentExchange(agent.privateKey).cancel({ cancels: [{ a: market.assetId, o: order.oid }] });
+    await (await agentExchange(agent.privateKey)).cancel({ cancels: [{ a: market.assetId, o: order.oid }] });
   } catch (error) {
     throw toVenueError(error);
   }
@@ -254,7 +254,7 @@ function subscribeAccount(user: `0x${string}`, handlers: Parameters<PerpVenue["s
   };
 
   void track(
-    subs.allDexsClearinghouseState({ user }, (event) => {
+    subs.then((client) => client.allDexsClearinghouseState({ user }, (event) => {
       let accountValue = 0;
       let withdrawable = 0;
       for (const [dex, state] of event.clearinghouseStates) {
@@ -264,7 +264,7 @@ function subscribeAccount(user: `0x${string}`, handlers: Parameters<PerpVenue["s
       }
       totals = { accountValue, withdrawable };
       emit();
-    }),
+    })),
   );
 
   void listMarkets()
@@ -273,10 +273,12 @@ function subscribeAccount(user: `0x${string}`, handlers: Parameters<PerpVenue["s
       for (const dex of dexes) {
         if (!isActive) return;
         void track(
-          subs.openOrders({ user, dex }, (event) => {
-            ordersByDex.set(event.dex, toOpenOrders(event.dex, event.orders as FrontendOrder[]));
-            emit();
-          }),
+          subs.then((client) =>
+            client.openOrders({ user, dex }, (event) => {
+              ordersByDex.set(event.dex, toOpenOrders(event.dex, event.orders as FrontendOrder[]));
+              emit();
+            }),
+          ),
         );
       }
     })
@@ -290,8 +292,15 @@ function subscribeAccount(user: `0x${string}`, handlers: Parameters<PerpVenue["s
 
 type HlInterval = "1m" | "3m" | "5m" | "15m" | "30m" | "1h" | "2h" | "4h" | "8h" | "12h" | "1d" | "3d" | "1w" | "1M";
 
+/** Plain Info API call (not the SDK) so the chart doesn't pull the trading SDK into the first load. */
 async function loadCandles(market: VenueMarket, interval: string, startTime: number): Promise<Candle[]> {
-  const rows = await infoClient().candleSnapshot({ coin: market.coin, interval: interval as HlInterval, startTime });
+  const response = await fetch(`${hlConfig.apiUrl}/info`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "candleSnapshot", req: { coin: market.coin, interval: interval as HlInterval, startTime } }),
+  });
+  if (!response.ok) throw new VenueError(`Hyperliquid candles failed (${response.status}).`);
+  const rows = (await response.json()) as Array<{ t: number; o: string; h: string; l: string; c: string; v: string }>;
   return rows.map((row) => ({
     time: row.t,
     open: Number(row.o),

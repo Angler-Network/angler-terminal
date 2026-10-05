@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/format";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
-import { arcusQuoteToken, getArcusBalances, getArcusNativeBalance } from "@/lib/venues/arcus/venue";
+import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfig } from "@/lib/venues/lighter/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -199,7 +199,7 @@ function ArcusSection({ address }: { address: `0x${string}` }) {
 
   const load = useCallback(async () => {
     try {
-      const stable = await arcusQuoteToken();
+      const [stable, { getArcusBalances, getArcusNativeBalance }] = await Promise.all([arcusQuoteToken(), import("@/lib/venues/arcus/venue")]);
       const [amounts, eth] = await Promise.all([getArcusBalances(address, token ? [stable, token] : [stable]), getArcusNativeBalance(address)]);
       setState({ stable, amounts, eth });
     } catch {}

@@ -1,7 +1,6 @@
 "use client";
 
 import type { AbstractWallet } from "@nktkas/hyperliquid/signing";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { VenueError } from "../types";
 import { browserStorage, readOnboarding, writeOnboarding, type OnboardingRecord } from "./agent-store";
 import { infoClient, userExchange } from "./clients";
@@ -34,7 +33,7 @@ export async function getOnboardingStatus(user: `0x${string}`): Promise<Onboardi
   const store = browserStorage();
   const record = store ? readOnboarding(store, hlConfig.network, user) : {};
   const builder = hlConfig.builder;
-  const info = infoClient();
+  const info = await infoClient();
 
   const [approvedFee, agents] = await Promise.all([
     builder ? info.maxBuilderFee({ user, builder: builder.address }).catch(() => null) : Promise.resolve(null),
@@ -61,7 +60,7 @@ export async function approveBuilderFee(wallet: AbstractWallet, user: `0x${strin
   const builder = hlConfig.builder;
   if (!builder) throw new VenueError("NEXT_PUBLIC_HL_BUILDER_ADDRESS is not configured.");
   try {
-    await userExchange(wallet).approveBuilderFee({ builder: builder.address, maxFeeRate: feeToPercent(builder.maxFee) });
+    await (await userExchange(wallet)).approveBuilderFee({ builder: builder.address, maxFeeRate: feeToPercent(builder.maxFee) });
   } catch (error) {
     throw toVenueError(error);
   }
@@ -73,10 +72,11 @@ export async function approveBuilderFee(wallet: AbstractWallet, user: `0x${strin
  * cannot withdraw. Reusing the agent name replaces any previous Angler agent on this account.
  */
 export async function approveAgent(wallet: AbstractWallet, user: `0x${string}`) {
+  const { generatePrivateKey, privateKeyToAccount } = await import("viem/accounts");
   const privateKey = generatePrivateKey();
   const agentAddress = privateKeyToAccount(privateKey).address;
   try {
-    await userExchange(wallet).approveAgent({ agentAddress, agentName: AGENT_NAME });
+    await (await userExchange(wallet)).approveAgent({ agentAddress, agentName: AGENT_NAME });
   } catch (error) {
     throw toVenueError(error);
   }
@@ -87,7 +87,7 @@ export async function approveAgent(wallet: AbstractWallet, user: `0x${string}`) 
 /** Revoking approves the zero address under the same agent name, then forgets the key locally. */
 export async function revokeAgent(wallet: AbstractWallet, user: `0x${string}`) {
   try {
-    await userExchange(wallet).approveAgent({ agentAddress: ZERO_ADDRESS, agentName: AGENT_NAME });
+    await (await userExchange(wallet)).approveAgent({ agentAddress: ZERO_ADDRESS, agentName: AGENT_NAME });
   } catch (error) {
     throw toVenueError(error);
   }
