@@ -15,6 +15,7 @@ import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import type { OrderSide, SpotToken } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
+import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 
 /** Lamports kept for fees on top of what the quote reports (ATA rent, retries). */
@@ -42,7 +43,8 @@ function amountText(amount: bigint, token: SpotToken) {
 export function useNewsTrader() {
   const toast = useToast();
   const { preferences } = usePreferences();
-  const { address: evmAddress, connect: connectEvm } = useWallet();
+  const { address: evmAddress } = useWallet();
+  const { open: openWallets } = useWalletModal();
   const { markets, placeOrder } = useTrading();
   const { address: solanaAddress, signTransaction } = useSolanaWallet();
 
@@ -51,8 +53,8 @@ export function useNewsTrader() {
   const tradePerp = useCallback(
     async (trade: NewsTrade) => {
       if (!evmAddress) {
-        fail("Connect a wallet to trade on Hyperliquid.");
-        void connectEvm().catch(() => {});
+        fail("Connect an EVM wallet to trade on Hyperliquid.");
+        openWallets();
         return false;
       }
       const market = markets ? findMarket(markets, trade.symbol) : null;
@@ -69,12 +71,16 @@ export function useNewsTrader() {
         leverage: Math.min(preferences.newsLeverage, market.maxLeverage),
       });
     },
-    [evmAddress, connectEvm, markets, placeOrder, preferences.newsLeverage, fail],
+    [evmAddress, openWallets, markets, placeOrder, preferences.newsLeverage, fail],
   );
 
   const tradeSpot = useCallback(
     async (trade: NewsTrade) => {
-      if (!solanaAddress || !signTransaction) return fail("Connect a Solana wallet in the account panel to trade on Jupiter."), false;
+      if (!solanaAddress || !signTransaction) {
+        fail("Connect a Solana wallet to trade on Jupiter.");
+        openWallets();
+        return false;
+      }
       try {
         const [usdc, token] = await Promise.all([jupiterVenue.quoteToken(), jupiterVenue.resolveToken({ symbol: trade.symbol, mint: trade.mint })]);
         if (!token) return fail(`${trade.symbol} has no verified token on Jupiter.`), false;
@@ -115,7 +121,7 @@ export function useNewsTrader() {
         return false;
       }
     },
-    [solanaAddress, signTransaction, fail, toast],
+    [solanaAddress, signTransaction, fail, toast, openWallets],
   );
 
   return useCallback(

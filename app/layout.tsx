@@ -9,6 +9,7 @@ import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { TradingSetupDialog } from "@/components/terminal/trading-setup-dialog";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
+import { WalletModalProvider } from "@/components/terminal/wallet-modal";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { preferencesScript } from "@/lib/preferences";
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <SolanaWalletProvider>
                 <SelectedAssetProvider>
                   <TradingProvider>
+                  <WalletModalProvider>
                   <TradeTicketProvider>
                     <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <TickerBar />
@@ -60,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <TradingSetupDialog />
                     <UpdateNotice />
                   </TradeTicketProvider>
+                  </WalletModalProvider>
                   </TradingProvider>
                 </SelectedAssetProvider>
               </SolanaWalletProvider>

@@ -98,6 +98,20 @@ export function TradingSettings() {
           </label>
           <SizeSelect label="Default perp size (keyboard)" presets={sizePresets.perp} value={preferences.defaultPerpUsd} onChange={(value) => updatePreference("defaultPerpUsd", value)} />
           <SizeSelect label="Default spot size (keyboard)" presets={sizePresets.spot} value={preferences.defaultSpotUsd} onChange={(value) => updatePreference("defaultSpotUsd", value)} />
+          <label className="flex items-center gap-3 text-[13px]">
+            <span className="flex-1 font-medium text-app-ink">Leverage for perp trades</span>
+            <select
+              value={preferences.newsLeverage}
+              onChange={(event) => updatePreference("newsLeverage", Number(event.target.value))}
+              className="h-8 rounded-lg border border-app-hairline-strong bg-app-chip px-2 text-[12px] tabular-nums text-app-ink"
+            >
+              {[...new Set([1, 2, 3, 5, 10, 20, preferences.newsLeverage])].sort((a, b) => a - b).map((value) => (
+                <option key={value} value={value}>
+                  {value}x
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="h-px bg-app-hairline" />
           <label className="flex items-center gap-3 text-[13px]">
             <span className="flex-1 font-medium text-app-ink">High-impact threshold</span>
