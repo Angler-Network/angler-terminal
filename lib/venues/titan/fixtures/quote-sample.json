@@ -1,0 +1,54 @@
+{
+  "id": "swap:2afe554d-af4f-4c5d-a1c1-3f1fd6eb605a:0",
+  "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "outputMint": "So11111111111111111111111111111111111111112",
+  "amount": 100000000,
+  "quotes": {
+    "Titan": {
+      "inAmount": 100000000,
+      "outAmount": 994000000,
+      "slippageBps": 50,
+      "steps": [],
+      "instructions": [
+        {
+          "p": "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT",
+          "a": [{ "p": "8AdYBZcRixYVacvhGG2PBNruyoWfmagR6aiBUq6qE1nf", "s": true, "w": true }],
+          "d": "AQID"
+        }
+      ],
+      "addressLookupTables": ["9Re4PV8SstkAFveSuVckncTJakQVS8aT3z8uZvWRY4QA"],
+      "contextSlot": 447800832,
+      "computeUnits": 85743,
+      "computeUnitsSafe": 171486
+    },
+    "Titan-DART": {
+      "inAmount": 100000000,
+      "outAmount": 995000000,
+      "slippageBps": 50,
+      "steps": [],
+      "instructions": [
+        {
+          "p": "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT",
+          "a": [{ "p": "8AdYBZcRixYVacvhGG2PBNruyoWfmagR6aiBUq6qE1nf", "s": true, "w": true }],
+          "d": "BAUG"
+        }
+      ],
+      "addressLookupTables": ["9Re4PV8SstkAFveSuVckncTJakQVS8aT3z8uZvWRY4QA"],
+      "contextSlot": 447800832,
+      "computeUnits": 1400000,
+      "computeUnitsSafe": 1400000,
+      "referenceId": "titan_dart"
+    }
+  },
+  "metadata": {
+    "ExpectedWinner": "Titan-DART",
+    "inputMintDecimals": 6,
+    "outputMintDecimals": 9,
+    "inputPriceUSD": 1,
+    "outputPriceUSD": 100
+  },
+  "alts": [
+    { "p": "9Re4PV8SstkAFveSuVckncTJakQVS8aT3z8uZvWRY4QA", "a": ["So11111111111111111111111111111111111111112"] },
+    { "p": "Unused1111111111111111111111111111111111111", "a": [] }
+  ]
+}

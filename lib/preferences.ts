@@ -94,6 +94,8 @@ export interface Preferences extends Appearance {
   venueLighter: boolean;
   venueJupiter: boolean;
   venueArcus: boolean;
+  /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
+  venueTitan: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
   /** Which headlines the feed shows (assets, sentiment, severity, minimum impact, raw headlines). */
@@ -154,6 +156,7 @@ export const defaultPreferences: Preferences = {
   venueLighter: true,
   venueJupiter: true,
   venueArcus: true,
+  venueTitan: true,
   preferredPerpVenue: "hyperliquid",
   newsFilters: defaultNewsFilters,
   ...defaultAppearance,
@@ -273,6 +276,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
+      venueTitan: readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(

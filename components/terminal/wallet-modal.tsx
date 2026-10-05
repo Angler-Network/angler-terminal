@@ -58,7 +58,7 @@ const VENUES: VenueOption[] = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#0f3d36", live: true },
   { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
   { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#2a2a2a", live: true },
-  { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: false },
+  { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: true },
   { id: "arcus", name: "Arcus", kind: "Stock tokens", chain: "evm", domain: "arcus.xyz", color: "#0d6e4f", live: true },
 ];
 

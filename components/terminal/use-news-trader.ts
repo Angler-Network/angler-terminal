@@ -13,9 +13,11 @@ import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
+import { pickBestSpotQuote } from "@/lib/trading/best-quote";
+import { executeTitanQuote, getTitanQuote } from "@/lib/venues/titan/venue";
 import { ArcusSwapFailedError, arcusSwap, resolveArcusToken } from "@/lib/venues/arcus/venue";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
-import type { OrderSide, PerpVenueId, SpotToken, SpotVenueId } from "@/lib/venues/types";
+import type { OrderSide, PerpVenueId, SpotQuote, SpotToken, SpotVenueId } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
@@ -103,8 +105,20 @@ export function useNewsTrader() {
         const amount = usdToInputAmount(trade.sizeUsd, trade.side, usdc, token);
         if (amount <= 0n) return fail("Size is too small."), false;
 
-        const balances = await jupiterVenue.getBalances(solanaAddress, [usdc.mint, token.mint]);
-        const quote = await jupiterVenue.getQuote({ inputToken, outputToken, amount, taker: solanaAddress });
+        const input = { inputToken, outputToken, amount, taker: solanaAddress };
+        // Jupiter and Titan quote the same swap; the one with more output is executed.
+        const [balances, jupiter, titan] = await Promise.all([
+          jupiterVenue.getBalances(solanaAddress, [usdc.mint, token.mint]),
+          jupiterVenue.getQuote(input).catch((error: unknown) => error),
+          preferences.venueTitan ? getTitanQuote(input) : Promise.resolve(null),
+        ]);
+        const jupiterQuote = jupiter instanceof Error ? null : (jupiter as SpotQuote);
+        const quote = pickBestSpotQuote([jupiterQuote, titan]);
+        if (!quote) {
+          const reason = jupiter instanceof Error ? jupiter.message : jupiterQuote?.error;
+          return fail(reason ?? "This swap can't be executed."), false;
+        }
+        const viaTitan = quote === titan;
         const fees = BigInt(quote.networkFeeLamports) + SOL_FEE_BUFFER;
         const spendsSol = inputToken.mint === WSOL_MINT;
         if (amount + (spendsSol ? fees : 0n) > spendableBalance(inputToken.mint, balances.tokens, balances.lamports)) {
@@ -116,12 +130,12 @@ export function useNewsTrader() {
           return fail(`Price impact is ${quote.priceImpactPct.toFixed(2)}%, above the ${MAX_SPOT_PRICE_IMPACT_PCT}% limit. Try a smaller size.`), false;
         }
 
-        const result = await jupiterVenue.executeQuote(quote, signTransaction);
+        const result = viaTitan ? await executeTitanQuote(quote, signTransaction) : await jupiterVenue.executeQuote(quote, signTransaction);
         const bought = trade.side === "buy";
         toast({
           tone: "success",
           title: `${bought ? "Bought" : "Sold"} ${amountText(bought ? result.outAmount : result.inAmount, token)}`,
-          message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, usdc)} · min. received was ${amountText(quote.minOutAmount, outputToken)}`,
+          message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, usdc)} · min. received was ${amountText(quote.minOutAmount, outputToken)} · via ${viaTitan ? "Titan" : "Jupiter"}`,
           link: { href: result.explorerUrl, label: "View on Solscan" },
         });
         return true;
@@ -135,7 +149,7 @@ export function useNewsTrader() {
         return false;
       }
     },
-    [solanaAddress, signTransaction, fail, toast, openWallets],
+    [solanaAddress, signTransaction, fail, toast, openWallets, preferences.venueTitan],
   );
 
   const tradeArcus = useCallback(

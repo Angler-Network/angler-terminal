@@ -14,6 +14,7 @@
     "@arcus-xyz/arcus-spot-sdk": "1.0.2",
     "@nktkas/hyperliquid": "0.33.3",
     "@solana/wallet-standard-features": "1.5.0",
+    "@solana/web3.js": "1.98.4",
     "@wallet-standard/app": "1.1.1",
     "@wallet-standard/base": "1.1.1",
     "@wallet-standard/features": "1.1.1",

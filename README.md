@@ -58,6 +58,11 @@ Jupiter has no testnet: use a dedicated wallet with a few USD. Development build
 | `SOLANA_RPC_URL` | server only | RPC for wallet balances |
 | `NEXT_PUBLIC_SPOT_SIZE_PRESETS` | browser | Optional comma-separated USD presets |
 
+## Best price with Titan
+
+With `TITAN_API_KEY` set on the server (free key at https://developer.titan.exchange), every Solana spot trade asks
+Jupiter and Titan for a quote and executes the one that pays more. Without a key, Jupiter is used alone.
+
 ## Stock tokens on Arcus (Robinhood Chain)
 
 Stocks and indices that no perp venue lists can be bought and sold as tokens on Arcus with USDG. Your EVM wallet

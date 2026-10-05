@@ -389,13 +389,13 @@ function VenueSettings() {
       >
         <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
       </VenueRow>
-      {[
-        { name: "Titan", badge: "Spot · Solana", description: "Solana meta-aggregator; quotes will be compared with Jupiter for the best price." },
-      ].map((venue) => (
-        <VenueRow key={venue.name} name={venue.name} badge={venue.badge} description={venue.description}>
-          <span className="rounded-lg border border-app-hairline px-2.5 py-1 text-[12px] font-semibold text-app-muted">Coming soon</span>
-        </VenueRow>
-      ))}
+      <VenueRow
+        name="Titan"
+        badge="Spot · Solana"
+        description="Solana meta-aggregator. Every Solana spot trade asks Titan and Jupiter for a quote and executes the one that pays more. Active once the server has a Titan API key."
+      >
+        <Toggle label="Titan" checked={preferences.venueTitan} onChange={(checked) => updatePreference("venueTitan", checked)} />
+      </VenueRow>
     </>
   );
 }

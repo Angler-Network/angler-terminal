@@ -98,6 +98,12 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (`preferredPerpVenue`, default Hyperliquid) and the other enabled one as fallback (`lib/venues/routing.ts`), Jupiter
   spot when a verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today),
   then Arcus stock tokens (`spotVenue: "arcus"`) when nothing else lists the asset.
+- Titan (`lib/venues/titan/`): second Solana spot quote source via the REST Portal (`portal.api.titan.exchange`,
+  `x-api-key: TITAN_API_KEY`, server only; the SDK is WebSocket/Enterprise-only, don't use it). `app/api/titan/order`
+  takes the `ExpectedWinner` route and builds the unsigned v0 transaction server-side with `@solana/web3.js`
+  (Titan returns instructions only); `app/api/titan/execute` sends the signed tx through `SOLANA_RPC_URL` and waits
+  for confirmation. `use-news-trader.ts` asks Jupiter and Titan in parallel and executes the larger output
+  (`lib/trading/best-quote.ts`, Jupiter wins ties). No key → 503 → Jupiter alone. Partner fees need Titan approval.
 - Arcus (`lib/venues/arcus/`): stock/index tokens on Robinhood Chain (testnet 46630, mainnet 4663;
   `NEXT_PUBLIC_ARCUS_NETWORK`, testnet default), via `@arcus-xyz/arcus-spot-sdk` for signing only.
   - The browser calls `app/api/arcus/[...path]` (tokens, price, quote, status, submit only): the mainnet router allows
@@ -126,8 +132,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
 - `components/app/alpha-notice.tsx` shows a welcome tour (copy in `welcome-slides.ts`) followed by the alpha warning
   once per browser (bump `ACK_KEY` to show it again; Settings → About reopens it) and the "Alpha" badge in the top bar.
-- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter, Arcus live;
-  Titan "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
+- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter, Titan, Arcus). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
