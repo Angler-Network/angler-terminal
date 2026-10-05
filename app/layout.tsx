@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
+import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
+import { SettingsDialog } from "@/components/app/settings-dialog";
+import { Sidebar } from "@/components/app/sidebar";
 import { TickerBar } from "@/components/app/ticker-bar";
 import { ToastProvider } from "@/components/app/toast-provider";
 import { UpdateNotice } from "@/components/app/update-notice";
@@ -55,10 +58,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <TradingProvider>
                   <WalletModalProvider>
                   <TradeTicketProvider>
-                    <div className="app-shell relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
-                      <TickerBar />
-                      <main className="min-h-0 flex-1 p-2">{children}</main>
+                    <div className="app-shell relative flex h-full overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
+                      <Sidebar />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <TickerBar />
+                        <main className="min-h-0 flex-1 p-2">{children}</main>
+                      </div>
                     </div>
+                    <SettingsDialog />
+                    <AlphaNotice />
                     <TradingSetupDialog />
                     <UpdateNotice />
                   </TradeTicketProvider>
