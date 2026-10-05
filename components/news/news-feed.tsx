@@ -15,18 +15,22 @@ import { useNewsSound } from "./use-news-sound";
 const IMPORTANCE_FILTERS = [0, 40, 60, 80];
 const FLASH_MS = 4_000;
 
-const statusLabels: Record<FeedStatus, { label: string; dot: string }> = {
-  connecting: { label: "Connecting", dot: "bg-app-faint animate-pulse" },
-  live: { label: "Live", dot: "bg-app-up" },
-  reconnecting: { label: "Reconnecting", dot: "bg-[#f5c97b] animate-pulse" },
-  offline: { label: "Offline", dot: "bg-app-down" },
-  unconfigured: { label: "No API key", dot: "bg-app-down" },
+const statusLabels: Record<FeedStatus, { label: string; dot: string; hint: string }> = {
+  connecting: { label: "Connecting", dot: "bg-app-faint animate-pulse", hint: "Opening the realtime connection." },
+  live: { label: "Live", dot: "bg-app-up shadow-[0_0_0_3px_rgb(var(--app-up)/0.2)]", hint: "Streaming news in real time." },
+  reconnecting: { label: "Reconnecting", dot: "bg-[#f5c97b] animate-pulse", hint: "Realtime dropped; reconnecting." },
+  polling: { label: "Polling", dot: "bg-[#f5c97b]", hint: "Realtime is unavailable, so the feed refreshes every 15 seconds." },
+  offline: { label: "Offline", dot: "bg-app-down", hint: "Can't reach the news service." },
+  unconfigured: { label: "No API key", dot: "bg-app-down", hint: "Set ANGLER_API_KEY on the server." },
 };
 
-function FeedStatusBadge({ status }: { status: FeedStatus }) {
-  const { label, dot } = statusLabels[status];
+function FeedStatusBadge({ status, error }: { status: FeedStatus; error: string | null }) {
+  const { label, dot, hint } = statusLabels[status];
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-app-muted">
+    <span
+      title={error && status !== "live" ? `${hint}\nLast error: ${error}` : hint}
+      className="inline-flex items-center gap-1.5 rounded-full border border-app-hairline px-2 py-0.5 text-[11px] font-medium text-app-muted"
+    >
       <span aria-hidden className={`size-1.5 rounded-full ${dot}`} />
       {label}
     </span>
@@ -70,7 +74,7 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
   const { symbol, selectAsset } = useSelectedAsset();
   const { ticket, arm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
   const [onlySelected, setOnlySelected] = useState(false);
-  const { items, status, hasMore, isLoadingMore, loadMore, historyError } = feed;
+  const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
   const shown = onlySelected ? items.filter((item) => item.coins?.includes(symbol)) : items;
   const flashing = useHighImpactFlash(items);
   useNewsSound(items, shown, status === "live");
@@ -124,7 +128,8 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-app-hairline px-3 py-2">
         <h2 className="text-[13px] font-semibold text-app-ink">News</h2>
-        <FeedStatusBadge status={status} />
+        <FeedStatusBadge status={status} error={liveError} />
+        {items.length > 0 && <span className="text-[11px] tabular-nums text-app-faint">{shown.length}</span>}
         <div role="group" aria-label="Minimum importance" className="ml-auto flex gap-0.5 rounded-lg bg-app-chip p-0.5">
           {IMPORTANCE_FILTERS.map((value) => (
             <button
@@ -160,7 +165,18 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
         )}
         {historyError && <p className="py-3 text-center text-[12px] text-app-danger">{historyError}</p>}
         {shown.length === 0 && status !== "unconfigured" && !historyError && (
-          <p className="py-6 text-center text-[12px] text-app-muted">Waiting for news…</p>
+          <div className="flex flex-col gap-3 py-3" aria-label="Loading news">
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="flex gap-3">
+                <span className="size-8 shrink-0 animate-pulse rounded-lg bg-app-chip" />
+                <span className="flex flex-1 flex-col gap-1.5">
+                  <span className="h-2.5 w-1/3 animate-pulse rounded bg-app-chip" />
+                  <span className="h-3 w-full animate-pulse rounded bg-app-chip" />
+                  <span className="h-3 w-2/3 animate-pulse rounded bg-app-chip" />
+                </span>
+              </div>
+            ))}
+          </div>
         )}
         {shown.map((item) => (
           <NewsCard

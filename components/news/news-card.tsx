@@ -1,30 +1,41 @@
 "use client";
 
-import { Bell, Newspaper } from "lucide-react";
+import { Bell, ExternalLink } from "lucide-react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
-import type { Direction, NewsItem } from "@/lib/types";
+import type { Direction, NewsItem, Severity } from "@/lib/types";
 import { MarketReactionButton } from "./market-reaction-button";
-import { ScoreBadge } from "./score-badge";
 import { SeverityBadge } from "./severity-badge";
-import { SourceLabel } from "./source-label";
 import { SymbolChip } from "./symbol-chip";
 
 const MAX_CHIPS = 4;
+const NEUTRAL_SENTIMENT = 0.15;
 
 interface NewsCardProps {
   item: NewsItem;
+  /** Clicking an asset chip selects that asset in the chart. */
+  onSelectAsset?: (symbol: string, mint?: string) => void;
+  selectedSymbol?: string;
   /** Rendered right after the lead asset chip (trade buttons). */
   renderLeadActions?: (lead: { symbol: string; direction: Direction; mint?: string }) => React.ReactNode;
   isSelected?: boolean;
   /** Briefly highlights a high-impact arrival. */
   isFlashing?: boolean;
   onSelect?: () => void;
-  /** Clicking an asset chip selects that asset in the chart. */
-  onSelectAsset?: (symbol: string, mint?: string) => void;
-  selectedSymbol?: string;
 }
+
+const accent: Record<Severity, string> = {
+  breaking: "bg-[#ef5350]",
+  important: "bg-[#f5a524]",
+  notable: "bg-transparent",
+};
+
+const meterFill: Record<Severity, string> = {
+  breaking: "bg-[#ef5350]",
+  important: "bg-[#f5a524]",
+  notable: "bg-app-muted",
+};
 
 function chipsFor(item: NewsItem): { symbol: string; direction: Direction }[] {
   const coins = item.coins?.length ? item.coins : [];
@@ -34,29 +45,73 @@ function chipsFor(item: NewsItem): { symbol: string; direction: Direction }[] {
   });
 }
 
+function ImpactMeter({ item }: { item: NewsItem }) {
+  if (!item.enriched) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-app-faint" title="Waiting for analysis">
+        <span className="h-1.5 w-12 animate-pulse rounded-full bg-app-chip" />
+        Analyzing
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5" title={`Impact score ${item.score}/100 (model output)`}>
+      <span className="h-1.5 w-12 overflow-hidden rounded-full bg-app-chip">
+        <span className={`block h-full rounded-full ${meterFill[item.severity]}`} style={{ width: `${Math.max(4, item.score)}%` }} />
+      </span>
+      <span className="text-[12px] font-semibold tabular-nums text-app-ink">{item.score}</span>
+    </span>
+  );
+}
+
+function SentimentPill({ sentiment }: { sentiment: number }) {
+  const tone =
+    sentiment >= NEUTRAL_SENTIMENT
+      ? { label: "Bullish", className: "bg-app-up/10 text-app-up" }
+      : sentiment <= -NEUTRAL_SENTIMENT
+        ? { label: "Bearish", className: "bg-app-down/10 text-app-down" }
+        : { label: "Neutral", className: "bg-app-chip text-app-muted" };
+  return (
+    <span
+      title={`Sentiment ${sentiment.toFixed(2)} (model output)`}
+      className={`rounded px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.06em] ${tone.className}`}
+    >
+      {tone.label}
+    </span>
+  );
+}
+
+function SourceMonogram({ source }: { source?: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-app-hairline-strong bg-app-chip text-[13px] font-semibold uppercase text-app-muted"
+    >
+      {source?.charAt(0) ?? "•"}
+    </span>
+  );
+}
+
 export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadActions, isSelected, isFlashing, onSelect }: NewsCardProps) {
   const t = useT();
   const chips = chipsFor(item);
-  const hasAsset = chips.length > 0;
+  const [source, ...otherSources] = item.sources;
+  const publishedAt = item.publishedAt ? new Date(item.publishedAt) : null;
 
   return (
     <article
       onClick={onSelect}
       aria-current={isSelected || undefined}
-      className={`-mx-3 flex gap-3 border-b border-l-2 border-b-app-hairline px-3 py-[var(--news-padding)] transition-colors duration-700 last:border-b-0 ${
-        isSelected ? "border-l-app-accent bg-app-chip/40" : "border-l-transparent"
+      className={`group relative -mx-3 flex cursor-default gap-3 border-b border-app-hairline px-3 py-[var(--news-padding)] transition-colors last:border-b-0 hover:bg-app-chip/25 ${
+        isSelected ? "bg-app-chip/45" : ""
       } ${isFlashing ? "news-flash" : ""}`}
     >
-      {hasAsset ? (
-        <MarketIcon symbol={item.symbol} size={32} />
-      ) : (
-        <span aria-hidden className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-app-chip text-app-muted">
-          <Newspaper className="size-4" />
-        </span>
-      )}
+      <span aria-hidden className={`absolute inset-y-2 left-0 w-[3px] rounded-r ${isSelected ? "bg-app-accent" : accent[item.severity]}`} />
+
+      {chips.length > 0 ? <MarketIcon symbol={item.symbol} size={32} /> : <SourceMonogram source={source} />}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] text-app-muted">
           {item.enriched ? (
             <SeverityBadge severity={item.severity} />
           ) : (
@@ -65,23 +120,33 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
               Raw
             </span>
           )}
-          {item.alerted && (
-            <span className="inline-flex size-[18px] items-center justify-center rounded bg-[#fbefd6] text-[#c27c12]">
-              <Bell className="size-3" aria-label={t("news.alertSet")} />
+          {source && (
+            <span className="min-w-0 truncate font-medium text-app-ink/80" title={item.sources.join(", ")}>
+              {source}
+              {otherSources.length > 0 && <span className="text-app-faint"> +{otherSources.length}</span>}
             </span>
           )}
+          {item.alerted && <Bell className="size-3 shrink-0 text-[#c27c12]" aria-label={t("news.alertSet")} />}
           <time
-            dateTime={item.publishedAt ? new Date(item.publishedAt).toISOString() : undefined}
-            className="ml-auto text-[12px] tabular-nums text-app-muted"
+            dateTime={publishedAt?.toISOString()}
+            title={publishedAt?.toLocaleString()}
+            className="ml-auto shrink-0 tabular-nums text-app-faint"
           >
             {formatRelativeTime(item.minutesAgo, t)}
           </time>
         </div>
 
-        <h3 className="mt-1.5 text-[14px] font-semibold leading-snug text-app-ink">
+        <h3 className="mt-1 text-[14px] font-semibold leading-snug text-app-ink">
           {item.url ? (
-            <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="decoration-app-faint underline-offset-2 hover:underline"
+            >
               {item.headline}
+              <ExternalLink className="ml-1 inline size-3 align-baseline text-app-faint opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
             </a>
           ) : (
             item.headline
@@ -90,10 +155,9 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
 
         {item.summary && <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-app-muted">{item.summary}</p>}
 
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
-            {chips.map((chip, index) => (
-              <span key={chip.symbol} className="inline-flex items-center gap-1">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {chips.map((chip, index) => (
+            <span key={chip.symbol} className="inline-flex items-center gap-1">
               <button
                 type="button"
                 onClick={(event) => {
@@ -103,20 +167,19 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
                 }}
                 aria-pressed={selectedSymbol === chip.symbol}
                 title={`Show ${chip.symbol} on the chart`}
-                className={`rounded-md px-1 py-0.5 transition-colors hover:bg-app-chip ${
-                  selectedSymbol === chip.symbol ? "bg-app-chip ring-1 ring-app-hairline-strong" : ""
+                className={`rounded-md border px-1.5 py-0.5 transition-colors hover:bg-app-chip ${
+                  selectedSymbol === chip.symbol ? "border-app-hairline-strong bg-app-chip" : "border-app-hairline"
                 }`}
               >
                 <SymbolChip symbol={chip.symbol} direction={chip.direction} />
               </button>
               {index === 0 && renderLeadActions?.({ symbol: chip.symbol, direction: chip.direction, mint: item.mints?.[chip.symbol] })}
-              </span>
-            ))}
-          </div>
-          {item.enriched && <ScoreBadge score={item.score} />}
-          <div className="ml-auto min-w-0">
-            <SourceLabel sources={item.sources} />
-          </div>
+            </span>
+          ))}
+          <span className="ml-auto inline-flex items-center gap-2">
+            {item.enriched && <SentimentPill sentiment={item.sentiment} />}
+            <ImpactMeter item={item} />
+          </span>
         </div>
 
         {item.marketReaction && (
