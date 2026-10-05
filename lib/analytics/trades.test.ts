@@ -14,6 +14,8 @@ describe("readTradeEvent", () => {
   it("rejects unknown venues and sides, and drops malformed news ids", () => {
     expect(readTradeEvent({ venue: "binance", side: "buy" })).toBeNull();
     expect(readTradeEvent({ venue: "hyperliquid", side: "long" })).toBeNull();
+    expect(readTradeEvent({ venue: "lighter", side: "sell" })?.venue).toBe("lighter");
+    expect(readTradeEvent({ venue: "binance", side: "sell" })).toBeNull();
     expect(readTradeEvent({ venue: "hyperliquid", side: "sell", newsId: "<script>" })?.newsId).toBeNull();
   });
 });

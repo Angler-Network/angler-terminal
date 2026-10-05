@@ -12,7 +12,9 @@ import { MESSAGES } from "@/lib/venues/jupiter/errors";
 import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
-import type { OrderSide, SpotToken } from "@/lib/venues/types";
+import { minimumSize } from "@/lib/venues/lighter/pricing";
+import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
+import type { OrderSide, PerpVenueId, SpotToken } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
@@ -25,6 +27,8 @@ export interface NewsTrade {
   symbol: string;
   mint?: string;
   venue: TradeVenueKind;
+  /** Perp venue chosen when the ticket was armed; re-resolved if missing. */
+  perpVenue?: PerpVenueId;
   side: OrderSide;
   sizeUsd: number;
   newsId?: string;
@@ -36,33 +40,38 @@ function amountText(amount: bigint, token: SpotToken) {
 }
 
 /**
- * Places news trades without an order form. Perps: market order at the configured leverage through the
- * Hyperliquid venue (which opens the trading setup when needed). Spot: balance checks, a fresh Jupiter quote with
- * a price impact guard, wallet signature, execute. Resolves to whether the trade was placed.
+ * Places news trades without an order form. Perps: market order at the configured leverage on the ticket's perp
+ * venue (Hyperliquid or Lighter; the provider opens that venue's setup when needed). Spot: balance checks, a fresh
+ * Jupiter quote with a price impact guard, wallet signature, execute. Resolves to whether the trade was placed.
  */
 export function useNewsTrader() {
   const toast = useToast();
   const { preferences } = usePreferences();
   const { address: evmAddress } = useWallet();
   const { open: openWallets } = useWalletModal();
-  const { markets, placeOrder } = useTrading();
+  const { marketsByVenue, perpOrder, placeOrder } = useTrading();
   const { address: solanaAddress, signTransaction } = useSolanaWallet();
 
   const fail = useCallback((message: string) => toast({ tone: "error", title: "Order not placed", message }), [toast]);
 
   const tradePerp = useCallback(
     async (trade: NewsTrade) => {
+      const venueName = trade.perpVenue ? PERP_VENUE_NAMES[trade.perpVenue] : "a perp venue";
       if (!evmAddress) {
-        fail("Connect an EVM wallet to trade on Hyperliquid.");
+        fail(`Connect an EVM wallet to trade on ${venueName}.`);
         openWallets();
         return false;
       }
-      const market = markets ? findMarket(markets, trade.symbol) : null;
-      if (!market) return fail(`${trade.symbol} isn't listed on Hyperliquid.`), false;
+      const venueMarkets = trade.perpVenue ? marketsByVenue[trade.perpVenue] : undefined;
+      const market = venueMarkets ? findMarket(venueMarkets, trade.symbol) : (pickPerpMarket(trade.symbol, marketsByVenue, perpOrder) ?? null);
+      if (!market) return fail(`${trade.symbol} isn't listed on ${venueName}.`), false;
       const price = market.midPx ?? market.markPx;
       if (!price) return fail(`No price for ${trade.symbol} right now.`), false;
       const size = sizeForNotional(trade.sizeUsd, price, market.szDecimals);
       if (!(size > 0)) return fail(`$${trade.sizeUsd} is below ${trade.symbol}'s minimum lot.`), false;
+      if (market.venue === "lighter" && size < minimumSize(market, price)) {
+        return fail(`$${trade.sizeUsd} is below Lighter's ${trade.symbol} minimum (about $${Math.ceil(minimumSize(market, price) * price)}).`), false;
+      }
       return placeOrder({
         market,
         side: trade.side,
@@ -71,7 +80,7 @@ export function useNewsTrader() {
         leverage: Math.min(preferences.newsLeverage, market.maxLeverage),
       });
     },
-    [evmAddress, openWallets, markets, placeOrder, preferences.newsLeverage, fail],
+    [evmAddress, openWallets, marketsByVenue, perpOrder, placeOrder, preferences.newsLeverage, fail],
   );
 
   const tradeSpot = useCallback(
@@ -129,7 +138,7 @@ export function useNewsTrader() {
       const placed = trade.venue === "perp" ? await tradePerp(trade) : await tradeSpot(trade);
       if (placed) {
         trackTrade({
-          venue: trade.venue === "perp" ? "hyperliquid" : "jupiter",
+          venue: trade.venue === "perp" ? (trade.perpVenue ?? "hyperliquid") : "jupiter",
           side: trade.side,
           newsId: trade.newsId ?? null,
           oneClick: trade.oneClick,

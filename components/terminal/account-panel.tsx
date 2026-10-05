@@ -1,9 +1,11 @@
 "use client";
 
-import { KeyRound } from "lucide-react";
+import { ExternalLink, KeyRound } from "lucide-react";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
+import { lighterConfig } from "@/lib/venues/lighter/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import type { SpotBalances } from "@/lib/venues/types";
@@ -68,7 +70,7 @@ function TradingKeyStatus() {
   return (
     <button
       type="button"
-      onClick={openSetup}
+      onClick={() => openSetup("hyperliquid")}
       className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-left text-[12px] text-app-muted hover:text-app-ink"
     >
       <KeyRound className="size-3.5" aria-hidden />
@@ -78,12 +80,76 @@ function TradingKeyStatus() {
 }
 
 function HyperliquidSection() {
-  const { account, network } = useTrading();
+  const { accounts, network } = useTrading();
+  const account = accounts.hyperliquid ?? null;
   return (
     <Section title="Hyperliquid perps" badge={network === "testnet" ? "Testnet" : "Mainnet"}>
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Withdrawable">{account ? formatPrice(account.withdrawable) : "—"}</Row>
       <TradingKeyStatus />
+    </Section>
+  );
+}
+
+function LighterKeyStatus() {
+  const { lighter, revokeLighter, openSetup } = useTrading();
+  const [isRevoking, setIsRevoking] = useState(false);
+  if (!lighter) return <p className="text-[12px] text-app-faint">Checking Lighter account…</p>;
+  if (lighter.accountIndex === null) {
+    return (
+      <a
+        href={lighterConfig.appUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-[12px] text-app-muted hover:text-app-ink"
+      >
+        <ExternalLink className="size-3.5" aria-hidden />
+        No Lighter account yet. Deposit USDC on Lighter
+      </a>
+    );
+  }
+  if (lighter.keyReady && lighter.integrator !== "needed") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-app-hairline px-2.5 py-2 text-[12px]">
+        <KeyRound className="size-3.5 text-app-up" aria-hidden />
+        <span className="font-medium text-app-ink" title={`Account ${lighter.accountIndex}, key index ${lighterConfig.apiKeyIndex}`}>
+          Trading key active
+        </span>
+        <button
+          type="button"
+          disabled={isRevoking}
+          onClick={async () => {
+            setIsRevoking(true);
+            await revokeLighter();
+            setIsRevoking(false);
+          }}
+          className="ml-auto font-semibold text-app-down hover:underline disabled:opacity-60"
+        >
+          {isRevoking ? "Revoking…" : "Revoke"}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => openSetup("lighter")}
+      className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-left text-[12px] text-app-muted hover:text-app-ink"
+    >
+      <KeyRound className="size-3.5" aria-hidden />
+      No Lighter trading key yet. Set up trading
+    </button>
+  );
+}
+
+function LighterSection() {
+  const { accounts, lighterNetwork } = useTrading();
+  const account = accounts.lighter ?? null;
+  return (
+    <Section title="Lighter perps" badge={lighterNetwork === "testnet" ? "Testnet" : "Mainnet"}>
+      <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
+      <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <LighterKeyStatus />
     </Section>
   );
 }
@@ -127,17 +193,19 @@ export function useHasWallet() {
 }
 
 /**
- * Balances and the Hyperliquid trading key for the connected wallets. Hidden until a wallet is connected; wallets
+ * Balances and the perp trading keys (Hyperliquid, Lighter) for the connected wallets. Hidden until a wallet is connected; wallets
  * themselves are managed from the Connect button. Orders are placed from news cards.
  */
 export function AccountPanel() {
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
+  const { preferences } = usePreferences();
   if (!evmAddress && !solanaAddress) return null;
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <div className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55">
         {evmAddress && <HyperliquidSection />}
+        {evmAddress && preferences.venueLighter && <LighterSection />}
         {solanaAddress && <JupiterSection />}
       </div>
       <p className="shrink-0 px-1 text-center text-[10px] leading-tight text-app-faint">{DISCLAIMER}</p>

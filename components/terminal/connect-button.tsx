@@ -36,7 +36,7 @@ export function ConnectButton() {
       className="inline-flex h-9 items-center gap-2 rounded-xl border border-app-hairline-strong bg-app-card/60 px-3 text-[12px] font-medium tabular-nums text-app-ink hover:bg-app-card"
     >
       <span aria-hidden className="size-1.5 rounded-full bg-app-up" />
-      {evmAddress && <span title="Hyperliquid (EVM)">{short(evmAddress)}</span>}
+      {evmAddress && <span title="EVM wallet (Hyperliquid, Lighter)">{short(evmAddress)}</span>}
       {evmAddress && solanaAddress && <span className="text-app-faint">·</span>}
       {solanaAddress && <span title="Jupiter (Solana)">{short(solanaAddress)}</span>}
     </button>

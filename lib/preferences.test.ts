@@ -16,3 +16,17 @@ describe("appearance defaults", () => {
     expect(current).toMatchObject({ theme: "midnight", surfaceStyle: "glass" });
   });
 });
+
+describe("perp venue preferences", () => {
+  it("defaults to Hyperliquid first with Lighter enabled as the fallback", () => {
+    expect(parsePreferences(null)).toMatchObject({ venueHyperliquid: true, venueLighter: true, preferredPerpVenue: "hyperliquid" });
+  });
+
+  it("reads a stored Lighter preference and rejects unknown venues", () => {
+    expect(parsePreferences(JSON.stringify({ preferredPerpVenue: "lighter", venueLighter: false }))).toMatchObject({
+      preferredPerpVenue: "lighter",
+      venueLighter: false,
+    });
+    expect(parsePreferences(JSON.stringify({ preferredPerpVenue: "binance" })).preferredPerpVenue).toBe("hyperliquid");
+  });
+});

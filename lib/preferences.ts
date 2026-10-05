@@ -5,6 +5,7 @@ import {
   readAppearance,
   type Appearance,
 } from "./appearance";
+import type { PerpVenueId } from "./venues/types";
 import {
   DEFAULT_TAPE_MARKET,
   DEFAULT_TAPE_SOURCE,
@@ -87,7 +88,10 @@ export interface Preferences extends Appearance {
   appearanceVersion: number;
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
+  venueLighter: boolean;
   venueJupiter: boolean;
+  /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
+  preferredPerpVenue: PerpVenueId;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
@@ -140,7 +144,9 @@ export const defaultPreferences: Preferences = {
   newsLeverage: 5,
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: true,
+  venueLighter: true,
   venueJupiter: true,
+  preferredPerpVenue: "hyperliquid",
   ...defaultAppearance,
 };
 
@@ -241,7 +247,9 @@ export function parsePreferences(raw: string | null): Preferences {
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
+      venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
+      preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
       ...readAppearance(
         stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },
       ),

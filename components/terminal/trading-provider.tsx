@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import {
@@ -12,28 +13,62 @@ import {
 } from "@/lib/venues/hyperliquid/onboarding";
 import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
 import { toVenueError } from "@/lib/venues/hyperliquid/errors";
-import type { AccountSnapshot, PlaceOrderInput, VenueMarket, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
+import { lighterConfig } from "@/lib/venues/lighter/config";
+import { toLighterVenueError } from "@/lib/venues/lighter/errors";
+import {
+  approveLighterIntegrator,
+  getLighterOnboarding,
+  registerLighterKey,
+  revokeLighterKey,
+  type LighterOnboarding,
+} from "@/lib/venues/lighter/onboarding";
+import { lighterVenue } from "@/lib/venues/lighter/venue";
+import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
+import type {
+  AccountSnapshot,
+  PerpVenue,
+  PerpVenueId,
+  PlaceOrderInput,
+  VenueMarket,
+  VenueOpenOrder,
+  VenuePosition,
+} from "@/lib/venues/types";
 import { formatPrice } from "@/lib/format";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venue = hyperliquidVenue;
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue };
 
 interface TradingContextValue {
-  venueName: string;
+  /** Hyperliquid network (the chart and the EVM wallet group follow it). */
   network: "mainnet" | "testnet";
+  lighterNetwork: "mainnet" | "testnet";
+  /** Hyperliquid markets, for the chart. */
   markets: VenueMarket[] | null;
-  /** The venue market for the selected asset, null if the venue doesn't list it, undefined while loading. */
+  /** The Hyperliquid market for the selected asset, null if not listed, undefined while loading. */
   market: VenueMarket | null | undefined;
+  /** Markets of every enabled perp venue, for routing news trades. */
+  marketsByVenue: MarketsByVenue;
+  /** Enabled perp venues, preferred first. */
+  perpOrder: PerpVenueId[];
   onboarding: OnboardingStatus | null;
+  lighter: LighterOnboarding | null;
   isReady: boolean;
+  isVenueReady: (venue: PerpVenueId) => boolean;
+  /** Positions and orders of every perp venue, merged. */
   account: AccountSnapshot | null;
+  accounts: Partial<Record<PerpVenueId, AccountSnapshot | null>>;
+  setupVenue: PerpVenueId | null;
   isSetupOpen: boolean;
-  openSetup: () => void;
+  openSetup: (venue?: PerpVenueId) => void;
   closeSetup: () => void;
   approveBuilder: () => Promise<boolean>;
   createAgent: () => Promise<boolean>;
   revoke: () => Promise<void>;
+  refreshLighter: () => Promise<void>;
+  registerLighter: () => Promise<boolean>;
+  approveLighter: () => Promise<boolean>;
+  revokeLighter: () => Promise<void>;
   placeOrder: (input: PlaceOrderInput) => Promise<boolean>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
   closePosition: (position: VenuePosition) => Promise<void>;
@@ -47,21 +82,14 @@ export function useTrading() {
   return context;
 }
 
-export function TradingProvider({ children }: { children: React.ReactNode }) {
-  const toast = useToast();
-  const { address, walletClient } = useWallet();
-  const { symbol } = useSelectedAsset();
+function venueError(venue: PerpVenueId, error: unknown) {
+  return venue === "lighter" ? toLighterVenueError(error) : toVenueError(error);
+}
+
+function useVenueMarkets(venue: PerpVenue, enabled: boolean) {
   const [markets, setMarkets] = useState<VenueMarket[] | null>(null);
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [account, setAccount] = useState<AccountSnapshot | null>(null);
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
-
-  const fail = useCallback(
-    (title: string, error: unknown) => toast({ tone: "error", title, message: toVenueError(error).message }),
-    [toast],
-  );
-
   useEffect(() => {
+    if (!enabled) return;
     let isActive = true;
     venue
       .listMarkets()
@@ -70,7 +98,29 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [venue, enabled]);
+  return markets;
+}
+
+export function TradingProvider({ children }: { children: React.ReactNode }) {
+  const toast = useToast();
+  const { preferences } = usePreferences();
+  const { address, walletClient } = useWallet();
+  const { symbol } = useSelectedAsset();
+  const lighterEnabled = preferences.venueLighter;
+  // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
+  const markets = useVenueMarkets(hyperliquidVenue, true);
+  const lighterMarkets = useVenueMarkets(lighterVenue, lighterEnabled);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [lighter, setLighter] = useState<LighterOnboarding | null>(null);
+  const [hlAccount, setHlAccount] = useState<AccountSnapshot | null>(null);
+  const [lighterAccount, setLighterAccount] = useState<AccountSnapshot | null>(null);
+  const [setupVenue, setSetupVenue] = useState<PerpVenueId | null>(null);
+
+  const fail = useCallback(
+    (venue: PerpVenueId, title: string, error: unknown) => toast({ tone: "error", title, message: venueError(venue, error).message }),
+    [toast],
+  );
 
   const market = useMemo(() => {
     if (!markets) return undefined;
@@ -79,6 +129,19 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       markets.find((entry) => entry.symbol === upper && entry.dex === "") ?? markets.find((entry) => entry.symbol === upper) ?? null
     );
   }, [markets, symbol]);
+
+  const marketsByVenue = useMemo<MarketsByVenue>(
+    () => ({
+      hyperliquid: preferences.venueHyperliquid ? (markets ?? undefined) : [],
+      lighter: lighterEnabled ? (lighterMarkets ?? undefined) : [],
+    }),
+    [preferences.venueHyperliquid, markets, lighterEnabled, lighterMarkets],
+  );
+
+  const perpOrder = useMemo(
+    () => perpVenueOrder(preferences.preferredPerpVenue, { hyperliquid: preferences.venueHyperliquid, lighter: lighterEnabled }),
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled],
+  );
 
   const refreshOnboarding = useCallback(async () => {
     if (!address) return setOnboarding(null);
@@ -89,21 +152,48 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [address]);
 
+  const refreshLighter = useCallback(async () => {
+    if (!address || !lighterEnabled) return setLighter(null);
+    try {
+      setLighter(await getLighterOnboarding(address));
+    } catch {
+      setLighter({ accountIndex: null, keyReady: false, integrator: lighterConfig.integrator ? "needed" : "none" });
+    }
+  }, [address, lighterEnabled]);
+
   useEffect(() => {
     setOnboarding(null);
     void refreshOnboarding();
   }, [refreshOnboarding]);
 
   useEffect(() => {
-    setAccount(null);
+    setLighter(null);
+    void refreshLighter();
+  }, [refreshLighter]);
+
+  useEffect(() => {
+    setHlAccount(null);
     if (!address) return;
-    return venue.subscribeAccount(address, {
-      onSnapshot: setAccount,
-      onError: (error) => fail("Live account updates failed", error),
+    return hyperliquidVenue.subscribeAccount(address, {
+      onSnapshot: setHlAccount,
+      onError: (error) => fail("hyperliquid", "Live account updates failed", error),
     });
   }, [address, fail]);
 
+  // Resubscribes once a key is registered: open orders need an auth token signed by it.
+  const lighterKeyReady = Boolean(lighter?.keyReady);
+  useEffect(() => {
+    setLighterAccount(null);
+    if (!address || !lighterEnabled) return;
+    return lighterVenue.subscribeAccount(address, {
+      onSnapshot: setLighterAccount,
+      onError: (error) => console.warn(`[lighter] account stream: ${toLighterVenueError(error).message}`),
+    });
+  }, [address, lighterEnabled, lighterKeyReady]);
+
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
+  const lighterReady = Boolean(lighter && lighter.accountIndex !== null && lighter.keyReady && lighter.integrator !== "needed");
+  const isVenueReady = useCallback((venue: PerpVenueId) => (venue === "lighter" ? lighterReady : isReady), [isReady, lighterReady]);
 
   const approveBuilder = useCallback(async () => {
     if (!address || !walletClient) return false;
@@ -112,7 +202,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       setOnboarding((current) => ({ agentAddress: current?.agentAddress ?? null, builderApproved: true }));
       return true;
     } catch (error) {
-      fail("Builder fee approval failed", error);
+      fail("hyperliquid", "Builder fee approval failed", error);
       return false;
     }
   }, [address, walletClient, fail]);
@@ -125,7 +215,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       toast({ tone: "success", title: "Trading key active", message: "Orders now sign in the browser without a wallet popup." });
       return true;
     } catch (error) {
-      fail("Couldn't create the trading key", error);
+      fail("hyperliquid", "Couldn't create the trading key", error);
       return false;
     }
   }, [address, walletClient, fail, toast]);
@@ -137,42 +227,91 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       setOnboarding((current) => ({ builderApproved: current?.builderApproved ?? false, agentAddress: null }));
       toast({ tone: "info", title: "Trading key revoked" });
     } catch (error) {
-      fail("Couldn't revoke the trading key", error);
+      fail("hyperliquid", "Couldn't revoke the trading key", error);
     }
   }, [address, walletClient, fail, toast]);
+
+  const signMessage = useCallback(
+    (message: string) => {
+      if (!walletClient) throw new Error("Connect an EVM wallet first.");
+      return walletClient.signMessage({ message });
+    },
+    [walletClient],
+  );
+
+  const registerLighter = useCallback(async () => {
+    if (!address || !walletClient) return false;
+    try {
+      await registerLighterKey(signMessage, address);
+      await refreshLighter();
+      toast({ tone: "success", title: "Lighter trading key active", message: "Lighter orders now sign in the browser without a wallet popup." });
+      return true;
+    } catch (error) {
+      fail("lighter", "Couldn't register the Lighter key", error);
+      return false;
+    }
+  }, [address, walletClient, signMessage, refreshLighter, fail, toast]);
+
+  const approveLighter = useCallback(async () => {
+    if (!address || !walletClient) return false;
+    try {
+      await approveLighterIntegrator(signMessage, address);
+      await refreshLighter();
+      return true;
+    } catch (error) {
+      fail("lighter", "Lighter approval failed", error);
+      return false;
+    }
+  }, [address, walletClient, signMessage, refreshLighter, fail]);
+
+  const revokeLighter = useCallback(async () => {
+    if (!address || !walletClient) return;
+    try {
+      await revokeLighterKey(signMessage, address);
+      await refreshLighter();
+      toast({ tone: "info", title: "Lighter trading key revoked" });
+    } catch (error) {
+      fail("lighter", "Couldn't revoke the Lighter key", error);
+    }
+  }, [address, walletClient, signMessage, refreshLighter, fail, toast]);
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput) => {
       if (!address) return false;
-      if (!isReady) {
-        setIsSetupOpen(true);
+      const venue = input.market.venue;
+      if (!isVenueReady(venue)) {
+        setSetupVenue(venue);
         return false;
       }
       try {
-        const result = await venue.placeOrder(address, input);
+        const result = await venues[venue].placeOrder(address, input);
         const verb = input.side === "buy" ? "Bought" : "Sold";
         toast(
           result.status === "filled"
-            ? { tone: "success", title: `${verb} ${result.filledSize} ${input.market.symbol}`, message: `Average price ${formatPrice(result.avgPx)}` }
-            : { tone: "success", title: "Order placed", message: `${input.side === "buy" ? "Buy" : "Sell"} ${input.size} ${input.market.symbol} resting on the book.` },
+            ? {
+                tone: "success",
+                title: `${verb} ${result.filledSize} ${input.market.symbol}`,
+                message: `Average price ${formatPrice(result.avgPx)} on ${PERP_VENUE_NAMES[venue]}`,
+              }
+            : { tone: "success", title: "Order placed", message: `${input.side === "buy" ? "Buy" : "Sell"} ${input.size} ${input.market.symbol} resting on ${PERP_VENUE_NAMES[venue]}.` },
         );
         return true;
       } catch (error) {
-        fail("Order rejected", error);
+        fail(venue, `Order rejected by ${PERP_VENUE_NAMES[venue]}`, error);
         return false;
       }
     },
-    [address, isReady, toast, fail],
+    [address, isVenueReady, toast, fail],
   );
 
   const cancelOrder = useCallback(
     async (order: VenueOpenOrder) => {
       if (!address) return;
       try {
-        await venue.cancelOrder(address, order);
+        await venues[order.venue].cancelOrder(address, order);
         toast({ tone: "info", title: `Canceled ${order.symbol} order` });
       } catch (error) {
-        fail("Cancel failed", error);
+        fail(order.venue, "Cancel failed", error);
       }
     },
     [address, toast, fail],
@@ -181,41 +320,89 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const closePosition = useCallback(
     async (position: VenuePosition) => {
       if (!address) return;
-      if (!isReady) return setIsSetupOpen(true);
+      if (!isVenueReady(position.venue)) return setSetupVenue(position.venue);
       try {
-        const result = await venue.closePosition(address, position);
+        const result = await venues[position.venue].closePosition(address, position);
         toast({
           tone: "success",
           title: `Closed ${position.symbol}`,
           message: result.status === "filled" ? `Average price ${formatPrice(result.avgPx)}` : undefined,
         });
       } catch (error) {
-        fail("Close failed", error);
+        fail(position.venue, "Close failed", error);
       }
     },
-    [address, isReady, toast, fail],
+    [address, isVenueReady, toast, fail],
   );
+
+  const accounts = useMemo(
+    () => ({ hyperliquid: hlAccount, ...(lighterEnabled ? { lighter: lighterAccount } : {}) }),
+    [hlAccount, lighterAccount, lighterEnabled],
+  );
+
+  const account = useMemo<AccountSnapshot | null>(() => {
+    const snapshots = Object.values(accounts).filter((snapshot): snapshot is AccountSnapshot => snapshot !== null);
+    if (snapshots.length === 0) return null;
+    return {
+      positions: snapshots.flatMap((snapshot) => snapshot.positions),
+      orders: snapshots.flatMap((snapshot) => snapshot.orders).sort((a, b) => b.timestamp - a.timestamp),
+      accountValue: snapshots.reduce((sum, snapshot) => sum + snapshot.accountValue, 0),
+      withdrawable: snapshots.reduce((sum, snapshot) => sum + snapshot.withdrawable, 0),
+    };
+  }, [accounts]);
 
   const value = useMemo<TradingContextValue>(
     () => ({
-      venueName: venue.name,
       network: hlConfig.network,
+      lighterNetwork: lighterConfig.network,
       markets,
       market,
+      marketsByVenue,
+      perpOrder,
       onboarding,
+      lighter,
       isReady,
+      isVenueReady,
       account,
-      isSetupOpen,
-      openSetup: () => setIsSetupOpen(true),
-      closeSetup: () => setIsSetupOpen(false),
+      accounts,
+      setupVenue,
+      isSetupOpen: setupVenue !== null,
+      openSetup: (venue: PerpVenueId = "hyperliquid") => setSetupVenue(venue),
+      closeSetup: () => setSetupVenue(null),
       approveBuilder,
       createAgent,
       revoke,
+      refreshLighter,
+      registerLighter,
+      approveLighter,
+      revokeLighter,
       placeOrder,
       cancelOrder,
       closePosition,
     }),
-    [markets, market, onboarding, isReady, account, isSetupOpen, approveBuilder, createAgent, revoke, placeOrder, cancelOrder, closePosition],
+    [
+      markets,
+      market,
+      marketsByVenue,
+      perpOrder,
+      onboarding,
+      lighter,
+      isReady,
+      isVenueReady,
+      account,
+      accounts,
+      setupVenue,
+      approveBuilder,
+      createAgent,
+      revoke,
+      refreshLighter,
+      registerLighter,
+      approveLighter,
+      revokeLighter,
+      placeOrder,
+      cancelOrder,
+      closePosition,
+    ],
   );
 
   return <TradingContext.Provider value={value}>{children}</TradingContext.Provider>;

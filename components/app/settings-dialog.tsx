@@ -9,6 +9,7 @@ import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
 import { HL_NETWORK_OVERRIDE_KEY, defaultHlNetwork, hlConfig, type HlNetwork } from "@/lib/venues/hyperliquid/config";
+import { LIGHTER_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, lighterConfig } from "@/lib/venues/lighter/config";
 import { AppearanceSettings } from "./appearance-settings";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
 import { usePreferences } from "./preferences-provider";
@@ -101,7 +102,7 @@ function TradingSettings() {
       <SettingRow title="Trade buttons from impact" description="News below this impact score shows no size buttons.">
         <ImpactStepper label="Trade buttons from impact" value={preferences.tradeMinImpact} onChange={(value) => updatePreference("tradeMinImpact", value)} />
       </SettingRow>
-      <SettingRow title="Leverage for perp trades" description="Applied to Hyperliquid orders placed from news (capped by each market's maximum).">
+      <SettingRow title="Leverage for perp trades" description="Applied to perp orders placed from news on Hyperliquid and Lighter (capped by each market's maximum).">
         <SelectField
           label="Leverage for perp trades"
           value={String(preferences.newsLeverage)}
@@ -130,14 +131,31 @@ function TradingSettings() {
   );
 }
 
-function readNetworkChoice(): HlNetwork | "default" {
+type NetworkChoice = HlNetwork | "default";
+
+function readNetworkChoice(key: string): NetworkChoice {
   try {
-    const value = window.localStorage.getItem(HL_NETWORK_OVERRIDE_KEY);
+    const value = window.localStorage.getItem(key);
     return value === "mainnet" || value === "testnet" ? value : "default";
   } catch {
     return "default";
   }
 }
+
+function changeNetwork(key: string, next: NetworkChoice) {
+  try {
+    if (next === "default") window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, next);
+  } catch {}
+  // Clients, markets and trading keys are per network, so reload to start clean on the new one.
+  window.location.reload();
+}
+
+const networkOptions: { value: NetworkChoice; label: string }[] = [
+  { value: "default", label: "Default" },
+  { value: "testnet", label: "Testnet" },
+  { value: "mainnet", label: "Mainnet" },
+];
 
 function VenueRow({ name, description, badge, children }: { name: string; description: string; badge?: string; children: React.ReactNode }) {
   return (
@@ -156,17 +174,12 @@ function VenueRow({ name, description, badge, children }: { name: string; descri
 
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
-  const [choice, setChoice] = useState<HlNetwork | "default">("default");
-  useEffect(() => setChoice(readNetworkChoice()), []);
-
-  const changeNetwork = (next: HlNetwork | "default") => {
-    try {
-      if (next === "default") window.localStorage.removeItem(HL_NETWORK_OVERRIDE_KEY);
-      else window.localStorage.setItem(HL_NETWORK_OVERRIDE_KEY, next);
-    } catch {}
-    // Clients, markets and the trading key are per network, so reload to start clean on the new one.
-    window.location.reload();
-  };
+  const [choice, setChoice] = useState<NetworkChoice>("default");
+  const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
+  useEffect(() => {
+    setChoice(readNetworkChoice(HL_NETWORK_OVERRIDE_KEY));
+    setLighterChoice(readNetworkChoice(LIGHTER_NETWORK_OVERRIDE_KEY));
+  }, []);
 
   return (
     <>
@@ -182,21 +195,54 @@ function VenueSettings() {
             <SegmentedControl
               label="Hyperliquid network"
               value={choice}
-              options={[
-                { value: "default", label: "Default" },
-                { value: "testnet", label: "Testnet" },
-                { value: "mainnet", label: "Mainnet" },
-              ]}
-              onChange={(value) => value !== choice && changeNetwork(value)}
+              options={networkOptions}
+              onChange={(value) => value !== choice && changeNetwork(HL_NETWORK_OVERRIDE_KEY, value)}
             />
           </SettingRow>
         </div>
+      )}
+      <VenueRow
+        name="Lighter"
+        badge="Perps · EVM"
+        description="Perpetuals on Lighter's zk-rollup. Needs a Lighter account (first deposit), then a browser trading key registered with one wallet signature."
+      >
+        <Toggle label="Lighter" checked={preferences.venueLighter} onChange={(checked) => updatePreference("venueLighter", checked)} />
+      </VenueRow>
+      {preferences.venueLighter && (
+        <div className="ml-4 border-l-2 border-app-line pl-4">
+          <SettingRow
+            title="Network"
+            description={`Testnet trades with test funds. Currently ${lighterConfig.network}; changing it reloads the page. The deployment default is ${defaultLighterNetwork}.`}
+          >
+            <SegmentedControl
+              label="Lighter network"
+              value={lighterChoice}
+              options={networkOptions}
+              onChange={(value) => value !== lighterChoice && changeNetwork(LIGHTER_NETWORK_OVERRIDE_KEY, value)}
+            />
+          </SettingRow>
+        </div>
+      )}
+      {preferences.venueHyperliquid && preferences.venueLighter && (
+        <SettingRow
+          title="Preferred perp venue"
+          description="News perp trades go here first. When it doesn't list the asset, the other perp venue is used."
+        >
+          <SegmentedControl
+            label="Preferred perp venue"
+            value={preferences.preferredPerpVenue}
+            options={[
+              { value: "hyperliquid", label: "Hyperliquid" },
+              { value: "lighter", label: "Lighter" },
+            ]}
+            onChange={(value) => updatePreference("preferredPerpVenue", value)}
+          />
+        </SettingRow>
       )}
       <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
         <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
       </VenueRow>
       {[
-        { name: "Lighter", badge: "Perps", description: "Zero-fee perps on Lighter's zk-rollup." },
         { name: "Titan", badge: "Spot · Solana", description: "Solana meta-aggregator; quotes will be compared with Jupiter for the best price." },
         { name: "Arcus", badge: "Stock tokens · Robinhood Chain", description: "24/7 stock tokens and indices." },
       ].map((venue) => (

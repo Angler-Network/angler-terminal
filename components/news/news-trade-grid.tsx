@@ -9,13 +9,16 @@ import { useMarketQuote } from "@/components/terminal/use-market-quote";
 import { formatPercent } from "@/lib/format";
 import { presetLabel, sideLabel, sizePresets, type TradeVenueKind } from "@/lib/trading/presets";
 import type { Direction } from "@/lib/types";
-import type { OrderSide } from "@/lib/venues/types";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import type { OrderSide, PerpVenueId } from "@/lib/venues/types";
 import { SymbolChip } from "./symbol-chip";
 
 export interface ResolvedNewsTrade {
   symbol: string;
   mint?: string;
   venue: TradeVenueKind;
+  /** Perp venue the resolver picked (preferred, else the fallback). */
+  perpVenue?: PerpVenueId;
 }
 
 export interface GridAsset {
@@ -63,11 +66,12 @@ function AssetRow({
 }) {
   const venues = useAssetVenues(asset.symbol, asset.mint);
   const venue = venues?.preferred ?? null;
+  const perpVenue = venue === "perp" ? venues?.perp?.venue : undefined;
   const { ticket, pendingKey, press } = useTradeTicket();
 
   useEffect(() => {
-    if (venues !== undefined) onResolved(newsId, asset.symbol, venue ? { symbol: asset.symbol, mint: asset.mint, venue } : null);
-  }, [venues, venue, newsId, asset.symbol, asset.mint, onResolved]);
+    if (venues !== undefined) onResolved(newsId, asset.symbol, venue ? { symbol: asset.symbol, mint: asset.mint, venue, perpVenue } : null);
+  }, [venues, venue, perpVenue, newsId, asset.symbol, asset.mint, onResolved]);
 
   if (venues === undefined) {
     return <div className="h-[58px] animate-pulse rounded-lg bg-app-chip/50" aria-hidden />;
@@ -95,7 +99,7 @@ function AssetRow({
       <button
         type="button"
         onClick={() => onSelectAsset(asset.symbol, asset.mint)}
-        title={`Show ${asset.symbol} on the chart · ${venue === "perp" ? "Hyperliquid perp" : "Jupiter spot"}`}
+        title={`Show ${asset.symbol} on the chart · ${perpVenue ? `${PERP_VENUE_NAMES[perpVenue]} perp` : "Jupiter spot"}`}
         className="flex min-w-0 flex-col items-start gap-0.5 rounded-md px-1 py-0.5 text-left hover:bg-app-chip"
       >
         <span className="flex items-center gap-1.5">
@@ -103,7 +107,7 @@ function AssetRow({
           <span className="text-[13px] font-semibold text-app-ink">{asset.symbol}</span>
         </span>
         <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.06em] text-app-faint">
-          {venue === "perp" ? "Perp" : "Spot"}
+          {perpVenue ? `Perp · ${PERP_VENUE_NAMES[perpVenue]}` : "Spot"}
           <Change symbol={asset.symbol} />
         </span>
       </button>
@@ -120,7 +124,7 @@ function AssetRow({
                   key={size}
                   type="button"
                   disabled={Boolean(pendingKey)}
-                  onClick={() => press({ newsId, symbol: asset.symbol, mint: asset.mint, venue, side, sizeUsd: size })}
+                  onClick={() => press({ newsId, symbol: asset.symbol, mint: asset.mint, venue, perpVenue, side, sizeUsd: size })}
                   title={`${isArmed ? "Confirm: " : ""}${sideLabel(venue, side)} ${asset.symbol} $${size}${side === suggested ? " (matches the news direction)" : ""}`}
                   className={`flex h-7 items-center justify-center rounded-md border text-[12px] font-semibold tabular-nums transition-colors disabled:cursor-wait ${
                     isArmed || isPending ? style.armed : side === suggested ? style.suggested : style.other

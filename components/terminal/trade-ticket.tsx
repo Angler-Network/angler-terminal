@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { defaultSize, sizePresets, type TradeVenueKind } from "@/lib/trading/presets";
-import type { OrderSide } from "@/lib/venues/types";
+import type { OrderSide, PerpVenueId } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useNewsTrader, type NewsTrade } from "./use-news-trader";
 
@@ -15,6 +15,8 @@ export interface TradeTicket {
   symbol: string;
   mint?: string;
   venue: TradeVenueKind;
+  /** Which perp venue a perp ticket goes to (from the resolver: preferred venue, else the fallback). */
+  perpVenue?: PerpVenueId;
   side: OrderSide;
   sizeUsd: number;
   newsId?: string;

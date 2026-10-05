@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { formatPrice } from "@/lib/format";
-import type { VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
@@ -32,6 +33,18 @@ function RowButton({ onClick, children }: { onClick: () => Promise<void>; childr
     >
       {busy ? "…" : children}
     </button>
+  );
+}
+
+/** Which venue a row lives on; close and cancel go to that venue. */
+function VenueBadge({ venue }: { venue: PerpVenueId }) {
+  return (
+    <span
+      title={PERP_VENUE_NAMES[venue]}
+      className="ml-1.5 rounded bg-app-chip px-1 py-[2px] align-middle text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted"
+    >
+      {venue === "hyperliquid" ? "HL" : "Lighter"}
+    </span>
   );
 }
 
@@ -64,9 +77,10 @@ function PositionsTable({ positions }: { positions: VenuePosition[] }) {
         {positions.map((position) => {
           const isLong = position.size > 0;
           return (
-            <tr key={position.coin} className="border-t border-app-hairline">
+            <tr key={`${position.venue}:${position.coin}`} className="border-t border-app-hairline">
               <td className={td}>
                 <SymbolCell symbol={position.symbol} coin={position.coin} />
+                <VenueBadge venue={position.venue} />
                 <span className="ml-1.5 text-app-faint">
                   {position.leverage}x {position.leverageType}
                 </span>
@@ -109,9 +123,10 @@ function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
       </thead>
       <tbody>
         {orders.map((order) => (
-          <tr key={order.oid} className="border-t border-app-hairline">
+          <tr key={`${order.venue}:${order.oid}`} className="border-t border-app-hairline">
             <td className={td}>
               <SymbolCell symbol={order.symbol} coin={order.coin} />
+              <VenueBadge venue={order.venue} />
             </td>
             <td className={td}>
               {order.orderType}
@@ -134,7 +149,7 @@ function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   );
 }
 
-/** Live positions and open orders from the venue's WebSocket feed. */
+/** Live positions and open orders of every perp venue (each venue's WebSocket feed), merged with a venue badge. */
 export function PositionsBar() {
   const [tab, setTab] = useState<Tab>("positions");
   const { address } = useWallet();

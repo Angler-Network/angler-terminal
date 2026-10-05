@@ -56,7 +56,7 @@ interface VenueOption {
 const VENUES: VenueOption[] = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#0f3d36", live: true },
   { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
-  { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#2a2a2a", live: false },
+  { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#2a2a2a", live: true },
   { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: false },
   { id: "arcus", name: "Arcus", kind: "Stock tokens", chain: "evm", domain: "arcus.xyz", color: "#0d6e4f", live: false },
 ];
@@ -220,7 +220,7 @@ function WalletModal() {
   const { isOpen, close } = useWalletModal();
   const evm = useWallet();
   const solana = useSolanaWallet();
-  const { network } = useTrading();
+  const { network, lighterNetwork } = useTrading();
   const [picking, setPicking] = useState<VenueOption | null>(null);
 
   useEffect(() => {
@@ -273,7 +273,7 @@ function WalletModal() {
                   venue={venue}
                   address={state.address}
                   walletName={state.walletName}
-                  network={venue.id === "hyperliquid" ? network : undefined}
+                  network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : undefined}
                   onConnect={() => setPicking(venue)}
                   onDisconnect={state.disconnect}
                 />
