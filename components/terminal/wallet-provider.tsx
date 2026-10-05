@@ -18,7 +18,11 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
-const DISCONNECTED_KEY = "angler:wallet:disconnected";
+/**
+ * Set only when the user clicks Connect in this terminal. Wallet permissions are per origin, so another app on the
+ * same origin (e.g. angler-news on localhost:3000) can authorize it; that must not connect the terminal on load.
+ */
+const CONNECTED_KEY = "angler:wallet:connected";
 
 declare global {
   interface Window {
@@ -46,17 +50,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const provider = window.ethereum;
     setHasProvider(Boolean(provider));
     if (!provider) return;
-    let wasDisconnected = false;
+    let connectedHere = false;
     try {
-      wasDisconnected = localStorage.getItem(DISCONNECTED_KEY) === "1";
+      connectedHere = localStorage.getItem(CONNECTED_KEY) === "1";
     } catch {}
-    if (!wasDisconnected) {
+    if (connectedHere) {
       provider
         .request({ method: "eth_accounts" })
         .then((accounts) => setAddress(firstAccount(accounts)))
         .catch(() => {});
     }
-    const onAccounts = (accounts: unknown) => setAddress(firstAccount(accounts));
+    // Follow account switches only while connected here; never connect from this event alone.
+    const onAccounts = (accounts: unknown) =>
+      setAddress((current) => (current ? firstAccount(accounts) : current));
     provider.on?.("accountsChanged", onAccounts);
     return () => provider.removeListener?.("accountsChanged", onAccounts);
   }, []);
@@ -72,7 +78,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const accounts = await provider.request({ method: "eth_requestAccounts" });
       setAddress(firstAccount(accounts));
       try {
-        localStorage.removeItem(DISCONNECTED_KEY);
+        localStorage.setItem(CONNECTED_KEY, "1");
       } catch {}
     } finally {
       setIsConnecting(false);
@@ -82,7 +88,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const disconnect = useCallback(() => {
     setAddress(null);
     try {
-      localStorage.setItem(DISCONNECTED_KEY, "1");
+      localStorage.removeItem(CONNECTED_KEY);
     } catch {}
   }, []);
 
