@@ -83,6 +83,9 @@ export interface Preferences extends Appearance {
   /** Leverage for perp trades placed from news. */
   newsLeverage: number;
   appearanceVersion: number;
+  /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
+  venueHyperliquid: boolean;
+  venueJupiter: boolean;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
@@ -133,6 +136,8 @@ export const defaultPreferences: Preferences = {
   tradeMinImpact: 60,
   newsLeverage: 5,
   appearanceVersion: APPEARANCE_VERSION,
+  venueHyperliquid: true,
+  venueJupiter: true,
   ...defaultAppearance,
 };
 
@@ -229,6 +234,8 @@ export function parsePreferences(raw: string | null): Preferences {
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       appearanceVersion: APPEARANCE_VERSION,
+      venueHyperliquid: readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
+      venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       ...readAppearance(
         stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },
       ),

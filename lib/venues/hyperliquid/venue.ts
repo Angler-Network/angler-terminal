@@ -37,7 +37,7 @@ async function loadMarketsDirect() {
 
 async function loadMarkets(): Promise<VenueMarket[]> {
   try {
-    const response = await fetch("/api/hl/markets");
+    const response = await fetch(`/api/hl/markets?network=${hlConfig.network}`);
     if (response.ok) {
       const markets = (await response.json()) as VenueMarket[];
       if (Array.isArray(markets) && markets.length > 0) return markets;

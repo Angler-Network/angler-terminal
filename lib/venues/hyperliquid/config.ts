@@ -18,7 +18,7 @@ export const AGENT_NAME = "angler terminal";
 
 export const DEFAULT_SLIPPAGE = 0.05;
 
-function readNetwork(value: string | undefined): HlNetwork {
+export function readNetwork(value: string | null | undefined): HlNetwork {
   return value === "mainnet" ? "mainnet" : "testnet";
 }
 
@@ -62,9 +62,24 @@ export function readHlConfig(env: Record<string, string | undefined>): HlConfig 
   };
 }
 
+/** Per-browser network choice from Settings; overrides NEXT_PUBLIC_HL_NETWORK and applies after a reload. */
+export const HL_NETWORK_OVERRIDE_KEY = "angler-terminal:hl-network";
+
+export const defaultHlNetwork = readNetwork(process.env.NEXT_PUBLIC_HL_NETWORK);
+
+function readNetworkOverride(): HlNetwork | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const value = window.localStorage.getItem(HL_NETWORK_OVERRIDE_KEY);
+    return value === "mainnet" || value === "testnet" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Next.js inlines NEXT_PUBLIC_* only when accessed by their full name.
 export const hlConfig = readHlConfig({
-  NEXT_PUBLIC_HL_NETWORK: process.env.NEXT_PUBLIC_HL_NETWORK,
+  NEXT_PUBLIC_HL_NETWORK: readNetworkOverride() ?? process.env.NEXT_PUBLIC_HL_NETWORK,
   NEXT_PUBLIC_HL_BUILDER_ADDRESS: process.env.NEXT_PUBLIC_HL_BUILDER_ADDRESS,
   NEXT_PUBLIC_HL_BUILDER_FEE: process.env.NEXT_PUBLIC_HL_BUILDER_FEE,
   NEXT_PUBLIC_HL_MAX_BUILDER_FEE: process.env.NEXT_PUBLIC_HL_MAX_BUILDER_FEE,
