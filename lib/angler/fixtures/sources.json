@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "id": 87,
+      "type": "web",
+      "external_id": "bitcoin-com-news",
+      "title": "Bitcoin.com News",
+      "url": "https://news.bitcoin.com/feed/",
+      "language": "en",
+      "category": "media",
+      "weight": 50,
+      "enabled": true,
+      "created_at": "2026-06-16T16:09:58.35111Z",
+      "last_fetched_at": "2026-10-05T15:13:32.615103Z"
+    },
+    {
+      "id": 102,
+      "type": "web",
+      "external_id": "cryptobriefing",
+      "title": "CryptoBriefing",
+      "url": "https://cryptobriefing.com/feed/",
+      "language": "en",
+      "category": "media",
+      "weight": 50,
+      "enabled": true,
+      "created_at": "2026-06-16T16:09:58.35111Z",
+      "last_fetched_at": "2026-10-05T15:13:51.383541Z"
+    },
+    {
+      "id": 135,
+      "type": "treealpha",
+      "external_id": "treealpha",
+      "title": "Tree of Alpha",
+      "url": "https://news.treeofalpha.com",
+      "language": "en",
+      "category": "aggregators",
+      "weight": 70,
+      "enabled": true,
+      "created_at": "2026-06-16T16:32:09.562333Z",
+      "last_fetched_at": "2026-10-05T15:10:51.774094Z"
+    },
+    {
+      "id": 154,
+      "type": "web",
+      "external_id": "seekingalpha-market",
+      "title": "SeekingAlpha Market Currents",
+      "url": "https://seekingalpha.com/market_currents.xml",
+      "language": "en",
+      "category": "market-news",
+      "country": "US",
+      "weight": 55,
+      "enabled": true,
+      "created_at": "2026-08-02T22:22:14.478772Z",
+      "last_fetched_at": "2026-10-05T15:13:50.665451Z"
+    }
+  ]
+}

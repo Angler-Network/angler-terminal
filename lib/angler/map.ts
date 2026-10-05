@@ -1,211 +1,259 @@
 import { normalizeDomain } from "@/lib/favicon";
 import type { Direction, NewsItem, Severity } from "@/lib/types";
-import type { ApiNews, ImpactPrediction, NewsPage } from "./types";
+import type {
+  ApiNewsItem,
+  ApiNewsPage,
+  ApiSource,
+  FeedNews,
+  FeedPage,
+  ImpactPrediction,
+  Sentiment,
+  SourceNames,
+} from "./types";
 
-const SYMBOL_PATTERN = /^[A-Za-z0-9]{1,20}$/;
+const SYMBOL_PATTERN = /^[A-Z0-9]{1,20}$/;
 const PLACEHOLDER_SYMBOL = "NEWS";
+const SENTIMENT_LABELS = new Set<Sentiment["label"]>(["positive", "negative", "neutral"]);
+
+type Fields = Record<string, unknown>;
+
+function fields(value: unknown): Fields | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Fields) : null;
+}
 
 function text(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function numberIn(value: unknown, min: number, max: number) {
-  const number = typeof value === "string" ? Number(value) : value;
-  return typeof number === "number" && Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : undefined;
+function integerId(value: unknown) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
-function strings(value: unknown) {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0) : [];
+function score(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : undefined;
 }
 
-/** Coins sometimes arrive with a quote or venue attached ("BTCUSDT", "xyz:NVDA"); keep the bare ticker. */
-function toSymbol(value: unknown) {
-  const raw = text(value)?.toUpperCase().replace(/^[A-Z]+:/, "").replace(/[-/]?(USDT|USDC|USD|PERP)$/, "");
-  return raw && SYMBOL_PATTERN.test(raw) ? raw : undefined;
+function unit(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : undefined;
 }
 
-function toTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value < 1e12 ? value * 1000 : value;
-  if (typeof value === "string" && value) {
-    const parsed: number | undefined = /^\d+$/.test(value) ? toTimestamp(Number(value)) : Date.parse(value);
-    return parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
+function symbol(value: unknown) {
+  const ticker = text(value)?.toUpperCase();
+  return ticker && SYMBOL_PATTERN.test(ticker) ? ticker : undefined;
+}
+
+/** REST sends coins as tickers, the enriched stage as `{ symbol, relevance }`. */
+function readCoins(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  const symbols = value.flatMap((entry) => symbol(typeof entry === "string" ? entry : fields(entry)?.symbol) ?? []);
+  return [...new Set(symbols)];
 }
 
 function readPredictions(value: unknown): ImpactPrediction[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
-    const record = (entry ?? {}) as Record<string, unknown>;
-    const symbol = toSymbol(record.symbol);
-    const direction = record.direction === "+" || record.direction === "-" ? record.direction : undefined;
-    if (!symbol || !direction) return [];
-    const confidence = numberIn(record.confidence, 0, 100) ?? 0;
-    return [
-      {
-        symbol,
-        direction,
-        magnitude: numberIn(record.magnitude, 0, 100) ?? 0,
-        confidence: confidence > 1 ? confidence / 100 : confidence,
-      },
-    ];
+    const record = fields(entry);
+    const ticker = symbol(record?.symbol);
+    const direction = record?.direction === "+" || record?.direction === "-" ? record.direction : undefined;
+    const magnitude = score(record?.magnitude);
+    return ticker && direction && magnitude !== undefined ? [{ symbol: ticker, direction, magnitude }] : [];
   });
 }
 
-const MINT_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-/**
- * Solana mints by symbol. The payload shape isn't specified, so accept a `mints` map, a `tokens` array of
- * { symbol, mint }, or a `mint` on impact predictions.
- */
-function readMints(record: Record<string, unknown>) {
-  const mints: Record<string, string> = {};
-  const add = (symbol: unknown, mint: unknown) => {
-    const clean = toSymbol(symbol);
-    if (clean && typeof mint === "string" && MINT_PATTERN.test(mint)) mints[clean] = mint;
-  };
-  if (record.mints && typeof record.mints === "object" && !Array.isArray(record.mints)) {
-    for (const [symbol, mint] of Object.entries(record.mints as Record<string, unknown>)) add(symbol, mint);
-  }
-  for (const list of [record.tokens, record.impact_predictions]) {
-    if (!Array.isArray(list)) continue;
-    for (const entry of list) {
-      const item = (entry ?? {}) as Record<string, unknown>;
-      add(item.symbol, item.mint ?? item.address);
-    }
-  }
-  return Object.keys(mints).length > 0 ? mints : undefined;
+function readSentiment(value: unknown): Sentiment | undefined {
+  const record = fields(value);
+  const label = record?.label as Sentiment["label"];
+  const confidence = unit(record?.confidence);
+  return SENTIMENT_LABELS.has(label) && confidence !== undefined ? { label, confidence } : undefined;
 }
 
-function sourceName(value: unknown): string | undefined {
-  if (typeof value === "string") return text(value);
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return text(record.name) ?? text(record.title) ?? text(record.domain);
-  }
-  return undefined;
+function timestamp(value: unknown) {
+  const raw = text(value);
+  return raw && Number.isFinite(Date.parse(raw)) ? raw : undefined;
 }
 
 function hostname(url: string | undefined) {
   if (!url) return undefined;
   try {
-    return new URL(url).hostname.replace(/^www\./, "");
+    return new URL(url).hostname;
   } catch {
     return undefined;
   }
 }
 
-/** Validates one news object from REST or the socket. Returns null when it has no id or headline. */
-export function readApiNews(value: unknown): ApiNews | null {
-  const record = (value ?? {}) as Record<string, unknown>;
-  const id = record.id ?? record.news_id;
-  const headline = text(record.headline) ?? text(record.title);
-  if ((typeof id !== "string" && typeof id !== "number") || !headline) return null;
-  const url = text(record.url) ?? text(record.link) ?? text(record.source_url) ?? text(record.article_url);
-  const source =
-    sourceName(record.source) ?? text(record.source_name) ?? text(record.publisher) ?? text(record.provider) ?? text(record.site) ?? hostname(url);
+/** Validates one `GET /v1/news` item. Drops `content`, which the terminal never shows and can be ~250 KB. */
+export function readApiNewsItem(value: unknown): ApiNewsItem | null {
+  const record = fields(value);
+  const id = integerId(record?.id);
+  const title = text(record?.title);
+  const publishedAt = timestamp(record?.published_at);
+  const importance = score(record?.importance_score);
+  if (!record || !id || !title || !publishedAt || importance === undefined) return null;
+  const coins = readCoins(record.coins);
   return {
-    id: String(id),
-    headline,
-    url,
-    source,
-    sources: [
-      ...strings(record.sources),
-      ...(Array.isArray(record.sources) ? record.sources.flatMap((entry) => (typeof entry === "object" ? (sourceName(entry) ?? []) : [])) : []),
-    ],
-    published_at: (record.published_at ?? record.created_at ?? record.timestamp ?? record.time) as string | number | undefined,
-    categories: [...strings(record.categories), ...strings(record.tags), ...strings(record.topics)],
-    coins: strings(record.coins).flatMap((coin) => toSymbol(coin) ?? []),
-    sentiment: numberIn(record.sentiment, -1, 1),
-    impact_predictions: readPredictions(record.impact_predictions),
-    summary_short: text(record.summary_short),
-    importance_score: numberIn(record.importance_score ?? record.importance, 0, 100),
-    mints: readMints(record),
+    id,
+    source_id: integerId(record.source_id) ?? 0,
+    ...(text(record.external_id) ? { external_id: text(record.external_id) } : {}),
+    ...(text(record.url) ? { url: text(record.url) } : {}),
+    title,
+    ...(text(record.lang) ? { lang: text(record.lang) } : {}),
+    importance_score: importance,
+    ...(coins.length ? { coins } : {}),
+    published_at: publishedAt,
+    ingested_at: timestamp(record.ingested_at) ?? publishedAt,
+    ...(typeof record.is_unique === "boolean" ? { is_unique: record.is_unique } : {}),
   };
 }
 
-export function readNewsPage(value: unknown): NewsPage {
-  const record = (value ?? {}) as Record<string, unknown>;
-  const list = Array.isArray(value) ? value : Array.isArray(record.items) ? record.items : Array.isArray(record.data) ? record.data : [];
-  const cursor = record.next_cursor;
+/** Validates a `GET /v1/news` page (`{ items, next_cursor }`). */
+export function readApiNewsPage(value: unknown): ApiNewsPage {
+  const record = fields(value);
+  const items = Array.isArray(record?.items) ? record.items : [];
   return {
-    items: list.flatMap((entry) => readApiNews(entry) ?? []),
-    next_cursor: typeof cursor === "string" && cursor ? cursor : typeof cursor === "number" ? String(cursor) : null,
+    items: items.flatMap((entry) => readApiNewsItem(entry) ?? []),
+    next_cursor: text(record?.next_cursor) ?? null,
   };
+}
+
+export function fromApiNewsItem(item: ApiNewsItem): FeedNews {
+  return {
+    id: String(item.id),
+    title: item.title,
+    url: item.url,
+    sourceId: item.source_id || undefined,
+    lang: item.lang,
+    publishedAt: item.published_at,
+    importanceScore: item.importance_score,
+    coins: item.coins ?? [],
+    impactPredictions: [],
+  };
+}
+
+/** Reads what /api/news returns (a validated `ApiNewsPage`). */
+export function readNewsPage(value: unknown): FeedPage {
+  const page = readApiNewsPage(value);
+  return { items: page.items.map(fromApiNewsItem), nextCursor: page.next_cursor };
+}
+
+/**
+ * Reads a realtime stage message, `{ news_item_id, item }`, from `news.raw` or `news.enriched`. The item's own
+ * `id` is empty or missing, so the id comes from `news_item_id`. Raw items carry no score: that marks them as
+ * not enriched yet.
+ */
+export function readStageMessage(value: unknown): FeedNews | null {
+  const record = fields(value);
+  const id = integerId(record?.news_item_id);
+  const item = fields(record?.item);
+  const title = text(item?.title);
+  if (!id || !item || !title) return null;
+  return {
+    id: String(id),
+    title,
+    url: text(item.url),
+    sourceSlug: text(item.source),
+    lang: text(item.lang),
+    publishedAt: timestamp(item.published_at),
+    importanceScore: score(item.importance_score),
+    coins: readCoins(item.coins),
+    sentiment: readSentiment(item.sentiment),
+    impactPredictions: readPredictions(item.impact_predictions),
+    summaryShort: text(item.summary_short),
+  };
+}
+
+/** Validates `GET /v1/sources` (`{ items }`), keeping the fields the terminal reads. */
+export function readSources(value: unknown): ApiSource[] {
+  const items = fields(value)?.items;
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((entry) => {
+    const record = fields(entry);
+    const id = integerId(record?.id);
+    const slug = text(record?.external_id);
+    if (!record || !id || !slug) return [];
+    return [{ id, type: text(record.type) ?? "", external_id: slug, title: text(record.title), url: text(record.url) }];
+  });
+}
+
+export function sourceNames(sources: ApiSource[]): SourceNames {
+  const byId = new Map<number, string>();
+  const bySlug = new Map<string, string>();
+  for (const source of sources) {
+    const name = source.title ?? source.external_id;
+    byId.set(source.id, name);
+    bySlug.set(source.external_id, name);
+  }
+  return { byId, bySlug };
 }
 
 /** Same thresholds angler-news uses for its built-in labels. */
-export function severityFor(score: number): Severity {
-  if (score >= 80) return "breaking";
-  if (score >= 60) return "important";
+export function severityFor(value: number): Severity {
+  if (value >= 80) return "breaking";
+  if (value >= 60) return "important";
   return "notable";
 }
 
-function isEnriched(news: ApiNews) {
-  return news.importance_score !== undefined || (news.impact_predictions?.length ?? 0) > 0 || news.summary_short !== undefined;
+/** -1..1 for the angler-news components: the label's sign times its confidence. */
+export function sentimentValue(sentiment: Sentiment | undefined) {
+  if (!sentiment || sentiment.label === "neutral") return 0;
+  return sentiment.label === "positive" ? sentiment.confidence : -sentiment.confidence;
 }
 
-/** Strongest call first: magnitude weighted by confidence. */
-function rankPredictions(predictions: ImpactPrediction[]) {
-  return [...predictions].sort((a, b) => b.magnitude * b.confidence - a.magnitude * a.confidence);
+function sourceName(news: FeedNews, names: SourceNames | undefined) {
+  const named = (news.sourceId !== undefined ? names?.byId.get(news.sourceId) : undefined) ?? (news.sourceSlug ? names?.bySlug.get(news.sourceSlug) : undefined);
+  return named ?? news.sourceSlug ?? hostname(news.url)?.replace(/^www\./, "");
 }
 
-/** Maps an API news object onto the NewsItem shape the angler-news components render. */
-export function toNewsItem(news: ApiNews, now = Date.now()): NewsItem {
-  const predictions = rankPredictions(news.impact_predictions ?? []);
+/** Maps a feed item onto the NewsItem shape the angler-news components render. */
+export function toNewsItem(news: FeedNews, now = Date.now(), names?: SourceNames): NewsItem {
+  const predictions = [...news.impactPredictions].sort((a, b) => b.magnitude - a.magnitude);
   const lead = predictions[0];
-  const sentiment = news.sentiment ?? 0;
-  const score = Math.round(news.importance_score ?? 0);
+  const sentiment = sentimentValue(news.sentiment);
+  const value = Math.round(news.importanceScore ?? 0);
   const direction: Direction = lead ? (lead.direction === "+" ? "up" : "down") : sentiment < 0 ? "down" : "up";
-  const coins = [...new Set([...predictions.map((prediction) => prediction.symbol), ...(news.coins ?? [])])];
-  const publishedAt = toTimestamp(news.published_at) ?? now;
-  const sources = [...new Set([news.source, ...(news.sources ?? [])].filter((source): source is string => Boolean(source)))];
+  const coins = [...new Set([...predictions.map((prediction) => prediction.symbol), ...news.coins])];
+  const parsed = news.publishedAt ? Date.parse(news.publishedAt) : Number.NaN;
+  const publishedAt = Number.isFinite(parsed) ? parsed : now;
+  const source = sourceName(news, names);
 
   return {
     id: news.id,
-    severity: severityFor(score),
-    headline: news.headline ?? news.title ?? "",
+    severity: severityFor(value),
+    headline: news.title,
     symbol: coins[0] ?? PLACEHOLDER_SYMBOL,
     direction,
-    score,
+    score: value,
     sentiment,
-    sources,
-    categories: news.categories ?? [],
+    sources: source ? [source] : [],
+    categories: [],
     minutesAgo: Math.max(0, Math.floor((now - publishedAt) / 60_000)),
     publishedAt,
     url: news.url,
-    sourceDomain: normalizeDomain(hostname(news.url)) ?? normalizeDomain(news.source) ?? undefined,
-    summary: news.summary_short,
+    sourceDomain: normalizeDomain(hostname(news.url)) ?? normalizeDomain(news.sourceSlug) ?? undefined,
+    summary: news.summaryShort,
     coins,
     predictions,
-    mints: news.mints,
-    enriched: isEnriched(news),
+    enriched: news.importanceScore !== undefined,
   };
 }
 
 /**
- * Upsert for raw → enriched. Enrichment fields only overwrite when the newer payload has them, so a late raw
- * duplicate never wipes an item that was already enriched.
+ * Upsert for raw → enriched. Enrichment only overwrites when the newer payload has it, so a late raw duplicate
+ * never wipes an item that was already enriched.
  */
-export function mergeApiNews(previous: ApiNews | undefined, next: ApiNews): ApiNews {
+export function mergeFeedNews(previous: FeedNews | undefined, next: FeedNews): FeedNews {
   if (!previous) return next;
-  const pick = <K extends keyof ApiNews>(key: K) => (next[key] !== undefined ? next[key] : previous[key]);
-  const pickList = <K extends "coins" | "impact_predictions" | "categories" | "sources">(key: K) =>
-    (next[key]?.length ? next[key] : previous[key]) as ApiNews[K];
   return {
-    ...previous,
-    ...next,
-    headline: next.headline ?? previous.headline,
-    url: pick("url"),
-    source: pick("source"),
-    published_at: previous.published_at ?? next.published_at,
-    sentiment: pick("sentiment"),
-    summary_short: pick("summary_short"),
-    mints: next.mints ? { ...previous.mints, ...next.mints } : previous.mints,
-    importance_score: pick("importance_score"),
-    coins: pickList("coins"),
-    impact_predictions: pickList("impact_predictions"),
-    categories: pickList("categories"),
-    sources: pickList("sources"),
+    id: next.id,
+    title: next.title || previous.title,
+    url: next.url ?? previous.url,
+    sourceId: next.sourceId ?? previous.sourceId,
+    sourceSlug: next.sourceSlug ?? previous.sourceSlug,
+    lang: next.lang ?? previous.lang,
+    publishedAt: previous.publishedAt ?? next.publishedAt,
+    importanceScore: next.importanceScore ?? previous.importanceScore,
+    coins: next.coins.length ? next.coins : previous.coins,
+    sentiment: next.sentiment ?? previous.sentiment,
+    impactPredictions: next.impactPredictions.length ? next.impactPredictions : previous.impactPredictions,
+    summaryShort: next.summaryShort ?? previous.summaryShort,
   };
 }

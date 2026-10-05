@@ -3,8 +3,8 @@
 import { Centrifuge, type PublicationContext } from "centrifuge";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NewsItem } from "@/lib/types";
-import { mergeApiNews, readApiNews, readNewsPage, toNewsItem } from "./map";
-import { NEWS_CHANNELS, type ApiNews, type WsTicketResponse } from "./types";
+import { mergeFeedNews, readNewsPage, readSources, readStageMessage, sourceNames, toNewsItem } from "./map";
+import { NEWS_CHANNELS, type FeedNews, type SourceNames, type WsTicketResponse } from "./types";
 
 const PAGE_SIZE = 50;
 const MAX_ITEMS = 600;
@@ -25,37 +25,37 @@ async function fetchTicket(): Promise<WsTicketResponse> {
   return (await response.json()) as WsTicketResponse;
 }
 
-/** Publications carry the news object itself; tolerate a { data } or { news } envelope too. */
-function readPublication(data: unknown) {
-  const record = (data ?? {}) as Record<string, unknown>;
-  return readApiNews(record) ?? readApiNews(record.data) ?? readApiNews(record.news);
+async function fetchSourceNames(): Promise<SourceNames | null> {
+  const response = await fetch("/api/sources");
+  return response.ok ? sourceNames(readSources(await response.json())) : null;
 }
 
-function publishedAt(news: ApiNews) {
-  return toNewsItem(news).publishedAt ?? 0;
+function publishedAt(news: FeedNews) {
+  return news.publishedAt ? Date.parse(news.publishedAt) || 0 : 0;
 }
 
 /**
- * Live Angler news: history from /api/news, then news.raw and news.enriched over Centrifugo. Items are keyed
- * by news id, so the enriched payload upserts the raw one in place.
+ * Live Angler news: history from /api/news, then news.raw and news.enriched over Centrifugo. Publications are
+ * stage messages keyed by `news_item_id`, so the enriched payload upserts the raw one in place.
  */
 export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = {}) {
-  const [store, setStore] = useState<Map<string, ApiNews>>(() => new Map());
+  const [store, setStore] = useState<Map<string, FeedNews>>(() => new Map());
   const [status, setStatus] = useState<FeedStatus>("connecting");
   const [cursor, setCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [names, setNames] = useState<SourceNames | undefined>(undefined);
   /** Last realtime problem, readable, for the status tooltip. Never contains the ticket. */
   const [liveError, setLiveError] = useState<string | null>(null);
   const minImportanceRef = useRef(minImportance);
   minImportanceRef.current = minImportance;
 
-  const upsert = useCallback((incoming: ApiNews[]) => {
+  const upsert = useCallback((incoming: FeedNews[]) => {
     if (incoming.length === 0) return;
     setStore((current) => {
       const next = new Map(current);
-      for (const news of incoming) next.set(news.id, mergeApiNews(next.get(news.id), news));
+      for (const news of incoming) next.set(news.id, mergeFeedNews(next.get(news.id), news));
       if (next.size <= MAX_ITEMS) return next;
       const newest = [...next.values()].sort((a, b) => publishedAt(b) - publishedAt(a)).slice(0, MAX_ITEMS);
       return new Map(newest.map((news) => [news.id, news]));
@@ -75,10 +75,20 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
       if (!response.ok) throw new Error(`News request failed (${response.status})`);
       const page = readNewsPage(await response.json());
       upsert(page.items);
-      setCursor(page.next_cursor);
+      setCursor(page.nextCursor);
     },
     [upsert],
   );
+
+  useEffect(() => {
+    let isActive = true;
+    fetchSourceNames()
+      .then((loaded) => isActive && loaded && setNames(loaded))
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -110,7 +120,7 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
     let retryTimer: number | undefined;
 
     const onPublication = (context: PublicationContext) => {
-      const news = readPublication(context.data);
+      const news = readStageMessage(context.data);
       if (news) upsert([news]);
     };
     const report = (message: string) => {
@@ -147,10 +157,9 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
         if (context.code !== 0) report(`${context.reason} (code ${context.code})`);
         setStatus((current) => (current === "live" ? "reconnecting" : current));
       });
-      client.on("connected", () => {
-        setLiveError(null);
-        setStatus("live");
-      });
+      // Live means subscribed, not just connected: the server can refuse the channels on an open connection.
+      const subscribed = new Set<string>();
+      client.on("connected", () => setLiveError(null));
       client.on("disconnected", (context) => {
         report(`disconnected: ${context.reason} (code ${context.code})`);
         setStatus("offline");
@@ -163,6 +172,19 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
       for (const channel of NEWS_CHANNELS) {
         const subscription = client.newSubscription(channel);
         subscription.on("publication", onPublication);
+        subscription.on("subscribed", () => {
+          subscribed.add(channel);
+          setStatus("live");
+        });
+        subscription.on("subscribing", () => subscribed.delete(channel));
+        // The server unsubscribes with its own code, e.g. 1003 "delayed tier has no real-time subscription" for
+        // free-tier keys. Without a live channel the REST poll takes over.
+        subscription.on("unsubscribed", (context) => {
+          subscribed.delete(channel);
+          if (context.code === 0) return;
+          report(`${channel}: ${context.reason} (code ${context.code})`);
+          if (subscribed.size === 0) setStatus("offline");
+        });
         subscription.on("error", (context) => report(`subscribe ${channel}: ${context.error?.message ?? "failed"}`));
         subscription.subscribe();
       }
@@ -212,10 +234,10 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
   const items = useMemo<NewsItem[]>(
     () =>
       [...store.values()]
-        .map((news) => toNewsItem(news, now))
+        .map((news) => toNewsItem(news, now, names))
         .filter((item) => !item.enriched || item.score >= minImportance)
         .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0)),
-    [store, now, minImportance],
+    [store, now, minImportance, names],
   );
 
   return { items, status, liveError, hasMore: Boolean(cursor), isLoadingMore, loadMore, historyError };

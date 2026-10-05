@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
-import { readNewsPage } from "@/lib/angler/map";
+import { readApiNewsPage } from "@/lib/angler/map";
 
 const TIMEOUT_MS = 10_000;
 const MAX_LIMIT = 100;
 const COIN_PATTERN = /^[A-Za-z0-9:]{1,30}$/;
 
-/** Proxies GET /v1/news so the API key stays on the server. Query: coin, min_importance, limit, cursor. */
+/**
+ * Proxies GET /v1/news so the API key stays on the server. Query: coin, min_importance, limit, cursor.
+ * Answers a validated `ApiNewsPage` without `content` (article bodies run to ~250 KB each).
+ */
 export async function GET(request: NextRequest) {
   const { apiUrl, key } = anglerConfig();
   if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (!response.ok) {
       return NextResponse.json({ error: `Angler API responded ${response.status}` }, { status: 502 });
     }
-    return NextResponse.json(readNewsPage(await response.json()), { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(readApiNewsPage(await response.json()), { headers: { "cache-control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
   }

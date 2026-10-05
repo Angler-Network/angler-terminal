@@ -1,0 +1,145 @@
+{
+  "news_item_id": 231800,
+  "item": {
+    "id": "",
+    "source": "bitcoin-com-news",
+    "url": "https://news.bitcoin.com/crypto-news/tom-lees-bitmine-nears-5-ether-supply-41m-eth-buy/",
+    "title": "Tom Lee’s Bitmine Nears 5% of Ether Supply With $41M ETH Buy",
+    "content": "<img width=\"768\" height=\"432\" src=\"https://static.news.bitcoin.com/wp-content/uploads/2026/09/bitmine-adds-28086-eth-as-ethereum-treasury-hi…",
+    "lang": "en",
+    "published_at": "2026-10-05T15:15:35Z",
+    "sentiment": {
+      "label": "positive",
+      "confidence": 0.8567332924869658,
+      "per_coin": []
+    },
+    "importance_score": 20,
+    "coins": [
+      {
+        "symbol": "ETH",
+        "relevance": 0.9993550181388855
+      },
+      {
+        "symbol": "BTC",
+        "relevance": 0.9
+      }
+    ],
+    "persons": [
+      {
+        "name": "Tom Lee",
+        "role": null
+      }
+    ],
+    "countries": [],
+    "impact_predictions": [],
+    "entities": [
+      {
+        "type": "coin",
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "canonical_id": "ETH",
+        "role": null,
+        "confidence": 0.9993550181388855,
+        "impact": null
+      },
+      {
+        "type": "company",
+        "name": "Bitmine Immersion Technologies",
+        "symbol": "BMNR",
+        "canonical_id": "bitmine-immersion-technologies",
+        "role": null,
+        "confidence": 0.9986774325370789,
+        "impact": null
+      },
+      {
+        "type": "person",
+        "name": "Tom Lee",
+        "symbol": null,
+        "canonical_id": "tom-lee",
+        "role": null,
+        "confidence": 0.9994485974311829,
+        "impact": null
+      },
+      {
+        "type": "coin",
+        "name": "Bitcoin",
+        "symbol": "BTC",
+        "canonical_id": "BTC",
+        "role": null,
+        "confidence": 0.9,
+        "impact": null
+      }
+    ],
+    "summary_short": "Bitmine Immersion Technologies purchased approximately $41M worth of ETH last week, bringing its holdings close to 5% of circulating Ether supply as it pursues a stated accumulation target.",
+    "ai_comment": "Concentrated treasury accumulation removes liquid supply from exchanges, tightening float and creating upward price pressure on ETH. ETH spot and ETH ETFs (ETHA, ETHW) bid higher on continued Bitmine buying; BITM equity trades at a premium-to-NAV that compresses if ETH stalls. The trigger is whether Bitmine has remaining capital/debt capacity to close the final gap to 5% — any equity or convertible offering announcement confirms the bid continues.",
+    "title_en": null,
+    "decisions": {
+      "event_type": {
+        "label": "earnings_financials",
+        "confidence": 0.6234
+      },
+      "urgency": 36,
+      "rumor": 0.0217,
+      "promotional": 0.1206,
+      "source": "systemone",
+      "provider": "Jev",
+      "model": "jev"
+    },
+    "exposures": {
+      "model": "jev",
+      "provider": "Jev",
+      "sectors": [
+        {
+          "id": "layer1",
+          "kind": "theme",
+          "name": "Layer 1 blockchains",
+          "proxy": null,
+          "direction": "+",
+          "relevance": 0.9505,
+          "confidence": 0.9603,
+          "p_up": 0.9128,
+          "p_down": 0.0377,
+          "p_flat": 0.0495
+        },
+        {
+          "id": "layer2",
+          "kind": "theme",
+          "name": "Layer 2 networks",
+          "proxy": null,
+          "direction": "+",
+          "relevance": 0.7255,
+          "confidence": 0.8215,
+          "p_up": 0.596,
+          "p_down": 0.1295,
+          "p_flat": 0.2745
+        }
+      ],
+      "assets": [
+        {
+          "id": "ETH",
+          "kind": "coin",
+          "name": "ETH",
+          "direction": "+",
+          "relevance": 0.9382,
+          "confidence": 0.9222,
+          "p_up": 0.8652,
+          "p_down": 0.073,
+          "p_flat": 0.0618,
+          "mentioned": true
+        },
+        {
+          "id": "BTC",
+          "kind": "coin",
+          "name": "BTC",
+          "direction": "+",
+          "relevance": 0.5584,
+          "confidence": 0.6119,
+          "p_up": 0.3417,
+          "p_down": 0.2167,
+          "p_flat": 0.4416,
+          "mentioned": true
+        }
+      ]
+    }
+  }
+}

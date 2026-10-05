@@ -1,0 +1,64 @@
+{
+  "items": [
+    {
+      "id": 231787,
+      "source_id": 102,
+      "url": "https://cryptobriefing.com/anthropic-charitable-stock-matching-660-million/",
+      "title": "Anthropic’s charitable stock-matching program racks up over $660 million in expenses",
+      "content": "Anthropic’s employees are giving a lot of stock to charity. Anthropic is giving even more. The AI developer has disclosed a non-cash expense…",
+      "lang": "en",
+      "importance_score": 28,
+      "published_at": "2026-10-05T15:10:53Z",
+      "ingested_at": "2026-10-05T15:11:49.982257Z",
+      "is_unique": true
+    },
+    {
+      "id": 231786,
+      "source_id": 135,
+      "external_id": "2107126376868278429",
+      "url": "https://x.com/CoinbaseMarkets/status/2107126376868278429",
+      "title": "Coinbase Markets 🛡️ (@CoinbaseMarkets)",
+      "content": "We have disabled trading for Story (IP). Send and receive support of Story (IP) will be temporarily disabled from October 5 – 7, 2026. https…",
+      "importance_score": 20,
+      "published_at": "2026-10-05T15:10:51.757Z",
+      "ingested_at": "2026-10-05T15:10:51.811777Z",
+      "is_unique": true
+    },
+    {
+      "id": 231783,
+      "source_id": 135,
+      "external_id": "2107125680299188250",
+      "url": "https://x.com/CoinbaseMarkets/status/2107125680299188250",
+      "title": "Coinbase Markets 🛡️ (@CoinbaseMarkets)",
+      "content": "Another tool for your trading toolkit. Stock options are here, with zero commissions. Pick your strike, pick your expiry, and check the Gree…",
+      "importance_score": 20,
+      "published_at": "2026-10-05T15:08:05.615Z",
+      "ingested_at": "2026-10-05T15:08:05.659887Z",
+      "is_unique": true
+    },
+    {
+      "id": 231782,
+      "source_id": 74,
+      "external_id": "2107125419988394133",
+      "url": "https://x.com/coinmarketcap/status/2107125419988394133",
+      "title": "https://x.com/i/broadcasts/1nxnRBEPZgMxO",
+      "content": "https://x.com/i/broadcasts/1nxnRBEPZgMxO",
+      "importance_score": 20,
+      "published_at": "2026-10-05T15:07:03.279Z",
+      "ingested_at": "2026-10-05T15:07:03.658091Z",
+      "is_unique": true
+    },
+    {
+      "id": 231776,
+      "source_id": 135,
+      "external_id": "1791212723092WPMoDSAM6",
+      "url": "https://news.treeofalpha.com/news/1791212723092WPMoDSAM6",
+      "title": "WHITEHOUSE: Presidential Message on Down Syndrome Awareness Month 6778",
+      "importance_score": 20,
+      "published_at": "2026-10-05T15:05:23.093Z",
+      "ingested_at": "2026-10-05T15:05:28.130583Z",
+      "is_unique": true
+    }
+  ],
+  "next_cursor": "eyJwIjoiMjAyNi0xMC0wNVQxNTowNToyMy4wOTNaIiwiaSI6MjMxNzc2fQ"
+}
