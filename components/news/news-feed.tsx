@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { SlidersHorizontal, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTradeTicket } from "@/components/terminal/trade-ticket";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { useNewsFeed, type FeedStatus } from "@/lib/angler/use-news-feed";
+import { countActiveFilters, filterNews } from "@/lib/news/filter";
 import { detectHighImpact, isTypingTarget } from "@/lib/trading/high-impact";
 import type { NewsItem } from "@/lib/types";
 import { NewsCard } from "./news-card";
@@ -66,16 +68,17 @@ function useHighImpactFlash(items: NewsItem[]) {
 interface NewsFeedProps {
   /** Owned by the shell so the chart can mark the same news on its candles. */
   feed: ReturnType<typeof useNewsFeed>;
-  minImportance: number;
-  onMinImportance: (value: number) => void;
 }
 
-export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps) {
-  const { symbol, selectAsset } = useSelectedAsset();
-  const { preferences } = usePreferences();
+export function NewsFeed({ feed }: NewsFeedProps) {
+  const { symbol, selectAsset, newsFocus, clearNewsFocus } = useSelectedAsset();
+  const { preferences, updatePreference, openSettings } = usePreferences();
   const { ticket, press, confirm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
   const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
-  const shown = items;
+  const filters = preferences.newsFilters;
+  const minImportance = filters.minImpact;
+  const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
+  const activeFilters = countActiveFilters(filters);
   const flashing = useHighImpactFlash(items);
   useNewsSound(items, shown, status === "live");
 
@@ -147,7 +150,7 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
               key={value}
               type="button"
               aria-pressed={minImportance === value}
-              onClick={() => onMinImportance(value)}
+              onClick={() => updatePreference("newsFilters", { ...filters, minImpact: value })}
               title={value === 0 ? "All news" : `Importance ${value}+`}
               className={`h-6 rounded-md px-1.5 text-[11px] font-semibold tabular-nums transition-colors ${
                 minImportance === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
@@ -157,7 +160,47 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => openSettings("filters")}
+          title={activeFilters > 0 ? `News filters (${activeFilters} active)` : "News filters"}
+          aria-label="News filters"
+          className={`relative grid size-7 place-items-center rounded-lg transition-colors hover:bg-app-chip hover:text-app-ink ${
+            activeFilters > 0 ? "text-app-ink" : "text-app-muted"
+          }`}
+        >
+          <SlidersHorizontal className="size-3.5" />
+          {activeFilters > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 grid min-w-3.5 place-items-center rounded-full bg-app-accent px-0.5 text-[9px] font-bold leading-[14px] text-app-on-accent">
+              {activeFilters}
+            </span>
+          )}
+        </button>
       </header>
+      {(newsFocus || filters.assets.length > 0) && (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-app-hairline px-3 py-1.5 text-[11px] text-app-muted">
+          {newsFocus && (
+            <button
+              type="button"
+              onClick={clearNewsFocus}
+              title="Show all news again"
+              className="inline-flex h-6 items-center gap-1 rounded-full border border-app-hairline-strong bg-app-chip pl-2 pr-1.5 font-semibold text-app-ink transition-colors hover:bg-app-card"
+            >
+              Only {newsFocus}
+              <X className="size-3" aria-label="Clear" />
+            </button>
+          )}
+          {filters.assets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openSettings("filters")}
+              className="truncate transition-colors hover:text-app-ink"
+            >
+              Filtered to {filters.assets.join(", ")}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-3">
         {status === "unconfigured" && (
@@ -166,7 +209,19 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
           </p>
         )}
         {historyError && <p className="py-3 text-center text-[12px] text-app-danger">{historyError}</p>}
-        {shown.length === 0 && status !== "unconfigured" && !historyError && (
+        {shown.length === 0 && items.length > 0 && (
+          <div className="py-6 text-center text-[12px] text-app-muted">
+            <p>No news matches {newsFocus ? `${newsFocus} and your filters` : "your filters"} yet.</p>
+            <button
+              type="button"
+              onClick={() => (newsFocus ? clearNewsFocus() : openSettings("filters"))}
+              className="mt-2 font-semibold text-app-ink underline-offset-2 hover:underline"
+            >
+              {newsFocus ? "Show all news" : "Edit filters"}
+            </button>
+          </div>
+        )}
+        {items.length === 0 && status !== "unconfigured" && !historyError && (
           <div className="flex flex-col gap-3 py-3" aria-label="Loading news">
             {[0, 1, 2].map((index) => (
               <div key={index} className="flex gap-3">

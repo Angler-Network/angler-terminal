@@ -10,7 +10,12 @@ import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
 import { HL_NETWORK_OVERRIDE_KEY, defaultHlNetwork, hlConfig, type HlNetwork } from "@/lib/venues/hyperliquid/config";
 import { LIGHTER_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, lighterConfig } from "@/lib/venues/lighter/config";
+import { useMarketList } from "@/components/app/use-market-list";
+import type { Market } from "@/lib/markets/model";
+import { defaultNewsFilters, sentiments, severities, type NewsFilters, type Sentiment } from "@/lib/news/filter";
+import type { Severity } from "@/lib/types";
 import { AppearanceSettings } from "./appearance-settings";
+import { MarketIcon } from "./market-icon";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
 import { usePreferences } from "./preferences-provider";
 import { SearchableSelect } from "./searchable-select";
@@ -20,6 +25,7 @@ const DISCLAIMER = "Not financial advice. Scores are model outputs.";
 const sections = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
+  { id: "filters", label: "News filters" },
   { id: "trading", label: "Trading" },
   { id: "venues", label: "Venues & networks" },
   { id: "notifications", label: "Notifications" },
@@ -127,6 +133,121 @@ function TradingSettings() {
         />
       </SettingRow>
       <p className="py-4 text-[12px] text-app-faint">{DISCLAIMER}</p>
+    </>
+  );
+}
+
+const sentimentLabels: Record<Sentiment, string> = { bullish: "Bullish", neutral: "Neutral", bearish: "Bearish" };
+const severityLabels: Record<Severity, string> = { breaking: "Breaking", important: "Important", notable: "Notable" };
+
+function chipClass(selected: boolean) {
+  return `inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-[13px] transition-colors ${
+    selected ? "border-app-ink bg-app-field font-semibold text-app-ink" : "border-app-field-border bg-app-field/40 text-app-muted hover:text-app-ink"
+  }`;
+}
+
+function toggleIn<T>(list: T[], value: T) {
+  return list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+}
+
+const getSymbol = (market: Market) => market.symbol;
+const getMarketSearch = (market: Market) => `${market.symbol} ${market.kind}`;
+
+function NewsFilterSettings() {
+  const { preferences, updatePreference } = usePreferences();
+  const filters = preferences.newsFilters;
+  const markets = useMarketList("perp");
+  const update = (patch: Partial<NewsFilters>) => updatePreference("newsFilters", { ...filters, ...patch });
+  const available = (markets ?? []).filter((market) => !filters.assets.includes(market.symbol));
+
+  return (
+    <>
+      <div className="border-b border-app-line py-4">
+        <p className="text-[15px] font-semibold text-app-ink">Assets</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-app-muted">Only show news that mentions these assets. Leave empty for every asset.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {filters.assets.map((symbol) => (
+            <button
+              key={symbol}
+              type="button"
+              onClick={() => update({ assets: filters.assets.filter((entry) => entry !== symbol) })}
+              title={`Remove ${symbol}`}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-app-ink bg-app-field pl-2 pr-2.5 text-[13px] font-semibold text-app-ink"
+            >
+              <MarketIcon symbol={symbol} size={18} />
+              {symbol}
+              <X className="size-3.5 text-app-muted" aria-hidden />
+            </button>
+          ))}
+          <div className="w-[200px]">
+            <SearchableSelect
+              compact
+              items={available}
+              value=""
+              onChange={(symbol) => symbol && update({ assets: [...filters.assets, symbol] })}
+              getKey={getSymbol}
+              getSearchText={getMarketSearch}
+              getDisplayValue={() => ""}
+              renderOption={(market) => (
+                <>
+                  <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
+                  <span className="text-[12px] text-app-muted">{market.kind === "stock" ? "Stock" : "Crypto"}</span>
+                </>
+              )}
+              label="Add asset"
+              placeholder="Add asset…"
+              searchPlaceholder="Search, e.g. BTC or NVDA"
+              emptyMessage="No market matches."
+            />
+          </div>
+        </div>
+      </div>
+      <SettingRow title="Sentiment" description="Show news with these sentiments (model output).">
+        <div role="group" aria-label="Sentiment" className="flex flex-wrap gap-2">
+          {sentiments.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={filters.sentiments.includes(value)}
+              onClick={() => update({ sentiments: toggleIn(filters.sentiments, value) })}
+              className={chipClass(filters.sentiments.includes(value))}
+            >
+              {sentimentLabels[value]}
+            </button>
+          ))}
+        </div>
+      </SettingRow>
+      <SettingRow title="Importance" description="Show news at these severity levels.">
+        <div role="group" aria-label="Importance" className="flex flex-wrap gap-2">
+          {severities.map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={filters.severities.includes(value)}
+              onClick={() => update({ severities: toggleIn(filters.severities, value) })}
+              className={chipClass(filters.severities.includes(value))}
+            >
+              {severityLabels[value]}
+            </button>
+          ))}
+        </div>
+      </SettingRow>
+      <SettingRow title="Minimum impact" description="Hide news below this impact score. Also set from the All / 40+ / 60+ / 80+ buttons in the feed.">
+        <ImpactStepper label="Minimum impact" value={filters.minImpact} onChange={(value) => update({ minImpact: value })} />
+      </SettingRow>
+      <SettingRow title="Show raw headlines" description="Headlines that arrived but aren't analyzed yet (no assets, sentiment or impact). Hidden while an asset filter is on.">
+        <Toggle label="Show raw headlines" checked={filters.showRaw} onChange={(checked) => update({ showRaw: checked })} />
+      </SettingRow>
+      <div className="py-4">
+        <button
+          type="button"
+          onClick={() => updatePreference("newsFilters", defaultNewsFilters)}
+          className="text-[13px] font-semibold text-app-muted hover:text-app-ink"
+        >
+          Reset filters
+        </button>
+      </div>
     </>
   );
 }
@@ -339,15 +460,18 @@ function AboutSettings() {
 function SectionContent({ section }: { section: SectionId }) {
   if (section === "general") return <GeneralSettings />;
   if (section === "appearance") return <AppearanceSettings />;
+  if (section === "filters") return <NewsFilterSettings />;
   if (section === "trading") return <TradingSettings />;
   if (section === "venues") return <VenueSettings />;
   if (section === "notifications") return <NotificationSettings />;
   return <AboutSettings />;
 }
 
-function SettingsPanel({ onClose }: { onClose: () => void }) {
+function SettingsPanel({ onClose, initialSection }: { onClose: () => void; initialSection: string | null }) {
   const t = useT();
-  const [activeSection, setActiveSection] = useState<SectionId>("general");
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    sections.find((section) => section.id === initialSection)?.id ?? "general",
+  );
   const activeLabel = sections.find((section) => section.id === activeSection)?.label;
 
   return (
@@ -395,7 +519,7 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
 
 /** Same dialog shell as angler-news, with the terminal's sections. */
 export function SettingsDialog() {
-  const { isSettingsOpen, closeSettings } = usePreferences();
+  const { isSettingsOpen, settingsSection, closeSettings } = usePreferences();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -415,7 +539,7 @@ export function SettingsDialog() {
       }}
       className="surface-menu m-auto h-[min(600px,calc(100dvh-2rem))] w-[min(880px,calc(100vw-2rem))] max-w-none overflow-hidden rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/55 backdrop:backdrop-blur-[2px] max-sm:h-[calc(100dvh-2rem)]"
     >
-      {isSettingsOpen && <SettingsPanel onClose={closeSettings} />}
+      {isSettingsOpen && <SettingsPanel onClose={closeSettings} initialSection={settingsSection} />}
     </dialog>
   );
 }

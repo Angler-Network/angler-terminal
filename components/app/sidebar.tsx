@@ -63,7 +63,7 @@ export function Sidebar() {
 
       <nav aria-label={t("nav.secondary")} className="mt-auto flex flex-col gap-1 pt-[clamp(0.5rem,2vh,1rem)]">
         <NavButton label="Wallets" icon={Wallet} active={wallets.isOpen} onClick={wallets.open} />
-        <NavButton label={t("nav.settings")} icon={Settings} active={isSettingsOpen} onClick={openSettings} />
+        <NavButton label={t("nav.settings")} icon={Settings} active={isSettingsOpen} onClick={() => openSettings()} />
       </nav>
     </aside>
   );

@@ -22,6 +22,7 @@ import {
   type TapeSpeed,
 } from "./markets/model";
 import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from "./chart/candles";
+import { defaultNewsFilters, sentiments, severities, type NewsFilters } from "./news/filter";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -92,6 +93,8 @@ export interface Preferences extends Appearance {
   venueJupiter: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
+  /** Which headlines the feed shows (assets, sentiment, severity, minimum impact, raw headlines). */
+  newsFilters: NewsFilters;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
@@ -147,6 +150,7 @@ export const defaultPreferences: Preferences = {
   venueLighter: true,
   venueJupiter: true,
   preferredPerpVenue: "hyperliquid",
+  newsFilters: defaultNewsFilters,
   ...defaultAppearance,
 };
 
@@ -181,6 +185,19 @@ function readRange(value: unknown, min: number, max: number, step: number, fallb
   const number = Number(value);
   if (value === undefined || value === null || !Number.isFinite(number)) return fallback;
   return Number((Math.round(Math.min(max, Math.max(min, number)) / step) * step).toFixed(2));
+}
+
+function readNewsFilters(value: unknown): NewsFilters {
+  const stored = (value ?? {}) as Partial<Record<keyof NewsFilters, unknown>>;
+  const pickList = <T extends string>(list: unknown, allowed: T[]) =>
+    Array.isArray(list) ? allowed.filter((entry) => list.includes(entry)) : [...allowed];
+  return {
+    assets: readTapeSymbols(stored.assets) ?? [],
+    sentiments: pickList(stored.sentiments, sentiments),
+    severities: pickList(stored.severities, severities),
+    minImpact: readRange(stored.minImpact, 0, 100, 1, defaultNewsFilters.minImpact),
+    showRaw: readBoolean(stored.showRaw, defaultNewsFilters.showRaw),
+  };
 }
 
 export function parsePreferences(raw: string | null): Preferences {
@@ -250,6 +267,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
+      newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(
         stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },
       ),

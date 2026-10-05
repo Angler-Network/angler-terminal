@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ChartPanel } from "@/components/chart/chart-panel";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { AccountPanel, useHasWallet } from "./account-panel";
@@ -14,9 +15,11 @@ import { useSelectedAsset } from "./selected-asset";
  *   [ positions / orders bar     ][ news ]      [ positions bar    ][ news ]
  */
 export function TerminalShell() {
-  const { symbol } = useSelectedAsset();
-  const [minImportance, setMinImportance] = useState(0);
-  const feed = useNewsFeed({ minImportance });
+  const { symbol, newsFocus } = useSelectedAsset();
+  const { newsFilters } = usePreferences().preferences;
+  // With one asset in view, history is requested for that coin so its older news shows up too.
+  const coin = newsFocus ?? (newsFilters.assets.length === 1 ? newsFilters.assets[0] : undefined);
+  const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin });
   const hasWallet = useHasWallet();
   // The chart marks news on candles by item.symbol, so give each matching item the selected symbol.
   const chartItems = useMemo(
@@ -39,7 +42,7 @@ export function TerminalShell() {
         </div>
       )}
       <div className={`h-[600px] min-h-0 lg:row-span-2 lg:row-start-1 lg:h-auto ${hasWallet ? "lg:col-start-3" : "lg:col-start-2"}`}>
-        <NewsFeed feed={feed} minImportance={minImportance} onMinImportance={setMinImportance} />
+        <NewsFeed feed={feed} />
       </div>
       <div className={`h-[200px] min-h-0 lg:col-start-1 lg:row-start-2 lg:h-auto ${hasWallet ? "lg:col-span-2" : ""}`}>
         <PositionsBar />

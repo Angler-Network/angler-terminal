@@ -14,7 +14,9 @@ interface PreferencesContextValue {
   isLoaded: boolean;
   updatePreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void;
   isSettingsOpen: boolean;
-  openSettings: () => void;
+  /** Section the settings dialog opens on (set by openSettings). */
+  settingsSection: string | null;
+  openSettings: (section?: string) => void;
   closeSettings: () => void;
 }
 
@@ -30,6 +32,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -52,12 +55,15 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     (key, value) => setPreferences((current) => ({ ...current, [key]: value })),
     [],
   );
-  const openSettings = useCallback(() => setIsSettingsOpen(true), []);
+  const openSettings = useCallback((section?: string) => {
+    setSettingsSection(section ?? null);
+    setIsSettingsOpen(true);
+  }, []);
   const closeSettings = useCallback(() => setIsSettingsOpen(false), []);
 
   const value = useMemo(
-    () => ({ preferences, isLoaded, updatePreference, isSettingsOpen, openSettings, closeSettings }),
-    [preferences, isLoaded, updatePreference, isSettingsOpen, openSettings, closeSettings],
+    () => ({ preferences, isLoaded, updatePreference, isSettingsOpen, settingsSection, openSettings, closeSettings }),
+    [preferences, isLoaded, updatePreference, isSettingsOpen, settingsSection, openSettings, closeSettings],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

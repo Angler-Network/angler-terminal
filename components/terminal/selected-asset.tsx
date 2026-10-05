@@ -8,6 +8,11 @@ interface SelectedAssetValue {
   /** Solana mint for the asset when the source (e.g. a news item) provided one. */
   mint?: string;
   selectAsset: (symbol: string, mint?: string) => void;
+  /** Symbol the news feed is narrowed to (picked from the ticker tape), or null. */
+  newsFocus: string | null;
+  /** Selects the asset in the chart and narrows the news feed to it. */
+  focusAsset: (symbol: string) => void;
+  clearNewsFocus: () => void;
 }
 
 const SelectedAssetContext = createContext<SelectedAssetValue | null>(null);
@@ -33,6 +38,18 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
     [updatePreference],
   );
   const mint = mintFor?.symbol === symbol ? mintFor.mint : undefined;
-  const value = useMemo(() => ({ symbol, mint, selectAsset }), [symbol, mint, selectAsset]);
+  const [newsFocus, setNewsFocus] = useState<string | null>(null);
+  const focusAsset = useCallback(
+    (next: string) => {
+      selectAsset(next);
+      setNewsFocus(next.toUpperCase());
+    },
+    [selectAsset],
+  );
+  const clearNewsFocus = useCallback(() => setNewsFocus(null), []);
+  const value = useMemo(
+    () => ({ symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus }),
+    [symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus],
+  );
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }

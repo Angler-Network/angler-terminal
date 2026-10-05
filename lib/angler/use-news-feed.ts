@@ -38,7 +38,7 @@ function publishedAt(news: FeedNews) {
  * Live Angler news: history from /api/news, then news.raw and news.enriched over Centrifugo. Publications are
  * stage messages keyed by `news_item_id`, so the enriched payload upserts the raw one in place.
  */
-export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = {}) {
+export function useNewsFeed({ minImportance = 0, coin }: { minImportance?: number; coin?: string } = {}) {
   const [store, setStore] = useState<Map<string, FeedNews>>(() => new Map());
   const [status, setStatus] = useState<FeedStatus>("connecting");
   const [cursor, setCursor] = useState<string | null>(null);
@@ -50,6 +50,9 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
   const [liveError, setLiveError] = useState<string | null>(null);
   const minImportanceRef = useRef(minImportance);
   minImportanceRef.current = minImportance;
+  /** When one asset is in focus, history pages are requested for that coin so older items for it show up. */
+  const coinRef = useRef(coin);
+  coinRef.current = coin;
 
   const upsert = useCallback((incoming: FeedNews[]) => {
     if (incoming.length === 0) return;
@@ -66,6 +69,7 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
     async (pageCursor: string | null) => {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
       if (minImportanceRef.current > 0) params.set("min_importance", String(minImportanceRef.current));
+      if (coinRef.current) params.set("coin", coinRef.current);
       if (pageCursor) params.set("cursor", pageCursor);
       const response = await fetch(`/api/news?${params}`, { cache: "no-store" });
       if (response.status === 503) {
@@ -100,7 +104,7 @@ export function useNewsFeed({ minImportance = 0 }: { minImportance?: number } = 
     return () => {
       isActive = false;
     };
-  }, [loadPage, minImportance]);
+  }, [loadPage, minImportance, coin]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) return;
