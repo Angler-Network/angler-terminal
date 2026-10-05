@@ -74,9 +74,9 @@ export interface Appearance {
 }
 
 export const defaultAppearance: Appearance = {
-  theme: "deepnavy",
+  theme: "oled",
   accent: "#b6cff1",
-  surfaceStyle: "solid",
+  surfaceStyle: "liquid",
   marketColors: "green-red",
   density: "comfortable",
   corners: "rounded",
@@ -105,9 +105,9 @@ export function readAppearance(stored: Record<string, unknown>): Appearance {
 export function applyAppearance(appearance: Partial<Appearance>, root: HTMLElement, styleId: string) {
   const dataset = root.dataset;
   const entries: [string, string | undefined, string][] = [
-    // The terminal defaults to a dark theme while :root holds the light palette, so the theme is always set.
-    ["theme", appearance.theme || "deepnavy", ""],
-    ["surface", appearance.surfaceStyle, "solid"],
+    // The terminal defaults to OLED + Liquid while :root holds the light palette, so theme and surface are always set.
+    ["theme", appearance.theme || "oled", ""],
+    ["surface", appearance.surfaceStyle || "liquid", ""],
     ["density", appearance.density, "comfortable"],
     ["corners", appearance.corners, "rounded"],
   ];
@@ -128,7 +128,7 @@ export function applyAppearance(appearance: Partial<Appearance>, root: HTMLEleme
     parseInt(hex.slice(1, 3), 16) + " " + parseInt(hex.slice(3, 5), 16) + " " + parseInt(hex.slice(5, 7), 16);
 
   const lightThemes = ["navy-white", "baby-navy", "angler-navy"];
-  const isLight = lightThemes.indexOf(appearance.theme || "deepnavy") !== -1;
+  const isLight = lightThemes.indexOf(appearance.theme || "oled") !== -1;
   if (isLight) delete dataset.tone;
   else dataset.tone = "dark";
   const chosen = typeof appearance.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(appearance.accent) ? appearance.accent : "#b6cff1";

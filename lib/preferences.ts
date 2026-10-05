@@ -82,9 +82,16 @@ export interface Preferences extends Appearance {
   tradeMinImpact: number;
   /** Leverage for perp trades placed from news. */
   newsLeverage: number;
+  appearanceVersion: number;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
+
+/**
+ * Bumped when the default look changes. Stored theme/surface from an older version are dropped once so everyone
+ * moves to the new default (OLED + Liquid); every other preference is kept.
+ */
+export const APPEARANCE_VERSION = 2;
 
 export const defaultPreferences: Preferences = {
   chart: "angler",
@@ -125,6 +132,7 @@ export const defaultPreferences: Preferences = {
   defaultSpotUsd: null,
   tradeMinImpact: 60,
   newsLeverage: 5,
+  appearanceVersion: APPEARANCE_VERSION,
   ...defaultAppearance,
 };
 
@@ -220,7 +228,10 @@ export function parsePreferences(raw: string | null): Preferences {
       defaultSpotUsd: readSize(stored.defaultSpotUsd),
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
-      ...readAppearance(stored),
+      appearanceVersion: APPEARANCE_VERSION,
+      ...readAppearance(
+        stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },
+      ),
     };
   } catch {
     return defaultPreferences;
@@ -257,6 +268,6 @@ export function applyPreferencesToDocument(preferences: Preferences) {
 
 export const preferencesScript = `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
   PREFERENCES_STORAGE_KEY,
-)})||"{}"),d=document.documentElement.dataset;if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.sidebarHiding===true&&p.showSidebar===false)d.sidebar="hidden";if(p.topBarHiding===true&&p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
+)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.sidebarHiding===true&&p.showSidebar===false)d.sidebar="hidden";if(p.topBarHiding===true&&p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
   CUSTOM_CSS_ELEMENT_ID,
 )})}catch(e){}`;
