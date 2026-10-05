@@ -45,10 +45,11 @@ Testnet funds: https://app.hyperliquid-testnet.xyz/drip
 ## Spot swaps on Jupiter (Solana)
 
 Assets that aren't Hyperliquid perps, or that are verified Solana tokens, can be swapped on Jupiter (Swap V2):
-connect a Solana wallet (Phantom, Solflare, Backpack), pick Buy (USDC → token) or Sell (token → USDC), check the
-live quote (price, minimum received, price impact, fees), then sign. The result links to Solscan.
+connect a Solana wallet (Phantom, Solflare, Backpack) in the account panel, then use Buy (USDC → token) or Sell
+(token → USDC) on a news card. Each trade re-quotes right before signing, is refused above 3% price impact, and links to
+Solscan.
 
-Jupiter has no testnet: use a dedicated wallet with a few USD. Development builds default to $1/$2/$5 presets.
+Jupiter has no testnet: use a dedicated wallet with a few USD. Development builds default to $1/$2/$5/$10 presets.
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
@@ -59,12 +60,17 @@ Jupiter has no testnet: use a dedicated wallet with a few USD. Development build
 
 ## Trading from the news feed
 
-- News cards with a tradable asset show **Long / Short** (Hyperliquid) or **Buy / Sell** (Solana via Jupiter) next to
-  the asset chip. The side matching the news direction is highlighted; nothing trades automatically.
-- First click selects the asset and preselects the side and default size in the order panel. A second click places it.
-  One-click trading can be turned on in settings (gear icon); it is off by default.
-- Keyboard on the selected news item: `L` long/buy, `S` short/sell (press again to confirm), `1`/`2`/`3` size
-  presets, `Esc` cancel.
+There is no manual order form: trades start from the news.
+
+- Important news (impact ≥ 60 by default, configurable) that mentions a tradable asset shows a size grid per asset:
+  a green **Long/Buy** row and a red **Short/Sell** row. Hyperliquid assets trade as perps (Long/Short), Solana-only
+  tokens as Jupiter spot swaps (Buy/Sell). The side matching the news direction is highlighted; nothing trades
+  automatically.
+- Press a size to arm it ("Confirm"), press again to place it. One-click trading can be enabled in settings (gear
+  icon); it is off by default.
+- Keyboard on the selected news item: `L` long/buy, `S` short/sell, `1`–`4` size, `Enter` or the same key again to
+  confirm, `Esc` cancel.
+- The right column holds wallets, the Hyperliquid trading key, balances and the leverage used for news trades.
 - High-impact items (impact ≥ 80 by default) are briefly highlighted; an optional sound can be enabled in settings.
 
 Not financial advice. Scores are model outputs.

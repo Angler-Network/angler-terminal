@@ -63,10 +63,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     5s and are re-fetched right before signing.
 - `components/terminal/order-panel.tsx` resolves the venue: Hyperliquid perps when listed, Jupiter spot when a
   verified token exists (a mint from the news item goes straight to spot); tabs when both apply.
-- News → trading: `components/terminal/trade-ticket.tsx` holds the armed trade. News buttons (`news-trade-buttons.tsx`,
-  using the same resolver `use-asset-venue.ts`) and keyboard shortcuts (L/S, 1-3, Esc) only arm; the order panel
-  places the order on confirm via `use-ticket-binding.ts`, and only once its state matches the ticket. One-click mode
-  (setting, off by default) is the only way a single click trades. The news direction only highlights a side.
+- News → trading: there is no manual order form. Important news (impact ≥ `tradeMinImpact`, default 60) with a
+  tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
+  Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`. A press arms the button
+  ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
+  (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
+  Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`. The right column is the account
+  panel (`account-panel.tsx`): wallets, trading key, balances, news leverage.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
 - Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
   amounts or other personal data. `GET /api/analytics/trade` needs `ANALYTICS_TOKEN`.
