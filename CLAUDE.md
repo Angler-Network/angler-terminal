@@ -51,6 +51,20 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     only when it changed.
   - Positions and orders stream over the browser WebSocket (`allDexsClearinghouseState` + `openOrders` per dex).
   - Exchange errors go through `errors.ts` (`humanizeHlError`) and are shown as toasts.
+- Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
+  `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
+  github.com/jup-ag/docs (mirrors developers.jup.ag).
+  - Every Jupiter call goes through `app/api/jup/*`, which adds `x-api-key` (`JUP_API_KEY`) and
+    `referralAccount` + `referralFee` (50-255 bps) server-side. Balances come from Solana RPC via
+    `app/api/solana/balances` (`SOLANA_RPC_URL`).
+  - Tokens: `/tokens/v2/search`, verified only; on a symbol clash the most liquid verified token wins.
+  - Amounts are integer base units using decimals from token data (`amounts.ts`), never assumed.
+  - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
+    5s and are re-fetched right before signing.
+- `components/terminal/order-panel.tsx` resolves the venue: Hyperliquid perps when listed, Jupiter spot when a
+  verified token exists (a mint from the news item goes straight to spot); tabs when both apply.
+- Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
+  origin and may come from another app on the same origin).
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 

@@ -42,6 +42,21 @@ The API key never reaches the browser.
 
 Testnet funds: https://app.hyperliquid-testnet.xyz/drip
 
+## Spot swaps on Jupiter (Solana)
+
+Assets that aren't Hyperliquid perps, or that are verified Solana tokens, can be swapped on Jupiter (Swap V2):
+connect a Solana wallet (Phantom, Solflare, Backpack), pick Buy (USDC → token) or Sell (token → USDC), check the
+live quote (price, minimum received, price impact, fees), then sign. The result links to Solscan.
+
+Jupiter has no testnet: use a dedicated wallet with a few USD. Development builds default to $1/$2/$5 presets.
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `JUP_API_KEY` | server only | Jupiter API key |
+| `JUP_REFERRAL_ACCOUNT`, `JUP_REFERRAL_FEE_BPS` | server only | Integrator fee (50-255 bps) |
+| `SOLANA_RPC_URL` | server only | RPC for wallet balances |
+| `NEXT_PUBLIC_SPOT_SIZE_PRESETS` | browser | Optional comma-separated USD presets |
+
 ## Tests
 
 ```bash
