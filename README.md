@@ -58,6 +58,12 @@ Jupiter has no testnet: use a dedicated wallet with a few USD. Development build
 | `SOLANA_RPC_URL` | server only | RPC for wallet balances |
 | `NEXT_PUBLIC_SPOT_SIZE_PRESETS` | browser | Optional comma-separated USD presets |
 
+## Stock tokens on Arcus (Robinhood Chain)
+
+Stocks and indices that no perp venue lists can be bought and sold as tokens on Arcus with USDG. Your EVM wallet
+signs, Arcus settles (gasless; the wallet is moved to Robinhood Chain automatically). Testnet by default
+(`NEXT_PUBLIC_ARCUS_NETWORK`), minimum $5 per trade. The test order form offers Arcus for any listed stock.
+
 ## Trading from the news feed
 
 Trades start from the news. For now a **test order form** in the account panel (for the chart's asset) can also

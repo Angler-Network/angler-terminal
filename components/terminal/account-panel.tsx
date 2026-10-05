@@ -5,6 +5,9 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
+import { arcusConfig } from "@/lib/venues/arcus/config";
+import type { ArcusToken } from "@/lib/venues/arcus/tokens";
+import { arcusQuoteToken, getArcusBalances, getArcusNativeBalance } from "@/lib/venues/arcus/venue";
 import { lighterConfig } from "@/lib/venues/lighter/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -13,6 +16,7 @@ import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
+import { useArcusToken } from "./use-arcus-token";
 import { useAssetVenues } from "./use-asset-venue";
 import { useWallet } from "./wallet-provider";
 
@@ -188,6 +192,37 @@ function JupiterSection() {
   );
 }
 
+function ArcusSection({ address }: { address: `0x${string}` }) {
+  const { symbol } = useSelectedAsset();
+  const token = useArcusToken(symbol) ?? null;
+  const [state, setState] = useState<{ stable: ArcusToken; amounts: Record<string, bigint>; eth: bigint } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const stable = await arcusQuoteToken();
+      const [amounts, eth] = await Promise.all([getArcusBalances(address, token ? [stable, token] : [stable]), getArcusNativeBalance(address)]);
+      setState({ stable, amounts, eth });
+    } catch {}
+  }, [address, token]);
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), BALANCE_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  const show = (amount: bigint | undefined, decimals: number) =>
+    amount === undefined ? "—" : fromBaseUnits(amount, decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 });
+
+  return (
+    <Section title="Arcus stock tokens" badge={arcusConfig.network === "testnet" ? "Testnet" : "Mainnet"}>
+      <Row label={arcusConfig.quoteSymbol}>{state ? show(state.amounts[state.stable.address], state.stable.decimals) : "—"}</Row>
+      {token && <Row label={token.symbol}>{state ? show(state.amounts[token.address], token.decimals) : "—"}</Row>}
+      <Row label="ETH (approvals)">{state ? show(state.eth, 18) : "—"}</Row>
+    </Section>
+  );
+}
+
 /** True when at least one wallet is connected, so the shell can give the panel a column. */
 export function useHasWallet() {
   return Boolean(useWallet().address || useSolanaWallet().address);
@@ -210,6 +245,7 @@ export function AccountPanel() {
         {evmAddress && <HyperliquidSection />}
         {evmAddress && preferences.venueLighter && <LighterSection />}
         {solanaAddress && <JupiterSection />}
+        {evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>
       <p className="shrink-0 px-1 text-center text-[10px] leading-tight text-app-faint">{DISCLAIMER}</p>
     </div>

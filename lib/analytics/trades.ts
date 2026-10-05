@@ -3,14 +3,14 @@
  * Only which venue, which side, and which news item (if any) led to the trade.
  */
 export interface TradeEvent {
-  venue: "hyperliquid" | "lighter" | "jupiter";
+  venue: "hyperliquid" | "lighter" | "jupiter" | "arcus";
   side: "buy" | "sell";
   /** Angler news id the trade came from, or null when placed from the panel directly. */
   newsId: string | null;
   oneClick: boolean;
 }
 
-const VENUES = new Set(["hyperliquid", "lighter", "jupiter"]);
+const VENUES = new Set(["hyperliquid", "lighter", "jupiter", "arcus"]);
 const NEWS_ID = /^[A-Za-z0-9:_-]{1,100}$/;
 
 export function readTradeEvent(value: unknown): TradeEvent | null {

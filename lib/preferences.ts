@@ -93,6 +93,7 @@ export interface Preferences extends Appearance {
   venueHyperliquid: boolean;
   venueLighter: boolean;
   venueJupiter: boolean;
+  venueArcus: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
   /** Which headlines the feed shows (assets, sentiment, severity, minimum impact, raw headlines). */
@@ -152,6 +153,7 @@ export const defaultPreferences: Preferences = {
   venueHyperliquid: true,
   venueLighter: true,
   venueJupiter: true,
+  venueArcus: true,
   preferredPerpVenue: "hyperliquid",
   newsFilters: defaultNewsFilters,
   ...defaultAppearance,
@@ -270,6 +272,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueHyperliquid: readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
+      venueArcus: readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(

@@ -96,7 +96,16 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     5s and are re-fetched right before signing.
 - Venue resolver (`components/terminal/use-asset-venue.ts`): perps on the preferred perp venue
   (`preferredPerpVenue`, default Hyperliquid) and the other enabled one as fallback (`lib/venues/routing.ts`), Jupiter
-  spot when a verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today).
+  spot when a verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today),
+  then Arcus stock tokens (`spotVenue: "arcus"`) when nothing else lists the asset.
+- Arcus (`lib/venues/arcus/`): stock/index tokens on Robinhood Chain (testnet 46630, mainnet 4663;
+  `NEXT_PUBLIC_ARCUS_NETWORK`, testnet default), via `@arcus-xyz/arcus-spot-sdk` for signing only.
+  - The browser calls `app/api/arcus/[...path]` (tokens, price, quote, status, submit only): the mainnet router allows
+    listed origins only, and the server adds `ARCUS_API_KEY` + `ARCUS_BUILDER_FEE_BPS` when set.
+  - Flow (`venue.ts`): size in USDG (mUSDG on testnet; sells sized from `/v1/price`), balance check, `/v1/quote`,
+    keep only the gasless `arcus` venue quote, refuse impact above `MAX_SPOT_PRICE_IMPACT_PCT` vs `referencePrice`,
+    switch/add Robinhood Chain in the wallet, Permit2 allowance (EIP-2612 permit or one-time approve), sign the
+    Permit2 witness, `/v1/submit`, poll `/v1/status`. Minimum $5 per trade.
 - News → trading: orders start from the news. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
   Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`; the ticket carries the perp venue id. A press arms the button
@@ -117,8 +126,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
 - `components/app/alpha-notice.tsx` shows a welcome tour (copy in `welcome-slides.ts`) followed by the alpha warning
   once per browser (bump `ACK_KEY` to show it again; Settings → About reopens it) and the "Alpha" badge in the top bar.
-- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter live; Titan,
-  Arcus "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
+- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter, Arcus live;
+  Titan "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).

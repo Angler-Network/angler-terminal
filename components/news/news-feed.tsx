@@ -87,7 +87,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   const onResolved = useCallback((newsId: string, symbol: string, trade: ResolvedNewsTrade | null) => {
     setResolved((current) => {
       const previous = current[newsId]?.[symbol];
-      if (previous === trade || (previous && trade && previous.venue === trade.venue && previous.mint === trade.mint)) return current;
+      if (previous === trade || (previous && trade && previous.venue === trade.venue && previous.mint === trade.mint && previous.spotVenue === trade.spotVenue)) return current;
       return { ...current, [newsId]: { ...current[newsId], [symbol]: trade } };
     });
   }, []);

@@ -13,8 +13,9 @@ import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
+import { ArcusSwapFailedError, arcusSwap, resolveArcusToken } from "@/lib/venues/arcus/venue";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
-import type { OrderSide, PerpVenueId, SpotToken } from "@/lib/venues/types";
+import type { OrderSide, PerpVenueId, SpotToken, SpotVenueId } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
@@ -29,6 +30,8 @@ export interface NewsTrade {
   venue: TradeVenueKind;
   /** Perp venue chosen when the ticket was armed; re-resolved if missing. */
   perpVenue?: PerpVenueId;
+  /** Spot venue; Jupiter when unset. */
+  spotVenue?: SpotVenueId;
   side: OrderSide;
   sizeUsd: number;
   /** Perp leverage; defaults to the news leverage setting. */
@@ -49,7 +52,7 @@ function amountText(amount: bigint, token: SpotToken) {
 export function useNewsTrader() {
   const toast = useToast();
   const { preferences } = usePreferences();
-  const { address: evmAddress } = useWallet();
+  const { address: evmAddress, wallet: evmWallet } = useWallet();
   const { open: openWallets } = useWalletModal();
   const { marketsByVenue, perpOrder, placeOrder } = useTrading();
   const { address: solanaAddress, signTransaction } = useSolanaWallet();
@@ -135,12 +138,56 @@ export function useNewsTrader() {
     [solanaAddress, signTransaction, fail, toast, openWallets],
   );
 
+  const tradeArcus = useCallback(
+    async (trade: NewsTrade) => {
+      if (!evmAddress || !evmWallet) {
+        fail("Connect an EVM wallet to trade stock tokens on Arcus.");
+        openWallets();
+        return false;
+      }
+      try {
+        const token = await resolveArcusToken(trade.symbol);
+        if (!token) return fail(`${trade.symbol} isn't listed on Arcus.`), false;
+        const result = await arcusSwap({
+          provider: evmWallet.provider,
+          account: evmAddress,
+          token,
+          side: trade.side,
+          sizeUsd: trade.sizeUsd,
+          maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
+        });
+        const format = (amount: bigint, decimals: number, symbol: string) =>
+          `${fromBaseUnits(amount, decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${symbol}`;
+        const bought = trade.side === "buy";
+        toast({
+          tone: "success",
+          title: `${bought ? "Bought" : "Sold"} ${bought ? format(result.bought.amount, token.decimals, token.symbol) : format(result.sold.amount, token.decimals, token.symbol)}`,
+          message: bought
+            ? `Spent ${format(result.sold.amount, result.sold.token.decimals, result.sold.token.symbol)} on Arcus`
+            : `Received ${format(result.bought.amount, result.bought.token.decimals, result.bought.token.symbol)} on Arcus`,
+          link: { href: result.explorerUrl, label: "View transaction" },
+        });
+        return true;
+      } catch (error) {
+        toast({
+          tone: "error",
+          title: "Arcus swap failed",
+          message: error instanceof Error ? error.message : String(error),
+          link: error instanceof ArcusSwapFailedError ? { href: error.explorerUrl, label: "View transaction" } : undefined,
+        });
+        return false;
+      }
+    },
+    [evmAddress, evmWallet, fail, toast, openWallets],
+  );
+
   return useCallback(
     async (trade: NewsTrade) => {
-      const placed = trade.venue === "perp" ? await tradePerp(trade) : await tradeSpot(trade);
+      const placed =
+        trade.venue === "perp" ? await tradePerp(trade) : trade.spotVenue === "arcus" ? await tradeArcus(trade) : await tradeSpot(trade);
       if (placed) {
         trackTrade({
-          venue: trade.venue === "perp" ? (trade.perpVenue ?? "hyperliquid") : "jupiter",
+          venue: trade.venue === "perp" ? (trade.perpVenue ?? "hyperliquid") : (trade.spotVenue ?? "jupiter"),
           side: trade.side,
           newsId: trade.newsId ?? null,
           oneClick: trade.oneClick,
@@ -148,7 +195,7 @@ export function useNewsTrader() {
       }
       return placed;
     },
-    [tradePerp, tradeSpot],
+    [tradePerp, tradeSpot, tradeArcus],
   );
 }
 

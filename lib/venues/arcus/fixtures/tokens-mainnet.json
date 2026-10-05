@@ -1,0 +1,74 @@
+[
+  {
+    "chainId": 4663,
+    "symbol": "NVDA",
+    "name": "NVIDIA",
+    "address": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "decimals": 18,
+    "source": "server",
+    "category": "stock",
+    "addedTimestamp": 1782864000000,
+    "verified": true,
+    "wrappedTokenAddress": "0x2473FC2531050187446519Cb53da77c21F730D5f"
+  },
+  {
+    "chainId": 4663,
+    "symbol": "TSLA",
+    "name": "Tesla",
+    "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+    "decimals": 18,
+    "source": "server",
+    "category": "stock",
+    "addedTimestamp": 1782864000000,
+    "verified": true,
+    "wrappedTokenAddress": "0xBfcB903A2f7233c0a08dfb4F57CAB54bFe806aA4"
+  },
+  {
+    "chainId": 4663,
+    "symbol": "SPY",
+    "name": "SPDR S&P 500 ETF Trust",
+    "address": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+    "decimals": 18,
+    "source": "server",
+    "category": "index",
+    "addedTimestamp": 1782864000000,
+    "verified": true,
+    "wrappedTokenAddress": "0x68fE0EBa483a1AbBE3E7406e913aF4928a91b22A"
+  },
+  {
+    "chainId": 4663,
+    "symbol": "USDG",
+    "name": "Global Dollar",
+    "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "decimals": 6,
+    "source": "server",
+    "category": "crypto",
+    "addedTimestamp": 1782864000000,
+    "verified": true,
+    "wrappedTokenAddress": "0x1e1a7CBde7FdeFbCBc7c549d509ad1Cf35D92909"
+  },
+  {
+    "chainId": 4663,
+    "symbol": "4663",
+    "name": "4663",
+    "address": "0xd4052415613b34af236024b895574c467f65b6dd",
+    "decimals": 18,
+    "source": "server",
+    "category": "meme",
+    "addedTimestamp": 1782864000000,
+    "verified": false,
+    "wrappedTokenAddress": "0x52427d9357dB84E5D44BfE6B07e68d055e585CEF"
+  },
+  {
+    "chainId": 4663,
+    "symbol": "pBTC3x",
+    "name": "Arcus BTC (3x Long)",
+    "address": "0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e",
+    "decimals": 18,
+    "source": "server",
+    "category": "pToken",
+    "addedTimestamp": 1787702400000,
+    "verified": true,
+    "wrappedTokenAddress": "0x7db7b0CE05C92d4e205a862e48d64B66B7Efce84"
+  }
+]

@@ -8,6 +8,7 @@ import { alertSounds, type AlertSound } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
+import { arcusConfig } from "@/lib/venues/arcus/config";
 import { HL_NETWORK_OVERRIDE_KEY, defaultHlNetwork, hlConfig, type HlNetwork } from "@/lib/venues/hyperliquid/config";
 import { LIGHTER_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, lighterConfig } from "@/lib/venues/lighter/config";
 import { useMarketList } from "@/components/app/use-market-list";
@@ -381,9 +382,15 @@ function VenueSettings() {
       <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
         <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
       </VenueRow>
+      <VenueRow
+        name="Arcus"
+        badge={`Stock tokens · Robinhood Chain ${arcusConfig.network}`}
+        description="24/7 stock and index tokens, bought and sold with USDG. Used for stocks that no perp venue lists, and in the test order form. Gasless: your wallet signs, Arcus settles."
+      >
+        <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
+      </VenueRow>
       {[
         { name: "Titan", badge: "Spot · Solana", description: "Solana meta-aggregator; quotes will be compared with Jupiter for the best price." },
-        { name: "Arcus", badge: "Stock tokens · Robinhood Chain", description: "24/7 stock tokens and indices." },
       ].map((venue) => (
         <VenueRow key={venue.name} name={venue.name} badge={venue.badge} description={venue.description}>
           <span className="rounded-lg border border-app-hairline px-2.5 py-1 text-[12px] font-semibold text-app-muted">Coming soon</span>

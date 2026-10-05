@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@arcus-xyz/arcus-spot-sdk": "1.0.2",
     "@nktkas/hyperliquid": "0.33.3",
     "@solana/wallet-standard-features": "1.5.0",
     "@wallet-standard/app": "1.1.1",

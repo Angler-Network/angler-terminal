@@ -12,6 +12,9 @@ export type OrderKind = "market" | "limit";
 
 export type PerpVenueId = "hyperliquid" | "lighter";
 
+/** Spot venues: Jupiter (Solana tokens) and Arcus (stock tokens on Robinhood Chain). */
+export type SpotVenueId = "jupiter" | "arcus";
+
 export interface VenueMarket {
   venue: PerpVenueId;
   /** The venue's own coin name, e.g. "BTC" or "xyz:NVDA" for a HIP-3 market. */

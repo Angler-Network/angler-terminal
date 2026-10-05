@@ -4,16 +4,20 @@ import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { formatPrice } from "@/lib/format";
 import { sideLabel } from "@/lib/trading/presets";
+import { arcusConfig } from "@/lib/venues/arcus/config";
+import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import type { OrderSide, PerpVenueId, SpotToken, VenueMarket } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
+import { useArcusToken } from "./use-arcus-token";
 import { useNewsTrader } from "./use-news-trader";
 import { useSpotToken } from "./use-spot-token";
 
 type VenueChoice =
   | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
-  | { id: "jupiter"; name: string; network: string; kind: "spot"; token: SpotToken };
+  | { id: "jupiter"; name: string; network: string; kind: "spot"; token: SpotToken }
+  | { id: "arcus"; name: string; network: string; kind: "spot"; arcusToken: ArcusToken };
 
 const ARM_MS = 5_000;
 const DEFAULT_SIZE_USD = "11";
@@ -31,6 +35,7 @@ export function ManualOrderSection() {
   const { marketsByVenue, network, lighterNetwork } = useTrading();
   const trade = useNewsTrader();
   const token = useSpotToken(symbol, mint, preferences.venueJupiter);
+  const arcusToken = useArcusToken(symbol, preferences.venueArcus && !mint);
 
   const choices: VenueChoice[] = [];
   const hl = preferences.venueHyperliquid && marketsByVenue.hyperliquid ? findMarket(marketsByVenue.hyperliquid, symbol) : null;
@@ -38,6 +43,7 @@ export function ManualOrderSection() {
   const lighter = preferences.venueLighter && marketsByVenue.lighter ? findMarket(marketsByVenue.lighter, symbol) : null;
   if (lighter) choices.push({ id: "lighter", name: "Lighter", network: lighterNetwork, kind: "perp", market: lighter });
   if (preferences.venueJupiter && token) choices.push({ id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token });
+  if (arcusToken) choices.push({ id: "arcus", name: "Arcus", network: arcusConfig.network, kind: "spot", arcusToken });
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
   const [side, setSide] = useState<OrderSide>("buy");
@@ -69,9 +75,10 @@ export function ManualOrderSection() {
     try {
       await trade({
         symbol,
-        mint: choice.kind === "spot" ? choice.token.mint : undefined,
+        mint: choice.id === "jupiter" ? choice.token.mint : undefined,
         venue: choice.kind,
         perpVenue: choice.kind === "perp" ? choice.id : undefined,
+        spotVenue: choice.kind === "spot" ? choice.id : undefined,
         side,
         sizeUsd,
         leverage: choice.kind === "perp" ? leverageValue : undefined,
@@ -152,7 +159,12 @@ export function ManualOrderSection() {
               Market order near {formatPrice(price)} · {choice?.kind === "perp" ? choice.market.coin : symbol}
             </p>
           )}
-          {kind === "spot" && <p className="text-[11px] text-app-faint">Jupiter swaps are on Solana mainnet with real funds.</p>}
+          {choice?.id === "jupiter" && <p className="text-[11px] text-app-faint">Jupiter swaps are on Solana mainnet with real funds.</p>}
+          {choice?.id === "arcus" && (
+            <p className="text-[11px] text-app-faint">
+              {choice.arcusToken.name} on Robinhood Chain {arcusConfig.network}, paid in {arcusConfig.quoteSymbol}. Minimum $5.
+            </p>
+          )}
           <button
             type="button"
             disabled={!isValid || isPlacing}

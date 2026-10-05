@@ -1,5 +1,6 @@
 "use client";
 
+import { arcusConfig } from "@/lib/venues/arcus/config";
 import { Check, ChevronLeft, Loader2, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
@@ -58,7 +59,7 @@ const VENUES: VenueOption[] = [
   { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
   { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#2a2a2a", live: true },
   { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: false },
-  { id: "arcus", name: "Arcus", kind: "Stock tokens", chain: "evm", domain: "arcus.xyz", color: "#0d6e4f", live: false },
+  { id: "arcus", name: "Arcus", kind: "Stock tokens", chain: "evm", domain: "arcus.xyz", color: "#0d6e4f", live: true },
 ];
 
 const chainLabel: Record<Chain, string> = { evm: "EVM", solana: "Solana" };
@@ -273,7 +274,7 @@ function WalletModal() {
                   venue={venue}
                   address={state.address}
                   walletName={state.walletName}
-                  network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : undefined}
+                  network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : venue.id === "arcus" ? arcusConfig.network : undefined}
                   onConnect={() => setPicking(venue)}
                   onDisconnect={state.disconnect}
                 />
