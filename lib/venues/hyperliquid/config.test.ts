@@ -23,6 +23,14 @@ describe("readHlConfig", () => {
   });
 });
 
+describe("HIP-3 dexes", () => {
+  it("defaults to xyz and reads a custom list", () => {
+    expect(readHlConfig({}).hip3Dexes).toEqual(["xyz"]);
+    expect(readHlConfig({ NEXT_PUBLIC_HL_HIP3_DEXES: "xyz, flx" }).hip3Dexes).toEqual(["xyz", "flx"]);
+    expect(readHlConfig({ NEXT_PUBLIC_HL_HIP3_DEXES: "" }).hip3Dexes).toEqual([]);
+  });
+});
+
 describe("feeToPercent", () => {
   it("converts tenths of a basis point to the approveBuilderFee percent string", () => {
     expect(feeToPercent(10)).toBe("0.01%");

@@ -27,7 +27,7 @@ async function loadMarketsDirect() {
   const info = infoClient();
   const [main, perpDexs] = await Promise.all([info.metaAndAssetCtxs(), info.perpDexs()]);
   const hip3 = await Promise.allSettled(
-    builderDexes(perpDexs).map(async (dex) => {
+    builderDexes(perpDexs, hlConfig.hip3Dexes).map(async (dex) => {
       const [meta, ctxs] = await info.metaAndAssetCtxs({ dex: dex.name });
       return marketsFromMeta(dex.index, dex.name, meta, ctxs);
     }),

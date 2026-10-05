@@ -54,6 +54,10 @@ describe("markets", () => {
     expect(findMarket(markets, "DOGE")).toBeNull();
   });
 
+  it("keeps the full-list index when filtering to allowed dexs", () => {
+    expect(builderDexes([null, { name: "test" }, { name: "xyz" }], ["xyz"])).toEqual([{ name: "xyz", index: 2 }]);
+  });
+
   it("lists builder dexs with their perpDexs index", () => {
     expect(builderDexes([null, { name: "xyz" }, { name: "" }, { name: "flx" }])).toEqual([
       { name: "xyz", index: 1 },

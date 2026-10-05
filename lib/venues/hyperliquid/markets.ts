@@ -63,9 +63,14 @@ export function marketsFromMeta(dexIndex: number, dexName: string, meta: PerpMet
   });
 }
 
-/** Names of the HIP-3 dexs with their index in `perpDexs`. */
-export function builderDexes(perpDexs: PerpDexsLike) {
-  return perpDexs.flatMap((dex, index) => (index > 0 && dex?.name ? [{ name: dex.name, index }] : []));
+/**
+ * HIP-3 dexs with their index in the full `perpDexs` list (the index drives asset ids, so filter after indexing).
+ * Pass `allowed` to keep only those names.
+ */
+export function builderDexes(perpDexs: PerpDexsLike, allowed?: string[]) {
+  return perpDexs.flatMap((dex, index) =>
+    index > 0 && dex?.name && (!allowed || allowed.includes(dex.name)) ? [{ name: dex.name, index }] : [],
+  );
 }
 
 /**

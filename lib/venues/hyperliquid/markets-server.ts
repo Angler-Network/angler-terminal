@@ -12,7 +12,7 @@ async function loadMarkets(network: HlNetwork): Promise<VenueMarket[]> {
   const info = new InfoClient({ transport: new HttpTransport({ isTestnet: network === "testnet", timeout: 10_000 }) });
   const [main, perpDexs] = await Promise.all([info.metaAndAssetCtxs(), info.perpDexs()]);
   const hip3 = await Promise.allSettled(
-    builderDexes(perpDexs).map(async (dex) => {
+    builderDexes(perpDexs, hlConfig.hip3Dexes).map(async (dex) => {
       const [meta, ctxs] = await info.metaAndAssetCtxs({ dex: dex.name });
       return marketsFromMeta(dex.index, dex.name, meta, ctxs);
     }),
