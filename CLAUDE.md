@@ -63,6 +63,14 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     5s and are re-fetched right before signing.
 - `components/terminal/order-panel.tsx` resolves the venue: Hyperliquid perps when listed, Jupiter spot when a
   verified token exists (a mint from the news item goes straight to spot); tabs when both apply.
+- News → trading: `components/terminal/trade-ticket.tsx` holds the armed trade. News buttons (`news-trade-buttons.tsx`,
+  using the same resolver `use-asset-venue.ts`) and keyboard shortcuts (L/S, 1-3, Esc) only arm; the order panel
+  places the order on confirm via `use-ticket-binding.ts`, and only once its state matches the ticket. One-click mode
+  (setting, off by default) is the only way a single click trades. The news direction only highlights a side.
+- High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
+- Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
+  amounts or other personal data. `GET /api/analytics/trade` needs `ANALYTICS_TOKEN`.
+- Keep the disclaimer "Not financial advice. Scores are model outputs." next to the order panel.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.

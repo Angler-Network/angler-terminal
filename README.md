@@ -57,6 +57,18 @@ Jupiter has no testnet: use a dedicated wallet with a few USD. Development build
 | `SOLANA_RPC_URL` | server only | RPC for wallet balances |
 | `NEXT_PUBLIC_SPOT_SIZE_PRESETS` | browser | Optional comma-separated USD presets |
 
+## Trading from the news feed
+
+- News cards with a tradable asset show **Long / Short** (Hyperliquid) or **Buy / Sell** (Solana via Jupiter) next to
+  the asset chip. The side matching the news direction is highlighted; nothing trades automatically.
+- First click selects the asset and preselects the side and default size in the order panel. A second click places it.
+  One-click trading can be turned on in settings (gear icon); it is off by default.
+- Keyboard on the selected news item: `L` long/buy, `S` short/sell (press again to confirm), `1`/`2`/`3` size
+  presets, `Esc` cancel.
+- High-impact items (impact ≥ 80 by default) are briefly highlighted; an optional sound can be enabled in settings.
+
+Not financial advice. Scores are model outputs.
+
 ## Tests
 
 ```bash
