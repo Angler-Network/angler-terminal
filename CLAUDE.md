@@ -89,8 +89,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (`HL_NETWORK_OVERRIDE_KEY`, applied after a reload; `/api/hl/markets?network=` follows it).
 - `components/app/alpha-notice.tsx` shows the alpha warning once per browser (bump `ACK_KEY` to show it again) and
   the "Alpha" badge in the top bar.
-- Wallets: one Connect button opens `wallet-modal.tsx` with EVM wallets (EIP-6963 discovery, for Hyperliquid) and
-  Solana wallets (Wallet Standard, for Jupiter). The account panel (`account-panel.tsx`: balances, trading key) and
+- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Jupiter live; Lighter, Titan,
+  Arcus "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
+  Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
 - Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
