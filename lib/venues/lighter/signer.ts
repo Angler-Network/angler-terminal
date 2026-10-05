@@ -32,6 +32,7 @@ interface SignerGlobals {
   CreateAuthToken: (deadline: number, apiKeyIndex: number, accountIndex: number) => Result<{ authToken: string }>;
   SignChangePubKey: (publicKey: string, skipNonce: number, nonce: number, apiKeyIndex: number, accountIndex: number) => Result<SignedTx>;
   SignCreateOrder: (...args: number[]) => Result<SignedTx>;
+  SignCreateGroupedOrders: (grouping: number, orders: Array<Record<string, number>>, ...args: number[]) => Result<SignedTx>;
   SignCancelOrder: (...args: number[]) => Result<SignedTx>;
   SignUpdateLeverage: (...args: number[]) => Result<SignedTx>;
   SignApproveIntegrator: (...args: number[]) => Result<SignedTx>;
@@ -129,15 +130,20 @@ export interface CreateOrderArgs {
   baseAmount: number;
   price: number;
   isAsk: boolean;
-  /** 0 limit, 1 market. */
-  orderType: 0 | 1;
+  /** 0 limit, 1 market, 2 stop-loss (market when triggered), 4 take-profit (market when triggered). */
+  orderType: 0 | 1 | 2 | 4;
   /** 0 immediate-or-cancel, 1 good-till-time, 2 post-only. */
   timeInForce: 0 | 1 | 2;
   reduceOnly: boolean;
-  /** Unix ms; 0 for IOC. */
+  /** Unix ms; 0 for IOC; -1 lets the signer use 28 days (TP/SL orders wait that long for their trigger). */
   orderExpiry: number;
+  /** Price units, for stop-loss and take-profit orders. */
+  triggerPrice?: number;
   integrator?: { accountIndex: number; takerFee: number; makerFee: number };
 }
+
+/** OTO: entry triggers one child; OCO: two siblings cancel each other; OTOCO: entry triggers an OCO pair. */
+export const GROUPING = { oto: 1, oco: 2, otoco: 3 } as const;
 
 export async function signCreateOrder(context: SignerContext, order: CreateOrderArgs, nonce: number) {
   const signer = await signerFor(context);
@@ -151,7 +157,7 @@ export async function signCreateOrder(context: SignerContext, order: CreateOrder
       order.orderType,
       order.timeInForce,
       order.reduceOnly ? 1 : 0,
-      0, // triggerPrice
+      order.triggerPrice ?? 0,
       order.orderExpiry,
       order.integrator?.accountIndex ?? 0,
       order.integrator?.takerFee ?? 0,
@@ -164,6 +170,44 @@ export async function signCreateOrder(context: SignerContext, order: CreateOrder
       context.accountIndex,
     ),
     "SignCreateOrder",
+  );
+}
+
+/** Several orders in one transaction (entry + TP/SL, or a TP/SL pair); integrator fields apply to the group. */
+export async function signCreateGroupedOrders(
+  context: SignerContext,
+  grouping: (typeof GROUPING)[keyof typeof GROUPING],
+  orders: Omit<CreateOrderArgs, "integrator">[],
+  integrator: CreateOrderArgs["integrator"],
+  nonce: number,
+) {
+  const signer = await signerFor(context);
+  return check(
+    signer.SignCreateGroupedOrders(
+      grouping,
+      orders.map((order) => ({
+        MarketIndex: order.marketIndex,
+        ClientOrderIndex: order.clientOrderIndex,
+        BaseAmount: order.baseAmount,
+        Price: order.price,
+        IsAsk: order.isAsk ? 1 : 0,
+        Type: order.orderType,
+        TimeInForce: order.timeInForce,
+        ReduceOnly: order.reduceOnly ? 1 : 0,
+        TriggerPrice: order.triggerPrice ?? 0,
+        OrderExpiry: order.orderExpiry,
+      })),
+      integrator?.accountIndex ?? 0,
+      integrator?.takerFee ?? 0,
+      integrator?.makerFee ?? 0,
+      0,
+      0,
+      0,
+      nonce,
+      context.apiKeyIndex,
+      context.accountIndex,
+    ),
+    "SignCreateGroupedOrders",
   );
 }
 

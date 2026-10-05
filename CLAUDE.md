@@ -125,7 +125,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Order panel (`order-panel.tsx`): the chart's asset on every venue that lists it (perps in `perpOrder`, then
     Jupiter/Arcus spot). Perps: market/limit, leverage slider, cross/isolated, reduce-only, % of available, estimated
     isolated liquidation (`lib/trading/order-math.ts`); calls `placeOrder` directly. Spot goes through
-    `use-news-trader.ts`. Two-press confirm unless one-click. No TP/SL yet.
+    `use-news-trader.ts`. Two-press confirm unless one-click.
+  - TP/SL (`lib/trading/tpsl.ts` validates the side): reduce-only market-when-triggered orders. Hyperliquid: entry +
+    triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,
+    expiry -1 (28 days), grouped with the entry via `SignCreateGroupedOrders` (OTO, or OTOCO for both) and as an
+    OCO pair for open positions. Set from the order panel or the TP/SL button on a position row.
   - Order book (`order-book.tsx` + `use-order-book.ts`): plain WebSockets (HL `l2Book`/`trades`, Lighter
     `order_book/{id}`/`trade/{id}` with deltas), parsers and grouping in `lib/trading/orderbook.ts`. Clicking a price
     hands it to the order panel through `order-draft.tsx`.

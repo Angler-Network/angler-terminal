@@ -50,6 +50,15 @@ export interface PlaceOrderInput {
   /** Target leverage; the venue updates it first when it differs from the last value it set. */
   leverage?: number;
   isCross?: boolean;
+  /** Reduce-only trigger orders attached to the entry (market when triggered). */
+  takeProfit?: number;
+  stopLoss?: number;
+}
+
+/** TP/SL trigger prices for an open position; an unset level is left as is. */
+export interface PositionTpsl {
+  takeProfit?: number;
+  stopLoss?: number;
 }
 
 export type OrderResult =
@@ -119,6 +128,8 @@ export interface PerpVenue {
   placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult>;
   cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coin" | "oid">): Promise<void>;
   closePosition(user: `0x${string}`, position: VenuePosition): Promise<OrderResult>;
+  /** Places reduce-only take-profit and/or stop-loss trigger orders for the whole position. */
+  setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl): Promise<void>;
   /** Live positions and open orders. Returns an unsubscribe function. */
   subscribeAccount(user: `0x${string}`, handlers: AccountHandlers): () => void;
   loadCandles(market: VenueMarket, interval: string, startTime: number): Promise<Candle[]>;

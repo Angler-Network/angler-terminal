@@ -26,6 +26,7 @@ import { lighterVenue } from "@/lib/venues/lighter/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
+  PositionTpsl,
   PerpVenue,
   PerpVenueId,
   PlaceOrderInput,
@@ -72,6 +73,7 @@ interface TradingContextValue {
   placeOrder: (input: PlaceOrderInput) => Promise<boolean>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
   closePosition: (position: VenuePosition) => Promise<void>;
+  setPositionTpsl: (position: VenuePosition, levels: PositionTpsl) => Promise<boolean>;
 }
 
 const TradingContext = createContext<TradingContextValue | null>(null);
@@ -317,6 +319,26 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     [address, toast, fail],
   );
 
+  const setPositionTpsl = useCallback(
+    async (position: VenuePosition, levels: PositionTpsl) => {
+      if (!address) return false;
+      if (!isVenueReady(position.venue)) {
+        setSetupVenue(position.venue);
+        return false;
+      }
+      try {
+        await venues[position.venue].setPositionTpsl(address, position, levels);
+        const parts = [levels.takeProfit && `TP ${formatPrice(levels.takeProfit)}`, levels.stopLoss && `SL ${formatPrice(levels.stopLoss)}`].filter(Boolean);
+        toast({ tone: "success", title: `${position.symbol} TP/SL set`, message: `${parts.join(" · ")} on ${PERP_VENUE_NAMES[position.venue]}` });
+        return true;
+      } catch (error) {
+        fail(position.venue, "TP/SL rejected", error);
+        return false;
+      }
+    },
+    [address, isVenueReady, toast, fail],
+  );
+
   const closePosition = useCallback(
     async (position: VenuePosition) => {
       if (!address) return;
@@ -379,6 +401,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       placeOrder,
       cancelOrder,
       closePosition,
+      setPositionTpsl,
     }),
     [
       markets,
@@ -402,6 +425,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       placeOrder,
       cancelOrder,
       closePosition,
+      setPositionTpsl,
     ],
   );
 

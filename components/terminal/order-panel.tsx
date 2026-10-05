@@ -6,6 +6,7 @@ import { trackTrade } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib/trading/order-math";
 import { sideLabel } from "@/lib/trading/presets";
+import { optionalPrice, percentFrom, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
@@ -119,6 +120,9 @@ export function OrderPanel() {
   const [leverage, setLeverage] = useState(preferences.newsLeverage);
   const [isCross, setIsCross] = useState(true);
   const [reduceOnly, setReduceOnly] = useState(false);
+  const [withTpsl, setWithTpsl] = useState(false);
+  const [takeProfit, setTakeProfit] = useState("");
+  const [stopLoss, setStopLoss] = useState("");
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
@@ -137,7 +141,11 @@ export function OrderPanel() {
   const baseSize = market && price ? sizeForNotional(sizeUsd, price, market.szDecimals) : 0;
   const liquidation =
     market && price && !cross && !reduceOnly ? estimateLiquidationPrice({ side, entry: price, leverage: lev, maxLeverage }) : null;
-  const isValid = sizeUsd > 0 && (!isPerp || (Boolean(price && price > 0) && baseSize > 0));
+  const tpslActive = isPerp && withTpsl && !reduceOnly;
+  const tp = tpslActive ? optionalPrice(takeProfit) : undefined;
+  const sl = tpslActive ? optionalPrice(stopLoss) : undefined;
+  const levelsError = tpslActive && price ? tpslError({ side, reference: price, takeProfit: tp, stopLoss: sl }) : null;
+  const isValid = sizeUsd > 0 && !levelsError && (!isPerp || (Boolean(price && price > 0) && baseSize > 0));
 
   // A price clicked in the order book becomes the limit price.
   useEffect(() => {
@@ -152,8 +160,10 @@ export function OrderPanel() {
   useEffect(() => {
     setLimitPx("");
     setReduceOnly(false);
+    setTakeProfit("");
+    setStopLoss("");
   }, [symbol, choice?.id]);
-  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly]);
+  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl]);
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
@@ -193,6 +203,8 @@ export function OrderPanel() {
         reduceOnly,
         leverage: lev,
         isCross: cross,
+        takeProfit: tp,
+        stopLoss: sl,
       });
       if (placed) trackTrade({ venue: choice.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
     } finally {
@@ -328,10 +340,53 @@ export function OrderPanel() {
                 ]}
                 onChange={(value) => setIsCross(value === "cross")}
               />
-              <label className="flex items-center gap-2 text-[12px] text-app-muted">
-                <input type="checkbox" checked={reduceOnly} onChange={(event) => setReduceOnly(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
-                Reduce only
-              </label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-[12px] text-app-muted">
+                  <input type="checkbox" checked={reduceOnly} onChange={(event) => setReduceOnly(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
+                  Reduce only
+                </label>
+                <label className={`flex items-center gap-2 text-[12px] ${reduceOnly ? "text-app-faint" : "text-app-muted"}`}>
+                  <input
+                    type="checkbox"
+                    checked={withTpsl}
+                    disabled={reduceOnly}
+                    onChange={(event) => setWithTpsl(event.target.checked)}
+                    className="accent-[rgb(var(--app-accent))]"
+                  />
+                  TP / SL
+                </label>
+              </div>
+              {tpslActive && (
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { label: "Take profit", value: takeProfit, set: setTakeProfit, level: tp },
+                      { label: "Stop loss", value: stopLoss, set: setStopLoss, level: sl },
+                    ] as const
+                  ).map((field) => {
+                    const valid = field.level !== undefined && Number.isFinite(field.level) && price;
+                    const pnl = valid ? pnlAt(side, price!, field.level!, baseSize) : null;
+                    return (
+                      <label key={field.label} className="flex flex-col gap-1 text-[11px] text-app-muted">
+                        {field.label}
+                        <input
+                          className={inputClass}
+                          inputMode="decimal"
+                          placeholder="Price"
+                          value={field.value}
+                          onChange={(event) => field.set(event.target.value.replace(/[^0-9.]/g, ""))}
+                        />
+                        <span className={`h-3.5 tabular-nums ${pnl === null ? "" : pnl >= 0 ? "text-app-up" : "text-app-down"}`}>
+                          {valid && pnl !== null
+                            ? `${percentFrom(price!, field.level!) >= 0 ? "+" : ""}${percentFrom(price!, field.level!).toFixed(2)}% · ${pnl >= 0 ? "+" : "-"}${formatPrice(Math.abs(pnl))}`
+                            : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}
             </>
           )}
           {isPerp && sizeUsd > 0 && (

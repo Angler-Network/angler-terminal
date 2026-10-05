@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { formatPrice } from "@/lib/format";
 import { liquidationDistancePct } from "@/lib/trading/order-math";
 import { summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
+import { optionalPrice, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
@@ -101,7 +102,62 @@ function useCloseAll() {
   };
 }
 
+/** Inline TP/SL editor for an open position: reduce-only trigger orders for its whole size. */
+function TpslEditor({ position, mark, onDone }: { position: VenuePosition; mark?: number; onDone: () => void }) {
+  const { setPositionTpsl } = useTrading();
+  const [takeProfit, setTakeProfit] = useState("");
+  const [stopLoss, setStopLoss] = useState("");
+  const [busy, setBusy] = useState(false);
+  const side = position.size > 0 ? "buy" : "sell";
+  const tp = optionalPrice(takeProfit);
+  const sl = optionalPrice(stopLoss);
+  // Levels are checked against the current price: a TP below the mark on a long would trigger at once.
+  const error = tpslError({ side, reference: mark ?? position.entryPx, takeProfit: tp, stopLoss: sl });
+  const hint = (level: number | undefined) => {
+    if (level === undefined || !Number.isFinite(level)) return null;
+    const pnl = pnlAt(side, position.entryPx, level, Math.abs(position.size));
+    return <span className={pnl >= 0 ? "text-app-up" : "text-app-down"}>{signed(pnl)}</span>;
+  };
+  const input = "h-7 w-28 rounded-md border border-app-field-border bg-app-field px-2 text-[12px] tabular-nums text-app-ink outline-none focus:border-app-ink";
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-[12px] text-app-muted">
+      <span className="font-semibold text-app-ink">TP/SL for {position.symbol}</span>
+      <label className="flex items-center gap-1.5">
+        TP
+        <input className={input} inputMode="decimal" placeholder="Price" value={takeProfit} onChange={(event) => setTakeProfit(event.target.value.replace(/[^0-9.]/g, ""))} />
+        {hint(tp)}
+      </label>
+      <label className="flex items-center gap-1.5">
+        SL
+        <input className={input} inputMode="decimal" placeholder="Price" value={stopLoss} onChange={(event) => setStopLoss(event.target.value.replace(/[^0-9.]/g, ""))} />
+        {hint(sl)}
+      </label>
+      {mark && <span className="text-app-faint">Mark {formatPrice(mark)}</span>}
+      {error && <span className="text-app-down">{error}</span>}
+      <span className="ml-auto flex gap-2">
+        <button type="button" onClick={onDone} className="h-7 rounded-md px-2.5 font-semibold text-app-muted hover:text-app-ink">
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={busy || Boolean(error) || (tp === undefined && sl === undefined)}
+          onClick={async () => {
+            setBusy(true);
+            const ok = await setPositionTpsl(position, { takeProfit: tp, stopLoss: sl });
+            setBusy(false);
+            if (ok) onDone();
+          }}
+          className="h-7 rounded-md bg-app-accent px-3 font-semibold text-app-on-accent disabled:opacity-50"
+        >
+          {busy ? "Placing…" : "Place TP/SL"}
+        </button>
+      </span>
+    </div>
+  );
+}
+
 function PositionsTable({ positions }: { positions: VenuePosition[] }) {
+  const [editing, setEditing] = useState<string | null>(null);
   const { closePosition, marketsByVenue } = useTrading();
   const markOf = (position: VenuePosition) => {
     const list = marketsByVenue[position.venue];
@@ -124,8 +180,10 @@ function PositionsTable({ positions }: { positions: VenuePosition[] }) {
       <tbody>
         {positions.map((position) => {
           const isLong = position.size > 0;
+          const key = `${position.venue}:${position.coin}`;
           return (
-            <tr key={`${position.venue}:${position.coin}`} className="border-t border-app-hairline">
+            <Fragment key={key}>
+            <tr className="border-t border-app-hairline">
               <td className={td}>
                 <SymbolCell symbol={position.symbol} coin={position.coin} />
                 <VenueBadge venue={position.venue} />
@@ -155,9 +213,27 @@ function PositionsTable({ positions }: { positions: VenuePosition[] }) {
                 {signed(position.unrealizedPnl)} ({(position.returnOnEquity * 100).toFixed(2)}%)
               </td>
               <td className={`${td} text-right`}>
-                <RowButton onClick={() => closePosition(position)}>Close</RowButton>
+                <span className="inline-flex gap-1.5">
+                  <button
+                    type="button"
+                    aria-expanded={editing === key}
+                    onClick={() => setEditing(editing === key ? null : key)}
+                    className="h-7 rounded-md border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-muted hover:text-app-ink"
+                  >
+                    TP/SL
+                  </button>
+                  <RowButton onClick={() => closePosition(position)}>Close</RowButton>
+                </span>
               </td>
             </tr>
+            {editing === key && (
+              <tr className="bg-app-chip/40">
+                <td colSpan={7}>
+                  <TpslEditor position={position} mark={markOf(position)} onDone={() => setEditing(null)} />
+                </td>
+              </tr>
+            )}
+            </Fragment>
           );
         })}
       </tbody>

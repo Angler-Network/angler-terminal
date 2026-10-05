@@ -9,6 +9,7 @@ import type {
   VenueMarket,
   VenueOpenOrder,
   VenuePosition,
+  PositionTpsl,
 } from "../types";
 import { VenueError } from "../types";
 import { browserStorage, readOnboarding } from "./agent-store";
@@ -77,6 +78,43 @@ async function midPrice(market: VenueMarket) {
   return mid;
 }
 
+/**
+ * Reduce-only trigger orders closing `size` on the `closeIsBuy` side: market when triggered, with the slippage bound
+ * as the limit price.
+ */
+function triggerOrders(market: VenueMarket, closeIsBuy: boolean, size: number, levels: PositionTpsl) {
+  const order = (triggerPx: number, tpsl: "tp" | "sl") => ({
+    a: market.assetId,
+    b: closeIsBuy,
+    p: toWire(slippagePrice(triggerPx, closeIsBuy, DEFAULT_SLIPPAGE, market.szDecimals)),
+    s: toWire(size),
+    r: true,
+    t: { trigger: { isMarket: true, triggerPx: toWire(roundPrice(triggerPx, market.szDecimals)), tpsl } },
+  });
+  return [
+    ...(levels.takeProfit ? [order(levels.takeProfit, "tp")] : []),
+    ...(levels.stopLoss ? [order(levels.stopLoss, "sl")] : []),
+  ];
+}
+
+async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+  const { agent, builder } = requireTradingSetup(user);
+  const market = findMarket(await listMarkets(), position.coin);
+  if (!market) throw new VenueError(`Unknown market ${position.coin}.`);
+  const orders = triggerOrders(market, position.size < 0, roundSize(Math.abs(position.size), market.szDecimals), levels);
+  if (orders.length === 0) throw new VenueError("Set a take profit or a stop loss.");
+  try {
+    const exchange = await agentExchange(agent.privateKey);
+    // positionTpsl: tied to the position, resized with it and canceled when it closes.
+    const result = await exchange.order({ orders, grouping: "positionTpsl", builder: { b: builder.address, f: builder.fee } });
+    for (const status of result.response.data.statuses) {
+      if (typeof status === "object" && status && "error" in status) throw new VenueError(String((status as { error: unknown }).error));
+    }
+  } catch (error) {
+    throw toVenueError(error);
+  }
+}
+
 async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
   const { agent, builder } = requireTradingSetup(user);
   const { market } = input;
@@ -106,6 +144,7 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
       price = roundPrice(input.limitPx, market.szDecimals);
     }
 
+    const triggers = triggerOrders(market, !isBuy, size, input);
     const result = await exchange.order({
       orders: [
         {
@@ -117,8 +156,10 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
           // Market orders are aggressive IOC limits; the slippage price caps how far they can fill.
           t: { limit: { tif: input.kind === "market" ? "Ioc" : "Gtc" } },
         },
+        ...triggers,
       ],
-      grouping: "na",
+      // normalTpsl: the TP/SL orders only become active once the entry fills.
+      grouping: triggers.length > 0 ? "normalTpsl" : "na",
       builder: { b: builder.address, f: builder.fee },
     });
 
@@ -321,6 +362,7 @@ export const hyperliquidVenue: PerpVenue = {
   placeOrder,
   cancelOrder,
   closePosition,
+  setPositionTpsl,
   subscribeAccount,
   loadCandles,
 };

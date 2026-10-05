@@ -1,6 +1,16 @@
 "use client";
 
-import type { AccountHandlers, Candle, OrderResult, PerpVenue, PlaceOrderInput, VenueMarket, VenueOpenOrder, VenuePosition } from "../types";
+import type {
+  AccountHandlers,
+  Candle,
+  OrderResult,
+  PerpVenue,
+  PlaceOrderInput,
+  PositionTpsl,
+  VenueMarket,
+  VenueOpenOrder,
+  VenuePosition,
+} from "../types";
 import { VenueError } from "../types";
 import {
   applyAccountAll,
@@ -15,8 +25,8 @@ import { DEFAULT_SLIPPAGE, lighterConfig } from "./config";
 import { humanizeLighterStatus, LighterApiError, toLighterVenueError } from "./errors";
 import { findLighterMarket, readOrderBookDetails } from "./markets";
 import { baseAmountFor, fromUnits, leverageFraction, minimumSize, nextClientOrderIndex, toUnits, worstPrice } from "./pricing";
-import { authToken, loadSession, requireSession, signAndSend, type LighterSession } from "./session";
-import { signCancelOrder, signCreateOrder, signUpdateLeverage } from "./signer";
+import { authToken, loadSession, requireSession, signAndSend, waitForTx, type LighterSession } from "./session";
+import { GROUPING, signCancelOrder, signCreateGroupedOrders, signCreateOrder, signUpdateLeverage, type CreateOrderArgs } from "./signer";
 
 const MARKETS_TTL_MS = 60_000;
 const CONFIRM_TIMEOUT_MS = 15_000;
@@ -105,6 +115,47 @@ async function confirmOrder(session: LighterSession, clientIndex: number, hash: 
   throw new VenueError(`Lighter accepted the ${market.symbol} order but hasn't confirmed it yet. Check your positions before trying again.`);
 }
 
+/**
+ * Reduce-only TP (type 4) and SL (type 2) orders closing `baseAmount` of a position opened on the `positionIsBuy`
+ * side: market when triggered, with the worst price as the slippage bound, waiting up to 28 days.
+ */
+function triggerOrders(market: VenueMarket, positionIsBuy: boolean, baseAmount: number, levels: PositionTpsl) {
+  const priceDecimals = market.priceDecimals ?? 0;
+  const closeIsBuy = !positionIsBuy;
+  const order = (trigger: number, orderType: 2 | 4): Omit<CreateOrderArgs, "integrator"> => ({
+    marketIndex: market.assetId,
+    clientOrderIndex: clientOrderIndex(),
+    baseAmount,
+    price: worstPrice(trigger, closeIsBuy, DEFAULT_SLIPPAGE, priceDecimals),
+    isAsk: !closeIsBuy,
+    orderType,
+    timeInForce: 0,
+    reduceOnly: true,
+    triggerPrice: toUnits(trigger, priceDecimals, "round"),
+    orderExpiry: -1,
+  });
+  return [...(levels.takeProfit ? [order(levels.takeProfit, 4)] : []), ...(levels.stopLoss ? [order(levels.stopLoss, 2)] : [])];
+}
+
+async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+  const market = findLighterMarket(await listMarkets(), position.coin);
+  if (!market) throw new VenueError(`Unknown Lighter market ${position.coin}.`);
+  const orders = triggerOrders(market, position.size > 0, baseAmountFor(Math.abs(position.size), market.szDecimals), levels);
+  if (orders.length === 0) throw new VenueError("Set a take profit or a stop loss.");
+  try {
+    const session = await requireSession(user);
+    const integrator = integratorFields(session);
+    const hash = await signAndSend(session, (nonce) =>
+      orders.length === 2
+        ? signCreateGroupedOrders(session.signer, GROUPING.oco, orders, integrator, nonce)
+        : signCreateOrder(session.signer, { ...orders[0], integrator }, nonce),
+    );
+    await waitForTx(hash);
+  } catch (error) {
+    throw toLighterVenueError(error);
+  }
+}
+
 async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
   const { market } = input;
   if (market.venue !== "lighter" || market.priceDecimals === undefined) throw new VenueError(`${market.symbol} isn't a Lighter market.`);
@@ -138,23 +189,24 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
         ? worstPrice(reference, isBuy, DEFAULT_SLIPPAGE, market.priceDecimals)
         : toUnits(reference, market.priceDecimals, "round");
     const clientIndex = clientOrderIndex();
+    const entry: Omit<CreateOrderArgs, "integrator"> = {
+      marketIndex: market.assetId,
+      clientOrderIndex: clientIndex,
+      baseAmount,
+      price,
+      isAsk: !isBuy,
+      orderType: input.kind === "market" ? 1 : 0,
+      timeInForce: input.kind === "market" ? 0 : 1,
+      reduceOnly: Boolean(input.reduceOnly),
+      orderExpiry: input.kind === "market" ? 0 : Date.now() + LIMIT_EXPIRY_MS,
+    };
+    const triggers = triggerOrders(market, isBuy, baseAmount, input);
+    const integrator = integratorFields(session);
     const hash = await signAndSend(session, (nonce) =>
-      signCreateOrder(
-        session.signer,
-        {
-          marketIndex: market.assetId,
-          clientOrderIndex: clientIndex,
-          baseAmount,
-          price,
-          isAsk: !isBuy,
-          orderType: input.kind === "market" ? 1 : 0,
-          timeInForce: input.kind === "market" ? 0 : 1,
-          reduceOnly: Boolean(input.reduceOnly),
-          orderExpiry: input.kind === "market" ? 0 : Date.now() + LIMIT_EXPIRY_MS,
-          integrator: integratorFields(session),
-        },
-        nonce,
-      ),
+      triggers.length === 0
+        ? signCreateOrder(session.signer, { ...entry, integrator }, nonce)
+        : // The entry triggers the TP/SL orders once it fills (OTO for one, OTOCO for both: one cancels the other).
+          signCreateGroupedOrders(session.signer, triggers.length === 2 ? GROUPING.otoco : GROUPING.oto, [entry, ...triggers], integrator, nonce),
     );
     return await confirmOrder(session, clientIndex, hash, market);
   } catch (error) {
@@ -301,6 +353,7 @@ export const lighterVenue: PerpVenue = {
   placeOrder,
   cancelOrder,
   closePosition,
+  setPositionTpsl,
   subscribeAccount,
   loadCandles,
 };
