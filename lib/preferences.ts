@@ -1,0 +1,230 @@
+import {
+  applyAppearance,
+  CUSTOM_CSS_ELEMENT_ID,
+  defaultAppearance,
+  readAppearance,
+  type Appearance,
+} from "./appearance";
+import {
+  DEFAULT_TAPE_MARKET,
+  DEFAULT_TAPE_SOURCE,
+  isMarketSource,
+  isMarketType,
+  readTapeSymbols,
+  serializeTapeCookie,
+  TAPE_COOKIE,
+  tapeMotions,
+  tapeSpeeds,
+  type MarketSource,
+  type MarketType,
+  type TapeMotion,
+  type TapeSpeed,
+} from "./markets/model";
+import { chartIntervals, type ChartInterval } from "./chart/candles";
+
+export type ChartProvider = "tradingview" | "angler";
+
+export type ChartDataSource = "binance" | "hyperliquid";
+
+export type ChartMarket = "spot" | "perp";
+
+export const chartDataSources: { value: ChartDataSource; label: string }[] = [
+  { value: "binance", label: "Binance" },
+  { value: "hyperliquid", label: "Hyperliquid" },
+];
+
+export type AlertSound = "chime" | "ping" | "bell" | "pulse" | "rise" | "fall" | "none";
+
+export const alertSounds: AlertSound[] = ["chime", "ping", "bell", "pulse", "rise", "fall", "none"];
+
+export interface Preferences extends Appearance {
+  chart: ChartProvider;
+  chartPrimarySource: ChartDataSource;
+  chartFallbackSource: ChartDataSource | "none";
+  chartMarket: ChartMarket;
+  showChart: boolean;
+  chartSymbol: string;
+  chartInterval: ChartInterval;
+  timeZone: string;
+  showScrollbars: boolean;
+  framedLayout: boolean;
+  containerHeaders: boolean;
+  showSidebar: boolean;
+  showTopBar: boolean;
+  sidebarHiding: boolean;
+  topBarHiding: boolean;
+  tapeSymbols: string[] | null;
+  tapeMarket: MarketType;
+  tapeSource: MarketSource;
+  tapeMotion: TapeMotion;
+  tapeSpeed: TapeSpeed;
+  dragContainers: boolean;
+  showAlertBell: boolean;
+  alertToasts: boolean;
+  alertSound: AlertSound;
+  alertVolume: number;
+  newsSound: AlertSound;
+  newsSoundMinImpact: number;
+  newsSoundBySentiment: boolean;
+  newsSoundPositive: AlertSound;
+  newsSoundNegative: AlertSound;
+  newsSoundSentimentThreshold: number;
+}
+
+export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
+
+export const defaultPreferences: Preferences = {
+  chart: "angler",
+  chartPrimarySource: "binance",
+  chartFallbackSource: "hyperliquid",
+  chartMarket: "perp",
+  showChart: true,
+  chartSymbol: "BTC",
+  chartInterval: "1h",
+  timeZone: "UTC",
+  showScrollbars: true,
+  framedLayout: true,
+  containerHeaders: true,
+  showSidebar: true,
+  showTopBar: true,
+  sidebarHiding: false,
+  topBarHiding: false,
+  tapeSymbols: null,
+  tapeMarket: DEFAULT_TAPE_MARKET,
+  tapeSource: DEFAULT_TAPE_SOURCE,
+  tapeMotion: "left",
+  tapeSpeed: "normal",
+  dragContainers: true,
+  showAlertBell: true,
+  alertToasts: true,
+  alertSound: "chime",
+  alertVolume: 70,
+  newsSound: "none",
+  newsSoundMinImpact: 0,
+  newsSoundBySentiment: false,
+  newsSoundPositive: "rise",
+  newsSoundNegative: "fall",
+  newsSoundSentimentThreshold: 0.3,
+  ...defaultAppearance,
+};
+
+function isValidTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || !value) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readDataSource(value: unknown): ChartDataSource | null {
+  return value === "binance" || value === "hyperliquid" ? value : null;
+}
+
+function readBoolean(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function readSound(value: unknown, fallback: AlertSound): AlertSound {
+  return alertSounds.find((sound) => sound === value) ?? fallback;
+}
+
+function readRange(value: unknown, min: number, max: number, step: number, fallback: number) {
+  const number = Number(value);
+  if (value === undefined || value === null || !Number.isFinite(number)) return fallback;
+  return Number((Math.round(Math.min(max, Math.max(min, number)) / step) * step).toFixed(2));
+}
+
+export function parsePreferences(raw: string | null): Preferences {
+  try {
+    const stored = JSON.parse(raw ?? "{}");
+    const primary = readDataSource(stored.chartPrimarySource) ?? defaultPreferences.chartPrimarySource;
+    const fallback =
+      stored.chartFallbackSource === "none" ? "none" : readDataSource(stored.chartFallbackSource);
+    return {
+      chart: stored.chart === "tradingview" ? "tradingview" : "angler",
+      chartPrimarySource: primary,
+      chartFallbackSource:
+        fallback === null || fallback === primary
+          ? chartDataSources.find((source) => source.value !== primary)!.value
+          : fallback,
+      chartMarket: stored.chartMarket === "spot" ? "spot" : "perp",
+      showChart: readBoolean(stored.showChart, defaultPreferences.showChart),
+      chartSymbol:
+        typeof stored.chartSymbol === "string" && /^[A-Za-z0-9]{1,20}$/.test(stored.chartSymbol)
+          ? stored.chartSymbol
+          : defaultPreferences.chartSymbol,
+      chartInterval: chartIntervals.includes(stored.chartInterval) ? stored.chartInterval : defaultPreferences.chartInterval,
+      timeZone: isValidTimeZone(stored.timeZone) ? stored.timeZone : defaultPreferences.timeZone,
+      showScrollbars: readBoolean(stored.showScrollbars, defaultPreferences.showScrollbars),
+      framedLayout: readBoolean(stored.framedLayout, defaultPreferences.framedLayout),
+      containerHeaders: readBoolean(stored.containerHeaders, defaultPreferences.containerHeaders),
+      showSidebar: stored.sidebarHiding === true ? readBoolean(stored.showSidebar, true) : true,
+      showTopBar: stored.topBarHiding === true ? readBoolean(stored.showTopBar, true) : true,
+      sidebarHiding: readBoolean(stored.sidebarHiding, defaultPreferences.sidebarHiding),
+      topBarHiding: readBoolean(stored.topBarHiding, defaultPreferences.topBarHiding),
+      tapeSymbols: readTapeSymbols(stored.tapeSymbols),
+      tapeMarket: isMarketType(stored.tapeMarket) ? stored.tapeMarket : DEFAULT_TAPE_MARKET,
+      tapeSource: isMarketSource(stored.tapeSource) ? stored.tapeSource : DEFAULT_TAPE_SOURCE,
+      tapeMotion: tapeMotions.includes(stored.tapeMotion) ? stored.tapeMotion : "left",
+      tapeSpeed: tapeSpeeds.includes(stored.tapeSpeed) ? stored.tapeSpeed : "normal",
+      dragContainers: readBoolean(stored.dragContainers, defaultPreferences.dragContainers),
+      showAlertBell: readBoolean(stored.showAlertBell, defaultPreferences.showAlertBell),
+      alertToasts: readBoolean(stored.alertToasts, defaultPreferences.alertToasts),
+      alertSound: alertSounds.includes(stored.alertSound) ? stored.alertSound : defaultPreferences.alertSound,
+      alertVolume: Number.isFinite(stored.alertVolume)
+        ? Math.min(100, Math.max(0, Math.round(stored.alertVolume)))
+        : defaultPreferences.alertVolume,
+      newsSound: readSound(stored.newsSound, defaultPreferences.newsSound),
+      newsSoundMinImpact: readRange(stored.newsSoundMinImpact, 0, 100, 1, defaultPreferences.newsSoundMinImpact),
+      newsSoundBySentiment: readBoolean(stored.newsSoundBySentiment, defaultPreferences.newsSoundBySentiment),
+      newsSoundPositive: readSound(stored.newsSoundPositive, defaultPreferences.newsSoundPositive),
+      newsSoundNegative: readSound(stored.newsSoundNegative, defaultPreferences.newsSoundNegative),
+      newsSoundSentimentThreshold: readRange(
+        stored.newsSoundSentimentThreshold,
+        0,
+        1,
+        0.05,
+        defaultPreferences.newsSoundSentimentThreshold,
+      ),
+      ...readAppearance(stored),
+    };
+  } catch {
+    return defaultPreferences;
+  }
+}
+
+const TAPE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function syncTapeCookie(preferences: Preferences) {
+  const value = serializeTapeCookie({
+    market: preferences.tapeMarket,
+    source: preferences.tapeSource,
+    symbols: preferences.tapeSymbols,
+  });
+  const current = document.cookie.split("; ").find((entry) => entry.startsWith(`${TAPE_COOKIE}=`));
+  if (current !== `${TAPE_COOKIE}=${value}`) {
+    document.cookie = `${TAPE_COOKIE}=${value}; path=/; max-age=${TAPE_COOKIE_MAX_AGE}; samesite=lax`;
+  }
+}
+
+export function applyPreferencesToDocument(preferences: Preferences) {
+  applyAppearance(preferences, document.documentElement, CUSTOM_CSS_ELEMENT_ID);
+  syncTapeCookie(preferences);
+  const { dataset } = document.documentElement;
+  if (preferences.showScrollbars) delete dataset.scrollbars;
+  else dataset.scrollbars = "hidden";
+  if (preferences.framedLayout) delete dataset.frame;
+  else dataset.frame = "off";
+  if (preferences.showSidebar) delete dataset.sidebar;
+  else dataset.sidebar = "hidden";
+  if (preferences.showTopBar) delete dataset.topbar;
+  else dataset.topbar = "hidden";
+}
+
+export const preferencesScript = `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
+  PREFERENCES_STORAGE_KEY,
+)})||"{}"),d=document.documentElement.dataset;if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.sidebarHiding===true&&p.showSidebar===false)d.sidebar="hidden";if(p.topBarHiding===true&&p.showTopBar===false)d.topbar="hidden";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
+  CUSTOM_CSS_ELEMENT_ID,
+)})}catch(e){}`;
