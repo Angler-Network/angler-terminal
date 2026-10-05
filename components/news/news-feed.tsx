@@ -74,9 +74,8 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
   const { symbol, selectAsset } = useSelectedAsset();
   const { preferences } = usePreferences();
   const { ticket, press, confirm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
-  const [onlySelected, setOnlySelected] = useState(false);
   const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
-  const shown = onlySelected ? items.filter((item) => item.coins?.includes(symbol)) : items;
+  const shown = items;
   const flashing = useHighImpactFlash(items);
   useNewsSound(items, shown, status === "live");
 
@@ -159,15 +158,6 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
           ))}
         </div>
       </header>
-      <label className="flex shrink-0 items-center gap-2 border-b border-app-hairline px-3 py-1.5 text-[12px] text-app-muted">
-        <input
-          type="checkbox"
-          checked={onlySelected}
-          onChange={(event) => setOnlySelected(event.target.checked)}
-          className="accent-[rgb(var(--app-accent))]"
-        />
-        Only ${symbol}
-      </label>
 
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-3">
         {status === "unconfigured" && (
