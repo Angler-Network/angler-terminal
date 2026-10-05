@@ -7,7 +7,7 @@ const BINANCE_SPOT = "https://data-api.binance.vision/api/v3/ticker/24hr?type=MI
 const BINANCE_PERP = "https://fapi.binance.com/fapi/v1/ticker/24hr";
 const STOCK_DEX = "xyz";
 const REVALIDATE_SECONDS = 20;
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 4000;
 const QUOTE = "USDT";
 const EXCLUDED_BASES = new Set(["USDC", "FDUSD", "TUSD", "USDP", "DAI", "BUSD", "EUR", "EURI", "AEUR", "USD1", "XUSD", "BFUSD", "USDE"]);
 const LEVERAGED_TOKEN = /(UP|DOWN|BULL|BEAR)$/;

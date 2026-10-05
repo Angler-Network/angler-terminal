@@ -7,20 +7,17 @@ import { getMarkets } from "@/lib/markets/server";
 import { AlphaBadge } from "./alpha-notice";
 import { TickerTape } from "./ticker-tape";
 
-async function getInitialTape() {
-  const settings = parseTapeCookie((await cookies()).get(TAPE_COOKIE)?.value);
-  const symbols = settings.symbols ?? DEFAULT_TAPE_SYMBOLS;
-  const markets = symbols.length > 0 ? pickMarkets(await getMarkets(settings.market), symbols) : [];
-  return { settings, markets };
-}
+type TapeCookie = ReturnType<typeof parseTapeCookie>;
 
 /** Server-rendered first prices; streamed in so the page shell doesn't wait for the market APIs. */
-async function InitialTape() {
-  const tape = await getInitialTape();
-  return <TickerTape initial={tape.settings} initialMarkets={tape.markets} />;
+async function InitialTape({ settings }: { settings: TapeCookie }) {
+  const symbols = settings.symbols ?? DEFAULT_TAPE_SYMBOLS;
+  const markets = symbols.length > 0 ? pickMarkets(await getMarkets(settings.market), symbols) : [];
+  return <TickerTape initial={settings} initialMarkets={markets} />;
 }
 
-export function TickerBar() {
+export async function TickerBar() {
+  const settings = parseTapeCookie((await cookies()).get(TAPE_COOKIE)?.value);
   return (
     <header className="app-topbar surface-chrome flex h-16 shrink-0 items-center gap-3 border-b border-app-hairline px-3 sm:px-4">
       {/* The sidebar carries the logo on desktop; show it here only when the sidebar is hidden. */}
@@ -29,8 +26,9 @@ export function TickerBar() {
         <Image src="/whitelogo.png" alt="" aria-hidden width={28} height={28} className="hidden [html[data-tone=dark]_&]:block" />
       </span>
       <AlphaBadge />
-      <Suspense fallback={<div aria-hidden className="ticker-tape min-w-0 flex-1" />}>
-        <InitialTape />
+      {/* Until the server's prices stream in (slow when its cache is cold), the tape fetches its own. */}
+      <Suspense fallback={<TickerTape initial={settings} initialMarkets={[]} />}>
+        <InitialTape settings={settings} />
       </Suspense>
 
       <div className="flex shrink-0 items-center gap-2 border-l border-app-hairline pl-3">
