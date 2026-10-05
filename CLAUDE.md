@@ -72,6 +72,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
+  and `components/app/settings-dialog.tsx` (General, Appearance, Trading, Venues & networks, Notifications, About),
+  built from the copied angler-news `form-controls`, `select-field`, `appearance-settings`. Venues can be turned off
+  (`venueHyperliquid`, `venueJupiter`); the Hyperliquid network can be overridden per browser
+  (`HL_NETWORK_OVERRIDE_KEY`, applied after a reload; `/api/hl/markets?network=` follows it).
+- `components/app/alpha-notice.tsx` shows the alpha warning once per browser (bump `ACK_KEY` to show it again) and
+  the "Alpha" badge in the top bar.
 - Wallets: one Connect button opens `wallet-modal.tsx` with EVM wallets (EIP-6963 discovery, for Hyperliquid) and
   Solana wallets (Wallet Standard, for Jupiter). The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
