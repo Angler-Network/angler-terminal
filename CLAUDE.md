@@ -43,7 +43,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   `@nktkas/hyperliquid`.
   - Network comes from `NEXT_PUBLIC_HL_NETWORK` (testnet default); switching to mainnet needs no code change.
   - Markets: `perpDexs` + `metaAndAssetCtxs` per dex, cached 60s by `/api/hl/markets`. HIP-3 coins are named
-    `dex:COIN`, with asset id `100000 + dexIndex * 10000 + index`.
+    `dex:COIN`, with asset id `100000 + dexIndex * 10000 + index` (index in the full `perpDexs` list). Only dexes in
+    `NEXT_PUBLIC_HL_HIP3_DEXES` (default `xyz`) are listed; testnet has hundreds of junk dexes.
   - Onboarding: `approveBuilderFee` (user wallet, max fee from config), then `approveAgent` with a key generated in
     the browser. The agent key is stored per network and user in localStorage (`agent-store.ts`), used only to sign
     locally, and must never be logged or sent anywhere. Revoke = approveAgent with the zero address and the same name.
@@ -58,7 +59,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Every Jupiter call goes through `app/api/jup/*`, which adds `x-api-key` (`JUP_API_KEY`) and
     `referralAccount` + `referralFee` (50-255 bps) server-side. Balances come from Solana RPC via
     `app/api/solana/balances` (`SOLANA_RPC_URL`).
-  - Tokens: `/tokens/v2/search`, verified only; on a symbol clash the most liquid verified token wins.
+  - Tokens: `/tokens/v2/search`, verified only; on a symbol clash the most liquid verified token wins. Symbols
+    are compared without a leading `$` (the verified dogwifhat token is `$WIF`).
   - Amounts are integer base units using decimals from token data (`amounts.ts`), never assumed.
   - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
     5s and are re-fetched right before signing.
@@ -86,3 +88,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 
 `npm test` (vitest, `*.test.ts` next to the module), `npm run typecheck` and `npm run build` must pass before
 pushing. Pure logic (pricing, parsing, error mapping, storage) gets unit tests; network and wallet code does not.
+
+In Claude Code cloud sessions, Node's built-in fetch ignores `HTTPS_PROXY`: start the app (or any script that calls
+external APIs) with `NODE_USE_ENV_PROXY=1`. Delete `.next/cache` after running against mocks, since `unstable_cache`
+persists responses across builds.
