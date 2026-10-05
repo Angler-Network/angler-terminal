@@ -23,7 +23,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 ## Architecture
 
 - Theme: `app/globals.css` CSS variables + `app.*` tokens in `tailwind.config.ts`, Sora font in `app/layout.tsx`, copied
-  from angler-news. Default theme is `deepnavy`. Keep Next.js, React and Tailwind on the same versions as angler-news.
+  from angler-news. Default look is the `oled` theme with the `liquid` surface (`APPEARANCE_VERSION` in
+  `lib/preferences.ts` moves older saved looks to it once). Keep Next.js, React and Tailwind on the same versions as angler-news.
 - Reused angler-news code (keep it close to upstream so fixes can be ported): `components/news/*`,
   `components/chart/*`, `components/app/ticker-*`, `market-icon`, `preferences-provider`, `searchable-select`,
   `lib/markets/*`, `lib/chart/candles.ts`, `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`.
@@ -61,19 +62,21 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Amounts are integer base units using decimals from token data (`amounts.ts`), never assumed.
   - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
     5s and are re-fetched right before signing.
-- `components/terminal/order-panel.tsx` resolves the venue: Hyperliquid perps when listed, Jupiter spot when a
-  verified token exists (a mint from the news item goes straight to spot); tabs when both apply.
+- Venue resolver (`components/terminal/use-asset-venue.ts`): Hyperliquid perps when listed, Jupiter spot when a
+  verified token exists (a mint from the news item goes straight to spot).
 - News → trading: there is no manual order form. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
   Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`. A press arms the button
   ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
-  Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`. The right column is the account
-  panel (`account-panel.tsx`): wallets, trading key, balances, news leverage.
+  Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
+- Wallets: one Connect button opens `wallet-modal.tsx` with EVM wallets (EIP-6963 discovery, for Hyperliquid) and
+  Solana wallets (Wallet Standard, for Jupiter). The account panel (`account-panel.tsx`: balances, trading key) and
+  its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
 - Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
   amounts or other personal data. `GET /api/analytics/trade` needs `ANALYTICS_TOKEN`.
-- Keep the disclaimer "Not financial advice. Scores are model outputs." next to the order panel.
+- Keep the disclaimer "Not financial advice. Scores are model outputs." next to the account panel and in settings.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.
