@@ -1,6 +1,8 @@
 # Lighter integration notes
 
-Research for adding Lighter as a second perp venue (a `PerpVenue` next to Hyperliquid). Nothing is implemented yet.
+Research behind Lighter as the second perp venue (a `PerpVenue` next to Hyperliquid), implemented in
+`lib/venues/lighter/` (see CLAUDE.md for the summary). Findings checked live on testnet on 2026-10-05 are listed
+under "Verified on testnet".
 Source of truth: https://apidocs.lighter.xyz (index: `/llms.txt`; append `.md` to any docs page). Read
 `/docs/agent-instructions.md` first: it lists the rules that prevent the common mistakes.
 
@@ -76,6 +78,22 @@ WebSocket (send `{"type":"ping"}` at least every 2 minutes; reconnect and resubs
 `"auth": <token>` from `CreateAuthToken(deadlineUnixSeconds ≤ 8h, keyIdx, acct)`. Payload shapes:
 `/docs/websocket-reference.md`. Error codes and tx statuses: `/docs/data-structures-constants-and-errors.md`;
 common causes: `/docs/troubleshooting.md`.
+
+## Verified on testnet (2026-10-05)
+
+- `sendTx` answers HTTP 400 with `{ code, message }` on rejection (e.g. 21100 account not found, 21109 api key not
+  found, 21504 "fail to l1 signature" for a ChangePubKey signed by the wrong wallet).
+- `account_all` and `user_stats` need no auth; `account_all_orders` and `account_tx` answer
+  `{"error":{"code":20001,"message":"invalid param : auth field is required: ..."}}` without it.
+- `update/account_all` only carries the markets that changed; positions have an unsigned `position` plus `sign`,
+  and `initial_margin_fraction` is a percentage ("5.00" = 20x).
+- `accountOrders` with an auth token from an unregistered key answers 401 `{"code":20013,"message":"invalid auth:
+  couldnt find account"}`.
+- REST CORS allows any origin (credentials and the `authorization` header included); the WebSocket accepts any
+  `Origin`.
+- `SignCreateOrder` takes `price` as uint32 (max 2^32 - 1) and refuses values above it.
+- No funded testnet account was available, so a real fill was not exercised: register a key with a funded testnet
+  wallet and place a $10 SOL order to complete the end-to-end check.
 
 ## Rate limits
 

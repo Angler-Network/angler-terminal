@@ -63,6 +63,26 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     only when it changed.
   - Positions and orders stream over the browser WebSocket (`allDexsClearinghouseState` + `openOrders` per dex).
   - Exchange errors go through `errors.ts` (`humanizeHlError`) and are shown as toasts.
+- Lighter (`lib/venues/lighter/`, a second `PerpVenue`; research and API notes in `docs/lighter-integration.md`,
+  source of truth apidocs.lighter.xyz/llms.txt):
+  - Network from `NEXT_PUBLIC_LIGHTER_NETWORK` (testnet default, chain 300; mainnet 304), per-browser override
+    `LIGHTER_NETWORK_OVERRIDE_KEY`. Markets from `orderBookDetails`, cached 60s by `/api/lighter/markets`. Ids,
+    decimals and minimums always come from the API.
+  - Signer: lighter-go's official WASM build in `public/lighter/` (`scripts/build-lighter-signer.sh` pins the commit
+    and copies `wasm_exec.js` from the same Go), loaded lazily by `signer.ts`. All HTTP goes through fetch with
+    explicit nonces (`nonce.ts` serializes sends per key, refetches on 21104); never `CheckClient` or nonce -1.
+  - Onboarding: account exists after the first deposit (`accountsByL1Address`); `GenerateAPIKey` in the browser,
+    `SignChangePubKey`, the user's wallet `personal_sign`s `messageToSign` → `L1Sig`, wait for `apikeys`. Key slot
+    `NEXT_PUBLIC_LIGHTER_API_KEY_INDEX` (default 61). The private key is stored AES-GCM encrypted with a
+    non-extractable WebCrypto key kept in IndexedDB (`key-crypto.ts`), per network + L1 address + account index
+    (`key-store.ts`); never log or send it. Revoke = register a throwaway key at the same slot. Optional integrator
+    approval (`NEXT_PUBLIC_LIGHTER_INTEGRATOR_*`; zero fee on Standard accounts).
+  - Market orders: type 1, IOC, expiry 0, price = worst price (best bid/ask ∓ 3%, `pricing.ts`), integers scaled by
+    `size_decimals` / `price_decimals`, minimum = larger of `min_base_amount` and `min_quote_amount` (not for
+    reduce-only). `sendTx` 200 is only "accepted": orders are confirmed through `accountOrders` by client index.
+  - Account over the WebSocket: `account_all` + `user_stats` (public) and `account_all_orders` (auth token);
+    `update/*` messages are partial and merged (`account.ts`). API codes and order statuses map to readable toasts
+    in `errors.ts`. Never place mainnet orders from tests or scripts.
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
   github.com/jup-ag/docs (mirrors developers.jup.ag).
@@ -74,22 +94,25 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Amounts are integer base units using decimals from token data (`amounts.ts`), never assumed.
   - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
     5s and are re-fetched right before signing.
-- Venue resolver (`components/terminal/use-asset-venue.ts`): Hyperliquid perps when listed, Jupiter spot when a
-  verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today).
+- Venue resolver (`components/terminal/use-asset-venue.ts`): perps on the preferred perp venue
+  (`preferredPerpVenue`, default Hyperliquid) and the other enabled one as fallback (`lib/venues/routing.ts`), Jupiter
+  spot when a verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today).
 - News → trading: there is no manual order form. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
-  Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`. A press arms the button
+  Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`; the ticket carries the perp venue id. A press arms the button
   ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
   and `components/app/settings-dialog.tsx` (General, Appearance, Trading, Venues & networks, Notifications, About),
   built from the copied angler-news `form-controls`, `select-field`, `appearance-settings`. Venues can be turned off
-  (`venueHyperliquid`, `venueJupiter`); the Hyperliquid network can be overridden per browser
-  (`HL_NETWORK_OVERRIDE_KEY`, applied after a reload; `/api/hl/markets?network=` follows it).
+  (`venueHyperliquid`, `venueLighter`, `venueJupiter`); each perp venue's network can be overridden per browser
+  (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
+  `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
+  bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
 - `components/app/alpha-notice.tsx` shows the alpha warning once per browser (bump `ACK_KEY` to show it again) and
   the "Alpha" badge in the top bar.
-- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Jupiter live; Lighter, Titan,
+- Wallets: one Connect button opens `wallet-modal.tsx`, a venue picker (Hyperliquid, Lighter, Jupiter live; Titan,
   Arcus "Soon"). Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
