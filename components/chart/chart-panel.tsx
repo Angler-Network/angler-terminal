@@ -7,6 +7,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useMarketList } from "@/components/app/use-market-list";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
+import { useTrading } from "@/components/terminal/trading-provider";
 import { useT } from "@/lib/i18n/client";
 import { chartIntervals } from "@/lib/chart/candles";
 import { formatPercent, formatPrice } from "@/lib/format";
@@ -49,6 +50,7 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   const t = useT();
   const { preferences, updatePreference } = usePreferences();
   const { symbol, selectAsset } = useSelectedAsset();
+  const { market: venueMarket } = useTrading();
   const interval = preferences.chartInterval;
   const isStock = useIsStock(symbol);
   const markets = useMarketList(preferences.chartMarket);
@@ -113,10 +115,10 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
           ))}
         </div>
       </header>
-      {isStock === undefined ? (
+      {isStock === undefined || venueMarket === undefined ? (
         <div aria-hidden className="m-3 flex-1 animate-pulse rounded-xl bg-app-chip/60" />
       ) : (
-        <AnglerChart symbol={symbol} interval={interval} isStock={isStock} items={items} />
+        <AnglerChart symbol={symbol} interval={interval} isStock={isStock} items={items} venueMarket={venueMarket} />
       )}
     </section>
   );

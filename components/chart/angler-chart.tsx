@@ -19,6 +19,8 @@ import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
 import type { ChartDataSource } from "@/lib/preferences";
 import type { NewsItem } from "@/lib/types";
+import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
+import type { VenueMarket } from "@/lib/venues/types";
 
 const REFRESH_MS = 30_000;
 
@@ -27,6 +29,19 @@ interface AnglerChartProps {
   interval: ChartInterval;
   isStock: boolean;
   items: NewsItem[];
+  /** When the asset trades on Hyperliquid, candles come from the configured Hyperliquid network. */
+  venueMarket?: VenueMarket | null;
+}
+
+const CANDLE_COUNT = 1000;
+
+async function loadVenueCandles(market: VenueMarket, interval: ChartInterval) {
+  try {
+    const candles = await hyperliquidVenue.loadCandles(market, interval, Date.now() - intervalDuration(interval) * CANDLE_COUNT);
+    return candles.length > 0 ? { source: "hyperliquid" as const, candles } : null;
+  } catch {
+    return null;
+  }
 }
 
 interface ChartHandles {
@@ -65,7 +80,7 @@ function tooltipLeft(x: number, width: number) {
 
 const toTime =(milliseconds: number) => Math.floor(milliseconds / 1000) as UTCTimestamp;
 
-export function AnglerChart({ symbol, interval, isStock, items }: AnglerChartProps) {
+export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: AnglerChartProps) {
   const t = useT();
   const locale = langTags[useLang()];
   const { preferences } = usePreferences();
@@ -80,7 +95,8 @@ export function AnglerChart({ symbol, interval, isStock, items }: AnglerChartPro
       ),
     [preferences.chartPrimarySource, preferences.chartFallbackSource],
   );
-  const key = [symbol, interval, isStock, preferences.chartMarket, sources.join()].join("|");
+  const venueCoin = venueMarket?.coin ?? "";
+  const key = [symbol, interval, isStock, preferences.chartMarket, sources.join(), venueCoin].join("|");
   const candles = data?.key === key ? data.candles : null;
   const newsByTime = useMemo(() => {
     const groups = new Map<number, NewsItem[]>();
@@ -167,7 +183,9 @@ export function AnglerChart({ symbol, interval, isStock, items }: AnglerChartPro
     let isActive = true;
     setFailed(false);
     const load = async () => {
-      const result = await loadCandles(symbol, interval, { market: preferences.chartMarket, sources, isStock });
+      const result =
+        (venueMarket ? await loadVenueCandles(venueMarket, interval) : null) ??
+        (await loadCandles(symbol, interval, { market: preferences.chartMarket, sources, isStock }));
       if (!isActive) return;
       if (result) setData({ key, ...result });
       else setFailed(true);
@@ -180,6 +198,7 @@ export function AnglerChart({ symbol, interval, isStock, items }: AnglerChartPro
       isActive = false;
       window.clearInterval(timer);
     };
+    // venueMarket is captured through venueCoin in key; its live prices must not restart polling.
   }, [key, symbol, interval, isStock, preferences.chartMarket, sources]);
 
   const fittedKeyRef = useRef<string | null>(null);
