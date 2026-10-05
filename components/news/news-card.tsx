@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, ExternalLink } from "lucide-react";
+import { useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
@@ -81,15 +82,33 @@ function SentimentPill({ sentiment }: { sentiment: number }) {
   );
 }
 
-function SourceMonogram({ source }: { source?: string }) {
+/** Publisher favicon through /api/favicon; null when there's no domain or the icon fails to load. */
+function useFavicon(domain?: string) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = domain && failed !== domain ? `/api/favicon?domain=${encodeURIComponent(domain)}` : null;
+  return { src, onError: () => setFailed(domain ?? null) };
+}
+
+function SourceIcon({ source, domain }: { source?: string; domain?: string }) {
+  const favicon = useFavicon(domain);
   return (
     <span
       aria-hidden
-      className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-app-hairline-strong bg-app-chip text-[13px] font-semibold uppercase text-app-muted"
+      className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-app-hairline-strong bg-app-chip text-[13px] font-semibold uppercase text-app-muted"
     >
-      {source?.charAt(0) ?? "•"}
+      {favicon.src ? (
+        <img src={favicon.src} alt="" width={18} height={18} loading="lazy" onError={favicon.onError} className="size-[18px] object-contain" />
+      ) : (
+        (source?.charAt(0) ?? "•")
+      )}
     </span>
   );
+}
+
+function SourceFavicon({ domain }: { domain?: string }) {
+  const favicon = useFavicon(domain);
+  if (!favicon.src) return null;
+  return <img src={favicon.src} alt="" width={12} height={12} loading="lazy" onError={favicon.onError} className="size-3 shrink-0 rounded-[2px] object-contain" />;
 }
 
 export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadActions, isSelected, isFlashing, onSelect }: NewsCardProps) {
@@ -108,7 +127,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
     >
       <span aria-hidden className={`absolute inset-y-2 left-0 w-[3px] rounded-r ${isSelected ? "bg-app-accent" : accent[item.severity]}`} />
 
-      {chips.length > 0 ? <MarketIcon symbol={item.symbol} size={32} /> : <SourceMonogram source={source} />}
+      {chips.length > 0 ? <MarketIcon symbol={item.symbol} size={32} /> : <SourceIcon source={source} domain={item.sourceDomain} />}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[11px] text-app-muted">
@@ -121,9 +140,10 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
             </span>
           )}
           {source && (
-            <span className="min-w-0 truncate font-medium text-app-ink/80" title={item.sources.join(", ")}>
-              {source}
-              {otherSources.length > 0 && <span className="text-app-faint"> +{otherSources.length}</span>}
+            <span className="inline-flex min-w-0 items-center gap-1 font-medium text-app-ink/80" title={item.sources.join(", ")}>
+              <SourceFavicon domain={item.sourceDomain} />
+              <span className="truncate">{source}</span>
+              {otherSources.length > 0 && <span className="shrink-0 text-app-faint">+{otherSources.length}</span>}
             </span>
           )}
           {item.alerted && <Bell className="size-3 shrink-0 text-[#c27c12]" aria-label={t("news.alertSet")} />}

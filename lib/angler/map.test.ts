@@ -41,6 +41,12 @@ describe("raw → enriched upsert", () => {
 });
 
 describe("mapping to NewsItem", () => {
+  it("derives the source domain for favicons", () => {
+    expect(toNewsItem(readApiNews({ id: 1, title: "T", url: "https://www.coindesk.com/a", source: "CoinDesk" })!).sourceDomain).toBe("coindesk.com");
+    expect(toNewsItem(readApiNews({ id: 2, title: "T", source: "theblock.co" })!).sourceDomain).toBe("theblock.co");
+    expect(toNewsItem(readApiNews({ id: 3, title: "T", source: "Reuters" })!).sourceDomain).toBeUndefined();
+  });
+
   it("leads with the strongest prediction and derives severity", () => {
     const item = toNewsItem(
       readApiNews({

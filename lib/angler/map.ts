@@ -1,3 +1,4 @@
+import { normalizeDomain } from "@/lib/favicon";
 import type { Direction, NewsItem, Severity } from "@/lib/types";
 import type { ApiNews, ImpactPrediction, NewsPage } from "./types";
 
@@ -173,6 +174,7 @@ export function toNewsItem(news: ApiNews, now = Date.now()): NewsItem {
     minutesAgo: Math.max(0, Math.floor((now - publishedAt) / 60_000)),
     publishedAt,
     url: news.url,
+    sourceDomain: normalizeDomain(hostname(news.url)) ?? normalizeDomain(news.source) ?? undefined,
     summary: news.summary_short,
     coins,
     predictions,

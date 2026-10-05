@@ -29,6 +29,8 @@ export interface NewsItem {
   // Terminal additions from the Angler News API; optional so angler-news components keep working unchanged.
   publishedAt?: number;
   url?: string;
+  /** Publisher domain (from the article URL, or a domain-like source name), used for its favicon. */
+  sourceDomain?: string;
   summary?: string;
   /** Every asset the news touches, strongest predicted impact first. */
   coins?: string[];
