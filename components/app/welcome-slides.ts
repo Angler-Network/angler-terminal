@@ -17,7 +17,7 @@ export const welcomeSlides: WelcomeSlide[] = [
     id: "welcome",
     icon: Sparkles,
     title: "Welcome to Angler Terminal",
-    intro: "Trade the news the moment it breaks: live, AI-scored headlines next to your chart, with the order one tap away.",
+    intro: "Trade the news the moment it breaks: Angler News, scored by AI in real time, next to your chart, with the order one tap away.",
     points: [],
   },
   {
@@ -37,12 +37,13 @@ export const welcomeSlides: WelcomeSlide[] = [
     id: "vs-terminals",
     icon: Zap,
     title: "How it differs from other trading terminals",
-    intro: "Most terminals start from a chart and an order form. Angler starts from the news.",
+    intro:
+      "Other terminals bolt on a plain RSS feed: every headline pushed as is, unfiltered, unscored and full of noise. In Angler the news is the product.",
     points: [
-      "The headline is the order ticket: no hunting for the symbol, the market or the right venue.",
-      "Several venues from one screen, perps and spot, with automatic fallback when one doesn't list the asset.",
-      "Self-custodial: no account, no deposit to us. Trading keys are created and kept in your browser.",
-      "Keyboard first: L / S to trade the selected headline, 1-4 for size, Enter to confirm.",
+      "Angler News, not RSS: news sites, X accounts and exchange announcements, de-duplicated and read by AI before they reach you.",
+      "Every item tells you what matters: impact score, sentiment, the assets it moves and the expected direction.",
+      "The headline is the order ticket: important news comes with Long / Short sizes for the right asset on the right venue.",
+      "Hyperliquid, Lighter and Jupiter from one screen, self-custodial, with trading keys kept in your browser.",
     ],
   },
   {
