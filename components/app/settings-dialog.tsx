@@ -105,6 +105,9 @@ function TradingSettings() {
       <SettingRow title="One-click trading" description="A single press on a news size button places the order right away, without the confirm press. Off by default.">
         <Toggle label="One-click trading" checked={preferences.oneClickTrading} onChange={(checked) => updatePreference("oneClickTrading", checked)} />
       </SettingRow>
+      <SettingRow title="Test order form" description="Shows an order form for the chart's asset in the account panel, to try each venue and network outside the news cards.">
+        <Toggle label="Test order form" checked={preferences.manualOrders} onChange={(checked) => updatePreference("manualOrders", checked)} />
+      </SettingRow>
       <SettingRow title="Trade buttons from impact" description="News below this impact score shows no size buttons.">
         <ImpactStepper label="Trade buttons from impact" value={preferences.tradeMinImpact} onChange={(value) => updatePreference("tradeMinImpact", value)} />
       </SettingRow>

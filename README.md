@@ -60,7 +60,9 @@ Jupiter has no testnet: use a dedicated wallet with a few USD. Development build
 
 ## Trading from the news feed
 
-There is no manual order form: trades start from the news.
+Trades start from the news. For now a **test order form** in the account panel (for the chart's asset) can also
+place market orders on Hyperliquid, Lighter or Jupiter, to check each venue and network; turn it off in Settings →
+Trading.
 
 - Important news (impact ≥ 60 by default, configurable) that mentions a tradable asset shows a size grid per asset:
   a green **Long/Buy** row and a red **Short/Sell** row. Hyperliquid assets trade as perps (Long/Short), Solana-only

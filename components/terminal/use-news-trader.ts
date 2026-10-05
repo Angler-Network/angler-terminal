@@ -31,6 +31,8 @@ export interface NewsTrade {
   perpVenue?: PerpVenueId;
   side: OrderSide;
   sizeUsd: number;
+  /** Perp leverage; defaults to the news leverage setting. */
+  leverage?: number;
   newsId?: string;
   oneClick: boolean;
 }
@@ -77,7 +79,7 @@ export function useNewsTrader() {
         side: trade.side,
         kind: "market",
         size,
-        leverage: Math.min(preferences.newsLeverage, market.maxLeverage),
+        leverage: Math.max(1, Math.min(trade.leverage ?? preferences.newsLeverage, market.maxLeverage)),
       });
     },
     [evmAddress, openWallets, marketsByVenue, perpOrder, placeOrder, preferences.newsLeverage, fail],

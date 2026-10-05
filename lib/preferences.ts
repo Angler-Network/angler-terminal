@@ -76,6 +76,8 @@ export interface Preferences extends Appearance {
   // Trading from news (terminal)
   /** One click on a news trade button places the order at the default size. Off by default. */
   oneClickTrading: boolean;
+  /** Test order form in the account panel, for trying each venue and network without a news item. */
+  manualOrders: boolean;
   /** Impact score (0-100) at which an arriving news item is highlighted. */
   highImpactThreshold: number;
   highImpactSound: boolean;
@@ -139,6 +141,7 @@ export const defaultPreferences: Preferences = {
   newsSoundNegative: "fall",
   newsSoundSentimentThreshold: 0.3,
   oneClickTrading: false,
+  manualOrders: true,
   highImpactThreshold: 80,
   highImpactSound: false,
   defaultPerpUsd: null,
@@ -256,6 +259,7 @@ export function parsePreferences(raw: string | null): Preferences {
         defaultPreferences.newsSoundSentimentThreshold,
       ),
       oneClickTrading: readBoolean(stored.oneClickTrading, defaultPreferences.oneClickTrading),
+      manualOrders: readBoolean(stored.manualOrders, defaultPreferences.manualOrders),
       highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
       defaultPerpUsd: readSize(stored.defaultPerpUsd),

@@ -97,12 +97,16 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 - Venue resolver (`components/terminal/use-asset-venue.ts`): perps on the preferred perp venue
   (`preferredPerpVenue`, default Hyperliquid) and the other enabled one as fallback (`lib/venues/routing.ts`), Jupiter
   spot when a verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today).
-- News → trading: there is no manual order form. Important news (impact ≥ `tradeMinImpact`, default 60) with a
+- News → trading: orders start from the news. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
   Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`; the ticket carries the perp venue id. A press arms the button
   ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
+- Test order form (`components/terminal/manual-order.tsx`, temporary): while `manualOrders` is on (default, toggle in
+  Trading settings) the account panel shows a market order form for the chart's asset with a venue picker
+  (Hyperliquid, Lighter, Jupiter), side, USD size and perp leverage, so people can check each venue and network.
+  It goes through `use-news-trader.ts` (same guards, analytics with no news id) and keeps the two-press confirm.
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
   and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
   Notifications, About; `openSettings(section)` opens a given section),

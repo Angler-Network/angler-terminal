@@ -30,3 +30,10 @@ describe("perp venue preferences", () => {
     expect(parsePreferences(JSON.stringify({ preferredPerpVenue: "binance" })).preferredPerpVenue).toBe("hyperliquid");
   });
 });
+
+describe("test order form preference", () => {
+  it("is on by default and can be turned off", () => {
+    expect(parsePreferences(null).manualOrders).toBe(true);
+    expect(parsePreferences(JSON.stringify({ manualOrders: false })).manualOrders).toBe(false);
+  });
+});
