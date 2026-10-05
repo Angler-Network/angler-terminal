@@ -133,6 +133,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Order book (`order-book.tsx` + `use-order-book.ts`): plain WebSockets (HL `l2Book`/`trades`, Lighter
     `order_book/{id}`/`trade/{id}` with deltas), parsers and grouping in `lib/trading/orderbook.ts`. Clicking a price
     hands it to the order panel through `order-draft.tsx`.
+  - Best execution (`use-best-execution.ts`, `lib/trading/execution.ts`): for market perp orders the order panel
+    fetches both venues' REST books (HL `l2Book`, Lighter `orderBookOrders`), walks them for the USD size, adds taker
+    fees (HL base tier 0.045% + builder fee; Lighter `taker_fee` + integrator fee) and shows the cost gap. With
+    `autoRoute` (default on) the order goes to the best venue; picking a perp venue by hand turns it off.
+  - Funding (`/api/funding` → Lighter's aggregated mainnet `funding-rates`, 8-hour rates for Hyperliquid, Lighter,
+    Binance, Bybit; `lib/trading/funding.ts`): shown in the order panel and on the Markets page (`app/markets`,
+    sidebar), which lists every tradable asset with funding per venue and the Hyperliquid–Lighter spread.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.

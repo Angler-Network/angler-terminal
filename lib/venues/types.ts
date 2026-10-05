@@ -32,6 +32,8 @@ export interface VenueMarket {
   minBaseAmount?: number;
   minQuoteAmount?: number;
   maxLeverage: number;
+  /** Taker fee as a fraction of notional when the venue reports it (Lighter); Hyperliquid uses its base tier. */
+  takerFee?: number;
   kind: "crypto" | "stock";
   onlyIsolated: boolean;
   markPx?: number;

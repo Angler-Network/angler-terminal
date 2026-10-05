@@ -16,7 +16,11 @@ import type { OrderKind, OrderSide, PerpVenueId, SpotToken, VenueMarket } from "
 import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
+import { fundingApr } from "@/lib/trading/funding";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { useArcusToken } from "./use-arcus-token";
+import { useBestExecution } from "./use-best-execution";
+import { useFunding } from "./use-funding";
 import { useNewsTrader } from "./use-news-trader";
 import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
@@ -104,8 +108,9 @@ function useVenueChoices(symbol: string, mint?: string) {
  */
 export function OrderPanel() {
   const { symbol, mint } = useSelectedAsset();
-  const { preferences } = usePreferences();
+  const { preferences, updatePreference } = usePreferences();
   const { accounts, placeOrder } = useTrading();
+  const funding = useFunding();
   const { address } = useWallet();
   const { open: openWallets } = useWalletModal();
   const { pickedPrice } = useOrderDraft();
@@ -126,7 +131,19 @@ export function OrderPanel() {
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
-  const choice = choices.find((entry) => entry.id === venueId) ?? choices[0] ?? null;
+  const perpMarkets = choices.flatMap((entry) => (entry.kind === "perp" ? [entry.market] : []));
+  const manual = choices.find((entry) => entry.id === venueId) ?? null;
+  const sizeValue = Number(size);
+  // Reduce-only closes a position on its own venue, and limit orders rest where they are placed: no routing there.
+  const routable = kind === "market" && !reduceOnly && manual?.kind !== "spot";
+  const quotes = useBestExecution(perpMarkets, side, sizeValue, routable);
+  const routed = preferences.autoRoute && routable && quotes[0] ? choices.find((entry) => entry.id === quotes[0].venue) : undefined;
+  const choice = routed ?? manual ?? choices[0] ?? null;
+  const pickVenue = (id: VenueChoice["id"]) => {
+    setVenueId(id);
+    // Picking a perp venue by hand means the user wants that venue, not the router's.
+    if (preferences.autoRoute && id !== "jupiter" && id !== "arcus") updatePreference("autoRoute", false);
+  };
   const market = choice?.kind === "perp" ? choice.market : null;
   const isPerp = market !== null;
   const orderKind: OrderKind = isPerp ? kind : "market";
@@ -134,7 +151,8 @@ export function OrderPanel() {
   const lev = isPerp ? Math.max(1, Math.min(leverage, maxLeverage)) : 1;
   const mid = market ? (market.midPx ?? market.markPx) : undefined;
   const price = orderKind === "limit" ? Number(limitPx) : mid;
-  const sizeUsd = Number(size);
+  const sizeUsd = sizeValue;
+  const fundingRate = market ? funding?.[market.symbol]?.[market.venue] : undefined;
   const available = market ? accounts[market.venue]?.withdrawable : undefined;
   const crossAllowed = market ? !market.onlyIsolated : false;
   const cross = crossAllowed && isCross;
@@ -240,8 +258,17 @@ export function OrderPanel() {
               label="Venue"
               value={choice!.id}
               options={choices.map((entry) => ({ value: entry.id, label: entry.name, title: entry.kind === "perp" ? "Perpetual" : "Spot" }))}
-              onChange={setVenueId}
+              onChange={pickVenue}
             />
+          )}
+          {isPerp && fundingRate !== undefined && (
+            <p className="-mt-1 text-[11px] text-app-faint" title="Mainnet funding, 8-hour rate annualized. Positive: longs pay shorts.">
+              Funding on {PERP_VENUE_NAMES[market.venue]}{" "}
+              <span className={fundingRate >= 0 ? "text-app-up" : "text-app-down"}>
+                {fundingApr(fundingRate) >= 0 ? "+" : ""}
+                {fundingApr(fundingRate).toFixed(2)}% APR
+              </span>
+            </p>
           )}
           {isPerp && (
             <Segmented
@@ -388,6 +415,43 @@ export function OrderPanel() {
               )}
               {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}
             </>
+          )}
+          {quotes.length > 1 && (
+            <div className="flex flex-col gap-1 rounded-lg border border-app-hairline px-2.5 py-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold uppercase tracking-[0.06em] text-app-muted">Best price</span>
+                <label className="flex items-center gap-1.5 text-app-muted" title="Send market orders to the venue with the best estimated fill after fees">
+                  <input
+                    type="checkbox"
+                    checked={preferences.autoRoute}
+                    onChange={(event) => updatePreference("autoRoute", event.target.checked)}
+                    className="accent-[rgb(var(--app-accent))]"
+                  />
+                  Auto-route
+                </label>
+              </div>
+              {quotes.map((quote, index) => (
+                <button
+                  key={quote.venue}
+                  type="button"
+                  onClick={() => pickVenue(quote.venue)}
+                  aria-pressed={choice?.id === quote.venue}
+                  className={`flex items-center justify-between rounded-md px-1.5 py-1 text-[12px] tabular-nums transition-colors hover:bg-app-chip ${
+                    choice?.id === quote.venue ? "bg-app-chip" : ""
+                  }`}
+                  title={`Avg. fill ${formatPrice(quote.avgPx)} + fees ${formatPrice(quote.feeUsd)}${quote.complete ? "" : " (book too thin for the whole size)"}`}
+                >
+                  <span className="font-semibold text-app-ink">{PERP_VENUE_NAMES[quote.venue]}</span>
+                  <span className="text-app-muted">
+                    {formatPrice(quote.avgPx)}
+                    {!quote.complete && " · thin"}
+                  </span>
+                  <span className={index === 0 ? "font-semibold text-app-up" : "text-app-down"}>
+                    {index === 0 ? "Best" : `+${formatPrice(quote.costVsBestUsd)}`}
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
           {isPerp && sizeUsd > 0 && (
             <div className="flex flex-col gap-1 rounded-lg bg-app-chip/50 px-2.5 py-2">

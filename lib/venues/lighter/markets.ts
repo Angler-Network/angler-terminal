@@ -14,6 +14,9 @@ export interface OrderBookDetailLike {
   min_initial_margin_fraction: number;
   mark_price?: string | number;
   last_trade_price?: string | number;
+  /** Percent, e.g. "0.0200". */
+  taker_fee?: string;
+  is_taker_fee_enabled?: boolean;
   market_config?: { hidden?: boolean; market_margin_mode?: number };
 }
 
@@ -70,6 +73,7 @@ export function marketsFromDetails(details: unknown): VenueMarket[] {
         kind: "crypto",
         // market_margin_mode 1 = isolated only.
         onlyIsolated: detail.market_config?.market_margin_mode === 1,
+        takerFee: detail.is_taker_fee_enabled === false ? 0 : (Number(detail.taker_fee) || 0) / 100,
         markPx: positive(detail.mark_price),
         midPx: positive(detail.last_trade_price),
       },

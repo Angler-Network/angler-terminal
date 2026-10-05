@@ -101,6 +101,8 @@ export interface Preferences extends Appearance {
   // Trading from news (terminal)
   /** One click on a news trade button places the order at the default size. Off by default. */
   oneClickTrading: boolean;
+  /** Market perp orders go to the venue with the best estimated fill after fees. */
+  autoRoute: boolean;
   /** Which terminal panels are shown; the chart is always on. */
   panels: TerminalPanels;
   /** Impact score (0-100) at which an arriving news item is highlighted. */
@@ -169,6 +171,7 @@ export const defaultPreferences: Preferences = {
   newsSoundNegative: "fall",
   newsSoundSentimentThreshold: 0.3,
   oneClickTrading: false,
+  autoRoute: true,
   panels: defaultPanels,
   highImpactThreshold: 80,
   highImpactSound: false,
@@ -289,6 +292,7 @@ export function parsePreferences(raw: string | null): Preferences {
         defaultPreferences.newsSoundSentimentThreshold,
       ),
       oneClickTrading: readBoolean(stored.oneClickTrading, defaultPreferences.oneClickTrading),
+      autoRoute: readBoolean(stored.autoRoute, defaultPreferences.autoRoute),
       panels: readPanels(stored.panels),
       highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
