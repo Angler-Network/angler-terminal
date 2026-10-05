@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { defaultSize, perpSizePresets, sideLabel, sizePresets } from "./presets";
+import { defaultSize, perpSizePresets, presetLabel, sideLabel, sizePresets } from "./presets";
 
 describe("presets", () => {
   it("keeps perp presets at or above Hyperliquid's $10 minimum, small in development", () => {
-    expect(perpSizePresets({ NODE_ENV: "development" })).toEqual([10, 25, 50]);
+    expect(perpSizePresets({ NODE_ENV: "development" })).toEqual([10, 25, 50, 100]);
+    expect(perpSizePresets({ NODE_ENV: "production" })).toEqual([250, 500, 750, 1000]);
     expect(perpSizePresets({ NODE_ENV: "production", NEXT_PUBLIC_PERP_SIZE_PRESETS: "20,40" })).toEqual([20, 40]);
   });
 
-  it("has three presets per venue for the 1/2/3 shortcuts", () => {
-    expect(sizePresets.perp).toHaveLength(3);
-    expect(sizePresets.spot.length).toBeLessThanOrEqual(3);
+  it("has four presets per venue for the 1-4 shortcuts", () => {
+    expect(sizePresets.perp).toHaveLength(4);
+    expect(sizePresets.spot.length).toBeLessThanOrEqual(4);
+  });
+
+  it("formats compact labels", () => {
+    expect(presetLabel(250)).toBe("250");
+    expect(presetLabel(1000)).toBe("1k");
+    expect(presetLabel(2500)).toBe("2.5k");
   });
 
   it("uses the user's default size or the first preset", () => {

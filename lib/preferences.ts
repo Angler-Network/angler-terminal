@@ -78,6 +78,10 @@ export interface Preferences extends Appearance {
   /** Default USD size for news trades; null uses the venue's first preset. */
   defaultPerpUsd: number | null;
   defaultSpotUsd: number | null;
+  /** News trade buttons appear for items at or above this impact score. */
+  tradeMinImpact: number;
+  /** Leverage for perp trades placed from news. */
+  newsLeverage: number;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
@@ -119,6 +123,8 @@ export const defaultPreferences: Preferences = {
   highImpactSound: false,
   defaultPerpUsd: null,
   defaultSpotUsd: null,
+  tradeMinImpact: 60,
+  newsLeverage: 5,
   ...defaultAppearance,
 };
 
@@ -212,6 +218,8 @@ export function parsePreferences(raw: string | null): Preferences {
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
       defaultPerpUsd: readSize(stored.defaultPerpUsd),
       defaultSpotUsd: readSize(stored.defaultSpotUsd),
+      tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
+      newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       ...readAppearance(stored),
     };
   } catch {

@@ -78,12 +78,26 @@ export function TradingSettings() {
           <h2 className="text-[13px] font-semibold text-app-ink">Trading from news</h2>
           <Toggle
             label="One-click trading"
-            hint="A single click on a news Long/Short or Buy/Sell button places the order at the default size, without the confirm click."
+            hint="A single click on a size button places the order right away, without the confirm click."
             checked={preferences.oneClickTrading}
             onChange={(value) => updatePreference("oneClickTrading", value)}
           />
-          <SizeSelect label="Default perp size" presets={sizePresets.perp} value={preferences.defaultPerpUsd} onChange={(value) => updatePreference("defaultPerpUsd", value)} />
-          <SizeSelect label="Default spot size" presets={sizePresets.spot} value={preferences.defaultSpotUsd} onChange={(value) => updatePreference("defaultSpotUsd", value)} />
+          <label className="flex items-center gap-3 text-[13px]">
+            <span className="flex-1">
+              <span className="block font-medium text-app-ink">Trade buttons from impact</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-app-muted">News below this score shows no size buttons.</span>
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={preferences.tradeMinImpact}
+              onChange={(event) => updatePreference("tradeMinImpact", Math.min(100, Math.max(0, Math.round(Number(event.target.value) || 0))))}
+              className="h-8 w-16 rounded-lg border border-app-hairline-strong bg-app-chip px-2 text-right text-[12px] tabular-nums text-app-ink"
+            />
+          </label>
+          <SizeSelect label="Default perp size (keyboard)" presets={sizePresets.perp} value={preferences.defaultPerpUsd} onChange={(value) => updatePreference("defaultPerpUsd", value)} />
+          <SizeSelect label="Default spot size (keyboard)" presets={sizePresets.spot} value={preferences.defaultSpotUsd} onChange={(value) => updatePreference("defaultSpotUsd", value)} />
           <div className="h-px bg-app-hairline" />
           <label className="flex items-center gap-3 text-[13px]">
             <span className="flex-1 font-medium text-app-ink">High-impact threshold</span>

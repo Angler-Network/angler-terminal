@@ -44,7 +44,7 @@ export function spotSizePresets(env: { NODE_ENV?: string; NEXT_PUBLIC_SPOT_SIZE_
     .map((value) => Number(value.trim()))
     .filter((value) => Number.isFinite(value) && value > 0);
   if (custom.length > 0) return custom.slice(0, 4);
-  return env.NODE_ENV === "production" ? [25, 100, 250, 1000] : [1, 2, 5];
+  return env.NODE_ENV === "production" ? [25, 100, 250, 1000] : [1, 2, 5, 10];
 }
 
 export const SOLSCAN_TX_URL = "https://solscan.io/tx/";
