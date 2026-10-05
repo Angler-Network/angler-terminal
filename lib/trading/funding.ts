@@ -46,3 +46,19 @@ export function bestFundingArb(rates: Partial<Record<FundingVenue, number>>, ven
   if (high.rate === low.rate) return null;
   return { longVenue: low.venue, shortVenue: high.venue, apr: fundingApr(high.rate - low.rate) };
 }
+
+/**
+ * Base size for both legs of a delta-neutral position: the same amount on each venue, rounded down to the coarser of
+ * the two size steps so neither venue rounds it differently.
+ */
+export function arbLegSize(notionalUsd: number, price: number, szDecimals: number[]) {
+  if (!(notionalUsd > 0) || !(price > 0) || szDecimals.length === 0) return 0;
+  const decimals = Math.min(...szDecimals);
+  const factor = 10 ** decimals;
+  return Math.floor((notionalUsd / price) * factor + 1e-9) / factor;
+}
+
+/** Funding collected per day by holding both legs of `notionalUsd` each, at today's 8-hour rates. */
+export function dailyArbFunding(notionalUsd: number, arb: Pick<FundingArb, "apr">) {
+  return (notionalUsd * arb.apr) / 100 / 365;
+}

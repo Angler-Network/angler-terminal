@@ -11,6 +11,7 @@ import { WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { MESSAGES } from "@/lib/venues/jupiter/errors";
 import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
+import { quoteVenues } from "./use-best-execution";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { pickBestSpotQuote } from "@/lib/trading/best-quote";
@@ -70,8 +71,20 @@ export function useNewsTrader() {
         return false;
       }
       const venueMarkets = trade.perpVenue ? marketsByVenue[trade.perpVenue] : undefined;
-      const market = venueMarkets ? findMarket(venueMarkets, trade.symbol) : (pickPerpMarket(trade.symbol, marketsByVenue, perpOrder) ?? null);
+      let market = venueMarkets ? findMarket(venueMarkets, trade.symbol) : (pickPerpMarket(trade.symbol, marketsByVenue, perpOrder) ?? null);
       if (!market) return fail(`${trade.symbol} isn't listed on ${venueName}.`), false;
+      // News trades follow the best price too: quote every venue that lists the asset and take the cheapest.
+      if (trade.newsId && preferences.autoRoute) {
+        const candidates = perpOrder.flatMap((venue) => {
+          const list = marketsByVenue[venue];
+          const found = list ? findMarket(list, trade.symbol) : null;
+          return found ? [found] : [];
+        });
+        if (candidates.length > 1) {
+          const best = (await quoteVenues(candidates, trade.side, trade.sizeUsd).catch(() => []))[0];
+          market = candidates.find((candidate) => candidate.venue === best?.venue) ?? market;
+        }
+      }
       const price = market.midPx ?? market.markPx;
       if (!price) return fail(`No price for ${trade.symbol} right now.`), false;
       const size = sizeForNotional(trade.sizeUsd, price, market.szDecimals);
@@ -79,15 +92,16 @@ export function useNewsTrader() {
       if (market.venue === "lighter" && size < minimumSize(market, price)) {
         return fail(`$${trade.sizeUsd} is below Lighter's ${trade.symbol} minimum (about $${Math.ceil(minimumSize(market, price) * price)}).`), false;
       }
-      return placeOrder({
+      const placed = await placeOrder({
         market,
         side: trade.side,
         kind: "market",
         size,
         leverage: Math.max(1, Math.min(trade.leverage ?? preferences.newsLeverage, market.maxLeverage)),
       });
+      return placed ? market.venue : false;
     },
-    [evmAddress, openWallets, marketsByVenue, perpOrder, placeOrder, preferences.newsLeverage, fail],
+    [evmAddress, openWallets, marketsByVenue, perpOrder, placeOrder, preferences.newsLeverage, preferences.autoRoute, fail],
   );
 
   const tradeSpot = useCallback(
@@ -205,13 +219,14 @@ export function useNewsTrader() {
         trade.venue === "perp" ? await tradePerp(trade) : trade.spotVenue === "arcus" ? await tradeArcus(trade) : await tradeSpot(trade);
       if (placed) {
         trackTrade({
-          venue: trade.venue === "perp" ? (trade.perpVenue ?? "hyperliquid") : (trade.spotVenue ?? "jupiter"),
+          // A perp trade reports the venue it actually went to (routing can change it).
+          venue: trade.venue === "perp" ? (typeof placed === "string" ? placed : (trade.perpVenue ?? "hyperliquid")) : (trade.spotVenue ?? "jupiter"),
           side: trade.side,
           newsId: trade.newsId ?? null,
           oneClick: trade.oneClick,
         });
       }
-      return placed;
+      return Boolean(placed);
     },
     [tradePerp, tradeSpot, tradeArcus],
   );

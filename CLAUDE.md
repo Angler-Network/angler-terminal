@@ -140,6 +140,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Funding (`/api/funding` → Lighter's aggregated mainnet `funding-rates`, 8-hour rates for Hyperliquid, Lighter,
     Binance, Bybit; `lib/trading/funding.ts`): shown in the order panel and on the Markets page (`app/markets`,
     sidebar), which lists every tradable asset with funding per venue and the Hyperliquid–Lighter spread.
+  - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on both venues):
+    market long on the low-funding venue + market short on the high-funding one, same base size (`arbLegSize`,
+    coarser size step), sent together; a half-filled pair is reported so the user can close the unhedged leg.
+  - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
+    actually used.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.

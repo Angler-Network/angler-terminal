@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestFundingArb, fundingApr, readFundingRates } from "./funding";
+import { arbLegSize, bestFundingArb, dailyArbFunding, fundingApr, readFundingRates } from "./funding";
 
 // Trimmed from the live mainnet response.
 const body = {
@@ -25,5 +25,14 @@ describe("funding", () => {
     expect(arb).toMatchObject({ longVenue: "lighter", shortVenue: "hyperliquid" });
     expect(arb.apr).toBeCloseTo(fundingApr(0.0001 - 9.6e-5));
     expect(bestFundingArb({ hyperliquid: 0.0001 })).toBeNull();
+  });
+});
+
+describe("arb sizing", () => {
+  it("uses the coarser size step and estimates daily funding", () => {
+    expect(arbLegSize(1000, 2700, [4, 2])).toBe(0.37);
+    expect(arbLegSize(1000, 2700, [5])).toBe(0.37037);
+    expect(arbLegSize(0, 2700, [4])).toBe(0);
+    expect(dailyArbFunding(3650, { apr: 10 })).toBeCloseTo(1);
   });
 });

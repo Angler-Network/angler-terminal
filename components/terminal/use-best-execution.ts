@@ -29,6 +29,16 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
   return response.ok ? readLighterRestBook(await response.json()) : null;
 }
 
+/** Quotes a market order on each venue from fresh REST books, best first; venues whose book fails are left out. */
+export async function quoteVenues(markets: VenueMarket[], side: OrderSide, sizeUsd: number) {
+  const books = await Promise.all(markets.map((market) => fetchBook(market).catch(() => null)));
+  const inputs = markets.flatMap((market, index) => {
+    const book = books[index];
+    return book ? [{ venue: market.venue, book, takerFee: takerFeeFor(market) }] : [];
+  });
+  return compareExecution(side, sizeUsd, inputs);
+}
+
 /**
  * Estimated cost of a market order of `sizeUsd` on each perp venue that lists the asset (order book walk + taker
  * fees), best first. Refreshes every few seconds while the size is set; empty with fewer than two venues.
@@ -45,13 +55,8 @@ export function useBestExecution(markets: VenueMarket[], side: OrderSide, sizeUs
     }
     let isActive = true;
     const run = async () => {
-      const books = await Promise.all(markets.map((market) => fetchBook(market).catch(() => null)));
-      if (!isActive) return;
-      const inputs = markets.flatMap((market, index) => {
-        const book = books[index];
-        return book ? [{ venue: market.venue, book, takerFee: takerFeeFor(market) }] : [];
-      });
-      setQuotes(compareExecution(side, sizeUsd, inputs));
+      const next = await quoteVenues(markets, side, sizeUsd);
+      if (isActive) setQuotes(next);
     };
     const debounce = window.setTimeout(() => void run(), DEBOUNCE_MS);
     const timer = window.setInterval(() => document.visibilityState !== "hidden" && void run(), REFRESH_MS);

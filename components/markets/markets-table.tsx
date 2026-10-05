@@ -10,6 +10,7 @@ import { useFunding } from "@/components/terminal/use-funding";
 import { formatPrice } from "@/lib/format";
 import { FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
 import type { VenueMarket } from "@/lib/venues/types";
+import { FundingArbDialog } from "./funding-arb-dialog";
 
 const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", binance: "Binance", bybit: "Bybit" };
 
@@ -47,6 +48,7 @@ export function MarketsTable() {
   const [query, setQuery] = useState("");
   const [bothOnly, setBothOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("arb");
+  const [arbRow, setArbRow] = useState<Row | null>(null);
 
   const rows = useMemo(() => {
     const bySymbol = new Map<string, Row>();
@@ -162,6 +164,16 @@ export function MarketsTable() {
                     )}
                   </td>
                   <td className="px-3 py-1.5 text-right">
+                    {row.arb && (
+                      <button
+                        type="button"
+                        onClick={() => setArbRow(row)}
+                        title="Open a long and a short together to collect the funding spread"
+                        className="mr-1.5 h-7 rounded-md border border-app-accent/50 px-2.5 text-[12px] font-semibold text-app-accent hover:bg-app-accent/10"
+                      >
+                        Arb
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => open(row.symbol)}
@@ -177,6 +189,14 @@ export function MarketsTable() {
         </table>
         {shown.length === 0 && <p className="p-6 text-center text-[12px] text-app-muted">{rows.length === 0 ? "Loading markets…" : "No market matches."}</p>}
       </div>
+      {arbRow?.arb && arbRow.hyperliquid && arbRow.lighter && (
+        <FundingArbDialog
+          symbol={arbRow.symbol}
+          arb={arbRow.arb}
+          markets={{ hyperliquid: arbRow.hyperliquid, lighter: arbRow.lighter }}
+          onClose={() => setArbRow(null)}
+        />
+      )}
     </section>
   );
 }
