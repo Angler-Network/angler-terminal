@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Image from "next/image";
 import { ConnectButton } from "@/components/terminal/connect-button";
+import { TradingSettings } from "@/components/terminal/trading-settings";
 import { DEFAULT_TAPE_SYMBOLS, parseTapeCookie, pickMarkets, TAPE_COOKIE } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
 import { TickerTape } from "./ticker-tape";
@@ -26,6 +27,7 @@ export async function TickerBar() {
       <TickerTape initial={tape.settings} initialMarkets={tape.markets} />
 
       <div className="flex shrink-0 items-center gap-2 border-l border-app-hairline pl-3">
+        <TradingSettings />
         <ConnectButton />
       </div>
     </header>

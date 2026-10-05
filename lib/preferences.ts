@@ -69,6 +69,15 @@ export interface Preferences extends Appearance {
   newsSoundPositive: AlertSound;
   newsSoundNegative: AlertSound;
   newsSoundSentimentThreshold: number;
+  // Trading from news (terminal)
+  /** One click on a news trade button places the order at the default size. Off by default. */
+  oneClickTrading: boolean;
+  /** Impact score (0-100) at which an arriving news item is highlighted. */
+  highImpactThreshold: number;
+  highImpactSound: boolean;
+  /** Default USD size for news trades; null uses the venue's first preset. */
+  defaultPerpUsd: number | null;
+  defaultSpotUsd: number | null;
 }
 
 export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
@@ -105,6 +114,11 @@ export const defaultPreferences: Preferences = {
   newsSoundPositive: "rise",
   newsSoundNegative: "fall",
   newsSoundSentimentThreshold: 0.3,
+  oneClickTrading: false,
+  highImpactThreshold: 80,
+  highImpactSound: false,
+  defaultPerpUsd: null,
+  defaultSpotUsd: null,
   ...defaultAppearance,
 };
 
@@ -120,6 +134,11 @@ function isValidTimeZone(value: unknown): value is string {
 
 function readDataSource(value: unknown): ChartDataSource | null {
   return value === "binance" || value === "hyperliquid" ? value : null;
+}
+
+function readSize(value: unknown) {
+  const number = Number(value);
+  return value !== null && value !== undefined && Number.isFinite(number) && number > 0 ? Math.min(1_000_000, number) : null;
 }
 
 function readBoolean(value: unknown, fallback: boolean) {
@@ -188,6 +207,11 @@ export function parsePreferences(raw: string | null): Preferences {
         0.05,
         defaultPreferences.newsSoundSentimentThreshold,
       ),
+      oneClickTrading: readBoolean(stored.oneClickTrading, defaultPreferences.oneClickTrading),
+      highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
+      highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
+      defaultPerpUsd: readSize(stored.defaultPerpUsd),
+      defaultSpotUsd: readSize(stored.defaultSpotUsd),
       ...readAppearance(stored),
     };
   } catch {
