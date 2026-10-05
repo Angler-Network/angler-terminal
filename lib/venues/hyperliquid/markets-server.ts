@@ -24,7 +24,7 @@ async function loadMarkets(network: HlNetwork): Promise<VenueMarket[]> {
 }
 
 /** Cached per network for a minute so page loads don't each spend Info API weight. */
-export const getHlMarkets = unstable_cache(loadMarkets, ["hl-markets-v1"], { revalidate: REVALIDATE_SECONDS });
+export const getHlMarkets = unstable_cache(loadMarkets, ["hl-markets-v2"], { revalidate: REVALIDATE_SECONDS });
 
 export function getConfiguredHlMarkets(network: HlNetwork = hlConfig.network) {
   return getHlMarkets(network);

@@ -47,6 +47,7 @@ export function marketsFromMeta(dexIndex: number, dexName: string, meta: PerpMet
     const { symbol } = splitCoin(asset.name);
     return [
       {
+        venue: "hyperliquid",
         coin: asset.name,
         symbol,
         dex: dexName,

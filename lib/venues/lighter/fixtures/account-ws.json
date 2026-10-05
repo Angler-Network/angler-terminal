@@ -1,0 +1,155 @@
+{
+ "account_all_snapshot": {
+  "account": 124,
+  "assets": {
+   "1": {
+    "symbol": "ETH",
+    "asset_id": 1,
+    "balance": "6000.00000000",
+    "locked_balance": "0.00000000",
+    "margin_mode": "disabled",
+    "margin_balance": "0.00000000",
+    "multiplier": "1.000000000000000000"
+   }
+  },
+  "bo_positions": {},
+  "channel": "account_all:124",
+  "daily_trades_count": 798,
+  "daily_volume": 4089794.638082,
+  "funding_histories": {},
+  "monthly_trades_count": 9946,
+  "monthly_volume": 57543006.347311,
+  "positions": {
+   "4095": {
+    "market_id": 4095,
+    "symbol": "ETH",
+    "initial_margin_fraction": "5.00",
+    "open_order_count": 38,
+    "pending_order_count": 0,
+    "position_tied_order_count": 0,
+    "sign": -1,
+    "position": "287.0852",
+    "avg_entry_price": "2713.31",
+    "position_value": "774716.637312",
+    "unrealized_pnl": "4234.211467",
+    "realized_pnl": "0.000000",
+    "liquidation_price": "347071.2901132922",
+    "total_funding_paid_out": "679.770889",
+    "margin_mode": 0,
+    "margin_set_flag": 1,
+    "allocated_margin": "0.000000"
+   },
+   "4096": {
+    "market_id": 4096,
+    "symbol": "BTC",
+    "initial_margin_fraction": "5.00",
+    "open_order_count": 38,
+    "pending_order_count": 0,
+    "position_tied_order_count": 0,
+    "sign": -1,
+    "position": "3.15742",
+    "avg_entry_price": "85733.0",
+    "position_value": "269269.197988",
+    "unrealized_pnl": "1425.826590",
+    "realized_pnl": "0.000000",
+    "liquidation_price": "31397021.39630094",
+    "total_funding_paid_out": "298.067914",
+    "margin_mode": 0,
+    "margin_set_flag": 1,
+    "allocated_margin": "0.000000"
+   },
+   "4097": {
+    "market_id": 4097,
+    "symbol": "SOL",
+    "initial_margin_fraction": "6.66",
+    "open_order_count": 38,
+    "pending_order_count": 0,
+    "position_tied_order_count": 0,
+    "sign": -1,
+    "position": "33.110",
+    "avg_entry_price": "119.925",
+    "position_value": "3966.445560",
+    "unrealized_pnl": "4.257953",
+    "realized_pnl": "0.000000",
+    "liquidation_price": "2951063.556745136",
+    "total_funding_paid_out": "0.274960",
+    "margin_mode": 0,
+    "margin_set_flag": 1,
+    "allocated_margin": "0.000000"
+   }
+  },
+  "shares": [],
+  "total_trades_count": 9946,
+  "total_volume": 57543006.347311,
+  "trades": {},
+  "type": "subscribed/account_all",
+  "weekly_trades_count": 9946,
+  "weekly_volume": 57543006.347311
+ },
+ "account_all_update": {
+  "account": 124,
+  "assets": null,
+  "bo_positions": {},
+  "channel": "account_all:124",
+  "funding_histories": {},
+  "positions": {
+   "4096": {
+    "market_id": 4096,
+    "symbol": "BTC",
+    "initial_margin_fraction": "5.00",
+    "open_order_count": 38,
+    "pending_order_count": 0,
+    "position_tied_order_count": 0,
+    "sign": -1,
+    "position": "3.15742",
+    "avg_entry_price": "85733.0",
+    "position_value": "269269.197988",
+    "unrealized_pnl": "1425.826590",
+    "realized_pnl": "0.000000",
+    "liquidation_price": "31395694.930107236",
+    "margin_mode": 0,
+    "margin_set_flag": 1,
+    "allocated_margin": "0.000000"
+   }
+  },
+  "shares": [],
+  "trades": {},
+  "type": "update/account_all"
+ },
+ "user_stats": {
+  "channel": "user_stats:124",
+  "stats": {
+   "collateral": "100057644.597018",
+   "portfolio_value": "100063308.893027",
+   "leverage": "0.01",
+   "available_balance": "100010845.435988",
+   "margin_usage": "0.05",
+   "buying_power": "0",
+   "account_trading_mode": 1,
+   "cross_stats": {
+    "collateral": "100057644.597018",
+    "portfolio_value": "100063308.893027",
+    "leverage": "0.01",
+    "available_balance": "100010845.435988",
+    "margin_usage": "0.05",
+    "buying_power": "0"
+   },
+   "total_stats": {
+    "collateral": "100057644.597018",
+    "portfolio_value": "100063308.893027",
+    "leverage": "0.01",
+    "available_balance": "100010845.435988",
+    "margin_usage": "0.05",
+    "buying_power": "0"
+   }
+  },
+  "timestamp": 1791221681973,
+  "type": "subscribed/user_stats"
+ },
+ "auth_error": {
+  "error": {
+   "code": 20001,
+   "message": "invalid param : auth field is required: account_all_orders:124"
+  }
+ }
+}

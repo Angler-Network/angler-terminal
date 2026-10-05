@@ -191,6 +191,7 @@ export function toPositions(dex: string, state: ClearinghouseState): VenuePositi
     if (!size) return [];
     return [
       {
+        venue: "hyperliquid",
         coin: position.coin,
         symbol: splitCoin(position.coin).symbol,
         dex,
@@ -209,6 +210,7 @@ export function toPositions(dex: string, state: ClearinghouseState): VenuePositi
 
 export function toOpenOrders(dex: string, orders: FrontendOrder[]): VenueOpenOrder[] {
   return orders.map((order) => ({
+    venue: "hyperliquid",
     coin: order.coin,
     symbol: splitCoin(order.coin).symbol,
     dex,

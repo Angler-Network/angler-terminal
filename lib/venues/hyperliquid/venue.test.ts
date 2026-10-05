@@ -35,6 +35,7 @@ describe("account mapping", () => {
     });
     expect(positions).toEqual([
       {
+        venue: "hyperliquid",
         coin: "xyz:NVDA",
         symbol: "NVDA",
         dex: "xyz",

@@ -2,7 +2,7 @@
  * Venue abstraction: one implementation per exchange. The terminal talks to venues only through these
  * interfaces, so adding a venue never touches the order panel, positions bar or chart.
  *
- * - PerpVenue: leveraged perpetuals with positions and resting orders (Hyperliquid).
+ * - PerpVenue: leveraged perpetuals with positions and resting orders (Hyperliquid, Lighter).
  * - SpotVenue: quote-then-sign token swaps settled in the user's own wallet (Jupiter).
  */
 
@@ -10,16 +10,24 @@ export type OrderSide = "buy" | "sell";
 
 export type OrderKind = "market" | "limit";
 
+export type PerpVenueId = "hyperliquid" | "lighter";
+
 export interface VenueMarket {
+  venue: PerpVenueId;
   /** The venue's own coin name, e.g. "BTC" or "xyz:NVDA" for a HIP-3 market. */
   coin: string;
   /** Display symbol shared with the rest of the terminal, e.g. "BTC" or "NVDA". */
   symbol: string;
   /** Perp dex the market lives on; "" is the main dex. */
   dex: string;
-  /** Numeric asset id used in exchange actions. */
+  /** Numeric asset id used in exchange actions (Lighter: `market_id`). */
   assetId: number;
   szDecimals: number;
+  /** Lighter: prices are integers scaled by 10^priceDecimals. */
+  priceDecimals?: number;
+  /** Lighter: smallest order in base units and in USDC; the larger one applies. */
+  minBaseAmount?: number;
+  minQuoteAmount?: number;
   maxLeverage: number;
   kind: "crypto" | "stock";
   onlyIsolated: boolean;
@@ -46,6 +54,7 @@ export type OrderResult =
   | { status: "resting"; oid: number };
 
 export interface VenuePosition {
+  venue: PerpVenueId;
   coin: string;
   symbol: string;
   dex: string;
@@ -61,6 +70,7 @@ export interface VenuePosition {
 }
 
 export interface VenueOpenOrder {
+  venue: PerpVenueId;
   coin: string;
   symbol: string;
   dex: string;
@@ -97,7 +107,7 @@ export interface Candle {
 
 export interface PerpVenue {
   kind: "perp";
-  id: string;
+  id: PerpVenueId;
   name: string;
   network: "mainnet" | "testnet";
   listMarkets(): Promise<VenueMarket[]>;
