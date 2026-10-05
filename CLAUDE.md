@@ -31,14 +31,24 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   `lib/i18n` is an English-only shim so the copied components keep calling `t()`.
 - Markets: `lib/markets/server.ts` lists Binance + Hyperliquid perps, spot and HIP-3 stock perps (dex `xyz`). It is the
   market source for the venue resolver.
-- Angler News API (`lib/angler/*`):
-  - `GET /api/news` proxies `/v1/news` (coin, min_importance, limit, cursor; `next_cursor` paginates).
+- Angler News API (`lib/angler/*`, spec at api.angler.network/openapi.yaml). `types.ts` holds the wire shapes checked
+  against live responses; `lib/angler/fixtures/*.json` are real samples the tests read.
+  - `GET /api/news` proxies `/v1/news` (coin, min_importance, limit, cursor; `next_cursor` is null on the last
+    page) and answers a validated `ApiNewsPage` without `content`. REST items have a numeric `id`, `source_id`,
+    `title`, `importance_score` and ticker `coins`, but no sentiment, predictions or summary.
+  - `GET /api/sources` proxies `/v1/sources` (cached 10 min) to name sources: REST items by `source_id`, realtime
+    items by slug (`external_id`).
   - `POST /api/ws-ticket` calls `/v1/ws/ticket` with `Authorization: Bearer <key>` and returns
     `{ ticket, expires_in, channels, url }`.
   - `use-news-feed.ts` connects with `centrifuge` and passes the ticket as connection **data** via `getData` (not as a
-    token). A ticket opens one connection only, so a new one is minted on every connect and reconnect.
-  - Channels `news.raw` (arrives first, no enrichment) and `news.enriched` (same id, later). Items are upserted by news
-    id with `mergeApiNews`; `toNewsItem` maps them to the angler-news `NewsItem` shape.
+    token). A ticket opens one connection only, so a new one is minted on every connect and reconnect. The feed is
+    live only once a channel is subscribed: free-tier keys connect but get every channel refused (code 1003), and
+    REST polling takes over.
+  - Channels `news.raw` and `news.enriched` publish stage messages `{ news_item_id, item }`; the id is always
+    `news_item_id` (the enriched `item.id` is ""). Raw items have no score; enriched ones add `sentiment`
+    `{ label, confidence }`, `coins` as `{ symbol, relevance }`, `impact_predictions` (no confidence) and
+    `summary_short`. Both shapes become `FeedNews`, upserted by id with `mergeFeedNews`; `toNewsItem` maps them to
+    the angler-news `NewsItem` shape. The API carries no Solana mints.
 - Venues (`lib/venues/*`): the `Venue` interface in `types.ts`; Hyperliquid in `hyperliquid/`, built on
   `@nktkas/hyperliquid`.
   - Network comes from `NEXT_PUBLIC_HL_NETWORK` (testnet default); switching to mainnet needs no code change.
@@ -65,7 +75,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
     5s and are re-fetched right before signing.
 - Venue resolver (`components/terminal/use-asset-venue.ts`): Hyperliquid perps when listed, Jupiter spot when a
-  verified token exists (a mint from the news item goes straight to spot).
+  verified token exists (a mint on the news item goes straight to spot; the Angler API sends none today).
 - News → trading: there is no manual order form. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
   Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`. A press arms the button
