@@ -1,18 +1,16 @@
 "use client";
 
-import { KeyRound, Loader2, Wallet } from "lucide-react";
+import { KeyRound, Wallet } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
-import { presetLabel, sideLabel } from "@/lib/trading/presets";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
-import { useTradeTicket } from "./trade-ticket";
 import { useTrading } from "./trading-provider";
 import { useAssetVenues } from "./use-asset-venue";
 import { useWallet } from "./wallet-provider";
@@ -190,48 +188,11 @@ function JupiterSection() {
   );
 }
 
-function ArmedTicket() {
-  const { ticket, pendingKey, confirm, cancel } = useTradeTicket();
-  if (pendingKey) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-app-hairline-strong bg-app-chip/60 px-2.5 py-2 text-[12px] text-app-ink">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden />
-        Placing order… confirm in your wallet if asked.
-      </div>
-    );
-  }
-  if (!ticket) {
-    return <p className="text-[12px] leading-snug text-app-muted">Trade from important news: pick a size under an asset on a news card.</p>;
-  }
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-app-hairline-strong bg-app-chip/60 px-2.5 py-2 text-[12px]">
-      <p className="font-semibold text-app-ink">
-        {sideLabel(ticket.venue, ticket.side)} {ticket.symbol} · ${presetLabel(ticket.sizeUsd)} on {ticket.venue === "perp" ? "Hyperliquid" : "Jupiter"}
-      </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={confirm}
-          className={`h-8 flex-1 rounded-md text-[12px] font-semibold text-white ${ticket.side === "buy" ? "bg-app-up" : "bg-app-down"}`}
-        >
-          Confirm
-        </button>
-        <button type="button" onClick={cancel} className="h-8 rounded-md border border-app-hairline-strong px-3 text-[12px] font-semibold text-app-muted hover:text-app-ink">
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /** Wallets, trading setup and balances. Orders are placed from news cards, not from a form. */
 export function AccountPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <div className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55">
-        <Section title="Order">
-          <ArmedTicket />
-        </Section>
         <HyperliquidSection />
         <JupiterSection />
       </div>
