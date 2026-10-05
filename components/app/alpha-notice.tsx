@@ -3,6 +3,7 @@
 import { Check, FlaskConical } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { accentSwatches, themeOptions } from "@/lib/appearance";
 import { layoutPresets, panelNames, type TerminalPanels } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
 
@@ -30,6 +31,82 @@ function WelcomeStep() {
         Welcome to Angler Terminal
       </h2>
       <p className="max-w-[340px] text-[15px] leading-relaxed text-app-muted">Every perp DEX on one screen, with AI-scored news you can trade in two taps.</p>
+    </div>
+  );
+}
+
+/** Theme, accent and framed or full-screen design, applied live (the same settings as Appearance). */
+function LookStep() {
+  const { preferences, updatePreference } = usePreferences();
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h2 id="alpha-notice-title" className="text-[20px] font-semibold">
+          Make it yours
+        </h2>
+        <p className="mt-1 text-[13px] text-app-muted">Pick a theme and an accent. Everything else is in Settings → Appearance.</p>
+      </div>
+      <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Theme">
+        {themeOptions.map((theme) => {
+          const active = preferences.theme === theme.value;
+          return (
+            <button
+              key={theme.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => updatePreference("theme", theme.value)}
+              className={`flex flex-col gap-1.5 rounded-xl border p-1.5 text-left transition-colors ${active ? "border-app-accent" : "border-app-hairline hover:border-app-hairline-strong"}`}
+            >
+              <span className="flex h-9 overflow-hidden rounded-lg border border-black/10" style={{ background: theme.canvas }}>
+                <span className="m-1.5 ml-auto w-1/2 rounded-md" style={{ background: theme.panel }} />
+              </span>
+              <span className="truncate px-0.5 text-[11px] font-semibold text-app-ink">{theme.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Accent">
+        <span className="mr-1 text-[12px] font-semibold text-app-muted">Accent</span>
+        {accentSwatches.map((color) => (
+          <button
+            key={color}
+            type="button"
+            role="radio"
+            aria-checked={preferences.accent === color}
+            aria-label={color}
+            onClick={() => updatePreference("accent", color)}
+            className={`size-7 rounded-full border-2 transition-transform hover:scale-110 ${preferences.accent === color ? "border-app-ink" : "border-transparent"}`}
+            style={{ background: color }}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Design">
+        {[
+          { framed: true, label: "Framed", hint: "Rounded frame with an inset" },
+          { framed: false, label: "Full screen", hint: "Edge to edge" },
+        ].map((option) => {
+          const active = preferences.framedLayout === option.framed;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => updatePreference("framedLayout", option.framed)}
+              className={`flex items-center gap-3 rounded-xl border p-2 text-left transition-colors ${active ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"}`}
+            >
+              <span className={`flex h-10 w-14 shrink-0 bg-app-chip ${option.framed ? "rounded-lg p-1" : "rounded-sm"}`}>
+                <span className={`flex-1 border border-app-hairline-strong bg-app-card ${option.framed ? "rounded-md" : ""}`} />
+              </span>
+              <span>
+                <span className="block text-[13px] font-semibold text-app-ink">{option.label}</span>
+                <span className="block text-[11px] text-app-muted">{option.hint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -116,10 +193,10 @@ function AlphaStep() {
   );
 }
 
-const STEPS = 3;
+const STEPS = 4;
 
 /**
- * First-visit onboarding: welcome, pick a layout, a short alpha notice. Shown once per browser; "Start trading" on
+ * First-visit onboarding: welcome, pick a look, pick a layout, a short alpha notice. Shown once per browser; "Start trading" on
  * the last step stores the acknowledgement. No skip: the layout step is what keeps the first screen simple.
  */
 export function AlphaNotice() {
@@ -165,7 +242,7 @@ export function AlphaNotice() {
       className="surface-menu m-auto w-[min(480px,calc(100vw-2rem))] max-w-none rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
     >
       <div className="flex flex-col gap-5 p-6">
-        {step === 0 ? <WelcomeStep /> : step === 1 ? <LayoutStep /> : <AlphaStep />}
+        {step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}
         <div className="flex items-center gap-3">
           <div aria-label={`Step ${step + 1} of ${STEPS}`} className="flex gap-1.5">
             {Array.from({ length: STEPS }, (_, index) => (

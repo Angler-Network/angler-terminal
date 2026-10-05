@@ -162,7 +162,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
   bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
-- Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "What do you want on your
+- Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "Make it yours" (theme,
+  accent, framed or full screen; applied live) → "What do you want on your
   screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
   notice. Bump `ACK_KEY` to show it again; Settings → About reopens it. Keep it short: no text-heavy slides.
 - Wallets: one Connect button opens `wallet-modal.tsx`: a grid of colored venue tiles (logo, name, kind; built to take

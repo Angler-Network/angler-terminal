@@ -264,19 +264,16 @@ export function NewsFeed({ feed }: NewsFeedProps) {
           </div>
         )}
       </div>
-      <footer className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-app-hairline px-3 py-1.5 text-[10px] text-app-faint">
-        {selectedTrade ? (
-          <>
-            <Kbd>L</Kbd> {selectedTrade.venue === "perp" ? "long" : "buy"}
-            <Kbd>S</Kbd> {selectedTrade.venue === "perp" ? "short" : "sell"}
-            <Kbd>1-4</Kbd> size
-            <Kbd>Enter</Kbd> confirm
-            <Kbd>Esc</Kbd> cancel
-          </>
-        ) : (
-          <span>Important news with a tradable asset shows size buttons. Select one to use L / S.</span>
-        )}
-      </footer>
+      {/* Keyboard hints only for a selected tradable item. */}
+      {selectedTrade && (
+        <footer className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-app-hairline px-3 py-1.5 text-[10px] text-app-faint">
+          <Kbd>L</Kbd> {selectedTrade.venue === "perp" ? "long" : "buy"}
+          <Kbd>S</Kbd> {selectedTrade.venue === "perp" ? "short" : "sell"}
+          <Kbd>1-4</Kbd> size
+          <Kbd>Enter</Kbd> confirm
+          <Kbd>Esc</Kbd> cancel
+        </footer>
+      )}
     </section>
   );
 }
