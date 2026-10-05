@@ -1,0 +1,135 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { hlConfig } from "@/lib/venues/hyperliquid/config";
+import { lighterConfig } from "@/lib/venues/lighter/config";
+import type { VenueMarket } from "@/lib/venues/types";
+import {
+  applyLevels,
+  readHlBook,
+  readHlTrades,
+  readLighterBook,
+  readLighterTrades,
+  sortedSide,
+  type BookSide,
+  type TapeTrade,
+} from "@/lib/trading/orderbook";
+
+const FLUSH_MS = 150;
+const MAX_TRADES = 60;
+const PING_MS = 45_000;
+const RETRY_MS = 3_000;
+
+export type BookStatus = "connecting" | "live" | "offline";
+
+/**
+ * Live order book and trades for one venue market over a plain WebSocket (not the trading SDKs, so the first load
+ * stays light). Updates are batched into one render every FLUSH_MS.
+ */
+export function useOrderBook(market: VenueMarket | null) {
+  const [book, setBook] = useState<BookSide>({ bids: [], asks: [] });
+  const [trades, setTrades] = useState<TapeTrade[]>([]);
+  const [status, setStatus] = useState<BookStatus>("connecting");
+  const key = market ? `${market.venue}:${market.coin}:${market.assetId}` : "";
+
+  useEffect(() => {
+    setBook({ bids: [], asks: [] });
+    setTrades([]);
+    if (!market) return;
+    setStatus("connecting");
+    let socket: WebSocket | null = null;
+    let isActive = true;
+    let retry: number | undefined;
+    let ping: number | undefined;
+    // Lighter levels are kept across deltas; Hyperliquid replaces the whole book each time.
+    const bids = new Map<number, number>();
+    const asks = new Map<number, number>();
+    let pendingBook: BookSide | null = null;
+    let pendingTrades: TapeTrade[] = [];
+
+    const flush = window.setInterval(() => {
+      if (pendingBook) setBook(pendingBook);
+      if (pendingTrades.length > 0) {
+        const fresh = pendingTrades;
+        setTrades((current) => [...fresh, ...current].slice(0, MAX_TRADES));
+      }
+      pendingBook = null;
+      pendingTrades = [];
+    }, FLUSH_MS);
+
+    const isHl = market.venue === "hyperliquid";
+    const url = isHl ? `${hlConfig.apiUrl.replace(/^http/, "ws")}/ws` : lighterConfig.wsUrl;
+
+    const onMessage = (event: MessageEvent) => {
+      let message: Record<string, unknown>;
+      try {
+        message = JSON.parse(String(event.data)) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      if (isHl) {
+        if (message.channel === "l2Book") {
+          const next = readHlBook(message.data);
+          if (next) pendingBook = next;
+        } else if (message.channel === "trades") {
+          // Newest first, like the tape shows them.
+          pendingTrades = [...readHlTrades(message.data).reverse(), ...pendingTrades];
+        }
+        return;
+      }
+      const type = String(message.type ?? "");
+      if (type.endsWith("/order_book")) {
+        const changes = readLighterBook(message);
+        if (!changes) return;
+        if (type.startsWith("subscribed/")) {
+          bids.clear();
+          asks.clear();
+        }
+        applyLevels(bids, changes.bids);
+        applyLevels(asks, changes.asks);
+        pendingBook = { bids: sortedSide(bids, "bids"), asks: sortedSide(asks, "asks") };
+      } else if (type.endsWith("/trade")) {
+        const fresh = readLighterTrades(message).sort((a, b) => b.time - a.time);
+        pendingTrades = type.startsWith("subscribed/") ? fresh : [...fresh, ...pendingTrades];
+      }
+    };
+
+    const connect = () => {
+      if (!isActive) return;
+      const ws = new WebSocket(url);
+      socket = ws;
+      ws.onopen = () => {
+        setStatus("live");
+        if (isHl) {
+          ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "l2Book", coin: market.coin } }));
+          ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin: market.coin } }));
+        } else {
+          ws.send(JSON.stringify({ type: "subscribe", channel: `order_book/${market.assetId}` }));
+          ws.send(JSON.stringify({ type: "subscribe", channel: `trade/${market.assetId}` }));
+        }
+        ping = window.setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(isHl ? { method: "ping" } : { type: "ping" }));
+        }, PING_MS);
+      };
+      ws.onmessage = onMessage;
+      ws.onclose = () => {
+        window.clearInterval(ping);
+        if (!isActive) return;
+        setStatus("offline");
+        retry = window.setTimeout(connect, RETRY_MS);
+      };
+      ws.onerror = () => ws.close();
+    };
+
+    connect();
+    return () => {
+      isActive = false;
+      window.clearInterval(flush);
+      window.clearInterval(ping);
+      window.clearTimeout(retry);
+      socket?.close();
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { book, trades, status };
+}

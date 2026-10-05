@@ -11,7 +11,7 @@ import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfig } from "@/lib/venues/lighter/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
-import { ManualOrderSection } from "./manual-order";
+import { OrderPanel } from "./order-panel";
 import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
@@ -229,23 +229,27 @@ export function useHasWallet() {
 }
 
 /**
- * Balances and the perp trading keys (Hyperliquid, Lighter) for the connected wallets. Hidden until a wallet is connected; wallets
- * themselves are managed from the Connect button. Orders are placed from news cards, or from the test order form
- * while `manualOrders` is on.
+ * The trading column: the order panel on top, then balances and trading keys per venue (only once a wallet is
+ * connected; wallets themselves are managed from the Connect button). Each part follows its panel setting.
  */
-export function AccountPanel() {
+export function AccountPanel({ orderEntry, account }: { orderEntry: boolean; account: boolean }) {
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
   const { preferences } = usePreferences();
-  if (!evmAddress && !solanaAddress) return null;
+  const showAccount = account && Boolean(evmAddress || solanaAddress);
+  if (!orderEntry && !showAccount) return null;
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <div className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55">
-        {preferences.manualOrders && <ManualOrderSection />}
-        {evmAddress && <HyperliquidSection />}
-        {evmAddress && preferences.venueLighter && <LighterSection />}
-        {solanaAddress && <JupiterSection />}
-        {evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
+        {orderEntry && (
+          <div className="border-b border-app-hairline last:border-b-0">
+            <OrderPanel />
+          </div>
+        )}
+        {showAccount && evmAddress && <HyperliquidSection />}
+        {showAccount && evmAddress && preferences.venueLighter && <LighterSection />}
+        {showAccount && solanaAddress && <JupiterSection />}
+        {showAccount && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>
       <p className="shrink-0 px-1 text-center text-[10px] leading-tight text-app-faint">{DISCLAIMER}</p>
     </div>

@@ -71,9 +71,10 @@ signs, Arcus settles (gasless; the wallet is moved to Robinhood Chain automatica
 
 ## Trading from the news feed
 
-Trades start from the news. For now a **test order form** in the account panel (for the chart's asset) can also
-place market orders on Hyperliquid, Lighter or Jupiter, to check each venue and network; turn it off in Settings →
-Trading.
+Trades start from the news, or from the **order panel** next to the chart: market and limit orders for the chart's
+asset on any venue that lists it (Hyperliquid, Lighter, Jupiter, Arcus), with leverage, margin mode and reduce-only.
+The live **order book** fills the limit price on click. Every panel can be hidden from the layout button in the top
+bar or Settings → Layout.
 
 - Important news (impact ≥ 60 by default, configurable) that mentions a tradable asset shows a size grid per asset:
   a green **Long/Buy** row and a red **Short/Sell** row. Hyperliquid assets trade as perps (Long/Short), Solana-only

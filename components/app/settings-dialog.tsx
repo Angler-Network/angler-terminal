@@ -4,7 +4,7 @@ import { ExternalLink, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { useT } from "@/lib/i18n/client";
-import { alertSounds, type AlertSound } from "@/lib/preferences";
+import { alertSounds, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
@@ -27,6 +27,7 @@ const DISCLAIMER = "Not financial advice. Scores are model outputs.";
 const sections = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
+  { id: "layout", label: "Layout" },
   { id: "filters", label: "News filters" },
   { id: "trading", label: "Trading" },
   { id: "venues", label: "Venues & networks" },
@@ -110,6 +111,33 @@ function ImpactStepper({ label, value, onChange }: { label: string; value: numbe
   return <NumberStepper label={label} value={draft} min={0} max={100} step={5} className="w-[120px]" onChange={setDraft} onCommit={commit} />;
 }
 
+function LayoutSettings() {
+  const { preferences, updatePreference } = usePreferences();
+  const descriptions: Record<keyof TerminalPanels, string> = {
+    orderEntry: "Market and limit orders for the chart's asset on any venue that lists it.",
+    orderbook: "Live order book and recent trades of the selected venue. Click a price to use it as the limit price.",
+    positions: "Positions and open orders of every connected venue, with per-venue totals.",
+    news: "The live Angler News feed with trade buttons on important news.",
+    account: "Balances and trading keys per venue (shown once a wallet is connected).",
+  };
+  return (
+    <>
+      <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
+        Turn panels on or off; the chart takes the free space. Also from the layout button in the top bar.
+      </p>
+      {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
+        <SettingRow key={key} title={panelNames[key]} description={descriptions[key]}>
+          <Toggle
+            label={panelNames[key]}
+            checked={preferences.panels[key]}
+            onChange={(checked) => updatePreference("panels", { ...preferences.panels, [key]: checked })}
+          />
+        </SettingRow>
+      ))}
+    </>
+  );
+}
+
 function TradingSettings() {
   const { preferences, updatePreference } = usePreferences();
   const sizeOptions = (presets: number[]) => [
@@ -118,11 +146,8 @@ function TradingSettings() {
   ];
   return (
     <>
-      <SettingRow title="One-click trading" description="A single press on a news size button places the order right away, without the confirm press. Off by default.">
+      <SettingRow title="One-click trading" description="A single press on a news size button or the order panel's button places the order right away, without the confirm press. Off by default.">
         <Toggle label="One-click trading" checked={preferences.oneClickTrading} onChange={(checked) => updatePreference("oneClickTrading", checked)} />
-      </SettingRow>
-      <SettingRow title="Test order form" description="Shows an order form for the chart's asset in the account panel, to try each venue and network outside the news cards.">
-        <Toggle label="Test order form" checked={preferences.manualOrders} onChange={(checked) => updatePreference("manualOrders", checked)} />
       </SettingRow>
       <SettingRow title="Trade buttons from impact" description="News below this impact score shows no size buttons.">
         <ImpactStepper label="Trade buttons from impact" value={preferences.tradeMinImpact} onChange={(value) => updatePreference("tradeMinImpact", value)} />
@@ -498,6 +523,7 @@ function AboutSettings() {
 function SectionContent({ section }: { section: SectionId }) {
   if (section === "general") return <GeneralSettings />;
   if (section === "appearance") return <AppearanceSettings />;
+  if (section === "layout") return <LayoutSettings />;
   if (section === "filters") return <NewsFilterSettings />;
   if (section === "trading") return <TradingSettings />;
   if (section === "venues") return <VenueSettings />;

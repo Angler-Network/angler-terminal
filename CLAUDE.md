@@ -118,10 +118,17 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   ("Confirm"); the second press places it (`trade-ticket.tsx` → `use-news-trader.ts`, headless). One-click mode
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
-- Test order form (`components/terminal/manual-order.tsx`, temporary): while `manualOrders` is on (default, toggle in
-  Trading settings) the account panel shows a market order form for the chart's asset with a venue picker
-  (Hyperliquid, Lighter, Jupiter), side, USD size and perp leverage, so people can check each venue and network.
-  It goes through `use-news-trader.ts` (same guards, analytics with no news id) and keeps the two-press confirm.
+- Multi-venue trading UI (the product is now a multi perp DEX terminal, news is the differentiator):
+  - Layout (`terminal-shell.tsx`): every panel but the chart can be hidden (`panels` preference: orderbook,
+    orderEntry, positions, news, account; Settings → Layout and the top-bar `panels-menu.tsx`). Grid columns are
+    computed from the enabled panels; the chart takes the rest.
+  - Order panel (`order-panel.tsx`): the chart's asset on every venue that lists it (perps in `perpOrder`, then
+    Jupiter/Arcus spot). Perps: market/limit, leverage slider, cross/isolated, reduce-only, % of available, estimated
+    isolated liquidation (`lib/trading/order-math.ts`); calls `placeOrder` directly. Spot goes through
+    `use-news-trader.ts`. Two-press confirm unless one-click. No TP/SL yet.
+  - Order book (`order-book.tsx` + `use-order-book.ts`): plain WebSockets (HL `l2Book`/`trades`, Lighter
+    `order_book/{id}`/`trade/{id}` with deltas), parsers and grouping in `lib/trading/orderbook.ts`. Clicking a price
+    hands it to the order panel through `order-draft.tsx`.
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
   and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
   Notifications, About; `openSettings(section)` opens a given section),

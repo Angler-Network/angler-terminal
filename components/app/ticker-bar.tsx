@@ -5,6 +5,7 @@ import { ConnectButton } from "@/components/terminal/connect-button";
 import { DEFAULT_TAPE_SYMBOLS, parseTapeCookie, pickMarkets, TAPE_COOKIE } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
 import { AlphaBadge } from "./alpha-notice";
+import { PanelsMenu } from "./panels-menu";
 import { TickerTape } from "./ticker-tape";
 
 type TapeCookie = ReturnType<typeof parseTapeCookie>;
@@ -32,6 +33,7 @@ export async function TickerBar() {
       </Suspense>
 
       <div className="flex shrink-0 items-center gap-2 border-l border-app-hairline pl-3">
+        <PanelsMenu />
         <ConnectButton />
       </div>
     </header>

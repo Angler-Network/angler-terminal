@@ -31,9 +31,9 @@ describe("perp venue preferences", () => {
   });
 });
 
-describe("test order form preference", () => {
-  it("is on by default and can be turned off", () => {
-    expect(parsePreferences(null).manualOrders).toBe(true);
-    expect(parsePreferences(JSON.stringify({ manualOrders: false })).manualOrders).toBe(false);
+describe("panel preferences", () => {
+  it("shows every panel by default and keeps the stored choices", () => {
+    expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true });
+    expect(parsePreferences(JSON.stringify({ panels: { orderbook: false, news: "no" } })).panels).toMatchObject({ orderbook: false, news: true });
   });
 });
