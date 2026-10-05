@@ -10,6 +10,7 @@ import {
   type Market,
   type TapeSettings,
 } from "@/lib/markets/model";
+import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { usePreferences } from "./preferences-provider";
 import { TickerPill } from "./ticker-pill";
 
@@ -24,6 +25,7 @@ interface TickerTapeProps {
 export function TickerTape({ initial, initialMarkets }: TickerTapeProps) {
   const t = useT();
   const { preferences, isLoaded } = usePreferences();
+  const { newsFocus, focusAsset } = useSelectedAsset();
   const settings = isLoaded
     ? { market: preferences.tapeMarket, source: preferences.tapeSource, symbols: preferences.tapeSymbols }
     : initial;
@@ -98,9 +100,19 @@ export function TickerTape({ initial, initialMarkets }: TickerTapeProps) {
     return () => observer.disconnect();
   }, []);
 
-  const pills = visible.map(({ market, quote }) => (
-    <TickerPill key={market.symbol} market={market} quote={quote} upLabel={t("market.up")} downLabel={t("market.down")} />
-  ));
+  const renderPills = (focusable: boolean) =>
+    visible.map(({ market, quote }) => (
+      <TickerPill
+        key={market.symbol}
+        market={market}
+        quote={quote}
+        upLabel={t("market.up")}
+        downLabel={t("market.down")}
+        onSelect={focusAsset}
+        isActive={newsFocus === market.symbol.toUpperCase()}
+        focusable={focusable}
+      />
+    ));
 
   return (
     <div
@@ -120,11 +132,11 @@ export function TickerTape({ initial, initialMarkets }: TickerTapeProps) {
         }
       >
         <ul ref={groupRef} aria-label={t("top.tickers")} className="flex shrink-0 items-center">
-          {pills}
+          {renderPills(true)}
         </ul>
         {Array.from({ length: copies - 1 }, (_, index) => (
           <ul key={index} aria-hidden className="flex shrink-0 items-center">
-            {pills}
+            {renderPills(false)}
           </ul>
         ))}
       </div>

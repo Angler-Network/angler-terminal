@@ -104,7 +104,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   (setting, off by default) is the only way a single press trades. The news direction only highlights a side.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
-  and `components/app/settings-dialog.tsx` (General, Appearance, Trading, Venues & networks, Notifications, About),
+  and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
+  Notifications, About; `openSettings(section)` opens a given section),
   built from the copied angler-news `form-controls`, `select-field`, `appearance-settings`. Venues can be turned off
   (`venueHyperliquid`, `venueLighter`, `venueJupiter`); each perp venue's network can be overridden per browser
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
@@ -124,7 +125,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   origin and may come from another app on the same origin).
 - Chart intervals: `lib/chart/candles.ts` lists the 14 intervals Binance and Hyperliquid both accept (1m–1M);
   `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons.
-- Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`.
+- Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. Clicking a ticker
+  tape pill calls `focusAsset`: it selects the chart and narrows the feed to that symbol (`newsFocus`, cleared from
+  the "Only X" chip). The clickable pill is a terminal-only change to the copied `ticker-pill.tsx`/`ticker-tape.tsx`.
+- News filters (`lib/news/filter.ts`, saved as the `newsFilters` preference, edited in settings and from the feed
+  header): assets, sentiment (±0.15 is neutral), severity, minimum impact, raw headlines. Raw items have no assets,
+  so they are hidden while an asset filter or focus is on. With one asset (focus or a single filter) the feed's REST
+  history is requested with `coin`.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
 ## Checks

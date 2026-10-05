@@ -71,6 +71,9 @@ There is no manual order form: trades start from the news.
 - Keyboard on the selected news item: `L` long/buy, `S` short/sell, `1`–`4` size, `Enter` or the same key again to
   confirm, `Esc` cancel.
 - The right column holds wallets, the Hyperliquid trading key, balances and the leverage used for news trades.
+- News filters (sliders icon in the news header, or Settings → News filters): only some assets (e.g. BTC), positive /
+  neutral / negative sentiment, severity and minimum impact. Clicking a pair on the ticker tape opens its chart and
+  shows only its news until you clear the "Only BTC" chip.
 - High-impact items (impact ≥ 80 by default) are briefly highlighted; an optional sound can be enabled in settings.
 
 Not financial advice. Scores are model outputs.
