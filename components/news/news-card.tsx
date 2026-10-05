@@ -18,8 +18,8 @@ interface NewsCardProps {
   /** Clicking an asset chip selects that asset in the chart. */
   onSelectAsset?: (symbol: string, mint?: string) => void;
   selectedSymbol?: string;
-  /** Rendered right after the lead asset chip (trade buttons). */
-  renderLeadActions?: (lead: { symbol: string; direction: Direction; mint?: string }) => React.ReactNode;
+  /** Replaces the asset chips with a trade grid (important items with tradable assets). */
+  renderTrade?: (assets: { symbol: string; direction: Direction; mint?: string }[]) => React.ReactNode;
   isSelected?: boolean;
   /** Briefly highlights a high-impact arrival. */
   isFlashing?: boolean;
@@ -111,9 +111,10 @@ function SourceFavicon({ domain }: { domain?: string }) {
   return <img src={favicon.src} alt="" width={12} height={12} loading="lazy" onError={favicon.onError} className="size-3 shrink-0 rounded-[2px] object-contain" />;
 }
 
-export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadActions, isSelected, isFlashing, onSelect }: NewsCardProps) {
+export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isSelected, isFlashing, onSelect }: NewsCardProps) {
   const t = useT();
   const chips = chipsFor(item);
+  const trade = chips.length > 0 && renderTrade ? renderTrade(chips.slice(0, 3).map((chip) => ({ ...chip, mint: item.mints?.[chip.symbol] }))) : null;
   const [source, ...otherSources] = item.sources;
   const publishedAt = item.publishedAt ? new Date(item.publishedAt) : null;
 
@@ -176,7 +177,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
         {item.summary && <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-app-muted">{item.summary}</p>}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          {chips.map((chip, index) => (
+          {!trade && chips.map((chip) => (
             <span key={chip.symbol} className="inline-flex items-center gap-1">
               <button
                 type="button"
@@ -193,7 +194,6 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
               >
                 <SymbolChip symbol={chip.symbol} direction={chip.direction} />
               </button>
-              {index === 0 && renderLeadActions?.({ symbol: chip.symbol, direction: chip.direction, mint: item.mints?.[chip.symbol] })}
             </span>
           ))}
           <span className="ml-auto inline-flex items-center gap-2">
@@ -201,6 +201,8 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderLeadAction
             <ImpactMeter item={item} />
           </span>
         </div>
+
+        {trade}
 
         {item.marketReaction && (
           <div className="mt-3">

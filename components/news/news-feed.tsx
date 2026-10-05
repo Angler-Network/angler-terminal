@@ -9,7 +9,7 @@ import { useNewsFeed, type FeedStatus } from "@/lib/angler/use-news-feed";
 import { detectHighImpact, isTypingTarget } from "@/lib/trading/high-impact";
 import type { NewsItem } from "@/lib/types";
 import { NewsCard } from "./news-card";
-import { NewsTradeButtons, type ResolvedNewsTrade } from "./news-trade-buttons";
+import { NewsTradeGrid, type ResolvedNewsTrade } from "./news-trade-grid";
 import { useNewsSound } from "./use-news-sound";
 
 const IMPORTANCE_FILTERS = [0, 40, 60, 80];
@@ -72,54 +72,66 @@ interface NewsFeedProps {
 
 export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps) {
   const { symbol, selectAsset } = useSelectedAsset();
-  const { ticket, arm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
+  const { preferences } = usePreferences();
+  const { ticket, press, confirm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
   const [onlySelected, setOnlySelected] = useState(false);
   const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
   const shown = onlySelected ? items.filter((item) => item.coins?.includes(symbol)) : items;
   const flashing = useHighImpactFlash(items);
   useNewsSound(items, shown, status === "live");
 
-  const [resolved, setResolved] = useState<Record<string, ResolvedNewsTrade | null>>({});
-  const onResolved = useCallback((newsId: string, trade: ResolvedNewsTrade | null) => {
+  // Tradable assets per news item (by symbol), so shortcuts can trade the selected item's lead asset.
+  const [resolved, setResolved] = useState<Record<string, Record<string, ResolvedNewsTrade | null>>>({});
+  const onResolved = useCallback((newsId: string, symbol: string, trade: ResolvedNewsTrade | null) => {
     setResolved((current) => {
-      const previous = current[newsId];
-      if (previous === trade || (previous && trade && previous.venue === trade.venue && previous.symbol === trade.symbol && previous.mint === trade.mint)) {
-        return current;
-      }
-      return { ...current, [newsId]: trade };
+      const previous = current[newsId]?.[symbol];
+      if (previous === trade || (previous && trade && previous.venue === trade.venue && previous.mint === trade.mint)) return current;
+      return { ...current, [newsId]: { ...current[newsId], [symbol]: trade } };
     });
   }, []);
+  const isTradable = (item: NewsItem) => item.enriched === true && item.score >= preferences.tradeMinImpact && (item.coins?.length ?? 0) > 0;
+  const leadTrade = (newsId: string | null) => {
+    const item = newsId ? items.find((entry) => entry.id === newsId) : undefined;
+    if (!item || !isTradable(item)) return null;
+    const byAsset = resolved[item.id] ?? {};
+    for (const symbol of item.coins ?? []) if (byAsset[symbol]) return byAsset[symbol];
+    return null;
+  };
 
-  // Shortcuts act on the selected news item: L long/buy, S short/sell (again to confirm), 1-3 size, Esc cancel.
+  // Shortcuts act on the selected news item: L long/buy, S short/sell (again or Enter confirms), 1-4 size, Esc cancel.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target, event)) return;
       const key = event.key.toLowerCase();
-      if (key === "escape") {
-        if (ticket) {
-          cancel();
-          event.preventDefault();
-        }
+      if (key === "escape" && ticket) {
+        cancel();
+        event.preventDefault();
         return;
       }
-      if (["1", "2", "3"].includes(key)) {
-        if (ticket && ticket.confirmNonce === 0) {
-          setSizePreset(Number(key) - 1);
-          event.preventDefault();
-        }
+      if (key === "enter" && ticket) {
+        confirm();
+        event.preventDefault();
+        return;
+      }
+      if (["1", "2", "3", "4"].includes(key) && ticket) {
+        setSizePreset(Number(key) - 1);
+        event.preventDefault();
         return;
       }
       if (key !== "l" && key !== "s") return;
-      const trade = selectedNewsId ? resolved[selectedNewsId] : null;
+      const trade = leadTrade(selectedNewsId);
       if (!trade || !selectedNewsId) return;
       event.preventDefault();
-      arm({ ...trade, side: key === "l" ? "buy" : "sell", newsId: selectedNewsId });
+      const side = key === "l" ? "buy" : "sell";
+      // Pressing the same side again keeps the armed size, so it confirms instead of re-arming at the default.
+      const sameTicket = ticket && ticket.newsId === selectedNewsId && ticket.symbol === trade.symbol && ticket.side === side;
+      press({ ...trade, side, newsId: selectedNewsId, sizeUsd: sameTicket ? ticket.sizeUsd : undefined });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [ticket, cancel, setSizePreset, arm, selectedNewsId, resolved]);
+  });
 
-  const selectedTrade = selectedNewsId ? resolved[selectedNewsId] : null;
+  const selectedTrade = leadTrade(selectedNewsId);
 
   return (
     <section
@@ -187,9 +199,11 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
             isSelected={selectedNewsId === item.id}
             isFlashing={flashing.has(item.id)}
             onSelect={() => selectNews(item.id)}
-            renderLeadActions={(lead) => (
-              <NewsTradeButtons newsId={item.id} symbol={lead.symbol} mint={lead.mint} direction={lead.direction} onResolved={onResolved} />
-            )}
+            renderTrade={
+              isTradable(item)
+                ? (assets) => <NewsTradeGrid newsId={item.id} assets={assets} onResolved={onResolved} onSelectAsset={selectAsset} />
+                : undefined
+            }
           />
         ))}
         {hasMore && (
@@ -210,12 +224,12 @@ export function NewsFeed({ feed, minImportance, onMinImportance }: NewsFeedProps
           <>
             <Kbd>L</Kbd> {selectedTrade.venue === "perp" ? "long" : "buy"}
             <Kbd>S</Kbd> {selectedTrade.venue === "perp" ? "short" : "sell"}
-            <Kbd>1-3</Kbd> size
+            <Kbd>1-4</Kbd> size
+            <Kbd>Enter</Kbd> confirm
             <Kbd>Esc</Kbd> cancel
-            <span>· press again to confirm</span>
           </>
         ) : (
-          <span>Select a news item to trade it with the keyboard (L / S).</span>
+          <span>Important news with a tradable asset shows size buttons. Select one to use L / S.</span>
         )}
       </footer>
     </section>

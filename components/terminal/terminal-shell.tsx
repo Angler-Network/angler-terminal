@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ChartPanel } from "@/components/chart/chart-panel";
 import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
-import { OrderPanel } from "./order-panel";
+import { AccountPanel } from "./account-panel";
 import { PositionsBar } from "./positions-bar";
 import { useSelectedAsset } from "./selected-asset";
 
@@ -29,7 +29,7 @@ export function TerminalShell() {
         <ChartPanel items={chartItems} />
       </div>
       <div className="min-h-0 lg:col-start-2 lg:row-start-1">
-        <OrderPanel />
+        <AccountPanel />
       </div>
       <div className="h-[600px] min-h-0 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-auto">
         <NewsFeed feed={feed} minImportance={minImportance} onMinImportance={setMinImportance} />
