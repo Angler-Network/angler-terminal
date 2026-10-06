@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { useIsMobile, useMobileView, type MobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
+import type { TerminalPanels } from "@/lib/preferences";
 import { ChartPanel } from "@/components/chart/chart-panel";
 import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
@@ -15,13 +17,15 @@ import { useTrading } from "./trading-provider";
 
 type Slot = { column: string; row: string };
 
+const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true };
+
 /**
  * Modular desktop layout; every panel but the chart can be turned off (`panels` preference) and the chart takes
  * the free space:
  *   [ chart              ][ order entry + account ][ news ]
  *   [ positions / orders ][ order book            ][      ]
  * The order book sits under the order panel so the chart gets the width.
- * On narrow screens the panels stack.
+ * Below `lg` the panels become full-screen views picked from the bottom tab bar (`mobile-nav.tsx`).
  */
 export function TerminalShell() {
   const { symbol, newsFocus } = useSelectedAsset();
@@ -30,6 +34,8 @@ export function TerminalShell() {
   const coin = newsFocus ?? (newsFilters.assets.length === 1 ? newsFilters.assets[0] : undefined);
   const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin, translate: newsTranslate });
   const hasWallet = useHasWallet();
+  const isMobile = useIsMobile();
+  const { view } = useMobileView();
   const { account } = useTrading();
   // An empty portfolio only needs room for its tabs and one line; rows get the full height.
   const positionsHeight = (account?.positions.length ?? 0) + (account?.orders.length ?? 0) > 0 ? 240 : 132;
@@ -60,34 +66,37 @@ export function TerminalShell() {
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
   const placed = "min-h-0 lg:[grid-column:var(--col)] lg:[grid-row:var(--row)] lg:h-auto";
+  // Phones and tablets show one view at a time (bottom tab bar), every panel available whatever the desktop layout.
+  const mobileView = (name: MobileView) => `max-lg:h-full ${view === name ? "" : "max-lg:hidden"}`;
+  const shown = isMobile ? allPanels : panels;
 
   return (
     <OrderDraftProvider>
       <NewsRulesRunner items={feed.items} />
       <div
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
-        className="grid h-full min-h-0 grid-cols-1 gap-2 overflow-y-auto lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"
+        className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"
       >
-        <div style={place(layout.chart)} className={`h-[460px] ${placed}`}>
+        <div style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
           <ChartPanel items={chartItems} />
         </div>
-        {showSide && (
-          <div style={place(layout.side)} className={`flex flex-col gap-2 ${placed}`}>
-            {showTrading && <AccountPanel orderEntry={panels.orderEntry} account={panels.account} grow={!panels.orderbook} />}
-            {panels.orderbook && (
-              <div className="h-[420px] min-h-[260px] lg:h-auto lg:flex-1">
+        {(showSide || isMobile) && (
+          <div style={place(layout.side)} className={`flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")}`}>
+            {(showTrading || isMobile) && <AccountPanel orderEntry={shown.orderEntry} account={shown.account} grow={!shown.orderbook} />}
+            {shown.orderbook && (
+              <div className="h-[420px] min-h-[260px] shrink-0 lg:h-auto lg:flex-1 lg:shrink">
                 <OrderBook />
               </div>
             )}
           </div>
         )}
-        {panels.news && (
-          <div style={place(layout.news)} className={`h-[600px] ${placed}`}>
+        {shown.news && (
+          <div style={place(layout.news)} className={`${placed} ${mobileView("news")}`}>
             <NewsFeed feed={feed} />
           </div>
         )}
-        {panels.positions && (
-          <div style={{ ...place(layout.positions), height: positionsHeight }} className={placed}>
+        {shown.positions && (
+          <div style={isMobile ? undefined : { ...place(layout.positions), height: positionsHeight }} className={`${placed} ${mobileView("portfolio")}`}>
             <PositionsBar />
           </div>
         )}

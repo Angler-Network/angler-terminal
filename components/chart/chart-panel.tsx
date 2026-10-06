@@ -53,6 +53,7 @@ const STATS_FADE_PX = 16;
  */
 function useQuickIntervalCount(hasStats: boolean) {
   const headerRef = useRef<HTMLElement>(null);
+  const leadRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState<number | undefined>(undefined);
   useEffect(() => {
@@ -64,16 +65,24 @@ function useQuickIntervalCount(hasStats: boolean) {
       const inner = box.width - parseFloat(getComputedStyle(header).paddingRight);
       // The stats strip starts after the asset and price; its content keeps its natural width even when clipped.
       const strip = stats?.parentElement;
-      const used = strip && stats ? strip.getBoundingClientRect().left - box.left + stats.offsetWidth + STATS_FADE_PX : inner / 2;
+      const lead = leadRef.current?.getBoundingClientRect();
+      // On phones the stats wrap to their own row, leaving the first row to the asset, the price and the intervals.
+      const wrapped = strip && lead ? strip.getBoundingClientRect().top >= lead.bottom : false;
+      const used = wrapped && lead
+        ? lead.right - box.left
+        : strip && stats
+          ? strip.getBoundingClientRect().left - box.left + stats.offsetWidth + STATS_FADE_PX
+          : inner / 2;
       setCount(fittingIntervalCount(inner - used - HEADER_GAP_PX));
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     if (stats) observer.observe(stats);
+    if (leadRef.current) observer.observe(leadRef.current);
     return () => observer.disconnect();
   }, [hasStats]);
-  return { headerRef, statsRef, count };
+  return { headerRef, leadRef, statsRef, count };
 }
 
 function useIsDarkTone(dependency: unknown) {
@@ -157,41 +166,43 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
 
   return (
     <section aria-label={t("chart.title")} className={panelClass}>
-      <header ref={fit.headerRef} className="flex shrink-0 items-center gap-3 border-b border-app-hairline px-3 py-2">
-        <SearchableSelect
-          compact
-          className="w-[124px] shrink-0"
-          items={options}
-          value={symbol}
-          onChange={selectAsset}
-          getKey={getSymbol}
-          getSearchText={getSearchText}
-          getDisplayValue={getSymbol}
-          renderSelectedIcon={(market) => <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />}
-          renderOption={(market) => (
-            <>
-              <MarketIcon symbol={market.symbol} kind={market.kind} size={22} />
-              <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
-              <span className="shrink-0 text-[12px] text-app-muted">
-                {market.kind === "stock" ? t("settings.tapeStock") : t("settings.tapeCrypto")}
+      <header ref={fit.headerRef} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-app-hairline px-3 py-2 lg:flex-nowrap">
+        <div ref={fit.leadRef} className="flex shrink-0 items-center gap-3">
+          <SearchableSelect
+            compact
+            className="w-[124px] shrink-0"
+            items={options}
+            value={symbol}
+            onChange={selectAsset}
+            getKey={getSymbol}
+            getSearchText={getSearchText}
+            getDisplayValue={getSymbol}
+            renderSelectedIcon={(market) => <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />}
+            renderOption={(market) => (
+              <>
+                <MarketIcon symbol={market.symbol} kind={market.kind} size={22} />
+                <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
+                <span className="shrink-0 text-[12px] text-app-muted">
+                  {market.kind === "stock" ? t("settings.tapeStock") : t("settings.tapeCrypto")}
+                </span>
+              </>
+            )}
+            label={t("chart.symbol")}
+            placeholder={t("chart.symbol")}
+            searchPlaceholder={t("settings.tapeSearch")}
+            emptyMessage={t("settings.tapeNoMatch")}
+          />
+          {quote && (
+            <div className="flex shrink-0 flex-col gap-0.5 tabular-nums">
+              <span className="text-[16px] font-semibold leading-none text-app-ink">{formatPrice(quote.price)}</span>
+              <span className={`text-[11px] font-medium leading-none ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
+                {quote.changePct >= 0 ? "+" : "-"}
+                {formatPercent(quote.changePct)}
               </span>
-            </>
+            </div>
           )}
-          label={t("chart.symbol")}
-          placeholder={t("chart.symbol")}
-          searchPlaceholder={t("settings.tapeSearch")}
-          emptyMessage={t("settings.tapeNoMatch")}
-        />
-        {quote && (
-          <div className="flex shrink-0 flex-col gap-0.5 tabular-nums">
-            <span className="text-[16px] font-semibold leading-none text-app-ink">{formatPrice(quote.price)}</span>
-            <span className={`text-[11px] font-medium leading-none ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
-              {quote.changePct >= 0 ? "+" : "-"}
-              {formatPercent(quote.changePct)}
-            </span>
-          </div>
-        )}
-        <MarketStats market={venueMarket ?? null} contentRef={fit.statsRef} />
+        </div>
+        <MarketStats market={venueMarket ?? null} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
         {!isTradingView && <IntervalPicker maxQuick={fit.count} />}
       </header>
       {isStock === undefined || venueMarket === undefined ? (

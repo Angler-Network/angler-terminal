@@ -427,6 +427,28 @@ html[data-scrollbars="hidden"] .scrollbar-subtle::-webkit-scrollbar {
   }
 }
 
+/* Phones and tablets: full-bleed shell, no rail or top navigation (the bottom tab bar replaces them), and the top bar
+   always shown since it carries Connect. */
+@media (max-width: 1023px) {
+  .app-frame {
+    padding: 0;
+  }
+
+  .app-shell {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  html[data-nav="top"] .app-topnav {
+    display: none;
+  }
+
+  html[data-topbar="hidden"] .app-topbar {
+    display: flex;
+  }
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }

@@ -133,6 +133,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     (order panel + account card on top, order book under it, filling the height) | news; side widths use
     `clamp(…vw)` so the chart keeps room on laptops. The sidebar and top bar hide like angler-news
     (`layout-toggles.tsx`, always available here).
+  - Mobile (below `lg`, 1024px): no rail, no frame, top bar always shown; a bottom tab bar (`mobile-nav.tsx`: Chart,
+    Trade, News, Portfolio, More → Markets / Wallets / Settings / news site) switches full-screen views
+    (`mobile-view.tsx` context; `terminal-shell.tsx` hides the others with `max-lg:hidden`, so no layout flash, and
+    renders every panel whatever the desktop `panels`). Trade = order panel + account + order book, scrolling. The
+    chart header wraps the stats to their own row. Toasts sit above the tab bar; dialogs cap at the viewport height;
+    `viewportFit: "cover"` + `env(safe-area-inset-bottom)` keep the bar above the home indicator. News asset chips
+    switch to the Chart view on phones.
   - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
     hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
   - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves

@@ -40,6 +40,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Lets the bottom tab bar sit above the home indicator (env(safe-area-inset-bottom)).
+  viewportFit: "cover",
   themeColor: "#000000",
 };
 

@@ -2,6 +2,7 @@
 
 import { SlidersHorizontal, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile, useMobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTradeTicket } from "@/components/terminal/trade-ticket";
@@ -88,6 +89,16 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
   const filters = preferences.newsFilters;
   const activeRules = preferences.newsRules.filter((rule) => rule.enabled).length;
+  const isMobile = useIsMobile();
+  const { setView } = useMobileView();
+  // An asset chip opens the chart: on phones that means switching to the Chart view too.
+  const showAsset = useCallback(
+    (asset: string, mint?: string) => {
+      selectAsset(asset, mint);
+      if (isMobile) setView("chart");
+    },
+    [selectAsset, isMobile, setView],
+  );
   const minImportance = filters.minImpact;
   const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
   const activeFilters = countActiveFilters(filters);
@@ -269,7 +280,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             item={item}
             compact
             extra={isTradable(item) && item.coins?.[0] ? <NewsReaction symbol={item.coins[0]} score={item.score} /> : undefined}
-            onSelectAsset={selectAsset}
+            onSelectAsset={showAsset}
             selectedSymbol={symbol}
             isSelected={selectedNewsId === item.id}
             isFlashing={flashing.has(item.id)}

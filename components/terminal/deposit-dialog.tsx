@@ -249,7 +249,7 @@ export function DepositDialog() {
         aria-modal="true"
         aria-labelledby="deposit-title"
         onClick={(event) => event.stopPropagation()}
-        className="surface-menu flex w-full max-w-md flex-col gap-3 rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
+        className="surface-menu scrollbar-subtle max-h-[calc(100dvh-2rem)] overflow-y-auto flex w-full max-w-md flex-col gap-3 rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
       >
         <header className="flex items-center gap-3">
           <h2 id="deposit-title" className="flex-1 text-[16px] font-semibold text-app-ink">

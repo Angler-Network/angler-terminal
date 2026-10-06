@@ -46,7 +46,7 @@ export function SidebarToggle() {
       aria-label={preferences.showSidebar ? "Hide sidebar" : "Show sidebar"}
       title={preferences.showSidebar ? "Hide sidebar" : "Show sidebar"}
       aria-pressed={!preferences.showSidebar}
-      className={`${iconButton} hidden ${preferences.showSidebar ? "md:inline-flex" : ""}`}
+      className={`${iconButton} hidden ${preferences.showSidebar ? "lg:inline-flex" : ""}`}
     >
       <PanelLeft className="size-[18px]" strokeWidth={1.75} />
     </button>
@@ -56,7 +56,7 @@ export function SidebarToggle() {
 export function TopBarToggle() {
   const { updatePreference } = usePreferences();
   return (
-    <button type="button" onClick={() => updatePreference("showTopBar", false)} aria-label="Hide top bar" title="Hide top bar" className={`${iconButton} hidden sm:inline-flex`}>
+    <button type="button" onClick={() => updatePreference("showTopBar", false)} aria-label="Hide top bar" title="Hide top bar" className={`${iconButton} hidden lg:inline-flex`}>
       <ChevronUp className="size-[18px]" strokeWidth={1.75} />
     </button>
   );
@@ -74,7 +74,7 @@ export function LayoutRevealButtons() {
           type="button"
           onClick={() => updatePreference("showSidebar", true)}
           aria-label="Show sidebar"
-          className={`${revealButton} ${visibility} left-0 top-1/2 hidden h-12 w-5 -translate-y-1/2 rounded-r-lg border-l-0 md:inline-flex`}
+          className={`${revealButton} ${visibility} left-0 top-1/2 hidden h-12 w-5 -translate-y-1/2 rounded-r-lg border-l-0 lg:inline-flex`}
         >
           <ChevronRight className="size-3.5" aria-hidden />
         </button>
@@ -84,7 +84,7 @@ export function LayoutRevealButtons() {
           type="button"
           onClick={() => updatePreference("showTopBar", true)}
           aria-label="Show top bar"
-          className={`${revealButton} ${visibility} left-1/2 top-0 h-5 w-12 -translate-x-1/2 rounded-b-lg border-t-0`}
+          className={`${revealButton} ${visibility} left-1/2 top-0 h-5 w-12 -translate-x-1/2 rounded-b-lg border-t-0 max-lg:hidden`}
         >
           <ChevronDown className="size-3.5" aria-hidden />
         </button>

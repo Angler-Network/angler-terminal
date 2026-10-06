@@ -235,7 +235,7 @@ function WalletModal() {
         aria-modal="true"
         aria-labelledby="wallet-modal-title"
         onClick={(event) => event.stopPropagation()}
-        className="surface-menu flex w-full max-w-md flex-col gap-4 rounded-3xl border border-app-hairline-strong bg-app-dialog p-5 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
+        className="surface-menu scrollbar-subtle max-h-[calc(100dvh-2rem)] overflow-y-auto flex w-full max-w-md flex-col gap-4 rounded-3xl border border-app-hairline-strong bg-app-dialog p-5 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
       >
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">

@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[340px] flex-col gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 lg:inset-x-auto lg:bottom-4 lg:right-4 lg:w-[340px]">
         {toasts.map(({ id, tone, title, message, link, action }) => {
           const { Icon, className } = tones[tone];
           return (

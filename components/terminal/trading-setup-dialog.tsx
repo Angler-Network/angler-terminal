@@ -200,7 +200,7 @@ export function TradingSetupDialog() {
         aria-modal="true"
         aria-labelledby="trading-setup-title"
         onClick={(event) => event.stopPropagation()}
-        className="surface-menu w-full max-w-md rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
+        className="surface-menu scrollbar-subtle max-h-[calc(100dvh-2rem)] overflow-y-auto w-full max-w-md rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
       >
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">

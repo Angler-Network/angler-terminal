@@ -253,7 +253,7 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
   const showAccount = account && Boolean(evmAddress || solanaAddress);
   if (!orderEntry && !showAccount) return null;
   return (
-    <div className={`flex min-h-0 flex-col ${grow ? "flex-1" : ""}`}>
+    <div className={`flex min-h-0 flex-col max-lg:shrink-0 ${grow ? "flex-1" : ""}`}>
       <div className={`surface-panel scrollbar-subtle flex min-h-0 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55 ${grow ? "flex-1" : ""}`}>
         {orderEntry && (
           <div className="border-b border-app-hairline last:border-b-0">

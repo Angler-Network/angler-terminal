@@ -377,7 +377,7 @@ export function PositionsBar() {
       aria-label="Account"
       className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55"
     >
-      <div role="tablist" className="flex shrink-0 items-center gap-4 border-b border-app-hairline px-3">
+      <div role="tablist" className="scrollbar-none flex shrink-0 items-center gap-4 overflow-x-auto whitespace-nowrap border-b border-app-hairline px-3">
         {tabs.map(({ id, label, count }) => (
           <button
             key={id}
@@ -409,7 +409,7 @@ export function PositionsBar() {
           </div>
         )}
         {account && (
-          <span className="ml-auto flex items-center gap-3 text-[12px] tabular-nums text-app-muted">
+          <span className="ml-auto flex shrink-0 items-center gap-3 pl-2 text-[12px] tabular-nums text-app-muted">
             <span>
               Equity <span className="text-app-ink">{formatPrice(total.accountValue)}</span>
             </span>

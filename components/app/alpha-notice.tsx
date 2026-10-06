@@ -297,7 +297,7 @@ export function AlphaNotice() {
       aria-labelledby="alpha-notice-title"
       // Escape is ignored: onboarding finishes with its own button.
       onCancel={(event) => event.preventDefault()}
-      className="surface-menu m-auto w-[min(480px,calc(100vw-2rem))] max-w-none rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
+      className="surface-menu m-auto max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100vw-2rem))] max-w-none overflow-y-auto rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
     >
       <div className="flex flex-col gap-5 p-6">
         {step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}
