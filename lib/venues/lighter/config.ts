@@ -3,6 +3,8 @@
  * NEXT_PUBLIC_LIGHTER_NETWORK=testnet (default) or mainnet. Docs: https://apidocs.lighter.xyz (index: /llms.txt).
  */
 
+import { deployment, pinnedNetwork } from "@/lib/deployment";
+
 export type LighterNetwork = "mainnet" | "testnet";
 
 const HOSTS: Record<LighterNetwork, string> = {
@@ -84,7 +86,7 @@ export function readLighterConfig(env: Record<string, string | undefined>): Ligh
 /** Per-browser network choice from Settings; overrides NEXT_PUBLIC_LIGHTER_NETWORK and applies after a reload. */
 export const LIGHTER_NETWORK_OVERRIDE_KEY = "angler-terminal:lighter-network";
 
-export const defaultLighterNetwork = readLighterNetwork(process.env.NEXT_PUBLIC_LIGHTER_NETWORK);
+export const defaultLighterNetwork = readLighterNetwork(pinnedNetwork(deployment, undefined, process.env.NEXT_PUBLIC_LIGHTER_NETWORK));
 
 function readNetworkOverride(): LighterNetwork | undefined {
   if (typeof window === "undefined") return undefined;
@@ -98,7 +100,7 @@ function readNetworkOverride(): LighterNetwork | undefined {
 
 // Next.js inlines NEXT_PUBLIC_* only when accessed by their full name.
 export const lighterConfig = readLighterConfig({
-  NEXT_PUBLIC_LIGHTER_NETWORK: readNetworkOverride() ?? process.env.NEXT_PUBLIC_LIGHTER_NETWORK,
+  NEXT_PUBLIC_LIGHTER_NETWORK: pinnedNetwork(deployment, readNetworkOverride(), process.env.NEXT_PUBLIC_LIGHTER_NETWORK),
   NEXT_PUBLIC_LIGHTER_API_KEY_INDEX: process.env.NEXT_PUBLIC_LIGHTER_API_KEY_INDEX,
   NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT: process.env.NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT,
   NEXT_PUBLIC_LIGHTER_INTEGRATOR_FEE: process.env.NEXT_PUBLIC_LIGHTER_INTEGRATOR_FEE,

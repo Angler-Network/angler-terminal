@@ -1,4 +1,5 @@
 import type { Chain } from "viem";
+import { deployment, pinnedNetwork } from "@/lib/deployment";
 
 /**
  * Arcus spot (stock tokens on Robinhood Chain) settings from public env vars. Switching network is a config change
@@ -45,7 +46,7 @@ export function robinhoodChain(network: ArcusNetwork, rpcUrl?: string) {
   return chain;
 }
 
-export const arcusNetwork = readArcusNetwork(process.env.NEXT_PUBLIC_ARCUS_NETWORK);
+export const arcusNetwork = readArcusNetwork(pinnedNetwork(deployment, undefined, process.env.NEXT_PUBLIC_ARCUS_NETWORK));
 
 export const arcusConfig = {
   network: arcusNetwork,

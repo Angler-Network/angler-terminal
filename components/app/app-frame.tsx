@@ -3,11 +3,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ConnectButton } from "@/components/terminal/connect-button";
+import { deployment, otherDeploymentUrl } from "@/lib/deployment";
 import { SidebarToggle, TopBarToggle } from "./layout-toggles";
 import { MobileNav } from "./mobile-nav";
 import { MobileViewProvider } from "./mobile-view";
 import { usePreferences } from "./preferences-provider";
 import { TopNav } from "./top-nav";
+
+/** The testnet site says so in the top bar and links to the mainnet one. */
+function TestnetBadge() {
+  const label = "Testnet";
+  const className = "inline-flex h-8 items-center rounded-lg bg-[#f5c97b]/15 px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#f5c97b]";
+  return otherDeploymentUrl ? (
+    <a href={otherDeploymentUrl} title="Test funds only. Open the mainnet site" className={`${className} hover:bg-[#f5c97b]/25`}>
+      {label}
+    </a>
+  ) : (
+    <span title="Test funds only" className={className}>
+      {label}
+    </span>
+  );
+}
 
 /**
  * Top bar, page and optional footer. The server-rendered price tape is placed once, where `tapePosition` puts it:
@@ -34,6 +50,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
         <TopNav />
         {position === "top" ? <div className="app-tape-top flex min-w-0 flex-1">{tape}</div> : <div className="flex-1" />}
         <div className="flex shrink-0 items-center gap-2 lg:border-l lg:border-app-hairline lg:pl-3">
+          {deployment === "testnet" && <TestnetBadge />}
           <ConnectButton />
           <TopBarToggle />
         </div>

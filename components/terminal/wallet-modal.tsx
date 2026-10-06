@@ -1,5 +1,6 @@
 "use client";
 
+import { deployment, mainnetSpotAllowed } from "@/lib/deployment";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { Check, ChevronLeft, Loader2, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -254,7 +255,7 @@ function WalletModal() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2">
-              {VENUES.map((venue) => (
+              {VENUES.filter((venue) => venue.chain !== "solana" || mainnetSpotAllowed(deployment)).map((venue) => (
                 <VenueTile
                   key={venue.id}
                   venue={venue}

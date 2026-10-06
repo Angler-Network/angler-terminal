@@ -57,6 +57,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     `{ label, confidence }`, `coins` as `{ symbol, relevance }`, `impact_predictions` (no confidence) and
     `summary_short`. Both shapes become `FeedNews`, upserted by id with `mergeFeedNews`; `toNewsItem` maps them to
     the angler-news `NewsItem` shape. The API carries no Solana mints.
+- Deployments: one repo and branch, two Vercel projects. `NEXT_PUBLIC_DEPLOYMENT` (`lib/deployment.ts`) = `mainnet`
+  (trade.angler.network) or `testnet` (testnet-trade.angler.network) pins every venue's network (`pinnedNetwork`,
+  ignoring the per-browser overrides, which Settings then hides), turns Jupiter/Titan off on testnet
+  (`mainnetSpotAllowed`: preferences, wallet tiles, settings rows) and shows a Testnet badge in the top bar linking to
+  `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL`. Unset, each venue follows its own `NEXT_PUBLIC_*_NETWORK` as before.
 - Venues (`lib/venues/*`): the `Venue` interface in `types.ts`; Hyperliquid in `hyperliquid/`, built on
   `@nktkas/hyperliquid`.
   - Network comes from `NEXT_PUBLIC_HL_NETWORK` (testnet default); switching to mainnet needs no code change.

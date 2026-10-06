@@ -159,6 +159,17 @@ and it stays off or uses public defaults. `.env.example` documents every variabl
 
 Jupiter and Titan have no testnet. Use a dedicated wallet with a few dollars.
 
+### Mainnet and testnet sites
+
+One codebase runs both sites as two Vercel projects on the same repository and branch:
+
+| Site | `NEXT_PUBLIC_DEPLOYMENT` | What it does |
+| --- | --- | --- |
+| trade.angler.network | `mainnet` | Every venue on mainnet, including Jupiter and Titan |
+| testnet-trade.angler.network | `testnet` | Every venue on testnet with in-app faucets; Jupiter and Titan off |
+
+Set `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL` on each project to link to the other site.
+
 ## Scripts
 
 | Command | What it does |

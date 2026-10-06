@@ -24,6 +24,7 @@ import {
 import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from "./chart/candles";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters } from "./news/filter";
 import { readNewsRules, type NewsRule } from "./news/rules";
+import { deployment, mainnetSpotAllowed } from "./deployment";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -228,9 +229,9 @@ export const defaultPreferences: Preferences = {
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: true,
   venueLighter: true,
-  venueJupiter: true,
+  venueJupiter: mainnetSpotAllowed(deployment),
   venueArcus: true,
-  venueTitan: true,
+  venueTitan: mainnetSpotAllowed(deployment),
   preferredPerpVenue: "hyperliquid",
   newsFilters: defaultNewsFilters,
   ...defaultAppearance,
@@ -355,9 +356,10 @@ export function parsePreferences(raw: string | null): Preferences {
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
-      venueJupiter: readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
+      // Jupiter and Titan are mainnet only: always off on the testnet site.
+      venueJupiter: mainnetSpotAllowed(deployment) && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
-      venueTitan: readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
+      venueTitan: mainnetSpotAllowed(deployment) && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(

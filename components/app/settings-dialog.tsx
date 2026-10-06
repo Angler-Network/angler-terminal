@@ -3,6 +3,7 @@
 import { ExternalLink, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
+import { deployment, mainnetSpotAllowed, otherDeploymentUrl } from "@/lib/deployment";
 import { useT } from "@/lib/i18n/client";
 import { alertSounds, navModeChange, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
@@ -531,10 +532,30 @@ function VenueSettings() {
 
   return (
     <>
+      {deployment && (
+        <SettingRow
+          title={deployment === "mainnet" ? "Mainnet site" : "Testnet site"}
+          description={
+            deployment === "mainnet"
+              ? "Every venue trades with real funds here. Practice with test funds on the testnet site."
+              : "Every venue trades with test funds here, and the mainnet-only Solana venues (Jupiter, Titan) are off. Real trading lives on the mainnet site."
+          }
+        >
+          {otherDeploymentUrl && (
+            <a
+              href={otherDeploymentUrl}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-app-field-border px-4 text-[14px] font-semibold text-app-ink hover:bg-app-selected"
+            >
+              Open {deployment === "mainnet" ? "testnet" : "mainnet"} site
+              <ExternalLink className="size-4" aria-hidden />
+            </a>
+          )}
+        </SettingRow>
+      )}
       <VenueRow name="Hyperliquid" badge="Perps · EVM" description="Perpetuals and HIP-3 equity perps. Orders sign with a browser trading key after a one-time setup.">
         <Toggle label="Hyperliquid" checked={preferences.venueHyperliquid} onChange={(checked) => updatePreference("venueHyperliquid", checked)} />
       </VenueRow>
-      {preferences.venueHyperliquid && (
+      {preferences.venueHyperliquid && !deployment && (
         <div className="ml-4 border-l-2 border-app-line pl-4">
           <SettingRow
             title="Network"
@@ -556,7 +577,7 @@ function VenueSettings() {
       >
         <Toggle label="Lighter" checked={preferences.venueLighter} onChange={(checked) => updatePreference("venueLighter", checked)} />
       </VenueRow>
-      {preferences.venueLighter && (
+      {preferences.venueLighter && !deployment && (
         <div className="ml-4 border-l-2 border-app-line pl-4">
           <SettingRow
             title="Network"
@@ -587,9 +608,11 @@ function VenueSettings() {
           />
         </SettingRow>
       )}
-      <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
-        <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
-      </VenueRow>
+      {mainnetSpotAllowed(deployment) && (
+        <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
+          <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
+        </VenueRow>
+      )}
       <VenueRow
         name="Arcus"
         badge={`Stock tokens · Robinhood Chain ${arcusConfig.network}`}
@@ -597,6 +620,7 @@ function VenueSettings() {
       >
         <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
       </VenueRow>
+{mainnetSpotAllowed(deployment) && (
       <VenueRow
         name="Titan"
         badge="Spot · Solana"
@@ -604,6 +628,7 @@ function VenueSettings() {
       >
         <Toggle label="Titan" checked={preferences.venueTitan} onChange={(checked) => updatePreference("venueTitan", checked)} />
       </VenueRow>
+      )}
     </>
   );
 }

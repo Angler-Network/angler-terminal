@@ -3,6 +3,8 @@
  * NEXT_PUBLIC_HL_NETWORK=testnet (default) or mainnet.
  */
 
+import { deployment, pinnedNetwork } from "@/lib/deployment";
+
 export type HlNetwork = "mainnet" | "testnet";
 
 const API_URLS: Record<HlNetwork, string> = {
@@ -65,7 +67,7 @@ export function readHlConfig(env: Record<string, string | undefined>): HlConfig 
 /** Per-browser network choice from Settings; overrides NEXT_PUBLIC_HL_NETWORK and applies after a reload. */
 export const HL_NETWORK_OVERRIDE_KEY = "angler-terminal:hl-network";
 
-export const defaultHlNetwork = readNetwork(process.env.NEXT_PUBLIC_HL_NETWORK);
+export const defaultHlNetwork = readNetwork(pinnedNetwork(deployment, undefined, process.env.NEXT_PUBLIC_HL_NETWORK));
 
 function readNetworkOverride(): HlNetwork | undefined {
   if (typeof window === "undefined") return undefined;
@@ -79,7 +81,7 @@ function readNetworkOverride(): HlNetwork | undefined {
 
 // Next.js inlines NEXT_PUBLIC_* only when accessed by their full name.
 export const hlConfig = readHlConfig({
-  NEXT_PUBLIC_HL_NETWORK: readNetworkOverride() ?? process.env.NEXT_PUBLIC_HL_NETWORK,
+  NEXT_PUBLIC_HL_NETWORK: pinnedNetwork(deployment, readNetworkOverride(), process.env.NEXT_PUBLIC_HL_NETWORK),
   NEXT_PUBLIC_HL_BUILDER_ADDRESS: process.env.NEXT_PUBLIC_HL_BUILDER_ADDRESS,
   NEXT_PUBLIC_HL_BUILDER_FEE: process.env.NEXT_PUBLIC_HL_BUILDER_FEE,
   NEXT_PUBLIC_HL_MAX_BUILDER_FEE: process.env.NEXT_PUBLIC_HL_MAX_BUILDER_FEE,
