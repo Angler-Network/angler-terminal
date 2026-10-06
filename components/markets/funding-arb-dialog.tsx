@@ -14,6 +14,7 @@ import { arbLegSize, dailyArbFunding, type FundingArb } from "@/lib/trading/fund
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
+import { useModalEnter } from "@/components/app/use-motion";
 
 const ARM_MS = 5_000;
 
@@ -60,6 +61,7 @@ export function FundingArbDialog({
   const notReady = [longVenue, shortVenue].find((venue) => !isVenueReady(venue));
 
   useEffect(() => setArmed(false), [size, leverage]);
+  const backdropRef = useModalEnter(true);
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
@@ -99,7 +101,7 @@ export function FundingArbDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

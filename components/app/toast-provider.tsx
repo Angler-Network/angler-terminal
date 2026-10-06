@@ -2,8 +2,10 @@
 
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { durations, ease, ENTER_PROPS } from "@/lib/motion";
 import type { ToastPosition } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
+import { animateOut, useListEnter } from "./use-motion";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -53,8 +55,30 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { preferences } = usePreferences();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
+  const stackRef = useRef<HTMLDivElement>(null);
+  const leaving = useRef(new Set<number>());
+  // Top stacks are column-reverse, so a toast's DOM neighbours sit above it there.
+  const fromTop = preferences.toastPosition !== "bottom-right";
 
-  const dismiss = useCallback((id: number) => setToasts((current) => current.filter((toast) => toast.id !== id)), []);
+  const dismiss = useCallback(
+    (id: number) => {
+      if (leaving.current.has(id)) return;
+      leaving.current.add(id);
+      const remove = () => {
+        leaving.current.delete(id);
+        setToasts((current) => current.filter((toast) => toast.id !== id));
+      };
+      const element = stackRef.current?.querySelector<HTMLElement>(`[data-motion-key="${id}"]`);
+      // Collapse the toast and the 8px gap next to it, so the rest of the stack slides instead of jumping.
+      const gapSide = element?.nextElementSibling ? (fromTop ? "marginTop" : "marginBottom") : fromTop ? "marginBottom" : "marginTop";
+      const gap = element?.nextElementSibling || element?.previousElementSibling ? { [gapSide]: -8 } : {};
+      animateOut(element, { opacity: 0, scale: 0.96, height: 0, paddingTop: 0, paddingBottom: 0, borderWidth: 0, ...gap }, remove);
+    },
+    [fromTop],
+  );
+  useListEnter(stackRef, toasts.map((toast) => String(toast.id)), "[data-motion-key]", (gsap, elements) =>
+    gsap.from(elements, { opacity: 0, y: fromTop ? -14 : 14, scale: 0.96, duration: durations.base, ease: ease.out, clearProps: ENTER_PROPS }),
+  );
   const toast = useCallback(
     (input: Omit<Toast, "id">) => {
       const id = nextId.current++;
@@ -68,12 +92,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div aria-live="polite" className={`pointer-events-none fixed z-50 flex gap-2 ${placements[preferences.toastPosition]}`}>
+      <div ref={stackRef} aria-live="polite" className={`pointer-events-none fixed z-50 flex gap-2 ${placements[preferences.toastPosition]}`}>
         {toasts.map(({ id, tone, title, message, link, action }) => {
           const { Icon, className } = tones[tone];
           return (
             <div
               key={id}
+              data-motion-key={id}
               role={tone === "error" ? "alert" : "status"}
               className="surface-menu pointer-events-auto flex gap-2.5 rounded-xl border border-app-hairline-strong bg-app-card px-3 py-2.5 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.6)]"
             >

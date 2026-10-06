@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile, useMobileView, type MobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
 import type { TerminalPanels } from "@/lib/preferences";
 import { ChartPanel } from "@/components/chart/chart-panel";
 import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
+import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
 import { AccountPanel, useHasWallet } from "./account-panel";
 import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
@@ -48,6 +49,17 @@ export function TerminalShell() {
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const positionsHeight = dragHeight ?? preferences.positionsHeight ?? autoPositionsHeight;
   const gridRef = useRef<HTMLDivElement>(null);
+  const shownView = useRef(view);
+  // Phones: the view picked in the tab bar fades in instead of popping.
+  useLayoutEffect(() => {
+    if (shownView.current === view) return;
+    shownView.current = view;
+    const gsap = motion();
+    const panel = gridRef.current?.querySelector(`[data-mobile-view="${view}"]`);
+    if (!isMobile || !gsap || !panel) return;
+    const tween = gsap.from(panel, { opacity: 0, y: 8, duration: durations.base, ease: ease.soft, clearProps: ENTER_PROPS });
+    return () => void tween.revert();
+  }, [view, isMobile]);
   // The chart marks news on candles by item.symbol, so give each matching item the selected symbol.
   const chartItems = useMemo(
     () => feed.items.filter((item) => item.coins?.includes(symbol)).map((item) => ({ ...item, symbol })),
@@ -88,11 +100,11 @@ export function TerminalShell() {
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
         className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"
       >
-        <div style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
+        <div data-mobile-view="chart" style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
           <ChartPanel items={chartItems} />
         </div>
         {(showSide || isMobile) && (
-          <div style={place(layout.side)} className={`flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")}`}>
+          <div data-mobile-view="trade" style={place(layout.side)} className={`flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")}`}>
             {(showTrading || isMobile) && <AccountPanel orderEntry={shown.orderEntry} account={shown.account} grow={!shown.orderbook} />}
             {shown.orderbook && (
               <div className="h-[420px] min-h-[260px] shrink-0 lg:h-auto lg:flex-1 lg:shrink">
@@ -102,12 +114,12 @@ export function TerminalShell() {
           </div>
         )}
         {shown.news && (
-          <div style={place(layout.news)} className={`${placed} ${mobileView("news")}`}>
+          <div data-mobile-view="news" style={place(layout.news)} className={`${placed} ${mobileView("news")}`}>
             <NewsFeed feed={feed} />
           </div>
         )}
         {shown.positions && (
-          <div style={isMobile ? undefined : place(layout.positions)} className={`relative ${placed} ${mobileView("portfolio")}`}>
+          <div data-mobile-view="portfolio" style={isMobile ? undefined : place(layout.positions)} className={`relative ${placed} ${mobileView("portfolio")}`}>
             {!isMobile && (
               <PanelResizer
                 height={positionsHeight}

@@ -8,6 +8,7 @@ import { useToast } from "@/components/app/toast-provider";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
+import { useModalEnter } from "@/components/app/use-motion";
 
 interface WalletModalContextValue {
   isOpen: boolean;
@@ -222,6 +223,8 @@ function WalletModal() {
     return () => document.removeEventListener("keydown", onKey);
   }, [isOpen, close]);
 
+  const backdropRef = useModalEnter(isOpen);
+
   if (!isOpen) return null;
 
   const chainState = (chain: Chain) =>
@@ -230,7 +233,7 @@ function WalletModal() {
       : { address: solana.address, walletName: solana.wallet?.name, disconnect: () => void solana.disconnect() };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={close}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" ref={backdropRef} role="presentation" onClick={close}>
       <div
         role="dialog"
         aria-modal="true"

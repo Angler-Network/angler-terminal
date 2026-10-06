@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useTrading } from "@/components/terminal/trading-provider";
+import { loadMotion } from "@/lib/motion";
 import { usePreferences } from "./preferences-provider";
 
 const loadSettings = () => import("./settings-dialog");
@@ -22,6 +23,34 @@ function useOpenedOnce(open: boolean) {
     if (open) setOpened(true);
   }, [open]);
   return opened || open;
+}
+
+const MOTION_DELAY_MS = 6000;
+
+/**
+ * GSAP (`lib/motion.ts`) loads on the first press or key, or once the page has settled, so it never competes with
+ * the first render on slow phones. Until then nothing animates.
+ */
+function useMotionPreload() {
+  useEffect(() => {
+    let idle: number | null = null;
+    const events = ["pointerdown", "keydown"] as const;
+    const load = () => {
+      stop();
+      void loadMotion();
+    };
+    const stop = () => {
+      window.clearTimeout(timer);
+      if (idle !== null) window.cancelIdleCallback(idle);
+      for (const name of events) window.removeEventListener(name, load);
+    };
+    for (const name of events) window.addEventListener(name, load, { passive: true });
+    const timer = window.setTimeout(() => {
+      if ("requestIdleCallback" in window) idle = window.requestIdleCallback(load, { timeout: 4000 });
+      else load();
+    }, MOTION_DELAY_MS);
+    return stop;
+  }, []);
 }
 
 /**
@@ -45,6 +74,8 @@ export function LazyDialogs() {
       if (timer !== null) window.clearTimeout(timer);
     };
   }, []);
+
+  useMotionPreload();
 
   return (
     <>

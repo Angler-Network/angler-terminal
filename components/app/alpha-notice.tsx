@@ -2,11 +2,13 @@
 
 import { Check, FlaskConical } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { accentSwatches, themeOptions } from "@/lib/appearance";
 import { deployment } from "@/lib/deployment";
+import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
 import { layoutPresets, navModeChange, panelNames, type NavMode, type TapePosition, type TerminalPanels } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
+import { riseIn, useEnter } from "./use-motion";
 
 /** Bump the version when the onboarding changes so everyone sees it again. */
 const ACK_KEY = "angler-terminal:alpha-ack:v3";
@@ -268,6 +270,8 @@ export function AlphaNotice() {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const stepRef = useRef<HTMLDivElement>(null);
+  const previousStep = useRef(step);
   const isLast = step === STEPS - 1;
 
   useEffect(() => {
@@ -290,6 +294,17 @@ export function AlphaNotice() {
     if (isOpen && !dialog.open) dialog.showModal();
     if (!isOpen && dialog.open) dialog.close();
   }, [isOpen]);
+  useEnter(dialogRef, riseIn, isOpen);
+
+  // Steps slide in from the side they come from.
+  useLayoutEffect(() => {
+    const direction = Math.sign(step - previousStep.current);
+    previousStep.current = step;
+    const gsap = motion();
+    if (!direction || !stepRef.current || !gsap) return;
+    const tween = gsap.from(stepRef.current, { opacity: 0, x: 24 * direction, duration: durations.base, ease: ease.out, clearProps: ENTER_PROPS });
+    return () => void tween.revert();
+  }, [step]);
 
   const finish = () => {
     try {
@@ -309,7 +324,7 @@ export function AlphaNotice() {
       {/* Content mounts only while open, so returning visitors don't download the welcome logos. */}
       {isOpen && (
       <div className="flex flex-col gap-5 p-6">
-        {step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}
+        <div ref={stepRef}>{step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}</div>
         <div className="flex items-center gap-3">
           <div className="flex gap-1.5">
             <span className="sr-only">{`Step ${step + 1} of ${STEPS}`}</span>

@@ -23,6 +23,7 @@ import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading, type FundsMode } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { useModalEnter } from "@/components/app/use-motion";
 
 type Mode = FundsMode;
 
@@ -214,6 +215,8 @@ export function DepositDialog() {
     };
   }, [address, source, mode]);
 
+  const backdropRef = useModalEnter(depositVenue !== null);
+
   if (!depositVenue) return null;
 
   const deposit = async () => {
@@ -244,7 +247,7 @@ export function DepositDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="presentation" onClick={closeDeposit}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeDeposit}>
       <div
         role="dialog"
         aria-modal="true"

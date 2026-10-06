@@ -1,9 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { useListEnter } from "@/components/app/use-motion";
 import { formatPrice } from "@/lib/format";
+import { durations, ease, ENTER_PROPS } from "@/lib/motion";
 import { liquidationDistancePct } from "@/lib/trading/order-math";
 import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
 import { optionalPrice, pnlAt, tpslError } from "@/lib/trading/tpsl";
@@ -179,6 +181,15 @@ function VenueGroupRow({ venue, count, noun, pnl, onCloseAll, colSpan }: { venue
 }
 
 /** Whether rows spanning several venues should show under a header per venue (the user's choice, grouped by default). */
+/** Positions and orders that open while the table is shown slide in, so a fill is easy to spot. */
+function useRowEnter(keys: string[]) {
+  const ref = useRef<HTMLTableElement>(null);
+  useListEnter(ref, keys, "tr[data-motion-key]", (gsap, rows) =>
+    gsap.from(rows, { opacity: 0, x: -10, duration: durations.base, ease: ease.out, stagger: 0.05, clearProps: ENTER_PROPS }),
+  );
+  return ref;
+}
+
 function useGrouped(rows: Array<{ venue: PerpVenueId }>) {
   const { preferences } = usePreferences();
   return preferences.positionsLayout === "grouped" && new Set(rows.map((row) => row.venue)).size > 1;
@@ -189,13 +200,14 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
   const { closePosition, marketsByVenue } = useTrading();
   const closeAll = useCloseAll();
   const grouped = useGrouped(positions);
+  const tableRef = useRowEnter(positions.map((position) => `${position.venue}:${position.coin}`));
   const markOf = (position: VenuePosition) => {
     const list = marketsByVenue[position.venue];
     const market = list ? findMarket(list, position.coin) : null;
     return market?.markPx ?? market?.midPx;
   };
   return (
-    <table className="w-full text-[12px]">
+    <table ref={tableRef} className="w-full text-[12px]">
       <thead className="sticky top-0 bg-app-card">
         <tr>
           <th className={th}>Asset</th>
@@ -225,7 +237,7 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
           const key = `${position.venue}:${position.coin}`;
           return (
             <Fragment key={key}>
-            <tr className="border-t border-app-hairline">
+            <tr data-motion-key={key} className="border-t border-app-hairline">
               <td className={td}>
                 <SymbolCell symbol={position.symbol} coin={position.coin} />
                 {!grouped && <VenueBadge venue={position.venue} />}
@@ -288,8 +300,9 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
 export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   const { cancelOrder } = useTrading();
   const grouped = useGrouped(orders);
+  const tableRef = useRowEnter(orders.map((order) => `${order.venue}:${order.oid}`));
   return (
-    <table className="w-full text-[12px]">
+    <table ref={tableRef} className="w-full text-[12px]">
       <thead className="sticky top-0 bg-app-card">
         <tr>
           <th className={th}>Asset</th>
@@ -306,7 +319,7 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
           <Fragment key={group.venue ?? "all"}>
         {group.venue && <VenueGroupRow venue={group.venue} count={group.rows.length} noun="order" colSpan={7} />}
         {group.rows.map((order) => (
-          <tr key={`${order.venue}:${order.oid}`} className="border-t border-app-hairline">
+          <tr key={`${order.venue}:${order.oid}`} data-motion-key={`${order.venue}:${order.oid}`} className="border-t border-app-hairline">
             <td className={td}>
               <SymbolCell symbol={order.symbol} coin={order.coin} />
               {!grouped && <VenueBadge venue={order.venue} />}

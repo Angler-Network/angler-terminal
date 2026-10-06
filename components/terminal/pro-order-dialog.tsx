@@ -17,6 +17,7 @@ import { useTrading } from "./trading-provider";
 import { minOrderUsd, takerFeeFor } from "./use-best-execution";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { useModalEnter } from "@/components/app/use-motion";
 
 type Mode = "hedge" | "multi";
 
@@ -177,6 +178,8 @@ export function ProOrderDialog() {
     return () => window.clearTimeout(timer);
   }, [armed]);
 
+  const backdropRef = useModalEnter(isProOrderOpen);
+
   if (!isProOrderOpen) return null;
 
   const submit = async () => {
@@ -232,7 +235,7 @@ export function ProOrderDialog() {
             : `Place ${plans.length} market order${plans.length === 1 ? "" : "s"}`;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="presentation" onClick={closeProOrder}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeProOrder}>
       <div
         role="dialog"
         aria-modal="true"

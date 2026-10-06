@@ -6,6 +6,7 @@ import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfig } from "@/lib/venues/lighter/config";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
+import { useModalEnter } from "@/components/app/use-motion";
 
 function feeLabel(tenthsOfBps: number) {
   return `${(tenthsOfBps / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}%`;
@@ -215,12 +216,14 @@ export function TradingSetupDialog() {
     }
   }, [isDone, closeSetup, onboarding, lighter]);
 
+  const backdropRef = useModalEnter(setupVenue !== null);
+
   if (!setupVenue) return null;
   const isLighter = setupVenue === "lighter";
   const isTestnet = (isLighter ? lighterNetwork : network) === "testnet";
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="presentation" onClick={closeSetup}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeSetup}>
       <div
         role="dialog"
         aria-modal="true"

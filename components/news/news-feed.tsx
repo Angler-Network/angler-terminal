@@ -4,12 +4,14 @@ import { SlidersHorizontal, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile, useMobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { useListEnter } from "@/components/app/use-motion";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTradeTicket } from "@/components/terminal/trade-ticket";
 import { notifyNews } from "@/lib/alerts/notify";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { useNewsFeed, type FeedStatus } from "@/lib/angler/use-news-feed";
 import { countActiveFilters, filterNews } from "@/lib/news/filter";
+import { durations, ease, ENTER_PROPS } from "@/lib/motion";
 import { detectHighImpact, isTypingTarget } from "@/lib/trading/high-impact";
 import type { NewsItem } from "@/lib/types";
 import { NewsCard } from "./news-card";
@@ -102,6 +104,22 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   );
   const minImportance = filters.minImpact;
   const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
+  // Terminal-only: realtime arrivals unfold into the list (cards are the list's direct <article> children).
+  const listRef = useRef<HTMLDivElement>(null);
+  const shownIds = useMemo(() => shown.map((item) => item.id), [shown]);
+  useListEnter(listRef, shownIds, ":scope > article", (gsap, elements) =>
+    gsap.from(elements, {
+      height: 0,
+      paddingTop: 0,
+      paddingBottom: 0,
+      opacity: 0,
+      overflow: "hidden",
+      duration: durations.slow,
+      ease: ease.out,
+      stagger: 0.06,
+      clearProps: `${ENTER_PROPS},height,padding-top,padding-bottom,overflow`,
+    }),
+  );
   const activeFilters = countActiveFilters(filters);
   const flashing = useHighImpactFlash(items, selectNews);
   useNewsSound(items, shown, status === "live");
@@ -243,7 +261,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
         </div>
       )}
 
-      <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-3">
+      <div ref={listRef} className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-3">
         {status === "unconfigured" && (
           <p className="py-6 text-center text-[12px] text-app-muted">
             Set ANGLER_API_KEY in .env.local and restart the server to stream news.

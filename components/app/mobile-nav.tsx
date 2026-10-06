@@ -3,7 +3,9 @@
 import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { durations, ease, ENTER_PROPS } from "@/lib/motion";
+import { useEnter } from "./use-motion";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
@@ -38,6 +40,16 @@ export function MobileNav() {
   const onTerminal = pathname === "/";
 
   useEffect(() => setMenuOpen(false), [pathname]);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEnter(
+    sheetRef,
+    (gsap, backdrop) =>
+      gsap
+        .timeline()
+        .from(backdrop, { opacity: 0, duration: durations.fast, ease: ease.soft, clearProps: ENTER_PROPS })
+        .from(backdrop.firstElementChild, { yPercent: 100, duration: durations.base, ease: ease.out, clearProps: ENTER_PROPS }, 0),
+    menuOpen,
+  );
 
   const show = (next: MobileView) => {
     setView(next);
@@ -65,7 +77,7 @@ export function MobileNav() {
         </button>
       </nav>
       {menuOpen && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/50 lg:hidden" role="presentation" onClick={() => setMenuOpen(false)}>
+        <div ref={sheetRef} className="fixed inset-0 z-40 flex items-end bg-black/50 lg:hidden" role="presentation" onClick={() => setMenuOpen(false)}>
           <div
             role="dialog"
             aria-modal="true"

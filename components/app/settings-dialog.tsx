@@ -20,6 +20,7 @@ import type { Severity } from "@/lib/types";
 import { openWelcomeTour } from "./alpha-notice";
 import { AppearanceSettings } from "./appearance-settings";
 import { MarketIcon } from "./market-icon";
+import { riseIn, useEnter } from "./use-motion";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
 import { usePreferences } from "./preferences-provider";
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
@@ -885,6 +886,7 @@ export function SettingsDialog() {
     if (isSettingsOpen && !dialog.open) dialog.showModal();
     if (!isSettingsOpen && dialog.open) dialog.close();
   }, [isSettingsOpen]);
+  useEnter(dialogRef, riseIn, isSettingsOpen);
 
   return (
     <dialog

@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
@@ -139,6 +140,8 @@ function LeverageControl({
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  useEnter(popoverRef, riseIn, open);
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
@@ -169,6 +172,7 @@ function LeverageControl({
       </button>
       {open && (
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label="Leverage"
           className="surface-menu absolute left-0 top-10 z-30 flex w-[250px] flex-col gap-3 rounded-xl border border-app-hairline-strong bg-app-card p-3 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"

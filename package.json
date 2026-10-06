@@ -19,6 +19,7 @@
     "@wallet-standard/base": "1.1.1",
     "@wallet-standard/features": "1.1.1",
     "centrifuge": "5.7.4",
+    "gsap": "3.15.0",
     "lightweight-charts": "5.2.1",
     "lucide-react": "1.51.0",
     "next": "15.5.27",

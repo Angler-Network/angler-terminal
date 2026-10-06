@@ -276,6 +276,17 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   the Arcus SDK (`arcus/venue.ts`; lookups in `arcus/catalog.ts`) and the settings/setup dialogs (`lazy-dialogs.tsx`)
   load on demand. Don't import them statically from components on the first screen. The ticker bar streams its
   server-fetched prices through Suspense so the page shell never waits on market APIs.
+- Motion (`lib/motion.ts`, hooks in `components/app/use-motion.ts`): GSAP loads on the first press or key, or once the
+  page has settled (`useMotionPreload` in `lazy-dialogs.tsx`); never import `gsap` statically. `motion()` is null until
+  then and under `prefers-reduced-motion`, so content never waits on an animation. Entrances clear their inline styles
+  when done (`ENTER_PROPS`: a leftover transform breaks `position: fixed` children) and revert on cleanup. Used for
+  overlay dialogs (`useModalEnter` on the backdrop), native dialogs and popovers (`riseIn`), onboarding steps, toasts
+  (enter, collapse on dismiss), news arrivals and new position/order rows (`useListEnter`: never the first render,
+  at most `MAX_ANIMATED_ARRIVALS` at once) and mobile view switches.
+- Chart refresh: every 30s the chart fetches only from the last closed candle (`since`) and merges it
+  (`lib/chart/merge-candles.ts`). The chart key follows the first venue only, so a fallback venue's market list
+  arriving later doesn't clear the chart and refetch. Loading states keep their final size (order panel skeleton,
+  mobile stats row, interval fit measured before paint) so nothing shifts when data lands.
 
 ## Checks
 
