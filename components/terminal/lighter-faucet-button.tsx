@@ -22,7 +22,11 @@ export function LighterFaucetButton({ className, label = "Get test USDC" }: { cl
     try {
       const { requestTestFunds } = await import("@/lib/venues/lighter/api");
       await requestTestFunds(address);
-      await refreshLighter();
+      // The setup state can miss the new account on the first read (rate limits right after the faucet): retry.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if ((await refreshLighter())?.accountIndex != null) break;
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+      }
       toast({ tone: "success", title: "Test USDC received on Lighter", message: "Your Lighter testnet account is funded." });
     } catch (error) {
       toast({ tone: "error", title: "Lighter faucet", message: error instanceof Error ? error.message : String(error) });

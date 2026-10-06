@@ -67,7 +67,8 @@ interface TradingContextValue {
   approveBuilder: () => Promise<boolean>;
   createAgent: () => Promise<boolean>;
   revoke: () => Promise<void>;
-  refreshLighter: () => Promise<void>;
+  /** Re-reads the Lighter setup state; resolves to it, or null when it couldn't be read. */
+  refreshLighter: () => Promise<LighterOnboarding | null>;
   registerLighter: () => Promise<boolean>;
   approveLighter: () => Promise<boolean>;
   revokeLighter: () => Promise<void>;
@@ -173,11 +174,18 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   }, [address]);
 
   const refreshLighter = useCallback(async () => {
-    if (!address || !lighterEnabled) return setLighter(null);
+    if (!address || !lighterEnabled) {
+      setLighter(null);
+      return null;
+    }
     try {
-      setLighter(await getLighterOnboarding(address));
-    } catch {
+      const next = await getLighterOnboarding(address);
+      setLighter(next);
+      return next;
+    } catch (error) {
+      console.warn(`[lighter] setup state: ${toLighterVenueError(error).message}`);
       setLighter({ accountIndex: null, keyReady: false, integrator: lighterConfig.integrator ? "needed" : "none" });
+      return null;
     }
   }, [address, lighterEnabled]);
 

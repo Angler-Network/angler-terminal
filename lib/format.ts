@@ -15,7 +15,8 @@ const smallPriceFormatter = new Intl.NumberFormat("en-US", {
 });
 
 export function formatPrice(value: number): string {
-  return Math.abs(value) < 1 ? smallPriceFormatter.format(value) : priceFormatter.format(value);
+  // Zero has no significant digits: the small-price formatter would print "$0.0".
+  return Math.abs(value) < 1 && value !== 0 ? smallPriceFormatter.format(value) : priceFormatter.format(value);
 }
 
 export function formatPercent(value: number): string {
