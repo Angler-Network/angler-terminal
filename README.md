@@ -170,6 +170,10 @@ One codebase runs both sites as two Vercel projects on the same repository and b
 
 Set `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL` on each project to link to the other site.
 
+The mainnet site only offers venues whose settings are present: Hyperliquid needs `NEXT_PUBLIC_HL_BUILDER_ADDRESS`,
+Jupiter `JUP_API_KEY`, Titan `TITAN_API_KEY` and Arcus `ARCUS_API_KEY`. Lighter needs nothing. Redeploy after adding
+one.
+
 ## Scripts
 
 | Command | What it does |

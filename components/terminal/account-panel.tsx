@@ -319,9 +319,9 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
             <OrderPanel />
           </div>
         )}
-        {showAccount && evmAddress && <HyperliquidSection />}
+        {showAccount && evmAddress && preferences.venueHyperliquid && <HyperliquidSection />}
         {showAccount && evmAddress && preferences.venueLighter && <LighterSection />}
-        {showAccount && solanaAddress && <JupiterSection />}
+        {showAccount && solanaAddress && preferences.venueJupiter && <JupiterSection />}
         {showAccount && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>
     </div>

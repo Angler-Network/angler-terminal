@@ -3,7 +3,7 @@
 import { ExternalLink, Play, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
-import { deployment, mainnetSpotAllowed, otherDeploymentUrl } from "@/lib/deployment";
+import { deployment, otherDeploymentUrl, venueAvailable, type VenueKey } from "@/lib/deployment";
 import { useT } from "@/lib/i18n/client";
 import { alertSounds, navModeChange, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
@@ -521,8 +521,11 @@ function VenueRow({ name, description, badge, children }: { name: string; descri
   );
 }
 
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus" };
+
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
+  const unavailable = (Object.keys(venueNames) as VenueKey[]).filter((venue) => !venueAvailable(venue)).map((venue) => venueNames[venue]);
   const [choice, setChoice] = useState<NetworkChoice>("default");
   const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
   useEffect(() => {
@@ -532,6 +535,12 @@ function VenueSettings() {
 
   return (
     <>
+      {unavailable.length > 0 && (
+        <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
+          Not available on this site: {unavailable.join(", ")}.
+          {deployment === "mainnet" ? " They switch on once their settings are added to the deployment." : ""}
+        </p>
+      )}
       {deployment && (
         <SettingRow
           title={deployment === "mainnet" ? "Mainnet site" : "Testnet site"}
@@ -552,9 +561,11 @@ function VenueSettings() {
           )}
         </SettingRow>
       )}
+      {venueAvailable("hyperliquid") && (
       <VenueRow name="Hyperliquid" badge="Perps · EVM" description="Perpetuals and HIP-3 equity perps. Orders sign with a browser trading key after a one-time setup.">
         <Toggle label="Hyperliquid" checked={preferences.venueHyperliquid} onChange={(checked) => updatePreference("venueHyperliquid", checked)} />
       </VenueRow>
+      )}
       {preferences.venueHyperliquid && !deployment && (
         <div className="ml-4 border-l-2 border-app-line pl-4">
           <SettingRow
@@ -608,11 +619,12 @@ function VenueSettings() {
           />
         </SettingRow>
       )}
-      {mainnetSpotAllowed(deployment) && (
+      {venueAvailable("jupiter") && (
         <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
           <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
         </VenueRow>
       )}
+      {venueAvailable("arcus") && (
       <VenueRow
         name="Arcus"
         badge={`Stock tokens · Robinhood Chain ${arcusConfig.network}`}
@@ -620,7 +632,8 @@ function VenueSettings() {
       >
         <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
       </VenueRow>
-{mainnetSpotAllowed(deployment) && (
+      )}
+{venueAvailable("titan") && (
       <VenueRow
         name="Titan"
         badge="Spot · Solana"

@@ -24,7 +24,7 @@ import {
 import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from "./chart/candles";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters } from "./news/filter";
 import { readNewsRules, type NewsRule } from "./news/rules";
-import { deployment, mainnetSpotAllowed } from "./deployment";
+import { venueAvailable } from "./deployment";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -227,11 +227,11 @@ export const defaultPreferences: Preferences = {
   tradeMinImpact: 60,
   newsLeverage: 5,
   appearanceVersion: APPEARANCE_VERSION,
-  venueHyperliquid: true,
-  venueLighter: true,
-  venueJupiter: mainnetSpotAllowed(deployment),
-  venueArcus: true,
-  venueTitan: mainnetSpotAllowed(deployment),
+  venueHyperliquid: venueAvailable("hyperliquid"),
+  venueLighter: venueAvailable("lighter"),
+  venueJupiter: venueAvailable("jupiter"),
+  venueArcus: venueAvailable("arcus"),
+  venueTitan: venueAvailable("titan"),
   preferredPerpVenue: "hyperliquid",
   newsFilters: defaultNewsFilters,
   ...defaultAppearance,
@@ -354,12 +354,12 @@ export function parsePreferences(raw: string | null): Preferences {
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       appearanceVersion: APPEARANCE_VERSION,
-      venueHyperliquid: readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
-      venueLighter: readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
-      // Jupiter and Titan are mainnet only: always off on the testnet site.
-      venueJupiter: mainnetSpotAllowed(deployment) && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
-      venueArcus: readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
-      venueTitan: mainnetSpotAllowed(deployment) && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
+      venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
+      venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
+      // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
+      venueJupiter: venueAvailable("jupiter") && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
+      venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
+      venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(

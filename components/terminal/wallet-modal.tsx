@@ -1,6 +1,6 @@
 "use client";
 
-import { deployment, mainnetSpotAllowed } from "@/lib/deployment";
+import { venueAvailable, type VenueKey } from "@/lib/deployment";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { Check, ChevronLeft, Loader2, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -43,7 +43,7 @@ function shortAddress(address: string) {
 type Chain = "evm" | "solana";
 
 interface VenueOption {
-  id: string;
+  id: VenueKey;
   name: string;
   /** Product line shown under the name. */
   kind: string;
@@ -255,7 +255,7 @@ function WalletModal() {
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2">
-              {VENUES.filter((venue) => venue.chain !== "solana" || mainnetSpotAllowed(deployment)).map((venue) => (
+              {VENUES.filter((venue) => venueAvailable(venue.id)).map((venue) => (
                 <VenueTile
                   key={venue.id}
                   venue={venue}

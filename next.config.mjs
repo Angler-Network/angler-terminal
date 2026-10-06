@@ -9,6 +9,26 @@ function readCommitSha() {
   }
 }
 
+/**
+ * Venues whose required settings are present in this build, as a comma list for the browser (names only, never the
+ * values). On the mainnet site (NEXT_PUBLIC_DEPLOYMENT=mainnet) venues missing from it stay off.
+ */
+function readConfiguredVenues(env) {
+  const set = (value) => typeof value === "string" && value.trim() !== "";
+  const builder = env.NEXT_PUBLIC_HL_BUILDER_ADDRESS ?? "";
+  const venues = {
+    hyperliquid: /^0x[0-9a-fA-F]{40}$/.test(builder) && !/^0x0{40}$/.test(builder),
+    // Lighter trades without partner settings.
+    lighter: true,
+    jupiter: set(env.JUP_API_KEY),
+    titan: set(env.TITAN_API_KEY),
+    arcus: set(env.ARCUS_API_KEY),
+  };
+  return Object.keys(venues)
+    .filter((venue) => venues[venue])
+    .join(",");
+}
+
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -16,6 +36,7 @@ const nextConfig = {
   env: {
     // Compared with /api/version to tell open tabs a newer deploy is live.
     NEXT_PUBLIC_COMMIT_SHA: readCommitSha(),
+    NEXT_PUBLIC_CONFIGURED_VENUES: readConfiguredVenues(process.env),
   },
 };
 

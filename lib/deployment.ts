@@ -1,7 +1,8 @@
 /**
  * Which site this build is: the mainnet terminal (trade.angler.network) or the testnet one
  * (testnet-trade.angler.network), from one codebase. `NEXT_PUBLIC_DEPLOYMENT` pins every venue's network, hides the
- * per-browser network switches and, on testnet, turns off the mainnet-only Solana venues (Jupiter, Titan). Unset,
+ * per-browser network switches and limits venues (`venueAvailable`): testnet drops the mainnet-only Solana venues,
+ * mainnet offers only venues whose settings are present. Unset,
  * each venue follows its own NEXT_PUBLIC_*_NETWORK and the switches stay in Settings.
  */
 
@@ -22,9 +23,24 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-/** Jupiter and Titan have no testnet: they only run on mainnet builds (and unpinned ones). */
-export function mainnetSpotAllowed(pinned: Deployment | null) {
-  return pinned !== "testnet";
+export type VenueKey = "hyperliquid" | "lighter" | "jupiter" | "titan" | "arcus";
+
+/** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */
+export const configuredVenues = readConfiguredVenues(process.env.NEXT_PUBLIC_CONFIGURED_VENUES);
+
+export function readConfiguredVenues(value: string | undefined) {
+  return new Set((value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean));
+}
+
+/**
+ * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a
+ * builder address for Hyperliquid, API keys for Jupiter, Titan and Arcus); the testnet site has no mainnet-only
+ * Solana venues; unpinned builds offer everything.
+ */
+export function venueAvailable(venue: VenueKey, pinned: Deployment | null = deployment, configured: Set<string> = configuredVenues) {
+  if (pinned === "mainnet") return configured.has(venue);
+  if (pinned === "testnet") return venue !== "jupiter" && venue !== "titan";
+  return true;
 }
 
 function readUrl(value: string | undefined) {

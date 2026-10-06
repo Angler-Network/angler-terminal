@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mainnetSpotAllowed, pinnedNetwork, readDeployment } from "./deployment";
+import { pinnedNetwork, readConfiguredVenues, readDeployment, venueAvailable } from "./deployment";
 
 describe("deployment", () => {
   it("reads the deployment", () => {
@@ -16,9 +16,14 @@ describe("deployment", () => {
     expect(pinnedNetwork(null, undefined, "testnet")).toBe("testnet");
   });
 
-  it("keeps mainnet-only spot venues off testnet builds", () => {
-    expect(mainnetSpotAllowed("testnet")).toBe(false);
-    expect(mainnetSpotAllowed("mainnet")).toBe(true);
-    expect(mainnetSpotAllowed(null)).toBe(true);
+  it("offers only configured venues on the mainnet site", () => {
+    const configured = readConfiguredVenues("hyperliquid, lighter,jupiter");
+    expect(venueAvailable("hyperliquid", "mainnet", configured)).toBe(true);
+    expect(venueAvailable("titan", "mainnet", configured)).toBe(false);
+    expect(venueAvailable("arcus", "mainnet", configured)).toBe(false);
+    expect(venueAvailable("arcus", "testnet", new Set())).toBe(true);
+    expect(venueAvailable("jupiter", "testnet", configured)).toBe(false);
+    expect(venueAvailable("titan", null, new Set())).toBe(true);
+    expect(readConfiguredVenues(undefined).size).toBe(0);
   });
 });
