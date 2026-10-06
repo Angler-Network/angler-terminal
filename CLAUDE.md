@@ -15,7 +15,7 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 
 ## Secrets
 
-- The repository is shared with hackathon judges. Never commit secrets, keys, tickets or real `.env` files.
+- The repository is public. Never commit secrets, keys, tickets or real `.env` files.
 - `.env.example` holds placeholders only. Real values live in `.env.local` (gitignored).
 - `ANGLER_API_KEY` is read only on the server (`lib/angler/env.ts`, imported by route handlers). Never expose it to the
   browser and never prefix it with `NEXT_PUBLIC_`.

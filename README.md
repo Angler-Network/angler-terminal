@@ -1,104 +1,148 @@
 # Angler Terminal
 
-A news-driven trading terminal: live Angler news streams next to the chart, and every asset chip on a news card
-switches the chart to that asset. Order entry and positions are placeholders for now.
+A multi-venue perp DEX terminal driven by real-time, AI-scored crypto news.
 
-## Run it
+Trade Hyperliquid and Lighter perps, Solana tokens and tokenized stocks from one screen. The terminal picks the
+cheapest venue for you, and every important headline turns into a one-tap trade on the asset it moves.
+
+**Live:** [angler-terminal.vercel.app](https://angler-terminal.vercel.app) · **News:**
+[news.angler.network](https://news.angler.network) · **News API:** [api.angler.network](https://api.angler.network/openapi.yaml)
+
+> **Alpha.** The terminal runs on testnets by default. Mainnet trades use real funds. Not financial advice: news
+> scores and predictions are model outputs.
+
+## Features
+
+- **Live news feed.** Headlines stream over WebSocket from the Angler News API and are scored by AI models:
+  importance (0-100), sentiment (-1 to +1), predicted impact per asset and a short summary. Non-English news is
+  shown translated to English. You can filter by asset, sentiment, severity and minimum impact, and get browser
+  notifications for high-impact items.
+- **Trade from the news.** Important news about a tradable asset shows Long/Short size buttons. One press arms
+  the order and a second press places it. The asset is resolved to the best venue that lists it. Keyboard
+  shortcuts work too: `L` / `S`, `1`–`4`, `Enter`.
+- **One order panel for every venue.** Market and limit orders, leverage, cross or isolated margin, reduce-only
+  and TP/SL. A summary shows the estimated entry price, slippage, fees, margin, liquidation price and funding.
+- **Best execution.** For market orders the terminal walks the live order books of both perp venues for your size,
+  adds each venue's taker fees and routes to the cheaper one. This is on by default and can be turned off.
+- **Funding.** Funding rates across Hyperliquid, Lighter, Binance and Bybit, a Markets page with spreads, and a
+  one-click delta-neutral funding arbitrage: long on the low-funding venue, short on the high-funding one.
+- **Portfolio across venues.** Positions and orders from every perp venue in one table, with liquidation distance,
+  per-venue account summary, TP/SL editing and close-all.
+- **Funds.** Deposit and withdraw on each venue, and move USDC from Hyperliquid to Lighter in one flow.
+- **Your layout.** Hide the order book, order entry, positions, news or account panel, or start from a preset.
+  Choose sidebar or top navigation, the ticker tape position, a theme and an accent color. You can also switch
+  between the built-in chart (news markers on candles) and TradingView.
+
+## Venues
+
+| Venue | What you trade | Network | How the terminal signs |
+| --- | --- | --- | --- |
+| [Hyperliquid](https://hyperliquid.xyz) | Perps, including HIP-3 stock perps (NVDA, TSLA, …) | testnet / mainnet | Agent key generated in the browser (can trade, cannot withdraw) |
+| [Lighter](https://lighter.xyz) | Perps | testnet / mainnet | API key generated in the browser, stored encrypted |
+| [Jupiter](https://jup.ag) | Solana spot tokens | mainnet | Your Solana wallet signs each swap |
+| [Titan](https://titan.exchange) | Second quote source for Solana swaps | mainnet | Same as Jupiter; the better quote wins |
+| [Arcus](https://arcus.xyz) | Tokenized stocks and indices on Robinhood Chain | testnet / mainnet | Your EVM wallet signs a gasless Permit2 order |
+
+## How it works
+
+```
+Browser ──WebSocket──▶ Hyperliquid, Lighter      order books, trades, positions, orders
+        ──WebSocket──▶ Angler News (Centrifugo)  raw + enriched news, with a single-use ticket
+        ──HTTPS─────▶ Next.js route handlers ──▶ Angler API, Jupiter, Titan, Arcus, Solana RPC (keys added here)
+```
+
+- **Non-custodial.** Funds stay in your wallet and on the venues. Trading keys for Hyperliquid and Lighter are
+  generated in your browser and used only to sign there; they are never logged or sent anywhere. Hyperliquid
+  agent keys cannot withdraw. Both can be revoked from the account panel.
+- **Secrets stay on the server.** API keys (Angler, Jupiter, Titan, Arcus, RPC) are read only by route handlers and
+  never reach the browser. Only `NEXT_PUBLIC_*` settings are public.
+- **No accounts, no database.** There is no login. Preferences live in your browser. Analytics count trades per
+  venue and side only, with no wallet addresses or amounts.
+- **Live data goes straight to the venues.** Order books, prices and account updates go from your browser to each
+  venue, so the server only proxies cached market lists and the calls that need a key.
+
+## Getting started
+
+Requirements: Node.js 20+ and npm.
 
 ```bash
+git clone https://github.com/Angler-Network/angler-terminal.git
+cd angler-terminal
 npm install
-cp .env.example .env.local   # then put your Angler API key in ANGLER_API_KEY
+cp .env.example .env.local   # fill in the values you need (see below)
 npm run dev                  # http://localhost:3000
 ```
 
-| Variable         | Where it is used | Purpose                                                 |
-| ---------------- | ---------------- | ------------------------------------------------------- |
-| `ANGLER_API_URL` | server           | Angler News API base URL (`https://api.angler.network`) |
-| `ANGLER_API_KEY` | server only      | API key for `/v1/news` and `/v1/ws/ticket`              |
-| `ANGLER_WS_URL`  | server → browser | Optional realtime endpoint override                     |
-| `NEXT_PUBLIC_HL_NETWORK` | browser | `testnet` (default) or `mainnet` |
-| `NEXT_PUBLIC_HL_BUILDER_ADDRESS` | browser | Builder address added to every order (required to trade) |
-| `NEXT_PUBLIC_HL_BUILDER_FEE` | browser | Builder fee per order, in tenths of a basis point (max 100) |
-| `NEXT_PUBLIC_HL_MAX_BUILDER_FEE` | browser | Max fee users approve during setup, same unit |
+The only required value is `ANGLER_API_KEY`, for the news feed. Every venue is optional: leave its variables empty
+and it stays off or uses public defaults. `.env.example` documents every variable.
 
-## How the news feed works
-
-1. `GET /api/news` loads recent history (proxied to `/v1/news`, paginated with `next_cursor`).
-2. `POST /api/ws-ticket` mints a single-use realtime ticket on the server.
-3. The browser connects to Centrifugo with the ticket as connection data, minting a new ticket on every reconnect,
-   and subscribes to `news.raw` and `news.enriched`.
-4. Raw headlines show immediately; the enriched version (coins, sentiment, impact predictions, summary, importance)
-   replaces it in place, matched by news id.
-
-The API key never reaches the browser.
-
-## Trading on Hyperliquid
-
-1. Connect a browser wallet (MetaMask, Rabby, …).
-2. On the first trade, a 2-step setup asks for two signatures: approve the builder fee, then create a trading key.
-   The key is generated in the browser, can place and cancel orders but cannot withdraw, and can be revoked from the
-   order panel at any time.
-3. After that, orders sign locally without wallet popups. Positions and open orders stream live in the bottom bar.
-
-Testnet funds: https://app.hyperliquid-testnet.xyz/drip
-
-## Spot swaps on Jupiter (Solana)
-
-Assets that aren't Hyperliquid perps, or that are verified Solana tokens, can be swapped on Jupiter (Swap V2):
-connect a Solana wallet (Phantom, Solflare, Backpack) in the account panel, then use Buy (USDC → token) or Sell
-(token → USDC) on a news card. Each trade re-quotes right before signing, is refused above 3% price impact, and links to
-Solscan.
-
-Jupiter has no testnet: use a dedicated wallet with a few USD. Development builds default to $1/$2/$5/$10 presets.
-
-| Variable | Where | Purpose |
+| Variable | Scope | Purpose |
 | --- | --- | --- |
-| `JUP_API_KEY` | server only | Jupiter API key |
-| `JUP_REFERRAL_ACCOUNT`, `JUP_REFERRAL_FEE_BPS` | server only | Integrator fee (50-255 bps) |
-| `SOLANA_RPC_URL` | server only | RPC for wallet balances |
-| `NEXT_PUBLIC_SPOT_SIZE_PRESETS` | browser | Optional comma-separated USD presets |
+| `ANGLER_API_URL`, `ANGLER_API_KEY` | server | Angler News API (`/v1/news`, `/v1/sources`, `/v1/ws/ticket`) |
+| `ANGLER_WS_URL` | server | Optional realtime endpoint override |
+| `NEXT_PUBLIC_HL_NETWORK` | public | Hyperliquid `testnet` (default) or `mainnet` |
+| `NEXT_PUBLIC_HL_BUILDER_ADDRESS` | public | Builder address added to every Hyperliquid order (required to trade) |
+| `NEXT_PUBLIC_HL_BUILDER_FEE`, `NEXT_PUBLIC_HL_MAX_BUILDER_FEE` | public | Builder fee and the max users approve, in tenths of a bp |
+| `NEXT_PUBLIC_HL_HIP3_DEXES` | public | HIP-3 dexes to list (default `xyz`) |
+| `NEXT_PUBLIC_LIGHTER_NETWORK` | public | Lighter `testnet` (default) or `mainnet` |
+| `NEXT_PUBLIC_LIGHTER_API_KEY_INDEX` | public | API key slot the terminal uses (default 61) |
+| `NEXT_PUBLIC_LIGHTER_INTEGRATOR_*` | public | Optional integrator account and fees |
+| `JUP_API_KEY`, `JUP_REFERRAL_ACCOUNT`, `JUP_REFERRAL_FEE_BPS` | server | Jupiter Swap V2 and its referral fee |
+| `SOLANA_RPC_URL` | server | Solana RPC for balances and Titan transactions |
+| `TITAN_API_KEY` | server | Optional Titan quotes (Jupiter alone without it) |
+| `NEXT_PUBLIC_ARCUS_NETWORK`, `NEXT_PUBLIC_ARCUS_RPC_URL` | public | Arcus network and optional RPC |
+| `ARCUS_API_KEY`, `ARCUS_BUILDER_FEE_BPS` | server | Optional Arcus partner key and fee |
+| `NEXT_PUBLIC_SPOT_SIZE_PRESETS`, `NEXT_PUBLIC_PERP_SIZE_PRESETS` | public | Optional USD size presets |
+| `ANALYTICS_TOKEN` | server | Bearer token for `GET /api/analytics/trade` |
 
-## Best price with Titan
+### Testnet funds
 
-With `TITAN_API_KEY` set on the server (free key at https://developer.titan.exchange), every Solana spot trade asks
-Jupiter and Titan for a quote and executes the one that pays more. Without a key, Jupiter is used alone.
+- Hyperliquid: [app.hyperliquid-testnet.xyz/drip](https://app.hyperliquid-testnet.xyz/drip)
+- Lighter: the testnet app at [testnet.app.lighter.xyz](https://testnet.app.lighter.xyz)
+- Arcus: testnet mUSDG has an open `mint` on Robinhood Chain testnet (`0xf64780eAE9CFe162EF38f5224459a014a1007cd5`)
 
-## Stock tokens on Arcus (Robinhood Chain)
+Jupiter and Titan have no testnet. Use a dedicated wallet with a few dollars.
 
-Stocks and indices that no perp venue lists can be bought and sold as tokens on Arcus with USDG. Your EVM wallet
-signs, Arcus settles (gasless; the wallet is moved to Robinhood Chain automatically). Testnet by default
-(`NEXT_PUBLIC_ARCUS_NETWORK`), minimum $5 per trade. The test order form offers Arcus for any listed stock.
+## Scripts
 
-## Trading from the news feed
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm test` | Unit tests (Vitest, `*.test.ts` next to each module) |
+| `npm run typecheck` | TypeScript checks |
+| `scripts/build-lighter-signer.sh` | Rebuilds Lighter's official WASM signer into `public/lighter/` from a pinned commit |
 
-Trades start from the news, or from the **order panel** next to the chart: market and limit orders for the chart's
-asset on any venue that lists it (Hyperliquid, Lighter, Jupiter, Arcus), with leverage, margin mode and reduce-only.
-The live **order book** fills the limit price on click. Every panel can be hidden from the layout button in the top
-bar or Settings → Layout.
+Unit tests cover the pure logic: pricing and order math, order book parsing, routing, funding, TP/SL validation,
+error mapping, storage and the news API parsers. The news API tests run against real API samples in
+`lib/angler/fixtures`.
 
-- Important news (impact ≥ 60 by default, configurable) that mentions a tradable asset shows a size grid per asset:
-  a green **Long/Buy** row and a red **Short/Sell** row. Hyperliquid assets trade as perps (Long/Short), Solana-only
-  tokens as Jupiter spot swaps (Buy/Sell). The side matching the news direction is highlighted; nothing trades
-  automatically.
-- Press a size to arm it ("Confirm"), press again to place it. One-click trading can be enabled in settings (gear
-  icon); it is off by default.
-- Keyboard on the selected news item: `L` long/buy, `S` short/sell, `1`–`4` size, `Enter` or the same key again to
-  confirm, `Esc` cancel.
-- The right column holds wallets, the Hyperliquid trading key, balances and the leverage used for news trades.
-- News filters (sliders icon in the news header, or Settings → News filters): only some assets (e.g. BTC), positive /
-  neutral / negative sentiment, severity and minimum impact. Clicking a pair on the ticker tape opens its chart and
-  shows only its news until you clear the "Only BTC" chip.
-- High-impact items (impact ≥ 80 by default) are briefly highlighted; an optional sound can be enabled in settings.
+## Project structure
 
-Not financial advice. Scores are model outputs.
-
-## Tests
-
-```bash
-npm test
+```
+app/                  pages and API route handlers (news, markets, funding, venue proxies)
+components/app/       shell: top bar, sidebar, settings, onboarding, ticker tape
+components/terminal/  chart column, order panel, order book, positions, wallets, deposits
+components/news/      news feed and cards
+components/markets/   Markets page and funding arbitrage
+lib/angler/           Angler News API types, parsers and the realtime feed
+lib/venues/           Hyperliquid, Lighter, Jupiter, Titan and Arcus integrations
+lib/trading/          execution, funding, order math, order book and TP/SL logic
+docs/                 integration notes
 ```
 
-## Layout
+Built with Next.js (App Router), React, TypeScript and Tailwind CSS. The theme, news components, chart and market
+data come from [angler-news](https://news.angler.network), so the two products look and feel the same.
 
-Top bar (logo, ticker tape, Connect) · chart · order panel · live news column · positions/orders bar.
-Built on the theme, news components, chart and market data of [angler-news](https://news.angler.network).
+## Contributing
+
+Issues and pull requests are welcome. Before opening a pull request, make sure `npm test`, `npm run typecheck` and
+`npm run build` pass. Never commit keys or a real `.env` file: `.env.example` holds placeholders only.
+
+Report security issues privately to the maintainers, not in a public issue.
+
+## Disclaimer
+
+This software is provided as is, without warranty. Trading perpetual futures and tokens carries a high risk of
+loss. News scores, sentiment and impact predictions are model outputs, not financial advice. You are responsible
+for every trade you place.
