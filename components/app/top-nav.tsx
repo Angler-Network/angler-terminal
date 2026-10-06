@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CandlestickChart, Newspaper, Settings, Wallet } from "lucide-react";
+import { BarChart3, CandlestickChart, ChartPie, Newspaper, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
@@ -29,6 +29,10 @@ export function TopNav() {
       <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
         <BarChart3 className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Markets</span>
+      </Link>
+      <Link href="/portfolio" title="Portfolio" aria-current={pathname === "/portfolio" ? "page" : undefined} className={itemClass(pathname === "/portfolio")}>
+        <ChartPie className="size-[18px]" strokeWidth={1.75} aria-hidden />
+        <span className={label}>Portfolio</span>
       </Link>
       <LayoutMenu placement="below" className={itemClass(false)} iconClassName="size-[18px]" labelNode={<span className={label}>Layout</span>} />
       <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={itemClass(false)}>

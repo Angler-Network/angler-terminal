@@ -21,7 +21,7 @@ const th = "px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.
 const tdBase = "px-3 py-1.5 tabular-nums";
 const td = `${tdBase} text-app-ink`;
 
-function signed(value: number) {
+export function signed(value: number) {
   return `${value >= 0 ? "+" : "-"}${formatPrice(Math.abs(value))}`;
 }
 
@@ -44,7 +44,7 @@ function RowButton({ onClick, children }: { onClick: () => Promise<void>; childr
 }
 
 /** Which venue a row lives on; close and cancel go to that venue. */
-function VenueBadge({ venue }: { venue: PerpVenueId }) {
+export function VenueBadge({ venue }: { venue: PerpVenueId }) {
   return (
     <span
       title={PERP_VENUE_NAMES[venue]}
@@ -156,7 +156,7 @@ function TpslEditor({ position, mark, onDone }: { position: VenuePosition; mark?
   );
 }
 
-function PositionsTable({ positions }: { positions: VenuePosition[] }) {
+export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const { closePosition, marketsByVenue } = useTrading();
   const markOf = (position: VenuePosition) => {
@@ -241,7 +241,7 @@ function PositionsTable({ positions }: { positions: VenuePosition[] }) {
   );
 }
 
-function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
+export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   const { cancelOrder } = useTrading();
   return (
     <table className="w-full text-[12px]">
@@ -284,7 +284,7 @@ function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   );
 }
 
-function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positions: VenuePosition[] }) {
+export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positions: VenuePosition[] }) {
   const { network, lighterNetwork } = useTrading();
   const closeAll = useCloseAll();
   const total = totalSummary(rows);

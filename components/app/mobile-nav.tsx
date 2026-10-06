@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BriefcaseBusiness, CandlestickChart, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -78,6 +78,10 @@ export function MobileNav() {
             <Link href="/markets" className={`${sheetItem} ${pathname === "/markets" ? "bg-app-chip" : ""}`}>
               <BarChart3 className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Markets & funding
+            </Link>
+            <Link href="/portfolio" className={`${sheetItem} ${pathname === "/portfolio" ? "bg-app-chip" : ""}`}>
+              <ChartPie className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              Full portfolio
             </Link>
             <button
               type="button"

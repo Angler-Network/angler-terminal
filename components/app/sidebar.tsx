@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CandlestickChart, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
+import { BarChart3, CandlestickChart, ChartPie, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -59,6 +59,10 @@ export function Sidebar() {
         <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
           <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Markets</NavLabel>
+        </Link>
+        <Link href="/portfolio" title="Portfolio" aria-current={pathname === "/portfolio" ? "page" : undefined} className={navItemClass(pathname === "/portfolio")}>
+          <ChartPie className="size-5" strokeWidth={1.75} aria-hidden />
+          <NavLabel>Portfolio</NavLabel>
         </Link>
         <LayoutMenu className={navItemClass(false)} labelNode={<NavLabel>Layout</NavLabel>} />
         <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>
