@@ -77,10 +77,15 @@ interface TradingContextValue {
   setPositionTpsl: (position: VenuePosition, levels: PositionTpsl) => Promise<boolean>;
   /** Venue the deposit window is open for, or null. */
   depositVenue: PerpVenueId | null;
-  openDeposit: (venue: PerpVenueId) => void;
+  /** Tab the funds window opens on. */
+  depositMode: FundsMode;
+  openDeposit: (venue: PerpVenueId, mode?: FundsMode) => void;
   closeDeposit: () => void;
   withdrawHyperliquid: (amount: string) => Promise<boolean>;
 }
+
+/** Funds window tabs: deposit from the wallet, withdraw to it (Hyperliquid), or move Hyperliquid → Lighter. */
+export type FundsMode = "deposit" | "withdraw" | "move";
 
 const TradingContext = createContext<TradingContextValue | null>(null);
 
@@ -125,7 +130,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [lighterAccount, setLighterAccount] = useState<AccountSnapshot | null>(null);
   const [setupVenue, setSetupVenue] = useState<PerpVenueId | null>(null);
   const [depositVenue, setDepositVenue] = useState<PerpVenueId | null>(null);
-  const openDeposit = useCallback((venue: PerpVenueId) => setDepositVenue(venue), []);
+  const [depositMode, setDepositMode] = useState<FundsMode>("deposit");
+  const openDeposit = useCallback((venue: PerpVenueId, mode: FundsMode = "deposit") => {
+    setDepositVenue(venue);
+    setDepositMode(mode);
+  }, []);
   const closeDeposit = useCallback(() => setDepositVenue(null), []);
 
   const fail = useCallback(
@@ -427,6 +436,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       closePosition,
       setPositionTpsl,
       depositVenue,
+      depositMode,
       openDeposit,
       closeDeposit,
       withdrawHyperliquid,
@@ -455,6 +465,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       closePosition,
       setPositionTpsl,
       depositVenue,
+      depositMode,
       openDeposit,
       closeDeposit,
       withdrawHyperliquid,

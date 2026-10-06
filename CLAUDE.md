@@ -158,6 +158,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     (`0x2Df1…3dF7`, min 5 USDC, less is lost); mainnet Lighter = USDC on Arbitrum/Base to the wallet's CCTP intent
     address (`createIntentAddress`); testnets link to each venue's faucet. Hyperliquid withdrawals: `withdraw3`
     signed by the wallet (1 USDC fee, 3-4 min). Lighter's universal deposit address needs a builder key (not used).
+    Move (Lighter tab, mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
+    (`withdrawalArrived`) → deposit to the Lighter intent address. The order panel shows total buying power and, when
+    the chosen venue lacks margin, offers to trade on a funded venue, move funds or deposit (`openDeposit(venue, mode)`).
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.

@@ -5,14 +5,144 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
-import { HL_BRIDGE, depositError, depositPlan, usdcUnits, USDC_DECIMALS, type SourceChain } from "@/lib/venues/deposits";
+import {
+  ARBITRUM,
+  HL_BRIDGE,
+  HL_WITHDRAW_FEE_USDC,
+  depositError,
+  depositPlan,
+  moveError,
+  usdcUnits,
+  USDC_DECIMALS,
+  withdrawalArrived,
+  type SourceChain,
+} from "@/lib/venues/deposits";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
-import { useTrading } from "./trading-provider";
+import { useTrading, type FundsMode } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 
-type Mode = "deposit" | "withdraw";
+type Mode = FundsMode;
+
+const ARRIVAL_POLL_MS = 10_000;
+const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
+
+type MoveStep = { kind: "idle" } | { kind: "waiting"; before: bigint; units: bigint; since: number } | { kind: "arrived"; units: bigint } | { kind: "done"; explorerUrl: string };
+
+/**
+ * Hyperliquid → Lighter in two wallet signatures: withdraw from Hyperliquid to the wallet on Arbitrum (3-4 min),
+ * wait for it to land, then send it to the wallet's Lighter deposit address.
+ */
+function MoveFunds() {
+  const toast = useToast();
+  const { accounts, withdrawHyperliquid, network, lighterNetwork } = useTrading();
+  const { address, wallet } = useWallet();
+  const [amount, setAmount] = useState("");
+  const [step, setStep] = useState<MoveStep>({ kind: "idle" });
+  const [busy, setBusy] = useState(false);
+  const withdrawable = accounts.hyperliquid?.withdrawable;
+  const value = Number(amount);
+  const error = moveError(value, withdrawable);
+  const mainnet = network === "mainnet" && lighterNetwork === "mainnet";
+
+  useEffect(() => {
+    if (step.kind !== "waiting" || !address) return;
+    const timer = window.setInterval(async () => {
+      const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
+      if (now !== null && withdrawalArrived(step.before, now, step.units)) setStep({ kind: "arrived", units: step.units });
+      else if (Date.now() - step.since > ARRIVAL_TIMEOUT_MS) {
+        toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then deposit to Lighter from the Deposit tab." });
+        setStep({ kind: "idle" });
+      }
+    }, ARRIVAL_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [step, address, toast]);
+
+  if (!mainnet) {
+    return <p className="text-[13px] text-app-muted">Moving funds between venues works on mainnet. On testnet, get test USDC from each venue&apos;s faucet.</p>;
+  }
+
+  const start = async () => {
+    if (!address || error) return;
+    setBusy(true);
+    try {
+      const before = await readUsdcBalance(ARBITRUM, address);
+      const units = usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;
+      if (await withdrawHyperliquid(String(value))) setStep({ kind: "waiting", before, units, since: Date.now() });
+    } catch (caught) {
+      toast({ tone: "error", title: "Couldn't start the move", message: caught instanceof Error ? caught.message.split("\n")[0] : String(caught) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finish = async (units: bigint) => {
+    if (!address || !wallet) return;
+    setBusy(true);
+    try {
+      const to = await lighterIntentAddress(ARBITRUM, address);
+      const result = await sendUsdc(wallet.provider, address, ARBITRUM, to, units);
+      setStep({ kind: "done", explorerUrl: result.explorerUrl });
+      toast({ tone: "success", title: "Moved to Lighter", message: "Credited to your Lighter account in a few minutes.", link: { href: result.explorerUrl, label: "View transaction" } });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
+      toast({ tone: "error", title: "Deposit not sent", message: /reject|denied/i.test(message) ? "You rejected the request in your wallet. The USDC is in your wallet on Arbitrum." : message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ol className="flex flex-col gap-1 text-[12px] text-app-muted">
+        <li className={step.kind === "idle" ? "font-semibold text-app-ink" : ""}>1. Withdraw from Hyperliquid to your wallet (signature, no gas, 1 USDC fee)</li>
+        <li className={step.kind === "waiting" ? "font-semibold text-app-ink" : ""}>2. Wait for it to land on Arbitrum (3-4 minutes)</li>
+        <li className={step.kind === "arrived" ? "font-semibold text-app-ink" : ""}>3. Deposit it to Lighter (one transaction, a little ETH for gas)</li>
+      </ol>
+      {step.kind === "idle" && (
+        <>
+          <label className="flex flex-col gap-1 text-[12px] text-app-muted">
+            <span className="flex items-center justify-between">
+              USDC to move
+              {withdrawable !== undefined && (
+                <button type="button" onClick={() => setAmount(String(Math.floor(withdrawable * 100) / 100))} className="font-semibold text-app-ink hover:underline">
+                  Hyperliquid withdrawable {formatPrice(withdrawable)}
+                </button>
+              )}
+            </span>
+            <input className={inputClass} inputMode="decimal" placeholder="Amount (min 6)" value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))} />
+          </label>
+          {amount && error && <p className="text-[12px] text-app-down">{error}</p>}
+          <button
+            type="button"
+            disabled={busy || Boolean(error) || !address}
+            onClick={() => void start()}
+            className="h-10 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50"
+          >
+            {busy ? "Confirm in your wallet…" : `Withdraw ${amount || ""} USDC from Hyperliquid`}
+          </button>
+        </>
+      )}
+      {step.kind === "waiting" && <p className="text-[13px] text-app-ink">Waiting for the USDC to reach your wallet on Arbitrum… You can keep trading; leave this window open.</p>}
+      {step.kind === "arrived" && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void finish(step.units)}
+          className="h-10 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50"
+        >
+          {busy ? "Confirm in your wallet…" : `Deposit ${(Number(step.units) / 10 ** USDC_DECIMALS).toFixed(2)} USDC to Lighter`}
+        </button>
+      )}
+      {step.kind === "done" && (
+        <a href={step.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-app-up hover:underline">
+          Sent to Lighter. Arrives in a few minutes. View transaction
+        </a>
+      )}
+    </div>
+  );
+}
 
 const inputClass =
   "h-10 w-full rounded-lg border border-app-field-border bg-app-field px-3 text-[14px] tabular-nums text-app-ink outline-none focus:border-app-ink";
@@ -41,7 +171,7 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
  */
 export function DepositDialog() {
   const toast = useToast();
-  const { depositVenue, closeDeposit, openDeposit, network, lighterNetwork, accounts, withdrawHyperliquid } = useTrading();
+  const { depositVenue, depositMode, closeDeposit, openDeposit, network, lighterNetwork, accounts, withdrawHyperliquid } = useTrading();
   const { address, wallet } = useWallet();
   const { open: openWallets } = useWalletModal();
   const [mode, setMode] = useState<Mode>("deposit");
@@ -64,8 +194,12 @@ export function DepositDialog() {
     setAmount("");
     setDone(null);
     setSourceIndex(0);
-    if (!canWithdraw) setMode("deposit");
-  }, [venue, canWithdraw]);
+    // Withdraw belongs to Hyperliquid, Move (from Hyperliquid) to Lighter.
+    setMode((current) => (venue === "hyperliquid" ? (current === "move" ? "deposit" : current) : current === "withdraw" ? "deposit" : current));
+  }, [venue]);
+  useEffect(() => {
+    if (depositVenue) setMode(depositMode);
+  }, [depositVenue, depositMode]);
 
   useEffect(() => {
     setBalance(null);
@@ -134,16 +268,22 @@ export function DepositDialog() {
           ]}
           onChange={openDeposit}
         />
-        {canWithdraw && (
-          <Tabs
-            value={mode}
-            options={[
-              { value: "deposit", label: "Deposit" },
-              { value: "withdraw", label: "Withdraw" },
-            ]}
-            onChange={setMode}
-          />
-        )}
+        <Tabs
+          value={mode}
+          options={
+            canWithdraw
+              ? [
+                  { value: "deposit", label: "Deposit" },
+                  { value: "withdraw", label: "Withdraw" },
+                ]
+              : [
+                  { value: "deposit", label: "Deposit" },
+                  { value: "move", label: "Move from Hyperliquid" },
+                ]
+          }
+          onChange={setMode}
+        />
+        {mode === "move" && <MoveFunds />}
 
         {mode === "deposit" && plan.kind === "faucet" && (
           <div className="flex flex-col gap-2 text-[13px] text-app-muted">

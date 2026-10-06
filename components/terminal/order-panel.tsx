@@ -109,7 +109,7 @@ function useVenueChoices(symbol: string, mint?: string) {
 export function OrderPanel() {
   const { symbol, mint } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
-  const { accounts, placeOrder } = useTrading();
+  const { accounts, placeOrder, openDeposit } = useTrading();
   const funding = useFunding();
   const { address } = useWallet();
   const { open: openWallets } = useWalletModal();
@@ -159,6 +159,13 @@ export function OrderPanel() {
   const baseSize = market && price ? sizeForNotional(sizeUsd, price, market.szDecimals) : 0;
   const liquidation =
     market && price && !cross && !reduceOnly ? estimateLiquidationPrice({ side, entry: price, leverage: lev, maxLeverage }) : null;
+  // Funds on the other perp venues, for the "not enough margin here" hint.
+  const marginNeeded = isPerp && sizeUsd > 0 ? marginRequired(sizeUsd, lev) : 0;
+  const shortHere = market !== null && !reduceOnly && available !== undefined && marginNeeded > available;
+  const fundedElsewhere = shortHere
+    ? perpMarkets.find((other) => other.venue !== market.venue && (accounts[other.venue]?.withdrawable ?? 0) >= marginNeeded)
+    : undefined;
+  const totalAvailable = perpMarkets.reduce((sum, entry) => sum + (accounts[entry.venue]?.withdrawable ?? 0), 0);
   const tpslActive = isPerp && withTpsl && !reduceOnly;
   const tp = tpslActive ? optionalPrice(takeProfit) : undefined;
   const sl = tpslActive ? optionalPrice(stopLoss) : undefined;
@@ -316,7 +323,12 @@ export function OrderPanel() {
           <label className="flex flex-col gap-1 text-[11px] text-app-muted">
             <span className="flex items-center justify-between">
               Size (USD)
-              {available !== undefined && <span>Available {formatPrice(available)}</span>}
+              {available !== undefined && (
+                <span title={perpMarkets.length > 1 ? `All venues ${formatPrice(totalAvailable)}` : undefined}>
+                  Available {formatPrice(available)}
+                  {perpMarkets.length > 1 && totalAvailable > available && <span className="text-app-faint"> · all {formatPrice(totalAvailable)}</span>}
+                </span>
+              )}
             </span>
             <input
               className={inputClass}
@@ -415,6 +427,30 @@ export function OrderPanel() {
               )}
               {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}
             </>
+          )}
+          {shortHere && market && (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-[#f5c97b]/40 bg-[#f5c97b]/10 px-2.5 py-2 text-[12px] text-app-ink">
+              <span>
+                Not enough margin on {PERP_VENUE_NAMES[market.venue]} ({formatPrice(available ?? 0)} available).
+                {fundedElsewhere && ` ${PERP_VENUE_NAMES[fundedElsewhere.venue]} has ${formatPrice(accounts[fundedElsewhere.venue]?.withdrawable ?? 0)}.`}
+              </span>
+              <span className="flex flex-wrap gap-1.5">
+                {fundedElsewhere && (
+                  <button type="button" onClick={() => pickVenue(fundedElsewhere.venue)} className="h-7 rounded-md bg-app-card px-2.5 font-semibold hover:bg-app-chip">
+                    Trade on {PERP_VENUE_NAMES[fundedElsewhere.venue]}
+                  </button>
+                )}
+                {market.venue === "lighter" && fundedElsewhere?.venue === "hyperliquid" ? (
+                  <button type="button" onClick={() => openDeposit("lighter", "move")} className="h-7 rounded-md bg-app-card px-2.5 font-semibold hover:bg-app-chip">
+                    Move funds to Lighter
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => openDeposit(market.venue)} className="h-7 rounded-md bg-app-card px-2.5 font-semibold hover:bg-app-chip">
+                    Deposit to {PERP_VENUE_NAMES[market.venue]}
+                  </button>
+                )}
+              </span>
+            </div>
           )}
           {quotes.length > 1 && (
             <div className="flex flex-col gap-1 rounded-lg border border-app-hairline px-2.5 py-2">

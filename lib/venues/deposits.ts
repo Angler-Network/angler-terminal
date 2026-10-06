@@ -63,3 +63,22 @@ export function depositError(units: bigint | null, balance: bigint | null) {
   if (balance !== null && units > balance) return "Not enough USDC in your wallet on this chain.";
   return null;
 }
+
+/** Hyperliquid's withdrawal fee, taken from the amount. */
+export const HL_WITHDRAW_FEE_USDC = 1;
+
+/**
+ * Moving Hyperliquid → Lighter is a Hyperliquid withdrawal (minus its fee) followed by a Lighter deposit, so the
+ * amount must leave at least the deposit minimum after the fee and fit what Hyperliquid can withdraw.
+ */
+export function moveError(amount: number, withdrawable: number | undefined) {
+  if (!(amount > 0)) return "Enter an amount.";
+  if (amount - HL_WITHDRAW_FEE_USDC < MIN_DEPOSIT_USDC) return `Move at least ${MIN_DEPOSIT_USDC + HL_WITHDRAW_FEE_USDC} USDC (1 USDC withdrawal fee + 5 USDC deposit minimum).`;
+  if (withdrawable !== undefined && amount > withdrawable) return "More than Hyperliquid can withdraw right now.";
+  return null;
+}
+
+/** True once the withdrawal shows up in the wallet (allowing for rounding). */
+export function withdrawalArrived(before: bigint, now: bigint, expected: bigint) {
+  return now - before >= (expected * 99n) / 100n;
+}

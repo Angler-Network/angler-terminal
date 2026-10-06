@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { depositError, depositPlan, usdcUnits } from "./deposits";
+import { depositError, depositPlan, moveError, usdcUnits, withdrawalArrived } from "./deposits";
 
 describe("deposit plans", () => {
   it("bridges on mainnet and points testnets to faucets", () => {
@@ -18,5 +18,18 @@ describe("amounts", () => {
     expect(depositError(usdcUnits("4.99"), null)).toMatch(/minimum/);
     expect(depositError(usdcUnits("10"), 5_000_000n)).toMatch(/Not enough/);
     expect(depositError(usdcUnits("10"), 20_000_000n)).toBeNull();
+  });
+});
+
+describe("moving Hyperliquid to Lighter", () => {
+  it("needs room for the fee and the deposit minimum", () => {
+    expect(moveError(5.5, 100)).toMatch(/at least 6/);
+    expect(moveError(50, 20)).toMatch(/can withdraw/);
+    expect(moveError(20, 50)).toBeNull();
+  });
+
+  it("detects the withdrawal arriving in the wallet", () => {
+    expect(withdrawalArrived(10_000_000n, 28_900_000n, 19_000_000n)).toBe(true);
+    expect(withdrawalArrived(10_000_000n, 15_000_000n, 19_000_000n)).toBe(false);
   });
 });
