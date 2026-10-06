@@ -249,6 +249,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
           <NewsCard
             key={item.id}
             item={item}
+            compact
             onSelectAsset={selectAsset}
             selectedSymbol={symbol}
             isSelected={selectedNewsId === item.id}

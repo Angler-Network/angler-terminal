@@ -13,7 +13,7 @@ import { usePreferences } from "./preferences-provider";
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
     <FitLabel
-      maxSize={13}
+      maxSize={11}
       minSize={10}
       className="[@media(max-height:600px)]:sr-only [html:not([data-frame=off])_&]:[@media(max-height:660px)]:sr-only"
     >
@@ -23,7 +23,7 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 }
 
 function navItemClass(active: boolean) {
-  return `flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-2xl px-1 py-[clamp(0.25rem,1.2vh,0.75rem)] text-[13px] transition-colors ${
+  return `flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-xl px-1 py-[clamp(0.25rem,1vh,0.625rem)] text-[11px] transition-colors ${
     active ? "bg-app-card text-app-ink shadow-[0_2px_8px_rgba(19,35,58,0.08)]" : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
   }`;
 }
@@ -45,10 +45,10 @@ export function Sidebar() {
   const wallets = useWalletModal();
 
   return (
-    <aside className="app-sidebar surface-chrome hidden w-24 shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] md:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
+    <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] md:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
       <Link href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
-        <Image src="/blacklogo.png" alt="Angler" width={36} height={36} priority className="[html[data-tone=dark]_&]:hidden" />
-        <Image src="/whitelogo.png" alt="" aria-hidden width={36} height={36} className="hidden [html[data-tone=dark]_&]:block" />
+        <Image src="/blacklogo.png" alt="Angler" width={30} height={30} priority className="[html[data-tone=dark]_&]:hidden" />
+        <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} className="hidden [html[data-tone=dark]_&]:block" />
       </Link>
 
       <nav aria-label={t("nav.primary")} className="flex flex-col gap-1">

@@ -203,6 +203,8 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. Clicking a ticker
   tape pill calls `focusAsset`: it selects the chart and narrows the feed to that symbol (`newsFocus`, cleared from
   the "Only X" chip). The clickable pill is a terminal-only change to the copied `ticker-pill.tsx`/`ticker-tape.tsx`.
+  The feed renders `news-card.tsx` with a terminal-only `compact` prop (smaller icon, type and padding); the empty
+  positions panel shrinks to its tabs and one line.
 - News filters (`lib/news/filter.ts`, saved as the `newsFilters` preference, edited in settings and from the feed
   header): assets, sentiment (±0.15 is neutral), severity, minimum impact, raw headlines. Raw items have no assets,
   so they are hidden while an asset filter or focus is on. With one asset (focus or a single filter) the feed's REST

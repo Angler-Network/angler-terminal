@@ -10,6 +10,7 @@ import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
 import { PositionsBar } from "./positions-bar";
 import { useSelectedAsset } from "./selected-asset";
+import { useTrading } from "./trading-provider";
 
 type Slot = { column: string; row: string };
 
@@ -28,6 +29,9 @@ export function TerminalShell() {
   const coin = newsFocus ?? (newsFilters.assets.length === 1 ? newsFilters.assets[0] : undefined);
   const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin });
   const hasWallet = useHasWallet();
+  const { account } = useTrading();
+  // An empty portfolio only needs room for its tabs and one line; rows get the full height.
+  const positionsHeight = (account?.positions.length ?? 0) + (account?.orders.length ?? 0) > 0 ? 240 : 132;
   // The chart marks news on candles by item.symbol, so give each matching item the selected symbol.
   const chartItems = useMemo(
     () => feed.items.filter((item) => item.coins?.includes(symbol)).map((item) => ({ ...item, symbol })),
@@ -40,7 +44,7 @@ export function TerminalShell() {
     const columns = ["minmax(0,1fr)"];
     const side = showSide ? columns.push("clamp(280px,20vw,340px)") : 0;
     const news = panels.news ? columns.push("clamp(290px,21vw,380px)") : 0;
-    const rows = panels.positions ? "minmax(0,1fr) 220px" : "minmax(0,1fr)";
+    const rows = panels.positions ? `minmax(0,1fr) ${positionsHeight}px` : "minmax(0,1fr)";
     const allRows = panels.positions ? "1 / 3" : "1 / 2";
     const slot = (column: number | string, row: string): Slot => ({ column: String(column), row });
     return {
@@ -51,7 +55,7 @@ export function TerminalShell() {
       side: slot(side, allRows),
       news: slot(news, allRows),
     };
-  }, [panels.news, panels.positions, showSide]);
+  }, [panels.news, panels.positions, showSide, positionsHeight]);
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
   const placed = "min-h-0 lg:[grid-column:var(--col)] lg:[grid-row:var(--row)] lg:h-auto";
@@ -81,7 +85,7 @@ export function TerminalShell() {
           </div>
         )}
         {panels.positions && (
-          <div style={place(layout.positions)} className={`h-[220px] ${placed}`}>
+          <div style={{ ...place(layout.positions), height: positionsHeight }} className={placed}>
             <PositionsBar />
           </div>
         )}

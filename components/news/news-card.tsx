@@ -24,6 +24,8 @@ interface NewsCardProps {
   /** Briefly highlights a high-impact arrival. */
   isFlashing?: boolean;
   onSelect?: () => void;
+  /** Terminal addition: tighter card for the narrow feed column next to the trading panels. */
+  compact?: boolean;
 }
 
 const accent: Record<Severity, string> = {
@@ -121,15 +123,17 @@ function useFavicon(domain?: string) {
   return { src, onError: () => setFailed(domain ?? null) };
 }
 
-function SourceIcon({ source, domain }: { source?: string; domain?: string }) {
+function SourceIcon({ source, domain, compact }: { source?: string; domain?: string; compact?: boolean }) {
   const favicon = useFavicon(domain);
   return (
     <span
       aria-hidden
-      className="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-app-hairline-strong bg-app-chip text-[13px] font-semibold uppercase text-app-muted"
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden border border-app-hairline-strong bg-app-chip font-semibold uppercase text-app-muted ${
+        compact ? "size-6 rounded-md text-[11px]" : "size-8 rounded-lg text-[13px]"
+      }`}
     >
       {favicon.src ? (
-        <img src={favicon.src} alt="" width={18} height={18} loading="lazy" onError={favicon.onError} className="size-[18px] object-contain" />
+        <img src={favicon.src} alt="" width={18} height={18} loading="lazy" onError={favicon.onError} className={`object-contain ${compact ? "size-3.5" : "size-[18px]"}`} />
       ) : (
         (source?.charAt(0) ?? "•")
       )}
@@ -143,7 +147,7 @@ function SourceFavicon({ domain }: { domain?: string }) {
   return <img src={favicon.src} alt="" width={12} height={12} loading="lazy" onError={favicon.onError} className="size-3 shrink-0 rounded-[2px] object-contain" />;
 }
 
-export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isSelected, isFlashing, onSelect }: NewsCardProps) {
+export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isSelected, isFlashing, onSelect, compact }: NewsCardProps) {
   const t = useT();
   const chips = chipsFor(item);
   const trade = chips.length > 0 && renderTrade ? renderTrade(chips.slice(0, 3).map((chip) => ({ ...chip, mint: item.mints?.[chip.symbol] }))) : null;
@@ -154,13 +158,19 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
     <article
       onClick={onSelect}
       aria-current={isSelected || undefined}
-      className={`group relative -mx-3 flex cursor-default gap-3 border-b border-app-hairline px-3 py-[var(--news-padding)] transition-colors last:border-b-0 hover:bg-app-chip/25 ${
+      className={`group relative -mx-3 flex cursor-default border-b border-app-hairline px-3 transition-colors ${
+        compact ? "gap-2.5 py-[min(var(--news-padding),10px)]" : "gap-3 py-[var(--news-padding)]"
+      } last:border-b-0 hover:bg-app-chip/25 ${
         isSelected ? "bg-app-chip/45" : ""
       } ${isFlashing ? "news-flash" : ""}`}
     >
       <span aria-hidden className={`absolute inset-y-2 left-0 w-[3px] rounded-r ${isSelected ? "bg-app-accent" : accent[item.severity]}`} />
 
-      {chips.length > 0 ? <MarketIcon symbol={item.symbol} size={32} /> : <SourceIcon source={source} domain={item.sourceDomain} />}
+      {chips.length > 0 ? (
+        <MarketIcon symbol={item.symbol} size={compact ? 24 : 32} />
+      ) : (
+        <SourceIcon source={source} domain={item.sourceDomain} compact={compact} />
+      )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[11px] text-app-muted">
@@ -189,7 +199,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
           </time>
         </div>
 
-        <h3 className="mt-1 text-[14px] font-semibold leading-snug text-app-ink">
+        <h3 className={`mt-1 font-semibold leading-snug text-app-ink ${compact ? "text-[13px]" : "text-[14px]"}`}>
           {item.url ? (
             <a
               href={item.url}
@@ -206,9 +216,9 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
           )}
         </h3>
 
-        {item.summary && <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-app-muted">{item.summary}</p>}
+        {item.summary && <p className={`mt-1 line-clamp-2 leading-snug text-app-muted ${compact ? "text-[11.5px]" : "text-[12px]"}`}>{item.summary}</p>}
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <div className={`${compact ? "mt-1.5" : "mt-2"} flex flex-wrap items-center gap-x-2 gap-y-1.5`}>
           {!trade && chips.map((chip) => (
             <span key={chip.symbol} className="inline-flex items-center gap-1">
               <button
