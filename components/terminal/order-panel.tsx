@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -461,15 +461,6 @@ export function OrderPanel() {
       ) : (
         <>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => (address ? openDeposit("lighter", "move") : openWallets())}
-              title="Move USDC between venues (Hyperliquid → Lighter)"
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-chip"
-            >
-              <ArrowLeftRight className="size-3.5" aria-hidden />
-              Move funds
-            </button>
             <div className="min-w-0 flex-1">
               <Segmented
                 label="Market type"

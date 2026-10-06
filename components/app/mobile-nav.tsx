@@ -1,10 +1,12 @@
 "use client";
 
-import { BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { useMobileView, type MobileView } from "./mobile-view";
 import { usePreferences } from "./preferences-provider";
 
@@ -30,6 +32,8 @@ export function MobileNav() {
   const { view, setView } = useMobileView();
   const { openSettings } = usePreferences();
   const wallets = useWalletModal();
+  const { address } = useWallet();
+  const { openDeposit, openProOrder } = useTrading();
   const [menuOpen, setMenuOpen] = useState(false);
   const onTerminal = pathname === "/";
 
@@ -83,6 +87,29 @@ export function MobileNav() {
               <ChartPie className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Full portfolio
             </Link>
+            <button
+              type="button"
+              className={`${sheetItem} w-full text-[#f5c97b]`}
+              onClick={() => {
+                setMenuOpen(false);
+                openProOrder();
+              }}
+            >
+              <Layers className="size-5" strokeWidth={1.75} aria-hidden />
+              Pro order
+            </button>
+            <button
+              type="button"
+              className={`${sheetItem} w-full`}
+              onClick={() => {
+                setMenuOpen(false);
+                if (address) openDeposit("lighter", "move");
+                else wallets.open();
+              }}
+            >
+              <ArrowLeftRight className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              Bridge
+            </button>
             <button
               type="button"
               className={`${sheetItem} w-full`}

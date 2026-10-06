@@ -1,9 +1,11 @@
 "use client";
 
-import { BarChart3, CandlestickChart, ChartPie, Newspaper, Settings, Wallet } from "lucide-react";
+import { ArrowLeftRight, BarChart3, CandlestickChart, ChartPie, Layers, Newspaper, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
 import { usePreferences } from "./preferences-provider";
 
@@ -20,6 +22,8 @@ export function TopNav() {
   const pathname = usePathname();
   const { isSettingsOpen, openSettings } = usePreferences();
   const wallets = useWalletModal();
+  const { address } = useWallet();
+  const { openDeposit, openProOrder } = useTrading();
   return (
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
       <Link href="/" title="Terminal" aria-current={pathname === "/" ? "page" : undefined} className={itemClass(pathname === "/")}>
@@ -39,6 +43,19 @@ export function TopNav() {
         <Newspaper className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>News</span>
       </a>
+      <button
+        type="button"
+        title="Pro order: multi and hedge orders across venues"
+        onClick={openProOrder}
+        className={`${itemClass(false)} text-[#f5c97b] hover:bg-[#f5c97b]/10 hover:text-[#f5c97b]`}
+      >
+        <Layers className="size-[18px]" strokeWidth={1.75} aria-hidden />
+        <span className={label}>Pro order</span>
+      </button>
+      <button type="button" title="Bridge" onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} className={itemClass(false)}>
+        <ArrowLeftRight className="size-[18px]" strokeWidth={1.75} aria-hidden />
+        <span className={label}>Bridge</span>
+      </button>
       <button type="button" title="Wallets" onClick={wallets.open} className={itemClass(wallets.isOpen)}>
         <Wallet className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Wallets</span>

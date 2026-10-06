@@ -87,6 +87,10 @@ interface TradingContextValue {
   depositMode: FundsMode;
   openDeposit: (venue: PerpVenueId, mode?: FundsMode) => void;
   closeDeposit: () => void;
+  /** Pro order window (multi and hedge orders across venues). */
+  isProOrderOpen: boolean;
+  openProOrder: () => void;
+  closeProOrder: () => void;
   withdrawHyperliquid: (amount: string) => Promise<boolean>;
 }
 
@@ -142,6 +146,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     setDepositMode(mode);
   }, []);
   const closeDeposit = useCallback(() => setDepositVenue(null), []);
+  const [isProOrderOpen, setProOrderOpen] = useState(false);
+  const openProOrder = useCallback(() => setProOrderOpen(true), []);
+  const closeProOrder = useCallback(() => setProOrderOpen(false), []);
 
   const fail = useCallback(
     (venue: PerpVenueId, title: string, error: unknown) => toast({ tone: "error", title, message: venueError(venue, error).message }),
@@ -462,6 +469,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       depositMode,
       openDeposit,
       closeDeposit,
+      isProOrderOpen,
+      openProOrder,
+      closeProOrder,
       withdrawHyperliquid,
     }),
     [
@@ -491,6 +501,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       depositMode,
       openDeposit,
       closeDeposit,
+      isProOrderOpen,
+      openProOrder,
+      closeProOrder,
       withdrawHyperliquid,
     ],
   );

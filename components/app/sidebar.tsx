@@ -1,10 +1,12 @@
 "use client";
 
-import { BarChart3, CandlestickChart, ChartPie, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, CandlestickChart, ChartPie, Layers, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
@@ -43,6 +45,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isSettingsOpen, openSettings } = usePreferences();
   const wallets = useWalletModal();
+  const { address } = useWallet();
+  const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
 
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
@@ -72,6 +76,19 @@ export function Sidebar() {
       </nav>
 
       <nav aria-label={t("nav.secondary")} className="mt-auto flex flex-col gap-1 pt-[clamp(0.5rem,2vh,1rem)]">
+        {/* Pro order stands out in yellow: multi and hedge orders across venues. */}
+        <button
+          type="button"
+          onClick={openProOrder}
+          title="Pro order: multi and hedge orders across venues"
+          aria-haspopup="dialog"
+          aria-expanded={isProOrderOpen}
+          className={`${navItemClass(false)} text-[#f5c97b] hover:text-[#f5c97b] ${isProOrderOpen ? "bg-[#f5c97b]/15" : "hover:bg-[#f5c97b]/10"}`}
+        >
+          <Layers className="size-5" strokeWidth={1.75} aria-hidden />
+          <NavLabel>Pro order</NavLabel>
+        </button>
+        <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
         <NavButton label="Wallets" icon={Wallet} active={wallets.isOpen} onClick={wallets.open} />
         <NavButton label={t("nav.settings")} icon={Settings} active={isSettingsOpen} onClick={() => openSettings()} />
       </nav>

@@ -199,6 +199,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     Move (Lighter tab, mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
     (`withdrawalArrived`) → deposit to the Lighter intent address. The order panel shows total buying power and, when
     the chosen venue lacks margin, offers to trade on a funded venue, move funds or deposit (`openDeposit(venue, mode)`).
+  - Pro order (`pro-order-dialog.tsx`, yellow "Pro order" in the sidebar/top bar/mobile menu; logic in
+    `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
+    coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm
+    press; partial results are reported. "Bridge" next to it opens the funds window on the HL → Lighter move.
+    The order panel starts with a Perp | Spot switch (venues of that kind only; a kind the asset lacks is disabled).
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
     (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
     other's ask; trades merged with venue dots). `useBestExecution` also returns `splitExecution` (cheapest levels of
