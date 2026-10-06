@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { trackTrade } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
@@ -17,9 +18,10 @@ import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { fundingApr } from "@/lib/trading/funding";
+import { hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { useArcusToken } from "./use-arcus-token";
-import { useBestExecution } from "./use-best-execution";
+import { takerFeeFor, useBestExecution } from "./use-best-execution";
 import { useFunding } from "./use-funding";
 import { useNewsTrader } from "./use-news-trader";
 import { useSpotToken } from "./use-spot-token";
@@ -33,9 +35,6 @@ type VenueChoice =
 
 const ARM_MS = 5_000;
 const PERCENTS = [25, 50, 75, 100];
-
-const inputClass =
-  "h-9 w-full min-w-0 rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-none focus:border-app-ink";
 
 function Segmented<T extends string>({
   label,
@@ -60,7 +59,7 @@ function Segmented<T extends string>({
           disabled={disabled}
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 flex-1 rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
+          className={`h-7 flex-1 whitespace-nowrap rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
             value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
           }`}
         >
@@ -76,6 +75,144 @@ function Summary({ label, children, title }: { label: string; children: React.Re
     <div className="flex items-center justify-between text-[12px]" title={title}>
       <span className="text-app-muted">{label}</span>
       <span className="tabular-nums text-app-ink">{children}</span>
+    </div>
+  );
+}
+
+const fieldInput = "h-full min-w-0 flex-1 bg-transparent text-right text-[13px] tabular-nums text-app-ink outline-none placeholder:text-app-faint";
+
+/** An input row with its label inside, like the venues' own order forms. */
+function FieldBox({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex h-10 items-center gap-2 rounded-lg border border-app-field-border bg-app-field px-3 focus-within:border-app-ink">
+      <span className="shrink-0 text-[12px] text-app-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** Share of the available margin (× leverage) to use, with stops at every quarter. */
+function PercentSlider({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (percent: number) => void }) {
+  return (
+    <div className={`flex items-center gap-2 ${disabled ? "opacity-50" : ""}`}>
+      <div className="relative flex-1 pb-3.5">
+        <input
+          type="range"
+          aria-label="Percent of available"
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="relative z-10 w-full accent-[rgb(var(--app-accent))]"
+        />
+        <div className="absolute inset-x-0 bottom-0 flex justify-between px-0.5 text-[9px] tabular-nums text-app-faint">
+          {[0, ...PERCENTS].map((stop) => (
+            <button key={stop} type="button" disabled={disabled} onClick={() => onChange(stop)} className="hover:text-app-ink">
+              {stop}%
+            </button>
+          ))}
+        </div>
+      </div>
+      <span className="w-11 shrink-0 rounded-md border border-app-hairline py-1 text-center text-[11px] tabular-nums text-app-muted">{value}%</span>
+    </div>
+  );
+}
+
+/** Leverage and margin mode behind one compact button, like the venues' own forms. */
+function LeverageControl({
+  leverage,
+  maxLeverage,
+  cross,
+  crossAllowed,
+  onLeverage,
+  onCross,
+}: {
+  leverage: number;
+  maxLeverage: number;
+  cross: boolean;
+  crossAllowed: boolean;
+  onLeverage: (value: number) => void;
+  onCross: (value: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  const presets = [1, 2, 5, 10, 20, 50].filter((value) => value < maxLeverage).concat(maxLeverage);
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-8 w-full items-center justify-between rounded-lg bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-chip/70"
+      >
+        <span>
+          {leverage}x <span className="font-medium text-app-muted">· {cross ? "Cross" : "Isolated"}</span>
+        </span>
+        <ChevronDown className={`size-3.5 text-app-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Leverage"
+          className="surface-menu absolute left-0 top-10 z-30 flex w-[250px] flex-col gap-3 rounded-xl border border-app-hairline-strong bg-app-card p-3 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
+        >
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="text-app-muted">Leverage</span>
+            <span className="font-semibold tabular-nums text-app-ink">{leverage}x</span>
+          </div>
+          <input
+            type="range"
+            aria-label="Leverage"
+            min={1}
+            max={maxLeverage}
+            step={1}
+            value={leverage}
+            onChange={(event) => onLeverage(Number(event.target.value))}
+            className="w-full accent-[rgb(var(--app-accent))]"
+          />
+          <div className="grid grid-cols-6 gap-1">
+            {presets.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={leverage === value}
+                onClick={() => onLeverage(value)}
+                className={`h-6 rounded-md text-[11px] font-semibold tabular-nums ${
+                  leverage === value ? "bg-app-ink text-app-card" : "bg-app-chip text-app-muted hover:text-app-ink"
+                }`}
+              >
+                {value}x
+              </button>
+            ))}
+          </div>
+          <Segmented
+            label="Margin mode"
+            value={cross ? "cross" : "isolated"}
+            disabled={!crossAllowed}
+            options={[
+              { value: "cross", label: "Cross", title: crossAllowed ? "Margin shared across positions" : "This market is isolated only" },
+              { value: "isolated", label: "Isolated", title: "Margin kept per position" },
+            ]}
+            onChange={(value) => onCross(value === "cross")}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -245,146 +382,129 @@ export function OrderPanel() {
       : armed
         ? `Confirm ${verb.toLowerCase()}`
         : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
+  const venueQuote = market ? quotes.find((quote) => quote.venue === market.venue) : undefined;
+  const entryPx = orderKind === "market" ? (venueQuote?.avgPx ?? mid) : price;
+  const slippage = orderKind === "market" && venueQuote && mid ? slippagePct(side, mid, venueQuote.avgPx) : undefined;
+  const feeUsd = market && sizeUsd > 0 ? (venueQuote?.feeUsd ?? sizeUsd * takerFeeFor(market)) : undefined;
+  const percent = available && available > 0 && sizeUsd > 0 ? Math.min(100, Math.round((sizeUsd / (available * lev)) * 100)) : 0;
 
   return (
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
-      <header className="flex items-center gap-2">
-        <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-app-muted">Trade {symbol}</h3>
-        {choice && (
-          <span className="ml-auto rounded bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">
-            {choice.network}
-          </span>
-        )}
-      </header>
       {choices.length === 0 ? (
-        <p className="text-[12px] text-app-faint">{isLoading ? "Loading markets…" : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}</p>
+        <>
+          <h3 className="text-[12px] font-semibold text-app-ink">Trade {symbol}</h3>
+          <p className="text-[12px] text-app-faint">{isLoading ? "Loading markets…" : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}</p>
+        </>
       ) : (
         <>
-          {choices.length > 1 && (
-            <Segmented
-              label="Venue"
-              value={choice!.id}
-              options={choices.map((entry) => ({ value: entry.id, label: entry.name, title: entry.kind === "perp" ? "Perpetual" : "Spot" }))}
-              onChange={pickVenue}
-            />
-          )}
-          {isPerp && fundingRate !== undefined && (
-            <p className="-mt-1 text-[11px] text-app-faint" title="Mainnet funding, 8-hour rate annualized. Positive: longs pay shorts.">
-              Funding on {PERP_VENUE_NAMES[market.venue]}{" "}
-              <span className={fundingRate >= 0 ? "text-app-up" : "text-app-down"}>
-                {fundingApr(fundingRate) >= 0 ? "+" : ""}
-                {fundingApr(fundingRate).toFixed(2)}% APR
-              </span>
-            </p>
-          )}
-          {isPerp && (
-            <Segmented
-              label="Order type"
-              value={kind}
-              options={[
-                { value: "market", label: "Market" },
-                { value: "limit", label: "Limit" },
-              ]}
-              onChange={setKind}
-            />
-          )}
-          <div role="group" aria-label="Side" className="grid grid-cols-2 gap-1">
+          <div role="group" aria-label="Side" className="grid grid-cols-2 gap-0.5 rounded-lg bg-app-chip p-0.5">
             {(["buy", "sell"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 aria-pressed={side === value}
                 onClick={() => setSide(value)}
-                className={`h-9 rounded-lg border text-[13px] font-semibold transition-colors ${
+                className={`h-8 rounded-md text-[13px] font-semibold transition-colors ${
                   side === value
                     ? value === "buy"
-                      ? "border-app-up/60 bg-app-up/15 text-app-up"
-                      : "border-app-down/60 bg-app-down/15 text-app-down"
-                    : "border-app-hairline text-app-muted hover:text-app-ink"
+                      ? "bg-app-up/20 text-app-up"
+                      : "bg-app-down/20 text-app-down"
+                    : "text-app-muted hover:text-app-ink"
                 }`}
               >
                 {sideLabel(isPerp ? "perp" : "spot", value)}
               </button>
             ))}
           </div>
-          {orderKind === "limit" && (
-            <label className="flex flex-col gap-1 text-[11px] text-app-muted">
-              <span className="flex items-center justify-between">
-                Limit price
-                {mid && (
-                  <button type="button" onClick={() => setLimitPx(String(mid))} className="font-semibold text-app-ink hover:underline">
-                    Mid {formatPrice(mid)}
-                  </button>
-                )}
-              </span>
-              <input className={inputClass} inputMode="decimal" value={limitPx} onChange={(event) => setLimitPx(event.target.value.replace(/[^0-9.]/g, ""))} />
-            </label>
-          )}
-          <label className="flex flex-col gap-1 text-[11px] text-app-muted">
-            <span className="flex items-center justify-between">
-              Size (USD)
-              {available !== undefined && (
-                <span title={perpMarkets.length > 1 ? `All venues ${formatPrice(totalAvailable)}` : undefined}>
-                  Available {formatPrice(available)}
-                  {perpMarkets.length > 1 && totalAvailable > available && <span className="text-app-faint"> · all {formatPrice(totalAvailable)}</span>}
-                </span>
-              )}
+          <div className="flex items-center gap-2">
+            {choices.length > 1 ? (
+              <div className="min-w-0 flex-1">
+                <Segmented
+                  label="Venue"
+                  value={choice!.id}
+                  options={choices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
+                  onChange={pickVenue}
+                />
+              </div>
+            ) : (
+              <span className="flex-1 text-[12px] font-semibold text-app-ink">{choice!.name}</span>
+            )}
+            <span
+              title={choice!.kind === "perp" ? "Perpetual" : "Spot"}
+              className={`shrink-0 rounded px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.08em] ${
+                choice!.network === "mainnet" ? "bg-app-chip text-app-muted" : "bg-[#f5c97b]/15 text-[#f5c97b]"
+              }`}
+            >
+              {choice!.network}
             </span>
+          </div>
+          {isPerp && (
+            <div className="grid grid-cols-2 gap-2">
+              <LeverageControl
+                leverage={lev}
+                maxLeverage={maxLeverage}
+                cross={cross}
+                crossAllowed={crossAllowed}
+                onLeverage={setLeverage}
+                onCross={setIsCross}
+              />
+              <Segmented
+                label="Order type"
+                value={kind}
+                options={[
+                  { value: "market", label: "Market" },
+                  { value: "limit", label: "Limit" },
+                ]}
+                onChange={setKind}
+              />
+            </div>
+          )}
+          {orderKind === "limit" && (
+            <FieldBox label="Price">
+              <input
+                aria-label="Limit price"
+                className={fieldInput}
+                inputMode="decimal"
+                value={limitPx}
+                onChange={(event) => setLimitPx(event.target.value.replace(/[^0-9.]/g, ""))}
+              />
+              {mid && (
+                <button type="button" onClick={() => setLimitPx(String(mid))} className="shrink-0 text-[11px] font-semibold text-app-accent hover:underline">
+                  Mid
+                </button>
+              )}
+            </FieldBox>
+          )}
+          <FieldBox label="Size">
             <input
-              className={inputClass}
+              aria-label="Size in USD"
+              className={fieldInput}
               inputMode="decimal"
-              placeholder={isPerp ? "Order value" : "Amount"}
+              placeholder="0"
               value={size}
               onChange={(event) => setSize(event.target.value.replace(/[^0-9.]/g, ""))}
             />
-          </label>
-          {available !== undefined && available > 0 && (
-            <div className="grid grid-cols-4 gap-1">
-              {PERCENTS.map((percent) => (
-                <button
-                  key={percent}
-                  type="button"
-                  onClick={() => setSize(String(sizeFromPercent(available, lev, percent)))}
-                  className="h-7 rounded-md border border-app-hairline text-[11px] font-semibold text-app-muted transition-colors hover:bg-app-chip hover:text-app-ink"
-                >
-                  {percent}%
-                </button>
-              ))}
-            </div>
+            <span className="shrink-0 text-[12px] font-semibold text-app-ink">USD</span>
+          </FieldBox>
+          <PercentSlider
+            value={percent}
+            disabled={!available || available <= 0}
+            onChange={(next) => setSize(next > 0 && available ? String(sizeFromPercent(available, lev, next)) : "")}
+          />
+          {(available !== undefined || !isPerp) && (
+            <Summary label="Available to trade" title={perpMarkets.length > 1 ? `All perp venues ${formatPrice(totalAvailable)}` : undefined}>
+              {available !== undefined ? formatPrice(available) : "—"}
+              {perpMarkets.length > 1 && totalAvailable > (available ?? 0) && <span className="text-app-faint"> · all {formatPrice(totalAvailable)}</span>}
+            </Summary>
           )}
           {isPerp && (
             <>
-              <label className="flex flex-col gap-1 text-[11px] text-app-muted">
-                <span className="flex items-center justify-between">
-                  Leverage
-                  <span className="font-semibold tabular-nums text-app-ink">{lev}x</span>
-                </span>
-                <input
-                  type="range"
-                  min={1}
-                  max={maxLeverage}
-                  step={1}
-                  value={lev}
-                  onChange={(event) => setLeverage(Number(event.target.value))}
-                  className="w-full accent-[rgb(var(--app-accent))]"
-                />
-              </label>
-              <Segmented
-                label="Margin mode"
-                value={cross ? "cross" : "isolated"}
-                disabled={!crossAllowed}
-                options={[
-                  { value: "cross", label: "Cross", title: crossAllowed ? "Margin shared across positions" : "This market is isolated only" },
-                  { value: "isolated", label: "Isolated", title: "Margin kept per position" },
-                ]}
-                onChange={(value) => setIsCross(value === "cross")}
-              />
               <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-[12px] text-app-muted">
+                <label className="flex items-center gap-2 whitespace-nowrap text-[12px] text-app-muted">
                   <input type="checkbox" checked={reduceOnly} onChange={(event) => setReduceOnly(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
                   Reduce only
                 </label>
-                <label className={`flex items-center gap-2 text-[12px] ${reduceOnly ? "text-app-faint" : "text-app-muted"}`}>
+                <label className={`flex items-center gap-2 whitespace-nowrap text-[12px] ${reduceOnly ? "text-app-faint" : "text-app-muted"}`}>
                   <input
                     type="checkbox"
                     checked={withTpsl}
@@ -399,28 +519,30 @@ export function OrderPanel() {
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
-                      { label: "Take profit", value: takeProfit, set: setTakeProfit, level: tp },
-                      { label: "Stop loss", value: stopLoss, set: setStopLoss, level: sl },
+                      { label: "TP price", value: takeProfit, set: setTakeProfit, level: tp },
+                      { label: "SL price", value: stopLoss, set: setStopLoss, level: sl },
                     ] as const
                   ).map((field) => {
                     const valid = field.level !== undefined && Number.isFinite(field.level) && price;
                     const pnl = valid ? pnlAt(side, price!, field.level!, baseSize) : null;
                     return (
-                      <label key={field.label} className="flex flex-col gap-1 text-[11px] text-app-muted">
-                        {field.label}
-                        <input
-                          className={inputClass}
-                          inputMode="decimal"
-                          placeholder="Price"
-                          value={field.value}
-                          onChange={(event) => field.set(event.target.value.replace(/[^0-9.]/g, ""))}
-                        />
-                        <span className={`h-3.5 tabular-nums ${pnl === null ? "" : pnl >= 0 ? "text-app-up" : "text-app-down"}`}>
+                      <div key={field.label} className="flex flex-col gap-1">
+                        <FieldBox label={field.label.slice(0, 2)}>
+                          <input
+                            aria-label={field.label}
+                            className={fieldInput}
+                            inputMode="decimal"
+                            placeholder="Price"
+                            value={field.value}
+                            onChange={(event) => field.set(event.target.value.replace(/[^0-9.]/g, ""))}
+                          />
+                        </FieldBox>
+                        <span className={`h-3.5 text-[11px] tabular-nums ${pnl === null ? "" : pnl >= 0 ? "text-app-up" : "text-app-down"}`}>
                           {valid && pnl !== null
                             ? `${percentFrom(price!, field.level!) >= 0 ? "+" : ""}${percentFrom(price!, field.level!).toFixed(2)}% · ${pnl >= 0 ? "+" : "-"}${formatPrice(Math.abs(pnl))}`
                             : ""}
                         </span>
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
@@ -453,9 +575,9 @@ export function OrderPanel() {
             </div>
           )}
           {quotes.length > 1 && (
-            <div className="flex flex-col gap-1 rounded-lg border border-app-hairline px-2.5 py-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold uppercase tracking-[0.06em] text-app-muted">Best price</span>
+            <div className="flex flex-col gap-0.5 rounded-lg border border-app-hairline p-1.5">
+              <div className="flex items-center justify-between px-1 text-[11px]">
+                <span className="font-medium text-app-muted">Best price</span>
                 <label className="flex items-center gap-1.5 text-app-muted" title="Send market orders to the venue with the best estimated fill after fees">
                   <input
                     type="checkbox"
@@ -472,30 +594,21 @@ export function OrderPanel() {
                   type="button"
                   onClick={() => pickVenue(quote.venue)}
                   aria-pressed={choice?.id === quote.venue}
-                  className={`flex items-center justify-between rounded-md px-1.5 py-1 text-[12px] tabular-nums transition-colors hover:bg-app-chip ${
+                  className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md px-1 py-0.5 text-[11px] tabular-nums transition-colors hover:bg-app-chip ${
                     choice?.id === quote.venue ? "bg-app-chip" : ""
                   }`}
                   title={`Avg. fill ${formatPrice(quote.avgPx)} + fees ${formatPrice(quote.feeUsd)}${quote.complete ? "" : " (book too thin for the whole size)"}`}
                 >
-                  <span className="font-semibold text-app-ink">{PERP_VENUE_NAMES[quote.venue]}</span>
+                  <span className="text-left font-semibold text-app-ink">{PERP_VENUE_NAMES[quote.venue]}</span>
                   <span className="text-app-muted">
                     {formatPrice(quote.avgPx)}
                     {!quote.complete && " · thin"}
                   </span>
-                  <span className={index === 0 ? "font-semibold text-app-up" : "text-app-down"}>
+                  <span className={`w-14 text-right ${index === 0 ? "font-semibold text-app-up" : "text-app-down"}`}>
                     {index === 0 ? "Best" : `+${formatPrice(quote.costVsBestUsd)}`}
                   </span>
                 </button>
               ))}
-            </div>
-          )}
-          {isPerp && sizeUsd > 0 && (
-            <div className="flex flex-col gap-1 rounded-lg bg-app-chip/50 px-2.5 py-2">
-              <Summary label="Order value">{formatPrice(sizeUsd)}</Summary>
-              <Summary label="Margin required">{formatPrice(marginRequired(sizeUsd, lev))}</Summary>
-              <Summary label="Est. liquidation" title={cross ? "Cross margin: depends on the whole account" : "Estimate for an isolated position"}>
-                {cross ? "Account-wide" : liquidation ? formatPrice(liquidation) : "—"}
-              </Summary>
             </div>
           )}
           {choice?.id === "jupiter" && <p className="text-[11px] text-app-faint">Jupiter swaps are on Solana mainnet with real funds.</p>}
@@ -509,11 +622,40 @@ export function OrderPanel() {
             disabled={(address || choice?.id === "jupiter" ? !isValid : false) || isPlacing}
             onClick={() => void submit()}
             className={`h-10 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-50 ${
-              isBuy(side) ? "bg-app-up/90 text-black hover:bg-app-up" : "bg-app-down/90 text-white hover:bg-app-down"
+              !address && choice?.id !== "jupiter"
+                ? "bg-app-accent text-app-on-accent hover:opacity-90"
+                : isBuy(side)
+                  ? "bg-app-up/90 text-black hover:bg-app-up"
+                  : "bg-app-down/90 text-white hover:bg-app-down"
             } ${armed ? "ring-2 ring-app-ink ring-offset-1 ring-offset-transparent" : ""}`}
           >
             {buttonText}
           </button>
+          {isPerp && (
+            <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">
+              <Summary label={orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>
+              {orderKind === "market" && (
+                <Summary label="Est. slippage" title="Average fill from the live order book vs the mid price">
+                  {slippage === undefined ? "—" : `${slippage.toFixed(3)}%`}
+                </Summary>
+              )}
+              <Summary label="Fees" title="Taker fee incl. builder / integrator fee">
+                {feeUsd === undefined ? "—" : formatPrice(feeUsd)}
+              </Summary>
+              <Summary label="Margin required">{sizeUsd > 0 ? formatPrice(marginRequired(sizeUsd, lev)) : "—"}</Summary>
+              <Summary label="Est. liquidation" title={cross ? "Cross margin: depends on the whole account" : "Estimate for an isolated position"}>
+                {sizeUsd > 0 ? (cross ? "Account-wide" : liquidation ? formatPrice(liquidation) : "—") : "—"}
+              </Summary>
+              <Summary
+                label="Funding (1h)"
+                title={fundingRate === undefined ? undefined : `Mainnet funding, ${fundingApr(fundingRate).toFixed(2)}% APR. Positive: longs pay shorts.`}
+              >
+                <span className={fundingRate === undefined ? "" : fundingRate >= 0 ? "text-app-up" : "text-app-down"}>
+                  {fundingRate === undefined ? "—" : signedPercent(hourlyFundingPct(fundingRate), 4)}
+                </span>
+              </Summary>
+            </div>
+          )}
         </>
       )}
     </section>

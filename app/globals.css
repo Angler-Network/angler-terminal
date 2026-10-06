@@ -426,3 +426,11 @@ html[data-scrollbars="hidden"] .scrollbar-subtle::-webkit-scrollbar {
     background-color: rgb(var(--app-accent) / 0.12);
   }
 }
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

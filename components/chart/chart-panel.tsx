@@ -7,6 +7,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useMarketList } from "@/components/app/use-market-list";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
+import { MarketStats } from "@/components/terminal/market-stats";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useT } from "@/lib/i18n/client";
 import { formatPercent, formatPrice } from "@/lib/format";
@@ -122,7 +123,7 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
 
   return (
     <section aria-label={t("chart.title")} className={panelClass}>
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-app-hairline px-3 py-2">
+      <header className="flex shrink-0 items-center gap-3 border-b border-app-hairline px-3 py-2">
         <SearchableSelect
           compact
           className="w-[150px]"
@@ -148,14 +149,15 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
           emptyMessage={t("settings.tapeNoMatch")}
         />
         {quote && (
-          <div className="flex items-baseline gap-2 tabular-nums">
-            <span className="text-[15px] font-semibold text-app-ink">{formatPrice(quote.price)}</span>
-            <span className={`text-[13px] font-medium ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
+          <div className="flex shrink-0 flex-col gap-0.5 tabular-nums">
+            <span className="text-[16px] font-semibold leading-none text-app-ink">{formatPrice(quote.price)}</span>
+            <span className={`text-[11px] font-medium leading-none ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
               {quote.changePct >= 0 ? "+" : "-"}
               {formatPercent(quote.changePct)}
             </span>
           </div>
         )}
+        <MarketStats market={venueMarket ?? null} />
         {!isTradingView && <IntervalPicker />}
       </header>
       {isStock === undefined || venueMarket === undefined ? (

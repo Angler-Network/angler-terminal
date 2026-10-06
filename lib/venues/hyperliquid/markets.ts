@@ -8,6 +8,8 @@ export interface PerpMetaLike {
 export interface AssetCtxLike {
   markPx?: string | null;
   midPx?: string | null;
+  dayNtlVlm?: string | null;
+  openInterest?: string | null;
 }
 
 /** `perpDexs` returns null for the main dex at index 0, then builder-deployed (HIP-3) dexs. */
@@ -40,6 +42,16 @@ function toNumber(value: string | null | undefined) {
   return value != null && Number.isFinite(number) && number > 0 ? number : undefined;
 }
 
+/** 24h notional volume and open interest (base units × mark) from an asset context. */
+export function dayStats(ctx: AssetCtxLike | undefined) {
+  const mark = toNumber(ctx?.markPx);
+  const openInterest = toNumber(ctx?.openInterest);
+  return {
+    volume24hUsd: toNumber(ctx?.dayNtlVlm),
+    openInterestUsd: mark && openInterest ? mark * openInterest : undefined,
+  };
+}
+
 /** Builds markets for one perp dex from its meta (and optional asset contexts, same order as the universe). */
 export function marketsFromMeta(dexIndex: number, dexName: string, meta: PerpMetaLike, ctxs: AssetCtxLike[] = []) {
   return meta.universe.flatMap((asset, index): VenueMarket[] => {
@@ -59,6 +71,7 @@ export function marketsFromMeta(dexIndex: number, dexName: string, meta: PerpMet
         onlyIsolated: Boolean(asset.onlyIsolated),
         markPx: toNumber(ctxs[index]?.markPx),
         midPx: toNumber(ctxs[index]?.midPx),
+        ...dayStats(ctxs[index]),
       },
     ];
   });

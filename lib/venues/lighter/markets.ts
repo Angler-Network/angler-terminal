@@ -16,6 +16,9 @@ export interface OrderBookDetailLike {
   last_trade_price?: string | number;
   /** Percent, e.g. "0.0200". */
   taker_fee?: string;
+  daily_quote_token_volume?: number;
+  /** Base units. */
+  open_interest?: number | string;
   is_taker_fee_enabled?: boolean;
   market_config?: { hidden?: boolean; market_margin_mode?: number };
 }
@@ -29,6 +32,12 @@ function positive(value: unknown) {
 
 function decimals(value: unknown) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 12 ? value : undefined;
+}
+
+function openInterestUsd(detail: Partial<OrderBookDetailLike>) {
+  const base = positive(detail.open_interest);
+  const mark = positive(detail.mark_price);
+  return base && mark ? base * mark : undefined;
 }
 
 /** Leverage cap from the market's minimum initial margin fraction (bps of 10000), e.g. 400 → 25x. */
@@ -76,6 +85,8 @@ export function marketsFromDetails(details: unknown): VenueMarket[] {
         takerFee: detail.is_taker_fee_enabled === false ? 0 : (Number(detail.taker_fee) || 0) / 100,
         markPx: positive(detail.mark_price),
         midPx: positive(detail.last_trade_price),
+        volume24hUsd: positive(detail.daily_quote_token_volume),
+        openInterestUsd: openInterestUsd(detail),
       },
     ];
   });

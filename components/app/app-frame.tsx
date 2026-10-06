@@ -18,7 +18,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <header className="app-topbar surface-chrome flex h-16 shrink-0 items-center gap-3 border-b border-app-hairline px-3 sm:px-4">
+      <header className="app-topbar surface-chrome flex h-14 shrink-0 items-center gap-3 border-b border-app-hairline px-3 sm:px-4">
         {/* The rail carries the logo; the top bar shows it on small screens and in top navigation. */}
         <Link href="/" aria-label="Angler Terminal" className="flex shrink-0 md:hidden [html[data-nav=top]_&]:flex">
           <Image src="/blacklogo.png" alt="Angler" width={28} height={28} priority className="[html[data-tone=dark]_&]:hidden" />
@@ -36,7 +36,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
       </header>
       <main className="min-h-0 flex-1 p-2">{children}</main>
       {position === "bottom" && (
-        <footer className="surface-chrome flex h-12 shrink-0 items-center border-t border-app-hairline px-3 sm:px-4">
+        <footer className="surface-chrome flex h-10 shrink-0 items-center border-t border-app-hairline px-3 sm:px-4">
           <div className="flex min-w-0 flex-1">{tape}</div>
         </footer>
       )}

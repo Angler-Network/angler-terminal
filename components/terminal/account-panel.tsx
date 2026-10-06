@@ -242,18 +242,19 @@ export function useHasWallet() {
 }
 
 /**
- * The trading column: the order panel on top, then balances and trading keys per venue (only once a wallet is
- * connected; wallets themselves are managed from the Connect button). Each part follows its panel setting.
+ * The trading card: the order panel on top, then balances and trading keys per venue (only once a wallet is
+ * connected; wallets themselves are managed from the Connect button). Each part follows its panel setting. With the
+ * order book below it (`grow` off) the card keeps its natural height and scrolls once the book needs the room.
  */
-export function AccountPanel({ orderEntry, account }: { orderEntry: boolean; account: boolean }) {
+export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry: boolean; account: boolean; grow?: boolean }) {
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
   const { preferences } = usePreferences();
   const showAccount = account && Boolean(evmAddress || solanaAddress);
   if (!orderEntry && !showAccount) return null;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-1">
-      <div className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55">
+    <div className={`flex min-h-0 flex-col ${grow ? "flex-1" : ""}`}>
+      <div className={`surface-panel scrollbar-subtle flex min-h-0 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55 ${grow ? "flex-1" : ""}`}>
         {orderEntry && (
           <div className="border-b border-app-hairline last:border-b-0">
             <OrderPanel />

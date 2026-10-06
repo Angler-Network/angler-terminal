@@ -22,6 +22,12 @@ describe("orderBookDetails", () => {
     });
   });
 
+  it("reads 24h volume and open interest in USD", () => {
+    const sol = findLighterMarket(markets, "SOL")!;
+    expect(sol.volume24hUsd).toBeCloseTo(665869.12, 1);
+    expect(sol.openInterestUsd).toBeCloseTo(154.919 * 119.857, 3);
+  });
+
   it("finds markets by symbol and id", () => {
     expect(findLighterMarket(markets, "DOGE")).toBeNull();
     expect(findLighterMarketById(markets, 4095)?.symbol).toBe("ETH");

@@ -123,16 +123,21 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 - Multi-venue trading UI (the product is now a multi perp DEX terminal, news is the differentiator):
   - Layout (`terminal-shell.tsx`): every panel but the chart can be hidden (`panels` preference: orderbook,
     orderEntry, positions, news, account; edited from Layout in the sidebar (`layout-menu.tsx`: presets, panels,
-    sidebar/top bar) and Settings → Layout). Grid columns are computed from the enabled panels; the chart takes the
-    rest. The sidebar and top bar hide like angler-news (`layout-toggles.tsx`, always available here).
+    sidebar/top bar) and Settings → Layout). Columns: chart (rest of the width, positions under it) | trading column
+    (order panel + account card on top, order book under it, filling the height) | news; side widths use
+    `clamp(…vw)` so the chart keeps room on laptops. The sidebar and top bar hide like angler-news
+    (`layout-toggles.tsx`, always available here).
+  - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
+    hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
   - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
     navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
     rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in onboarding,
     the layout menu and Settings → Layout.
-  - Order panel (`order-panel.tsx`): the chart's asset on every venue that lists it (perps in `perpOrder`, then
-    Jupiter/Arcus spot). Perps: market/limit, leverage slider, cross/isolated, reduce-only, % of available, estimated
-    isolated liquidation (`lib/trading/order-math.ts`); calls `placeOrder` directly. Spot goes through
+  - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue, a leverage button
+    (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
+    available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
+    (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Spot goes through
     `use-news-trader.ts`. Two-press confirm unless one-click.
   - TP/SL (`lib/trading/tpsl.ts` validates the side): reduce-only market-when-triggered orders. Hyperliquid: entry +
     triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,

@@ -38,6 +38,10 @@ export interface VenueMarket {
   onlyIsolated: boolean;
   markPx?: number;
   midPx?: number;
+  /** 24h stats when the venue reports them (refreshed with the market list, so up to a minute old). */
+  volume24hUsd?: number;
+  /** Open interest in USD (base open interest × mark). */
+  openInterestUsd?: number;
 }
 
 export interface PlaceOrderInput {

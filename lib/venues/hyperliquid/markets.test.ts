@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { builderDexes, findMarket, marketsFromMeta, perpAssetId, splitCoin, spotAssetId } from "./markets";
+import { builderDexes, dayStats, findMarket, marketsFromMeta, perpAssetId, splitCoin, spotAssetId } from "./markets";
 
 describe("asset ids", () => {
   it("uses the universe index on the main dex", () => {
@@ -41,6 +41,12 @@ describe("markets", () => {
   it("skips delisted assets but keeps the original index for later ones", () => {
     expect(markets.some((market) => market.coin === "xyz:OLD")).toBe(false);
     expect(markets.find((market) => market.coin === "xyz:BTC")?.assetId).toBe(110002);
+  });
+
+  it("derives 24h volume and USD open interest from an asset context", () => {
+    const stats = dayStats({ markPx: "110", dayNtlVlm: "2500000", openInterest: "3" });
+    expect(stats).toMatchObject({ volume24hUsd: 2_500_000, openInterestUsd: 330 });
+    expect(dayStats({ markPx: "110" })).toEqual({ volume24hUsd: undefined, openInterestUsd: undefined });
   });
 
   it("reads prices from asset contexts", () => {

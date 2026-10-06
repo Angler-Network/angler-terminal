@@ -18,4 +18,4 @@ async function loadMarkets(network: LighterNetwork): Promise<VenueMarket[]> {
 }
 
 /** Cached per network for a minute: Standard accounts get 60 REST requests a minute, so browsers shouldn't each ask. */
-export const getLighterMarkets = unstable_cache(loadMarkets, ["lighter-markets-v1"], { revalidate: REVALIDATE_SECONDS });
+export const getLighterMarkets = unstable_cache(loadMarkets, ["lighter-markets-v2"], { revalidate: REVALIDATE_SECONDS });
