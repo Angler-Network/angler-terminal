@@ -27,9 +27,20 @@ function Stat({ label, title, children }: { label: string; title?: string; child
 }
 
 /** Mark, 24h volume, open interest and hourly funding with its countdown for the chart's perp market. */
-export function MarketStats({ market, contentRef, className = "" }: { market: VenueMarket | null; contentRef?: React.Ref<HTMLDivElement>; className?: string }) {
+export function MarketStats({
+  market,
+  contentRef,
+  className = "",
+}: {
+  /** undefined while the venue market lists load. */
+  market: VenueMarket | null | undefined;
+  contentRef?: React.Ref<HTMLDivElement>;
+  className?: string;
+}) {
   const funding = useFunding();
   const now = useNow(1000);
+  // Phones show the stats on their own row: keep it while loading so the chart doesn't move down afterwards.
+  if (market === undefined) return <div aria-hidden className={`h-6 lg:hidden ${className}`} />;
   if (!market) return null;
   const rate8h = funding?.[market.symbol]?.[market.venue];
   return (

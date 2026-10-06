@@ -453,10 +453,18 @@ export function OrderPanel() {
 
   return (
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
-      {choices.length === 0 ? (
+      {choices.length === 0 && isLoading ? (
+        // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
+        <div role="status" aria-label="Loading markets" className="flex h-[497px] flex-col gap-2.5">
+          {["h-8", "h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (
+            <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-lg bg-app-chip/60`} />
+          ))}
+          <span aria-hidden className="mt-1 flex-1 animate-pulse rounded-lg bg-app-chip/40" />
+        </div>
+      ) : choices.length === 0 ? (
         <>
           <h3 className="text-[12px] font-semibold text-app-ink">Trade {symbol}</h3>
-          <p className="text-[12px] text-app-faint">{isLoading ? "Loading markets…" : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}</p>
+          <p className="text-[12px] text-app-faint">No enabled venue lists {symbol}. Pick another asset on the chart.</p>
         </>
       ) : (
         <>

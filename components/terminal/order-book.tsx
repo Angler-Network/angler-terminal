@@ -96,6 +96,8 @@ export function OrderBook() {
     const market = list ? findMarket(list, symbol) : null;
     return market ? [market] : [];
   });
+  // Until a venue's market list arrives, the book shows a placeholder rather than "not listed".
+  const isLoading = choices.length === 0 && perpOrder.some((venue) => marketsByVenue[venue] === undefined);
   // Two venues list the asset: show them merged unless the user picked one.
   const isAll = (view ?? "all") === "all" && choices.length > 1;
   const market: VenueMarket | null = isAll ? choices[0] : (choices.find((entry) => entry.venue === view) ?? choices[0] ?? null);
@@ -188,7 +190,15 @@ export function OrderBook() {
       </header>
 
       {!market ? (
-        <p className="p-3 text-[12px] text-app-faint">No perp venue lists {symbol}.</p>
+        isLoading ? (
+          <div role="status" aria-label="Loading order book" className="flex flex-1 flex-col gap-1 p-3">
+            {Array.from({ length: 12 }, (_, index) => (
+              <span key={index} aria-hidden className="h-3.5 shrink-0 animate-pulse rounded bg-app-chip/50" />
+            ))}
+          </div>
+        ) : (
+          <p className="p-3 text-[12px] text-app-faint">No perp venue lists {symbol}.</p>
+        )
       ) : tab === "book" ? (
         <div className="flex min-h-0 flex-1 flex-col py-1">
           {isAll && market && other && (

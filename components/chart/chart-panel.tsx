@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { SearchableSelect } from "@/components/app/searchable-select";
@@ -49,14 +49,18 @@ const STATS_FADE_PX = 16;
 
 /**
  * How many quick interval buttons fit next to the market stats: whatever is left of the header after the asset,
- * price and the stats' full width. Re-measured when the header or the stats resize.
+ * price and the stats' full width. Re-measured when the header or the stats resize, and before paint on every
+ * render, so the price appearing never wraps the intervals to a second row for a frame (a layout shift).
  */
 function useQuickIntervalCount(hasStats: boolean) {
   const headerRef = useRef<HTMLElement>(null);
   const leadRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<(() => void) | null>(null);
   const [count, setCount] = useState<number | undefined>(undefined);
-  useEffect(() => {
+  // The count only depends on the asset, price and stats widths, so re-measuring settles after one pass.
+  useLayoutEffect(() => measureRef.current?.());
+  useLayoutEffect(() => {
     const header = headerRef.current;
     const stats = statsRef.current;
     if (!header) return;
@@ -75,12 +79,16 @@ function useQuickIntervalCount(hasStats: boolean) {
           : inner / 2;
       setCount(fittingIntervalCount(inner - used - HEADER_GAP_PX));
     };
+    measureRef.current = measure;
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     if (stats) observer.observe(stats);
     if (leadRef.current) observer.observe(leadRef.current);
-    return () => observer.disconnect();
+    return () => {
+      measureRef.current = null;
+      observer.disconnect();
+    };
   }, [hasStats]);
   return { headerRef, leadRef, statsRef, count };
 }
@@ -202,7 +210,7 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
             </div>
           )}
         </div>
-        <MarketStats market={venueMarket ?? null} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
+        <MarketStats market={venueMarket} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
         {!isTradingView && <IntervalPicker maxQuick={fit.count} />}
       </header>
       {isStock === undefined || venueMarket === undefined ? (
