@@ -4,6 +4,7 @@ import { Check, FlaskConical } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { accentSwatches, themeOptions } from "@/lib/appearance";
+import { deployment } from "@/lib/deployment";
 import { layoutPresets, navModeChange, panelNames, type NavMode, type TapePosition, type TerminalPanels } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
 
@@ -11,11 +12,17 @@ import { usePreferences } from "./preferences-provider";
 const ACK_KEY = "angler-terminal:alpha-ack:v3";
 const OPEN_EVENT = "angler-terminal:welcome";
 
-const points = [
-  "Alpha prototype: expect bugs and changes.",
-  "Perps run on testnet by default (mock funds). Jupiter swaps use real funds on Solana.",
-  "Not financial advice. Scores are model outputs.",
-];
+/** The funds line depends on the site: none on mainnet (everything is real), mock funds on testnet. */
+const fundsPoint =
+  deployment === "mainnet"
+    ? null
+    : deployment === "testnet"
+      ? "This is the testnet site: perps trade with mock funds."
+      : "Perps run on testnet by default (mock funds). Jupiter swaps use real funds on Solana.";
+
+const points = ["Alpha prototype: expect bugs and changes.", fundsPoint, "Not financial advice. Scores are model outputs."].filter(
+  (point): point is string => point !== null,
+);
 
 /** Opens the onboarding again (Settings → About). */
 export function openWelcomeTour() {
