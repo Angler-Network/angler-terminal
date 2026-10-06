@@ -28,7 +28,8 @@ export function usePortfolioHistory(): PortfolioHistory {
   const [history, setHistory] = useState<PortfolioHistory>({ loading: true, hyperliquid: null, lighter: null, failed: [], since: 0 });
 
   useEffect(() => {
-    if (!address) return;
+    // No EVM wallet: nothing to load (the page shows "connect" instead of a spinner).
+    if (!address) return setHistory({ loading: false, hyperliquid: null, lighter: null, failed: [], since: 0 });
     let cancelled = false;
     const load = async () => {
       const since = Date.now() - HISTORY_DAYS * 86_400_000;

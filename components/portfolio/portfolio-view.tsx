@@ -2,6 +2,7 @@
 
 import { Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
+import { MarketIcon } from "@/components/app/market-icon";
 import { OrdersTable, PositionsTable, VenueBadge } from "@/components/terminal/positions-bar";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
@@ -22,12 +23,15 @@ import {
 } from "@/lib/trading/portfolio-history";
 import { summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
 import { splitCoin } from "@/lib/venues/hyperliquid/markets";
+import { holdingsValue, type SpotHolding } from "@/lib/venues/jupiter/holdings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { HISTORY_DAYS, usePortfolioHistory } from "./use-portfolio-history";
+import { useSpotHoldings } from "./use-spot-holdings";
 
 type Range = 7 | 30;
 type HistoryTab = "trades" | "funding";
+type Mode = "all" | "perp" | "spot";
 
 const DAY_MS = 86_400_000;
 const ROWS_STEP = 50;
@@ -262,12 +266,103 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
   );
 }
 
-/** Full-page portfolio across perp venues: equity, PnL over time, positions, orders, trades and funding. */
+const STABLECOINS = new Set(["USDC", "USDT", "USDG", "PYUSD", "USDS", "USD1", "FDUSD"]);
+
+function TokenIcon({ holding }: { holding: SpotHolding }) {
+  const [broken, setBroken] = useState(false);
+  if (!holding.icon || broken) return <MarketIcon symbol={holding.symbol.toUpperCase()} kind="crypto" size={20} />;
+  // Token logos come from many hosts (Jupiter's list), so a plain img rather than next/image.
+  return <img src={holding.icon} alt="" width={20} height={20} loading="lazy" onError={() => setBroken(true)} className="size-5 shrink-0 rounded-full object-cover" />;
+}
+
+/** Balances worth less than this sit behind "Show small balances". */
+const DUST_USD = 1;
+
+function SpotTable({ holdings, total }: { holdings: SpotHolding[]; total: number }) {
+  const [showDust, setShowDust] = useState(false);
+  if (holdings.length === 0) return <p className="px-3 py-6 text-center text-[13px] text-app-muted">No tokens in this wallet.</p>;
+  const dust = holdings.filter((holding) => (holding.usd ?? 0) < DUST_USD).length;
+  const shown = showDust ? holdings : holdings.filter((holding) => (holding.usd ?? 0) >= DUST_USD);
+  return (
+    <>
+    <table className="w-full text-[12px]">
+      <thead className="sticky top-0 bg-app-card">
+        <tr>
+          <th className={th}>Asset</th>
+          <th className={`${th} text-right`}>Amount</th>
+          <th className={`${th} text-right`}>Price</th>
+          <th className={`${th} text-right`}>Value</th>
+          <th className={`${th} w-40`}>Share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {shown.map((holding) => {
+          const share = total > 0 && holding.usd !== null ? (holding.usd / total) * 100 : 0;
+          return (
+            <tr key={holding.mint} className="border-t border-app-hairline">
+              <td className={td}>
+                <span className="flex items-center gap-2">
+                  <TokenIcon holding={holding} />
+                  <span className="font-semibold">{holding.symbol}</span>
+                  <span className="max-w-[160px] truncate text-app-faint">{holding.name}</span>
+                  {!holding.verified && (
+                    <span title="Not verified by Jupiter" className="rounded bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted">
+                      Unverified
+                    </span>
+                  )}
+                </span>
+              </td>
+              <td className={`${td} text-right`}>{holding.amount.toLocaleString("en-US", { maximumSignificantDigits: 6 })}</td>
+              <td className={`${td} text-right text-app-muted`}>{holding.usdPrice === null ? "—" : formatPrice(holding.usdPrice)}</td>
+              <td className={`${td} text-right`}>{holding.usd === null ? "—" : usd.format(holding.usd)}</td>
+              <td className={td}>
+                <span className="flex items-center gap-2">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-app-chip">
+                    <span className="block h-full rounded-full bg-app-accent" style={{ width: `${share}%` }} />
+                  </span>
+                  <span className="w-12 text-right text-app-muted">{share.toFixed(1)}%</span>
+                </span>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    {dust > 0 && (
+      <button type="button" onClick={() => setShowDust((value) => !value)} className="w-full border-t border-app-hairline py-2 text-[12px] font-semibold text-app-muted hover:text-app-ink">
+        {showDust ? "Hide small balances" : `Show ${dust} small balance${dust === 1 ? "" : "s"} (under $${DUST_USD})`}
+      </button>
+    )}
+    </>
+  );
+}
+
+function ConnectCard({ title, text, onConnect }: { title: string; text: string; onConnect: () => void }) {
+  return (
+    <div className={`${card} flex flex-col items-center gap-2 px-4 py-8 text-center`}>
+      <Wallet className="size-6 text-app-muted" strokeWidth={1.5} aria-hidden />
+      <p className="text-[14px] font-semibold text-app-ink">{title}</p>
+      <p className="max-w-sm text-[12px] text-app-muted">{text}</p>
+      <button type="button" onClick={onConnect} className="mt-1 h-8 rounded-xl bg-app-accent px-3.5 text-[12px] font-semibold text-app-on-accent">
+        Connect wallet
+      </button>
+    </div>
+  );
+}
+
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
+
+/**
+ * Full-page portfolio: perps (Hyperliquid and Lighter equity, PnL over time, positions, orders, trades, funding) and
+ * spot (the Solana wallet's tokens), each on its own or together.
+ */
 export function PortfolioView() {
   const { address } = useWallet();
   const wallets = useWalletModal();
   const { account, accounts, marketsByVenue, lighter } = useTrading();
   const history = usePortfolioHistory();
+  const spot = useSpotHoldings();
+  const [mode, setMode] = useState<Mode>("all");
   const [range, setRange] = useState<Range>(30);
   const [tab, setTab] = useState<HistoryTab>("trades");
 
@@ -313,12 +408,25 @@ export function PortfolioView() {
   const positions = account?.positions ?? [];
   const orders = account?.orders ?? [];
 
-  if (!address) {
+  const holdings = spot.data?.holdings ?? [];
+  const hidden = spot.data?.hidden ?? 0;
+  const spotValue = holdingsValue(holdings);
+  const sol = holdings.find((holding) => holding.symbol === "SOL");
+  const stables = holdings.filter((holding) => STABLECOINS.has(holding.symbol.toUpperCase())).reduce((sum, holding) => sum + (holding.usd ?? 0), 0);
+  const largest = holdings[0];
+  const showPerp = mode !== "spot";
+  const showSpot = mode !== "perp";
+  const spotLoading = spot.loading && !spot.data;
+
+  if (!address && !spot.address) {
     return (
       <section className="surface-panel flex h-full flex-col items-center justify-center gap-3 rounded-2xl border border-app-card/80 bg-app-card/55 p-6 text-center">
         <Wallet className="size-8 text-app-muted" strokeWidth={1.5} aria-hidden />
         <h1 className="text-[16px] font-semibold text-app-ink">Your portfolio across every venue</h1>
-        <p className="max-w-sm text-[13px] text-app-muted">Connect a wallet to see equity, PnL, positions and trade history on Hyperliquid and Lighter in one place.</p>
+        <p className="max-w-sm text-[13px] text-app-muted">
+          Connect a wallet to see perps on Hyperliquid and Lighter and your Solana spot tokens in one place: equity, PnL, positions and
+          trade history.
+        </p>
         <button type="button" onClick={wallets.open} className="mt-1 h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent">
           Connect wallet
         </button>
@@ -326,47 +434,13 @@ export function PortfolioView() {
     );
   }
 
-  // Children keep their height ([&>*]:shrink-0) and the page scrolls; otherwise flex squeezes the cards with
-  // overflow-hidden (positions, trades) to nothing when the window is shorter than the page.
-  return (
-    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto [&>*]:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
-      <header className="flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="text-[18px] font-semibold text-app-ink">Portfolio</h1>
-          <p className="text-[12px] text-app-muted">
-            {address.slice(0, 6)}…{address.slice(-4)} · Hyperliquid and Lighter perps
-            {history.failed.length > 0 && <span className="text-app-down"> · couldn&apos;t refresh {history.failed.map((venue) => PERP_VENUE_NAMES[venue]).join(", ")}</span>}
-          </p>
-        </div>
-        <div className="ml-auto">
-          <Segmented
-            label="Range"
-            value={range}
-            onChange={setRange}
-            options={[
-              { value: 7, label: "7D" },
-              { value: 30, label: "30D" },
-            ]}
-          />
-        </div>
-      </header>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Total equity" value={headline(total.accountValue)} sub={`${summaries.length} venue${summaries.length === 1 ? "" : "s"}`} />
-        <Stat label={`${range}D PnL`} value={history.loading ? "…" : headline(view.pnl, true)} className={tone(view.pnl)} sub="Realized + unrealized" />
-        <Stat label="Unrealized PnL" value={headline(total.unrealizedPnl, true)} className={tone(total.unrealizedPnl)} sub={`${positions.length} open position${positions.length === 1 ? "" : "s"}`} />
-        <Stat
-          label={`${range}D volume`}
-          value={history.loading ? "…" : `${compactUsd.format(totals.volume)}${truncated ? "+" : ""}`}
-          sub={`${totals.count.toLocaleString("en-US")}${truncated ? "+" : ""} trades`}
-        />
-        <Stat label={`${range}D fees · funding`} value={history.loading ? "…" : headline(totals.fees)} sub={`Funding ${signedUsd(fundingTotal)}`} />
-        <Stat label="Margin used" value={headline(total.marginUsed)} sub={`Withdrawable ${usd.format(total.withdrawable)}`} />
-      </div>
-
+  const perpSection = !address ? (
+    <ConnectCard title="No EVM wallet connected" text="Connect an EVM wallet to see your Hyperliquid and Lighter perps here." onConnect={wallets.open} />
+  ) : (
+    <>
       <div className={`grid gap-4 ${summaries.length > 0 ? "xl:grid-cols-[3fr_2fr]" : ""}`}>
         <div className={`${card} p-4`}>
-          <h2 className="mb-1 text-[13px] font-semibold text-app-ink">PnL, last {range} days</h2>
+          <h2 className="mb-1 text-[13px] font-semibold text-app-ink">Perp PnL, last {range} days</h2>
           {history.loading ? <p className="py-12 text-center text-[13px] text-app-muted">Loading history…</p> : <PnlChart points={view.daily} />}
         </div>
         <VenueCards rows={summaries} pnlByVenue={view.pnlByVenue} totalEquity={total.accountValue} />
@@ -391,37 +465,150 @@ export function PortfolioView() {
           </div>
         </div>
       )}
+    </>
+  );
 
-      <div className={`${card} overflow-hidden`}>
-        <div className="flex flex-wrap items-center gap-3 border-b border-app-hairline px-4 py-2">
+  const spotSection = !spot.address ? (
+    <ConnectCard title="No Solana wallet connected" text="Connect a Solana wallet to see the tokens you trade on Jupiter and Titan." onConnect={wallets.open} />
+  ) : (
+    <div className={`${card} overflow-hidden`}>
+      <h2 className="flex items-center gap-2 border-b border-app-hairline px-4 py-2.5 text-[13px] font-semibold text-app-ink">
+        Spot tokens <span className="tabular-nums text-app-faint">{holdings.length}</span>
+        <span className="ml-auto text-[12px] font-normal text-app-muted">
+          Solana {shortAddress(spot.address)}
+          {spot.failed && <span className="text-app-down"> · couldn&apos;t refresh</span>}
+        </span>
+      </h2>
+      <div className="scrollbar-subtle max-h-[520px] overflow-auto">
+        {spotLoading ? <p className="px-3 py-6 text-center text-[13px] text-app-muted">Loading tokens…</p> : <SpotTable holdings={holdings} total={spotValue} />}
+      </div>
+      {hidden > 0 && (
+        <p className="border-t border-app-hairline px-4 py-2 text-[11px] text-app-faint">
+          {hidden} unpriced or unknown token{hidden === 1 ? "" : "s"} hidden (usually airdrop spam).
+        </p>
+      )}
+    </div>
+  );
+
+  const historySection = address && (
+    <div className={`${card} overflow-hidden`}>
+      <div className="flex flex-wrap items-center gap-3 border-b border-app-hairline px-4 py-2">
+        <Segmented
+          label="History"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "trades", label: `Trades ${fills.length}` },
+            { value: "funding", label: `Funding ${funding.length}` },
+          ]}
+        />
+        <span className="ml-auto text-[12px] tabular-nums text-app-muted">
+          {tab === "trades" ? (
+            <>
+              Realized <span className={tone(totals.realizedPnl)}>{signedUsd(totals.realizedPnl)}</span>
+            </>
+          ) : (
+            <>
+              Net funding <span className={tone(fundingTotal)}>{signedUsd(fundingTotal)}</span>
+            </>
+          )}
+        </span>
+      </div>
+      <div className="scrollbar-subtle max-h-[520px] overflow-auto">{tab === "trades" ? <TradesTable fills={fills} /> : <FundingTable payments={funding} />}</div>
+    </div>
+  );
+
+  const perpTiles = (
+    <>
+      <Stat label={`${range}D perp PnL`} value={history.loading ? "…" : headline(view.pnl, true)} className={tone(view.pnl)} sub="Realized + unrealized" />
+      <Stat label="Unrealized PnL" value={headline(total.unrealizedPnl, true)} className={tone(total.unrealizedPnl)} sub={`${positions.length} open position${positions.length === 1 ? "" : "s"}`} />
+      <Stat
+        label={`${range}D volume`}
+        value={history.loading ? "…" : `${compactUsd.format(totals.volume)}${truncated ? "+" : ""}`}
+        sub={`${totals.count.toLocaleString("en-US")}${truncated ? "+" : ""} trades`}
+      />
+    </>
+  );
+
+  // Children keep their height ([&>*]:shrink-0) and the page scrolls; otherwise flex squeezes the cards with
+  // overflow-hidden (positions, trades) to nothing when the window is shorter than the page.
+  return (
+    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto [&>*]:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
+      <header className="flex flex-wrap items-center gap-3">
+        <div>
+          <h1 className="text-[18px] font-semibold text-app-ink">Portfolio</h1>
+          <p className="text-[12px] text-app-muted">
+            {[address && `EVM ${shortAddress(address)}`, spot.address && `Solana ${shortAddress(spot.address)}`].filter(Boolean).join(" · ")}
+            {history.failed.length > 0 && <span className="text-app-down"> · couldn&apos;t refresh {history.failed.map((venue) => PERP_VENUE_NAMES[venue]).join(", ")}</span>}
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Segmented
-            label="History"
-            value={tab}
-            onChange={setTab}
+            label="Markets"
+            value={mode}
+            onChange={setMode}
             options={[
-              { value: "trades", label: `Trades ${fills.length}` },
-              { value: "funding", label: `Funding ${funding.length}` },
+              { value: "all", label: "All" },
+              { value: "perp", label: "Perp" },
+              { value: "spot", label: "Spot" },
             ]}
           />
-          <span className="ml-auto text-[12px] tabular-nums text-app-muted">
-            {tab === "trades" ? (
-              <>
-                Realized <span className={tone(totals.realizedPnl)}>{signedUsd(totals.realizedPnl)}</span>
-              </>
-            ) : (
-              <>
-                Net funding <span className={tone(fundingTotal)}>{signedUsd(fundingTotal)}</span>
-              </>
-            )}
-          </span>
+          {showPerp && address && (
+            <Segmented
+              label="Range"
+              value={range}
+              onChange={setRange}
+              options={[
+                { value: 7, label: "7D" },
+                { value: 30, label: "30D" },
+              ]}
+            />
+          )}
         </div>
-        <div className="scrollbar-subtle max-h-[520px] overflow-auto">{tab === "trades" ? <TradesTable fills={fills} /> : <FundingTable payments={funding} />}</div>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        {mode === "all" && (
+          <>
+            <Stat label="Total equity" value={headline(total.accountValue + spotValue)} sub={`Perps ${compactUsd.format(total.accountValue)} · Spot ${compactUsd.format(spotValue)}`} />
+            {perpTiles}
+            <Stat label="Spot value" value={spotLoading ? "…" : headline(spotValue)} sub={`${holdings.length} token${holdings.length === 1 ? "" : "s"}`} />
+            <Stat label="Margin used" value={headline(total.marginUsed)} sub={`Withdrawable ${usd.format(total.withdrawable)}`} />
+          </>
+        )}
+        {mode === "perp" && (
+          <>
+            <Stat label="Perp equity" value={headline(total.accountValue)} sub={`${summaries.length} venue${summaries.length === 1 ? "" : "s"}`} />
+            {perpTiles}
+            <Stat label={`${range}D fees · funding`} value={history.loading ? "…" : headline(totals.fees)} sub={`Funding ${signedUsd(fundingTotal)}`} />
+            <Stat label="Margin used" value={headline(total.marginUsed)} sub={`Withdrawable ${usd.format(total.withdrawable)}`} />
+          </>
+        )}
+        {mode === "spot" && (
+          <>
+            <Stat label="Spot value" value={spotLoading ? "…" : headline(spotValue)} sub="Solana wallet" />
+            <Stat label="Tokens" value={String(holdings.length)} sub={hidden > 0 ? `${hidden} hidden` : "All priced"} />
+            <Stat label="SOL" value={sol ? sol.amount.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "0"} sub={sol?.usd != null ? usd.format(sol.usd) : "—"} />
+            <Stat label="Stablecoins" value={headline(stables)} sub={spotValue > 0 ? `${((stables / spotValue) * 100).toFixed(1)}% of spot` : "—"} />
+            <Stat
+              label="Largest holding"
+              value={largest ? largest.symbol : "—"}
+              sub={largest?.usd != null ? `${usd.format(largest.usd)} · ${((largest.usd / (spotValue || 1)) * 100).toFixed(1)}%` : "—"}
+            />
+            <Stat label="Perp equity" value={headline(total.accountValue)} sub="Switch to Perp for details" />
+          </>
+        )}
       </div>
 
+      {showPerp && perpSection}
+      {showSpot && spotSection}
+      {showPerp && historySection}
+
       <p className="text-[11px] text-app-faint">
-        Last {HISTORY_DAYS} days, refreshed every minute. Lighter reports PnL per account, not per trade, so its trades show no fee or
-        realized PnL and its funding is part of its PnL rather than the funding list.
-        {truncated && " Very active accounts show their most recent trades only, so volume and trade counts are a lower bound."}
+        {showPerp &&
+          `Perps: last ${HISTORY_DAYS} days, refreshed every minute. Lighter reports PnL per account, not per trade, so its trades show no fee or realized PnL and its funding is part of its PnL rather than the funding list.`}
+        {showPerp && truncated && " Very active accounts show their most recent trades only, so volume and trade counts are a lower bound."}
+        {showSpot && " Spot: the connected Solana wallet's tokens priced by Jupiter, refreshed every minute; spot PnL isn't tracked."}
       </p>
     </section>
   );
