@@ -42,6 +42,17 @@ export async function lighterGet(path: string, params?: Record<string, string | 
   return read(response);
 }
 
+/** Form POST to an authenticated account endpoint (referrals). */
+export async function lighterPostForm(path: string, form: Record<string, string>, auth: string) {
+  const response = await fetch(url(path), {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", authorization: auth },
+    body: new URLSearchParams(form),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  return read(response);
+}
+
 /**
  * Submits a signed tx. Resolves with the hash once the API accepted it (code 200), which does NOT mean it
  * executed. API rejections throw LighterApiError (nonce not consumed); network failures throw anything else

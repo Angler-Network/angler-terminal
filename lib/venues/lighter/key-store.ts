@@ -25,6 +25,8 @@ export interface LighterRecord {
   key?: StoredLighterKey;
   /** Integrator approval the user signed, so the setup step isn't repeated. */
   integrator?: { accountIndex: number; maxTakerFee: number; expiresAt: number };
+  /** Referral code this browser set on the account, so setup doesn't offer it again. */
+  referral?: string;
 }
 
 const PREFIX = "angler:lighter";
@@ -70,6 +72,7 @@ export function readLighterRecord(
     return {
       key: isKey(parsed.key) ? parsed.key : undefined,
       integrator: isIntegrator(parsed.integrator) ? parsed.integrator : undefined,
+      referral: typeof parsed.referral === "string" ? parsed.referral : undefined,
     };
   } catch {
     return {};
@@ -84,7 +87,7 @@ export function writeLighterRecord(
   record: LighterRecord,
 ) {
   const key = storageKey(network, l1Address, accountIndex);
-  if (!record.key && !record.integrator) storage.removeItem(key);
+  if (!record.key && !record.integrator && !record.referral) storage.removeItem(key);
   else storage.setItem(key, JSON.stringify(record));
 }
 

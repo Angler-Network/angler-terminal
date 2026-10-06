@@ -19,6 +19,7 @@ import { toLighterVenueError } from "@/lib/venues/lighter/errors";
 import {
   approveLighterIntegrator,
   getLighterOnboarding,
+  applyLighterReferral,
   registerLighterKey,
   revokeLighterKey,
   type LighterOnboarding,
@@ -72,7 +73,8 @@ interface TradingContextValue {
   /** Re-reads the Lighter setup state; resolves to it, or null when it couldn't be read. */
   refreshLighter: () => Promise<LighterOnboarding | null>;
   registerLighter: () => Promise<boolean>;
-  approveLighter: () => Promise<boolean>;
+  /** Approves the integrator; with `referral`, also sets our Lighter referral code (the user opted in). */
+  approveLighter: (options?: { referral?: boolean }) => Promise<boolean>;
   revokeLighter: () => Promise<void>;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
   placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
@@ -283,17 +285,26 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [address, getWalletClient, signMessage, refreshLighter, fail, toast]);
 
-  const approveLighter = useCallback(async () => {
-    if (!address || !getWalletClient) return false;
-    try {
-      await approveLighterIntegrator(signMessage, address);
+  const approveLighter = useCallback(
+    async (options?: { referral?: boolean }) => {
+      if (!address || !getWalletClient) return false;
+      try {
+        await approveLighterIntegrator(signMessage, address);
+      } catch (error) {
+        fail("lighter", "Lighter approval failed", error);
+        return false;
+      }
+      // The referral is a bonus: a failure here never blocks trading.
+      if (options?.referral) {
+        await applyLighterReferral(address).catch((error: unknown) =>
+          toast({ tone: "info", title: "Referral code not applied", message: venueError("lighter", error).message }),
+        );
+      }
       await refreshLighter();
       return true;
-    } catch (error) {
-      fail("lighter", "Lighter approval failed", error);
-      return false;
-    }
-  }, [address, getWalletClient, signMessage, refreshLighter, fail]);
+    },
+    [address, getWalletClient, signMessage, refreshLighter, fail, toast],
+  );
 
   const revokeLighter = useCallback(async () => {
     if (!address || !getWalletClient) return;

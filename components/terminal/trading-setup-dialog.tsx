@@ -109,6 +109,8 @@ function HyperliquidSteps() {
 function LighterSteps() {
   const { lighter, refreshLighter, registerLighter, approveLighter } = useTrading();
   const [busy, setBusy] = useState<1 | 2 | 3 | null>(null);
+  const referralCode = lighterConfig.referralCode;
+  const [useReferral, setUseReferral] = useState(true);
   const accountDone = lighter !== null && lighter.accountIndex !== null;
   const keyDone = Boolean(lighter?.keyReady);
   const integrator = lighterConfig.integrator;
@@ -116,7 +118,7 @@ function LighterSteps() {
   const run = async (step: 1 | 2 | 3) => {
     setBusy(step);
     try {
-      await (step === 1 ? refreshLighter() : step === 2 ? registerLighter() : approveLighter());
+      await (step === 1 ? refreshLighter() : step === 2 ? registerLighter() : approveLighter({ referral: Boolean(referralCode) && useReferral }));
     } finally {
       setBusy(null);
     }
@@ -176,6 +178,22 @@ function LighterSteps() {
           busyLabel="Approving…"
           action="Approve"
           onRun={() => void run(3)}
+          extra={
+            referralCode && (
+              <label className="flex basis-full items-start gap-2 text-[12px] leading-snug text-app-muted">
+                <input
+                  type="checkbox"
+                  checked={useReferral}
+                  onChange={(event) => setUseReferral(event.target.checked)}
+                  className="mt-0.5 accent-[rgb(var(--app-accent))]"
+                />
+                <span>
+                  Also use Angler&apos;s Lighter referral code <span className="font-semibold text-app-ink">{referralCode}</span>. It replaces
+                  any referral code this Lighter account already uses.
+                </span>
+              </label>
+            )
+          }
         />
       )}
     </ol>

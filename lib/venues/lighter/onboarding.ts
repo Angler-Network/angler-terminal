@@ -1,7 +1,7 @@
 "use client";
 
 import { VenueError } from "../types";
-import { getAccountIndex, lighterGet, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
+import { getAccountIndex, lighterGet, lighterPostForm, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
 import { lighterConfig } from "./config";
 import { toLighterVenueError } from "./errors";
 import { encryptSecret, getDeviceKey } from "./key-crypto";
@@ -140,6 +140,22 @@ export async function approveLighterIntegrator(signMessage: SignL1Message, l1Add
       ...record,
       integrator: { accountIndex: integrator.accountIndex, maxTakerFee, expiresAt },
     }));
+  } catch (error) {
+    throw toLighterVenueError(error);
+  }
+}
+
+/**
+ * Sets our referral code (NEXT_PUBLIC_LIGHTER_REFERRAL_CODE) on the account with the browser key's auth token: no
+ * wallet signature. Lighter replaces any code the account used before, so setup only does it when the user opts in.
+ */
+export async function applyLighterReferral(l1Address: string) {
+  const code = lighterConfig.referralCode;
+  if (!code) return;
+  try {
+    const session = await requireSession(l1Address);
+    await lighterPostForm("referral/use", { l1_address: l1Address, referral_code: code }, await authToken(session));
+    updateRecord(l1Address, session.accountIndex, (record) => ({ ...record, referral: code }));
   } catch (error) {
     throw toLighterVenueError(error);
   }

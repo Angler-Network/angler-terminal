@@ -63,6 +63,8 @@ export interface LighterConfig {
   apiKeyIndex: number;
   /** Partner attribution; null when NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT is unset. */
   integrator: LighterIntegrator | null;
+  /** Our Lighter referral code (NEXT_PUBLIC_LIGHTER_REFERRAL_CODE), offered during setup; null when unset. */
+  referralCode: string | null;
 }
 
 export function readLighterConfig(env: Record<string, string | undefined>): LighterConfig {
@@ -80,6 +82,7 @@ export function readLighterConfig(env: Record<string, string | undefined>): Ligh
     appUrl: APP_URLS[network],
     apiKeyIndex: readInteger(env.NEXT_PUBLIC_LIGHTER_API_KEY_INDEX, MIN_API_KEY_INDEX, MAX_API_KEY_INDEX) ?? DEFAULT_API_KEY_INDEX,
     integrator: account ? { accountIndex: account, takerFee, maxTakerFee } : null,
+    referralCode: /^[A-Za-z0-9_-]{1,32}$/.test(env.NEXT_PUBLIC_LIGHTER_REFERRAL_CODE?.trim() ?? "") ? env.NEXT_PUBLIC_LIGHTER_REFERRAL_CODE!.trim() : null,
   };
 }
 
@@ -108,4 +111,5 @@ export const lighterConfig = readLighterConfig({
   NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT: process.env.NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT,
   NEXT_PUBLIC_LIGHTER_INTEGRATOR_FEE: process.env.NEXT_PUBLIC_LIGHTER_INTEGRATOR_FEE,
   NEXT_PUBLIC_LIGHTER_MAX_INTEGRATOR_FEE: process.env.NEXT_PUBLIC_LIGHTER_MAX_INTEGRATOR_FEE,
+  NEXT_PUBLIC_LIGHTER_REFERRAL_CODE: process.env.NEXT_PUBLIC_LIGHTER_REFERRAL_CODE,
 });
