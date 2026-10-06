@@ -202,8 +202,8 @@ lib/trading/          execution, funding, order math, order book and TP/SL logic
 docs/                 integration notes
 ```
 
-Built with Next.js (App Router), React, TypeScript and Tailwind CSS. The theme, news components, chart and market
-data come from [angler-news](https://news.angler.network), so the two products look and feel the same.
+Built with Next.js (App Router), React, TypeScript, Tailwind CSS and GSAP. The project started from
+[angler-news](https://news.angler.network) and is developed independently.
 
 ## Contributing
 

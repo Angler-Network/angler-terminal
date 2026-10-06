@@ -1,7 +1,8 @@
 # Angler Terminal
 
-News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister product of angler-news
-(github.com/Angler-Network/angler-news, live at news.angler.network): it must look and feel like the same product.
+News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). It started from angler-news
+(github.com/Angler-Network/angler-news, live at news.angler.network) and is now developed as its own product: code,
+dependency versions and design are free to diverge from angler-news.
 
 ## Git rules (every session must follow these)
 
@@ -22,13 +23,12 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
 
 ## Architecture
 
-- Theme: `app/globals.css` CSS variables + `app.*` tokens in `tailwind.config.ts`, Sora font in `app/layout.tsx`, copied
-  from angler-news. Default look is the `oled` theme with the `liquid` surface (`APPEARANCE_VERSION` in
-  `lib/preferences.ts` moves older saved looks to it once). Keep Next.js, React and Tailwind on the same versions as angler-news.
-- Reused angler-news code (keep it close to upstream so fixes can be ported): `components/news/*`,
-  `components/chart/*`, `components/app/ticker-*`, `market-icon`, `preferences-provider`, `searchable-select`,
-  `lib/markets/*`, `lib/chart/candles.ts`, `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`.
-  `lib/i18n` is an English-only shim so the copied components keep calling `t()`.
+- Theme: `app/globals.css` CSS variables + `app.*` tokens, Sora font in `app/layout.tsx`. Default look is the `oled`
+  theme with the `liquid` surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once).
+- Code that began as copies of angler-news (`components/news/*`, `components/chart/*`, `components/app/ticker-*`,
+  `market-icon`, `preferences-provider`, `searchable-select`, `lib/markets/*`, `lib/chart/candles.ts`,
+  `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`) is owned here now: change it freely, nothing is ported
+  back. `lib/i18n` is an English-only shim so those components keep calling `t()`.
 - Markets: `lib/markets/server.ts` lists Binance + Hyperliquid perps, spot and HIP-3 stock perps (dex `xyz`), plus
   Lighter mainnet perps as a fallback quote (Binance answers 451 to US servers and Hyperliquid can rate limit shared
   IPs). Requests retry once and log failures; an all-empty load throws so the cache keeps the last good list. It is the
