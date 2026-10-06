@@ -17,6 +17,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useLang, useT } from "@/lib/i18n/client";
 import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
+import { mergeCandles } from "@/lib/chart/merge-candles";
 import type { ChartDataSource, ChartSource } from "@/lib/preferences";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
@@ -41,16 +42,27 @@ const CANDLE_COUNT = 1000;
 
 type CandleSource = "binance" | PerpVenueId;
 
+/** Candles from a perp venue (its configured network) or from the public feeds (Binance, Hyperliquid mainnet). */
+interface CandleData {
+  key: string;
+  origin: "venue" | "feed";
+  source: CandleSource;
+  candles: Candle[];
+}
+
 const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter" };
 
-/** Candles straight from a perp venue for its market; null when it can't serve this asset or interval. */
-async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval) {
+/**
+ * Candles straight from a perp venue for its market; null when it can't serve this asset or interval. `since` (ms)
+ * fetches only the latest candles for a refresh.
+ */
+async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval, since?: number) {
   if (venue === "lighter" && !LIGHTER_CANDLE_RESOLUTIONS.has(interval)) return null;
   try {
     // Lighter's venue module (and its signer) only loads when its candles are asked for.
     const source = venue === "hyperliquid" ? hyperliquidVenue : (await import("@/lib/venues/lighter/venue")).lighterVenue;
-    const candles = await source.loadCandles(market, interval, Date.now() - intervalDuration(interval) * CANDLE_COUNT);
-    return candles.length > 0 ? { source: venue as CandleSource, candles } : null;
+    const candles = await source.loadCandles(market, interval, since ?? Date.now() - intervalDuration(interval) * CANDLE_COUNT);
+    return candles.length > 0 ? { origin: "venue" as const, source: venue as CandleSource, candles } : null;
   } catch {
     return null;
   }
@@ -104,7 +116,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
   const { preferences, updatePreference } = usePreferences();
   const containerRef = useRef<HTMLDivElement>(null);
   const handlesRef = useRef<ChartHandles | null>(null);
-  const [data, setData] = useState<{ key: string; source: CandleSource; candles: Candle[] } | null>(null);
+  const [data, setData] = useState<CandleData | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const { tradeVenue } = useSelectedAsset();
   const { marketsByVenue } = useTrading();
   const [failed, setFailed] = useState(false);
@@ -122,7 +136,11 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
     [venueMarket, lighterList, symbol],
   );
   const venues = venueOrder(preferences.chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
-  const venueKey = venues.map((venue) => `${venue}:${venueMarkets[venue]!.coin}`).join(",");
+  const venuesRef = useRef({ venues, venueMarkets });
+  venuesRef.current = { venues, venueMarkets };
+  // Only the first venue decides the candles: a fallback venue whose market list arrives later (Lighter's, a moment
+  // after Hyperliquid's) must not clear the chart and download the same candles again.
+  const venueKey = venues[0] ? `${venues[0]}:${venueMarkets[venues[0]]!.coin}` : "";
   const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey].join("|");
   const candles = data?.key === key ? data.candles : null;
   const newsByTime = useMemo(() => {
@@ -209,7 +227,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
   useEffect(() => {
     let isActive = true;
     setFailed(false);
+    const options = { market: preferences.chartMarket, isStock };
     const load = async () => {
+      const { venues, venueMarkets } = venuesRef.current;
       const fromVenues = async () => {
         for (const venue of venues) {
           const result = await loadVenueCandles(venue, venueMarkets[venue]!, interval);
@@ -218,16 +238,34 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
         return null;
       };
       const feeds: ChartDataSource[] = preferences.chartSource === "binance" ? ["binance", "hyperliquid"] : sources;
-      const fromFeeds = () => loadCandles(symbol, interval, { market: preferences.chartMarket, sources: feeds, isStock });
+      const fromFeeds = async () => {
+        const result = await loadCandles(symbol, interval, { ...options, sources: feeds });
+        return result && { origin: "feed" as const, ...result };
+      };
       // "Binance" asks Binance first; every other choice asks the venues first, then the public feeds.
       const result = preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds()));
       if (!isActive) return;
       if (result) setData({ key, ...result });
       else setFailed(true);
     };
+    /** Refreshes fetch only from the last closed candle on (~70 kB less per tick than the full history). */
+    const refresh = async () => {
+      const current = dataRef.current;
+      if (current?.key !== key || current.candles.length < 2) return load();
+      const since = current.candles[current.candles.length - 2].time;
+      const market = venuesRef.current.venueMarkets[current.source as PerpVenueId];
+      const tail =
+        current.origin === "venue"
+          ? market
+            ? await loadVenueCandles(current.source as PerpVenueId, market, interval, since)
+            : null
+          : await loadCandles(symbol, interval, { ...options, sources: [current.source as ChartDataSource], since });
+      if (!isActive || !tail || dataRef.current !== current) return;
+      setData({ ...current, candles: mergeCandles(current.candles, tail.candles, CANDLE_COUNT) });
+    };
     void load();
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== "hidden") void load();
+      if (document.visibilityState !== "hidden") void refresh();
     }, REFRESH_MS);
     return () => {
       isActive = false;

@@ -68,10 +68,11 @@ export function intervalDuration(interval: ChartInterval) {
   return intervalMs[interval];
 }
 
-async function binanceCandles(symbol: string, interval: ChartInterval, market: ChartMarket): Promise<Candle[]> {
+async function binanceCandles(symbol: string, interval: ChartInterval, market: ChartMarket, since?: number): Promise<Candle[]> {
   const base =
     market === "perp" ? "https://fapi.binance.com/fapi/v1/klines" : "https://data-api.binance.vision/api/v3/klines";
-  const response = await fetch(`${base}?symbol=${symbol}USDT&interval=${interval}&limit=${CANDLE_COUNT}`);
+  const from = since === undefined ? "" : `&startTime=${since}`;
+  const response = await fetch(`${base}?symbol=${symbol}USDT&interval=${interval}&limit=${CANDLE_COUNT}${from}`);
   if (!response.ok) return [];
   const rows = (await response.json()) as [number, string, string, string, string, string][];
   return rows.map(([time, open, high, low, close, volume]) => ({
@@ -84,13 +85,13 @@ async function binanceCandles(symbol: string, interval: ChartInterval, market: C
   }));
 }
 
-async function hyperliquidCoinCandles(coin: string, interval: ChartInterval): Promise<Candle[]> {
+async function hyperliquidCoinCandles(coin: string, interval: ChartInterval, since?: number): Promise<Candle[]> {
   const response = await fetch("https://api.hyperliquid.xyz/info", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       type: "candleSnapshot",
-      req: { coin, interval, startTime: Date.now() - intervalMs[interval] * CANDLE_COUNT },
+      req: { coin, interval, startTime: since ?? Date.now() - intervalMs[interval] * CANDLE_COUNT },
     }),
   });
   if (!response.ok) return [];
@@ -107,22 +108,23 @@ async function hyperliquidCoinCandles(coin: string, interval: ChartInterval): Pr
     : [];
 }
 
-async function hyperliquidCandles(symbol: string, interval: ChartInterval, isStock: boolean) {
-  return hyperliquidCoinCandles(isStock ? `xyz:${symbol}` : symbol, interval);
+async function hyperliquidCandles(symbol: string, interval: ChartInterval, isStock: boolean, since?: number) {
+  return hyperliquidCoinCandles(isStock ? `xyz:${symbol}` : symbol, interval, since);
 }
 
 export async function loadCandles(
   symbol: string,
   interval: ChartInterval,
-  options: { market: ChartMarket; sources: ChartDataSource[]; isStock: boolean },
+  /** `since` (ms) asks only for candles from that time on, for refreshes merged with `mergeCandles`. */
+  options: { market: ChartMarket; sources: ChartDataSource[]; isStock: boolean; since?: number },
 ): Promise<{ source: ChartDataSource; candles: Candle[] } | null> {
   const sources: ChartDataSource[] = options.isStock ? ["hyperliquid"] : options.sources;
   for (const source of sources) {
     try {
       const candles =
         source === "binance"
-          ? await binanceCandles(symbol, interval, options.market)
-          : await hyperliquidCandles(symbol, interval, options.isStock);
+          ? await binanceCandles(symbol, interval, options.market, options.since)
+          : await hyperliquidCandles(symbol, interval, options.isStock, options.since);
       if (candles.length > 0) return { source, candles };
     } catch {}
   }
