@@ -12,6 +12,7 @@ import { countActiveFilters, filterNews } from "@/lib/news/filter";
 import { detectHighImpact, isTypingTarget } from "@/lib/trading/high-impact";
 import type { NewsItem } from "@/lib/types";
 import { NewsCard } from "./news-card";
+import { NewsReaction } from "./news-reaction";
 import { NewsTradeGrid, type ResolvedNewsTrade } from "./news-trade-grid";
 import { useNewsSound } from "./use-news-sound";
 
@@ -250,6 +251,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             key={item.id}
             item={item}
             compact
+            extra={isTradable(item) && item.coins?.[0] ? <NewsReaction symbol={item.coins[0]} score={item.score} /> : undefined}
             onSelectAsset={selectAsset}
             selectedSymbol={symbol}
             isSelected={selectedNewsId === item.id}

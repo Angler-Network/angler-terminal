@@ -26,6 +26,8 @@ interface NewsCardProps {
   onSelect?: () => void;
   /** Terminal addition: tighter card for the narrow feed column next to the trading panels. */
   compact?: boolean;
+  /** Terminal addition: rendered under the card's trade controls (e.g. how the asset moved after similar news). */
+  extra?: React.ReactNode;
 }
 
 const accent: Record<Severity, string> = {
@@ -147,7 +149,7 @@ function SourceFavicon({ domain }: { domain?: string }) {
   return <img src={favicon.src} alt="" width={12} height={12} loading="lazy" onError={favicon.onError} className="size-3 shrink-0 rounded-[2px] object-contain" />;
 }
 
-export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isSelected, isFlashing, onSelect, compact }: NewsCardProps) {
+export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isSelected, isFlashing, onSelect, compact, extra }: NewsCardProps) {
   const t = useT();
   const chips = chipsFor(item);
   const trade = chips.length > 0 && renderTrade ? renderTrade(chips.slice(0, 3).map((chip) => ({ ...chip, mint: item.mints?.[chip.symbol] }))) : null;
@@ -254,6 +256,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
         </div>
 
         {trade}
+        {extra}
 
         {item.marketReaction && (
           <div className="mt-3">
