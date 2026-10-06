@@ -26,6 +26,8 @@ interface SearchableSelectProps<T> {
   searchPlaceholder: string;
   emptyMessage: string;
   compact?: boolean;
+  /** Compact menus open under the field's left edge; "right" keeps one near a container's right edge inside it. */
+  menuAlign?: "left" | "right";
   className?: string;
 }
 
@@ -43,6 +45,7 @@ export function SearchableSelect<T>({
   searchPlaceholder,
   emptyMessage,
   compact = false,
+  menuAlign = "left",
   className = "",
 }: SearchableSelectProps<T>) {
   const listId = useId();
@@ -178,7 +181,9 @@ export function SearchableSelect<T>({
           role="listbox"
           aria-label={label}
           className={`scrollbar-list max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-app-hairline-strong bg-app-card p-1 ${
-            compact ? "surface-menu absolute left-0 top-full z-30 mt-1.5 w-72 shadow-[0_16px_40px_-12px_rgba(19,35,58,0.35)]" : "mt-2"
+            compact
+              ? `surface-menu absolute ${menuAlign === "right" ? "right-0" : "left-0"} top-full z-30 mt-1.5 w-72 shadow-[0_16px_40px_-12px_rgba(19,35,58,0.35)]`
+              : "mt-2"
           }`}
         >
           {results.length === 0 && (

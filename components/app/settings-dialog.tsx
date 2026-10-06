@@ -22,6 +22,7 @@ import { AppearanceSettings } from "./appearance-settings";
 import { MarketIcon } from "./market-icon";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
 import { usePreferences } from "./preferences-provider";
+import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { SearchableSelect } from "./searchable-select";
 
 const DISCLAIMER = "Not financial advice. Scores are model outputs.";
@@ -128,6 +129,7 @@ function NewsRulesSettings() {
   const [action, setAction] = useState<RuleAction>("alert");
   const [sizeUsd, setSizeUsd] = useState("25");
   const [auto, setAuto] = useState(false);
+  const markets = useMarketList("perp");
   const isTrade = action === "long" || action === "short";
   const ticker = symbol.trim().toUpperCase();
   const valid = (scope !== "symbol" || /^[A-Z0-9]{1,20}$/.test(ticker)) && (!isTrade || Number(sizeUsd) > 0) && rules.length < MAX_RULES;
@@ -208,7 +210,24 @@ function NewsRulesSettings() {
             onChange={(value) => setScope(value as typeof scope)}
           />
           {scope === "symbol" && (
-            <input aria-label="Asset ticker" className={`${ruleInput} w-[100px] uppercase`} value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+            <div className="w-[170px]">
+              <SearchableSelect
+                compact
+                menuAlign="right"
+                items={markets ?? []}
+                value={symbol}
+                onChange={(next) => next && setSymbol(next)}
+                getKey={getSymbol}
+                getSearchText={getMarketSearch}
+                getDisplayValue={getSymbol}
+                renderSelectedIcon={(market) => <MarketIcon symbol={market.symbol} kind={market.kind} size={18} />}
+                renderOption={MarketOption}
+                label="Asset"
+                placeholder="Pick an asset"
+                searchPlaceholder="Search, e.g. BTC or NVDA"
+                emptyMessage="No market matches."
+              />
+            </div>
           )}
           scores at least
           <ImpactStepper label="Minimum impact" value={minImpact} onChange={setMinImpact} />
@@ -378,6 +397,16 @@ function toggleIn<T>(list: T[], value: T) {
 const getSymbol = (market: Market) => market.symbol;
 const getMarketSearch = (market: Market) => `${market.symbol} ${market.kind}`;
 
+function MarketOption(market: Market) {
+  return (
+    <>
+      <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />
+      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
+      <span className="text-[12px] text-app-muted">{market.kind === "stock" ? "Stock" : "Crypto"}</span>
+    </>
+  );
+}
+
 function NewsFilterSettings() {
   const { preferences, updatePreference } = usePreferences();
   const filters = preferences.newsFilters;
@@ -413,13 +442,7 @@ function NewsFilterSettings() {
               getKey={getSymbol}
               getSearchText={getMarketSearch}
               getDisplayValue={() => ""}
-              renderOption={(market) => (
-                <>
-                  <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />
-                  <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
-                  <span className="text-[12px] text-app-muted">{market.kind === "stock" ? "Stock" : "Crypto"}</span>
-                </>
-              )}
+              renderOption={MarketOption}
               label="Add asset"
               placeholder="Add asset…"
               searchPlaceholder="Search, e.g. BTC or NVDA"
@@ -525,6 +548,9 @@ const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", light
 
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
+  // Solana venues need a Solana wallet: until one is connected their switches show off and can't be changed.
+  const solanaConnected = Boolean(useSolanaWallet().address);
+  const solanaLock = solanaConnected ? undefined : "Connect a Solana wallet to use this venue";
   const unavailable = (Object.keys(venueNames) as VenueKey[]).filter((venue) => !venueAvailable(venue)).map((venue) => venueNames[venue]);
   const [choice, setChoice] = useState<NetworkChoice>("default");
   const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
@@ -621,7 +647,13 @@ function VenueSettings() {
       )}
       {venueAvailable("jupiter") && (
         <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
-          <Toggle label="Jupiter" checked={preferences.venueJupiter} onChange={(checked) => updatePreference("venueJupiter", checked)} />
+          <Toggle
+            label="Jupiter"
+            checked={solanaConnected && preferences.venueJupiter}
+            disabled={!solanaConnected}
+            title={solanaLock}
+            onChange={(checked) => updatePreference("venueJupiter", checked)}
+          />
         </VenueRow>
       )}
       {venueAvailable("arcus") && (
@@ -639,7 +671,13 @@ function VenueSettings() {
         badge="Spot · Solana"
         description="Solana meta-aggregator. Every Solana spot trade asks Titan and Jupiter for a quote and executes the one that pays more. Active once the server has a Titan API key."
       >
-        <Toggle label="Titan" checked={preferences.venueTitan} onChange={(checked) => updatePreference("venueTitan", checked)} />
+        <Toggle
+          label="Titan"
+          checked={solanaConnected && preferences.venueTitan}
+          disabled={!solanaConnected}
+          title={solanaLock}
+          onChange={(checked) => updatePreference("venueTitan", checked)}
+        />
       </VenueRow>
       )}
     </>

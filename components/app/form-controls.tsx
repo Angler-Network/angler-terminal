@@ -9,17 +9,23 @@ interface ToggleProps {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  /** Locked: shown but not clickable (e.g. a venue whose wallet isn't connected). */
+  disabled?: boolean;
+  /** Tooltip, e.g. why it's locked. */
+  title?: string;
 }
 
-export function Toggle({ label, checked, onChange }: ToggleProps) {
+export function Toggle({ label, checked, onChange, disabled = false, title }: ToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      title={title}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-app-ring/60 ${
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-app-ring/60 disabled:cursor-not-allowed disabled:opacity-50 ${
         checked ? "bg-app-accent" : "bg-app-toggle-off"
       }`}
     >
