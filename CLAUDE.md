@@ -178,9 +178,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
+  `newsNotifications` (Settings → Notifications, asks for permission) shows a browser notification for fresh
+  high-impact items while the tab is in the background (`lib/alerts/notify.ts`; click focuses the tab and selects the
+  item). No push server: notifications need an open tab. `app/manifest.ts` makes the site installable (PWA).
 - Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
   amounts or other personal data. `GET /api/analytics/trade` needs `ANALYTICS_TOKEN`.
-- Keep the disclaimer "Not financial advice. Scores are model outputs." next to the account panel and in settings.
+- The disclaimer "Not financial advice. Scores are model outputs." lives in the onboarding alpha step and in Settings
+  (Trading, About); the user asked to keep it off the trading screen.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
 - Chart engine: the `chart` preference (Settings → General) picks the Angler chart (Lightweight Charts, news markers)

@@ -479,6 +479,35 @@ function SoundSelect({ label, value, volume, onChange }: { label: string; value:
   );
 }
 
+/** Asks for permission when turned on; a blocked permission is explained instead of failing silently. */
+function NewsNotificationsRow() {
+  const { preferences, updatePreference } = usePreferences();
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() =>
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
+  );
+  const description =
+    permission === "unsupported"
+      ? "This browser doesn't support notifications."
+      : permission === "denied"
+        ? "Notifications are blocked for this site. Allow them in your browser's site settings, then turn this on."
+        : "Get a notification for high-impact news while the terminal is in a background tab. Click it to jump to the news.";
+  return (
+    <SettingRow title="Notifications for high-impact news" description={description}>
+      <Toggle
+        label="Notifications for high-impact news"
+        checked={preferences.newsNotifications && permission === "granted"}
+        onChange={async (checked) => {
+          if (!checked) return updatePreference("newsNotifications", false);
+          if (permission === "unsupported") return;
+          const result = permission === "granted" ? "granted" : await Notification.requestPermission();
+          setPermission(result);
+          updatePreference("newsNotifications", result === "granted");
+        }}
+      />
+    </SettingRow>
+  );
+}
+
 function NotificationSettings() {
   const t = useT();
   const { preferences, updatePreference } = usePreferences();
@@ -490,6 +519,7 @@ function NotificationSettings() {
       <SettingRow title="Sound on high-impact news" description="Play a bell when a high-impact item arrives. Off by default.">
         <Toggle label="Sound on high-impact news" checked={preferences.highImpactSound} onChange={(checked) => updatePreference("highImpactSound", checked)} />
       </SettingRow>
+      <NewsNotificationsRow />
       <SettingRow title={t("settings.newsSound")} description={t("settings.newsSoundText")}>
         <SoundSelect label={t("settings.newsSound")} value={preferences.newsSound} volume={preferences.alertVolume} onChange={(sound) => updatePreference("newsSound", sound)} />
       </SettingRow>

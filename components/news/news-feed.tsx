@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTradeTicket } from "@/components/terminal/trade-ticket";
+import { notifyNews } from "@/lib/alerts/notify";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { useNewsFeed, type FeedStatus } from "@/lib/angler/use-news-feed";
 import { countActiveFilters, filterNews } from "@/lib/news/filter";
@@ -40,8 +41,10 @@ function FeedStatusBadge({ status, error }: { status: FeedStatus; error: string 
 }
 
 /** Highlights high-impact arrivals for a few seconds and optionally plays a sound. Never trades. */
-function useHighImpactFlash(items: NewsItem[]) {
+function useHighImpactFlash(items: NewsItem[], onOpen: (id: string) => void) {
   const { preferences } = usePreferences();
+  const notifyRef = useRef({ on: preferences.newsNotifications, onOpen });
+  notifyRef.current = { on: preferences.newsNotifications, onOpen };
   const knownRef = useRef<Set<string> | null>(null);
   const [flashing, setFlashing] = useState<Set<string>>(() => new Set());
   const soundRef = useRef({ on: preferences.highImpactSound, volume: preferences.alertVolume });
@@ -55,6 +58,13 @@ function useHighImpactFlash(items: NewsItem[]) {
     if (fresh.length === 0) return;
     setFlashing((current) => new Set([...current, ...fresh]));
     if (soundRef.current.on) playAlertSound("bell", soundRef.current.volume);
+    if (notifyRef.current.on) {
+      // A burst (e.g. after reconnecting) notifies for the newest few only.
+      for (const id of fresh.slice(0, 3)) {
+        const item = items.find((entry) => entry.id === id);
+        if (item) notifyNews(item, notifyRef.current.onOpen);
+      }
+    }
     const timer = window.setTimeout(
       () => setFlashing((current) => new Set([...current].filter((id) => !fresh.includes(id)))),
       FLASH_MS,
@@ -79,7 +89,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   const minImportance = filters.minImpact;
   const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
   const activeFilters = countActiveFilters(filters);
-  const flashing = useHighImpactFlash(items);
+  const flashing = useHighImpactFlash(items, selectNews);
   useNewsSound(items, shown, status === "live");
 
   // Tradable assets per news item (by symbol), so shortcuts can trade the selected item's lead asset.
