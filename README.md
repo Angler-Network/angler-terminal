@@ -5,8 +5,8 @@ A multi-venue perp DEX terminal driven by real-time, AI-scored crypto news.
 Trade Hyperliquid and Lighter perps, Solana tokens and tokenized stocks from one screen. The terminal picks the
 cheapest venue for you, and every important headline turns into a one-tap trade on the asset it moves.
 
-**Live:** [angler-terminal.vercel.app](https://angler-terminal.vercel.app) · **News:**
-[news.angler.network](https://news.angler.network) · **News API:** [api.angler.network](https://api.angler.network/openapi.yaml)
+**Live:** [trade.angler.network](https://trade.angler.network) · **Testnet:**
+[testnet-trade.angler.network](https://testnet-trade.angler.network) · **News API:** [api.angler.network](https://api.angler.network/openapi.yaml)
 
 > **Alpha.** The terminal runs on testnets by default. Mainnet trades use real funds. Not financial advice: news
 > scores and predictions are model outputs.
