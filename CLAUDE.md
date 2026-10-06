@@ -120,6 +120,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     keep only the gasless `arcus` venue quote, refuse impact above `MAX_SPOT_PRICE_IMPACT_PCT` vs `referencePrice`,
     switch/add Robinhood Chain in the wallet, Permit2 allowance (EIP-2612 permit or one-time approve), sign the
     Permit2 witness, `/v1/submit`, poll `/v1/status`. Minimum $5 per trade.
+  - Testnet funds: the account panel's Arcus section links the Robinhood testnet ETH faucet and mints
+    `TEST_USDG_MINT_AMOUNT` mUSDG through the token's open `mint(address,uint256)` (`mintTestUsdg`, simulated first; the
+    contract is unverified so explorers can't call it, and it limits mints per wallet). mUSDG supports EIP-2612 permits.
 - News → trading: orders start from the news. Important news (impact ≥ `tradeMinImpact`, default 60) with a
   tradable asset shows a size grid per asset (`components/news/news-trade-grid.tsx`): green Long/Buy row, red
   Short/Sell row, four presets each. Venues come from the resolver `use-asset-venue.ts`; the ticket carries the perp venue id. A press arms the button

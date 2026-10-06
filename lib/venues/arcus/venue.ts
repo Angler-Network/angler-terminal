@@ -12,7 +12,7 @@ import {
 } from "@arcus-xyz/arcus-spot-sdk";
 import { createPublicClient, createWalletClient, custom, erc20Abi, http, type EIP1193Provider } from "viem";
 import { VenueError, type OrderSide } from "../types";
-import { ARCUS_MIN_NOTIONAL_USD, ARCUS_SLIPPAGE_BPS, arcusConfig, explorerTxUrl } from "./config";
+import { ARCUS_MIN_NOTIONAL_USD, ARCUS_SLIPPAGE_BPS, ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig, explorerTxUrl } from "./config";
 import { arcusQuoteToken, call } from "./catalog";
 import { arcusErrorMessage, arcusPriceImpactPct, pickArcusQuote, readReferencePrice } from "./quote";
 import type { ArcusToken } from "./tokens";
@@ -53,6 +53,36 @@ async function walletOnRobinhood(provider: EIP1193Provider, account: `0x${string
     if ((await wallet.getChainId()) !== arcusConfig.chainId) await wallet.switchChain({ id: arcusConfig.chainId });
   }
   return wallet;
+}
+
+const mintAbi = [
+  { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+] as const;
+
+/**
+ * Testnet only: mints test USDG to the wallet through the token's open `mint` (explorers can't call it because the
+ * contract isn't verified). Needs a little testnet ETH for gas. Resolves to the explorer link of the transaction.
+ */
+export async function mintTestUsdg(provider: EIP1193Provider, account: `0x${string}`) {
+  if (arcusConfig.network !== "testnet") throw new VenueError("Test USDG exists on testnet only.");
+  const token = await arcusQuoteToken();
+  const amount = BigInt(TEST_USDG_MINT_AMOUNT) * 10n ** BigInt(token.decimals);
+  if ((await publicClient.getBalance({ address: account })) === 0n) {
+    throw new VenueError(`Minting needs a little testnet ETH for gas. Get some at ${ROBINHOOD_TESTNET_FAUCET_URL}, then try again.`);
+  }
+  try {
+    await publicClient.simulateContract({ account, address: token.address, abi: mintAbi, functionName: "mint", args: [account, amount] });
+  } catch {
+    throw new VenueError("The test token refused this mint: the wallet may have hit its mint limit. Try again later.");
+  }
+  try {
+    const wallet = await walletOnRobinhood(provider, account);
+    const hash = await wallet.writeContract({ address: token.address, abi: mintAbi, functionName: "mint", args: [account, amount] });
+    await publicClient.waitForTransactionReceipt({ hash });
+    return explorerTxUrl(hash);
+  } catch (error) {
+    throw new VenueError(walletMessage(error));
+  }
 }
 
 async function waitForSwap(txHash: string) {

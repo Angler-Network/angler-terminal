@@ -2,10 +2,11 @@
 
 import { ExternalLink, KeyRound } from "lucide-react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { useToast } from "@/components/app/toast-provider";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
-import { arcusConfig } from "@/lib/venues/arcus/config";
+import { ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfig } from "@/lib/venues/lighter/config";
@@ -205,6 +206,51 @@ function JupiterSection() {
   );
 }
 
+/** Testnet: links the ETH faucet and mints test USDG in the app (explorers can't call the unverified token's mint). */
+function ArcusTestFunds({ address, hasEth, onMinted }: { address: `0x${string}`; hasEth: boolean; onMinted: () => void }) {
+  const toast = useToast();
+  const { wallet } = useWallet();
+  const [isMinting, setIsMinting] = useState(false);
+  const mint = async () => {
+    if (!wallet) return;
+    setIsMinting(true);
+    try {
+      const { mintTestUsdg } = await import("@/lib/venues/arcus/venue");
+      const url = await mintTestUsdg(wallet.provider, address);
+      toast({ tone: "success", title: `Minted ${TEST_USDG_MINT_AMOUNT} ${arcusConfig.quoteSymbol}`, link: { href: url, label: "View on explorer" } });
+      onMinted();
+    } catch (error) {
+      toast({ tone: "error", title: "Mint failed", message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsMinting(false);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
+        <a
+          href={ROBINHOOD_TESTNET_FAUCET_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-7 items-center justify-center gap-1 rounded-md border border-app-hairline-strong bg-app-chip text-[12px] font-semibold text-app-ink hover:bg-app-card"
+        >
+          Get test ETH
+          <ExternalLink className="size-3" aria-hidden />
+        </a>
+        <button
+          type="button"
+          disabled={isMinting || !wallet}
+          onClick={() => void mint()}
+          className="h-7 rounded-md border border-app-hairline-strong bg-app-chip text-[12px] font-semibold text-app-ink hover:bg-app-card disabled:opacity-50"
+        >
+          {isMinting ? "Minting…" : `Mint ${TEST_USDG_MINT_AMOUNT} ${arcusConfig.quoteSymbol}`}
+        </button>
+      </div>
+      {!hasEth && <p className="text-[11px] text-app-faint">Get a little test ETH first: minting needs gas.</p>}
+    </div>
+  );
+}
+
 function ArcusSection({ address }: { address: `0x${string}` }) {
   const { symbol } = useSelectedAsset();
   const token = useArcusToken(symbol) ?? null;
@@ -232,6 +278,7 @@ function ArcusSection({ address }: { address: `0x${string}` }) {
       <Row label={arcusConfig.quoteSymbol}>{state ? show(state.amounts[state.stable.address], state.stable.decimals) : "—"}</Row>
       {token && <Row label={token.symbol}>{state ? show(state.amounts[token.address], token.decimals) : "—"}</Row>}
       <Row label="ETH (approvals)">{state ? show(state.eth, 18) : "—"}</Row>
+      {arcusConfig.network === "testnet" && <ArcusTestFunds address={address} hasEth={Boolean(state && state.eth > 0n)} onMinted={load} />}
     </Section>
   );
 }

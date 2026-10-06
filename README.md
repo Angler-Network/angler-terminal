@@ -153,7 +153,8 @@ and it stays off or uses public defaults. `.env.example` documents every variabl
 
 - Hyperliquid: [app.hyperliquid-testnet.xyz/drip](https://app.hyperliquid-testnet.xyz/drip)
 - Lighter: the testnet app at [testnet.app.lighter.xyz](https://testnet.app.lighter.xyz)
-- Arcus: testnet mUSDG has an open `mint` on Robinhood Chain testnet (`0xf64780eAE9CFe162EF38f5224459a014a1007cd5`)
+- Arcus: test ETH from [faucet.testnet.chain.robinhood.com](https://faucet.testnet.chain.robinhood.com), then
+  **Mint 500 mUSDG** in the account panel's Arcus section (the explorer can't call the token's mint)
 
 Jupiter and Titan have no testnet. Use a dedicated wallet with a few dollars.
 

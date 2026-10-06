@@ -55,6 +55,11 @@ export const arcusConfig = {
   appUrl: "https://arcus.xyz",
 };
 
+/** Robinhood Chain testnet ETH faucet (gas for minting test USDG). */
+export const ROBINHOOD_TESTNET_FAUCET_URL = "https://faucet.testnet.chain.robinhood.com";
+/** Test USDG minted per press. The token's mint is open but limited per wallet. */
+export const TEST_USDG_MINT_AMOUNT = 500;
+
 export function explorerTxUrl(hash: string) {
   return `${arcusConfig.chain.blockExplorers?.default.url}/tx/${hash}`;
 }
