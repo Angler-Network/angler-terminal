@@ -36,8 +36,9 @@ function FeedStatusBadge({ status, error }: { status: FeedStatus; error: string 
       title={error && status !== "live" ? `${hint}\nLast error: ${error}` : hint}
       className="inline-flex items-center gap-1.5 rounded-full border border-app-hairline px-2 py-0.5 text-[11px] font-medium text-app-muted"
     >
-      <span aria-hidden className={`size-1.5 rounded-full ${dot}`} />
-      {label}
+      <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${dot}`} />
+      {/* A narrow feed column keeps only the dot; the label stays for screen readers and in the tooltip. */}
+      <span className="[@container(max-width:360px)]:sr-only">{label}</span>
     </span>
   );
 }
@@ -163,11 +164,12 @@ export function NewsFeed({ feed }: NewsFeedProps) {
       aria-label="News"
       className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-app-hairline px-3 py-2">
+      {/* A size container so the controls can compact themselves when the column is narrow instead of overflowing. */}
+      <header className="flex shrink-0 items-center gap-1.5 border-b border-app-hairline px-3 py-2 [container-type:inline-size]">
         <h2 className="text-[13px] font-semibold text-app-ink">News</h2>
         <FeedStatusBadge status={status} error={liveError} />
-        {items.length > 0 && <span className="text-[11px] tabular-nums text-app-faint">{shown.length}</span>}
-        <div role="group" aria-label="Minimum importance" className="ml-auto flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+        {items.length > 0 && <span className="text-[11px] tabular-nums text-app-faint [@container(max-width:360px)]:hidden">{shown.length}</span>}
+        <div role="group" aria-label="Minimum importance" className="ml-auto flex shrink-0 gap-0.5 rounded-lg bg-app-chip p-0.5">
           {IMPORTANCE_FILTERS.map((value) => (
             <button
               key={value}
@@ -175,7 +177,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
               aria-pressed={minImportance === value}
               onClick={() => updatePreference("newsFilters", { ...filters, minImpact: value })}
               title={value === 0 ? "All news" : `Importance ${value}+`}
-              className={`h-6 rounded-md px-1.5 text-[11px] font-semibold tabular-nums transition-colors ${
+              className={`h-6 rounded-md px-1.5 text-[11px] [@container(max-width:320px)]:px-1 font-semibold tabular-nums transition-colors ${
                 minImportance === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
               }`}
             >
@@ -188,7 +190,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
           onClick={() => openSettings("rules")}
           title={activeRules > 0 ? `News rules (${activeRules} on)` : "News rules: act on news automatically"}
           aria-label="News rules"
-          className={`relative grid size-7 place-items-center rounded-lg transition-colors hover:bg-app-chip hover:text-app-ink ${
+          className={`relative grid size-7 shrink-0 place-items-center rounded-lg [@container(max-width:320px)]:size-6 transition-colors hover:bg-app-chip hover:text-app-ink ${
             activeRules > 0 ? "text-[#f5c97b]" : "text-app-muted"
           }`}
         >
@@ -204,7 +206,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
           onClick={() => openSettings("filters")}
           title={activeFilters > 0 ? `News filters (${activeFilters} active)` : "News filters"}
           aria-label="News filters"
-          className={`relative grid size-7 place-items-center rounded-lg transition-colors hover:bg-app-chip hover:text-app-ink ${
+          className={`relative grid size-7 shrink-0 place-items-center rounded-lg [@container(max-width:320px)]:size-6 transition-colors hover:bg-app-chip hover:text-app-ink ${
             activeFilters > 0 ? "text-app-ink" : "text-app-muted"
           }`}
         >
