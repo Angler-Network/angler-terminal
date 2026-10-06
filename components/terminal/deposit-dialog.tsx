@@ -19,6 +19,7 @@ import {
 } from "@/lib/venues/deposits";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
+import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading, type FundsMode } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
@@ -288,11 +289,19 @@ export function DepositDialog() {
         {mode === "deposit" && plan.kind === "faucet" && (
           <div className="flex flex-col gap-2 text-[13px] text-app-muted">
             <p>{PERP_VENUE_NAMES[venue]} is on testnet: test USDC comes from its faucet, not from your wallet.</p>
+            {venue === "lighter" && (
+              <LighterFaucetButton
+                label="Get test USDC now"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent hover:opacity-90 disabled:opacity-60"
+              />
+            )}
             <a
               href={plan.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent"
+              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold ${
+                venue === "lighter" ? "border border-app-hairline-strong text-app-ink hover:bg-app-chip" : "bg-app-accent text-app-on-accent"
+              }`}
             >
               {plan.label} <ExternalLink className="size-3.5" aria-hidden />
             </a>

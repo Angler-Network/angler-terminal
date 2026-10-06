@@ -82,6 +82,33 @@ export async function getAccountIndex(l1Address: string, { fresh = false } = {})
   return index;
 }
 
+const FAUCET_WAIT_MS = 90_000;
+const FAUCET_POLL_MS = 3_000;
+
+/**
+ * Testnet only: Lighter's faucet (the testnet app's "Request Funds", `GET /faucet`) credits test USDC to the
+ * wallet, creating its account when there is none, and accepts requests while the portfolio is under $100. Waits
+ * until the account shows up and resolves to its index.
+ */
+export async function requestTestFunds(l1Address: string) {
+  if (lighterConfig.network !== "testnet") throw new VenueError("Lighter's faucet only exists on testnet.");
+  try {
+    await lighterGet("faucet", { l1_address: l1Address, do_l1_transfer: "false" });
+  } catch (error) {
+    if (error instanceof LighterApiError) {
+      throw new VenueError(`Lighter's faucet refused: ${error.message || "try again later"}. It sends more only while your Lighter balance is under $100.`, String(error.code));
+    }
+    throw error;
+  }
+  const deadline = Date.now() + FAUCET_WAIT_MS;
+  while (Date.now() < deadline) {
+    const index = await getAccountIndex(l1Address, { fresh: true }).catch(() => null);
+    if (index !== null) return index;
+    await new Promise((resolve) => setTimeout(resolve, FAUCET_POLL_MS));
+  }
+  throw new VenueError("Lighter accepted the request but the account isn't visible yet. Check again in a minute.");
+}
+
 /** Public key registered at an API key index ("" when none), without 0x. */
 export async function registeredPublicKey(accountIndex: number, apiKeyIndex: number) {
   try {

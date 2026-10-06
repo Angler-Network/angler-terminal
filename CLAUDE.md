@@ -79,6 +79,10 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   - Signer: lighter-go's official WASM build in `public/lighter/` (`scripts/build-lighter-signer.sh` pins the commit
     and copies `wasm_exec.js` from the same Go), loaded lazily by `signer.ts`. All HTTP goes through fetch with
     explicit nonces (`nonce.ts` serializes sends per key, refetches on 21104); never `CheckClient` or nonce -1.
+  - Testnet faucet: `requestTestFunds` (`api.ts`) calls `GET /api/v1/faucet?l1_address=&do_l1_transfer=false`, the
+    undocumented endpoint behind the testnet app's "Request Funds" (opens the account with 10,000 test USDC; refills
+    only under $100), then polls `accountsByL1Address`. `lighter-faucet-button.tsx` sits in the account panel, the
+    deposit dialog and setup step 1.
   - Onboarding: account exists after the first deposit (`accountsByL1Address`); `GenerateAPIKey` in the browser,
     `SignChangePubKey`, the user's wallet `personal_sign`s `messageToSign` → `L1Sig`, wait for `apikeys`. Key slot
     `NEXT_PUBLIC_LIGHTER_API_KEY_INDEX` (default 61). The private key is stored AES-GCM encrypted with a

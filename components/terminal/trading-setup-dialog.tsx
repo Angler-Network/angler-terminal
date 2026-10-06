@@ -4,6 +4,7 @@ import { Check, KeyRound, Landmark, Loader2, ReceiptText, X } from "lucide-react
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfig } from "@/lib/venues/lighter/config";
+import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 
 function feeLabel(tenthsOfBps: number) {
@@ -127,7 +128,11 @@ function LighterSteps() {
         index={1}
         Icon={Landmark}
         title="Lighter account"
-        description="Lighter creates the account on your first deposit. Deposit USDC from this wallet on Lighter, then check again (it can take a few minutes)."
+        description={
+          lighterConfig.network === "testnet"
+            ? "On testnet, the faucet opens your Lighter account with test USDC in one click (about 20 seconds)."
+            : "Lighter creates the account on your first deposit. Deposit USDC from this wallet on Lighter, then check again (it can take a few minutes)."
+        }
         done={accountDone}
         active={!accountDone}
         busy={busy === 1}
@@ -135,6 +140,8 @@ function LighterSteps() {
         action="Check again"
         onRun={() => void run(1)}
         extra={
+          <>
+          <LighterFaucetButton className="inline-flex h-8 items-center rounded-lg border border-app-accent px-3 text-[13px] font-semibold text-app-accent hover:bg-app-accent/10 disabled:opacity-60" />
           <a
             href={lighterConfig.appUrl}
             target="_blank"
@@ -143,6 +150,7 @@ function LighterSteps() {
           >
             Open Lighter
           </a>
+          </>
         }
       />
       <Step

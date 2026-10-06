@@ -152,7 +152,8 @@ and it stays off or uses public defaults. `.env.example` documents every variabl
 ### Testnet funds
 
 - Hyperliquid: [app.hyperliquid-testnet.xyz/drip](https://app.hyperliquid-testnet.xyz/drip)
-- Lighter: the testnet app at [testnet.app.lighter.xyz](https://testnet.app.lighter.xyz)
+- Lighter: **Get test USDC** in the account panel or the deposit dialog opens your testnet account with test USDC
+  (the same faucet as [testnet.app.lighter.xyz](https://testnet.app.lighter.xyz))
 - Arcus: test ETH from [faucet.testnet.chain.robinhood.com](https://faucet.testnet.chain.robinhood.com), then
   **Mint 500 mUSDG** in the account panel's Arcus section (the explorer can't call the token's mint)
 

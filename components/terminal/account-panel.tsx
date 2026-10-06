@@ -12,6 +12,7 @@ import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfig } from "@/lib/venues/lighter/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
+import { LighterFaucetButton } from "./lighter-faucet-button";
 import { OrderPanel } from "./order-panel";
 import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
@@ -113,6 +114,17 @@ function LighterKeyStatus() {
   const { lighter, revokeLighter, openSetup } = useTrading();
   const [isRevoking, setIsRevoking] = useState(false);
   if (!lighter) return <p className="text-[12px] text-app-faint">Checking Lighter account…</p>;
+  if (lighter.accountIndex === null && lighterConfig.network === "testnet") {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <p className="text-[12px] text-app-muted">No Lighter testnet account yet. The faucet opens one with test USDC.</p>
+        <LighterFaucetButton
+          label="Open account with test USDC"
+          className="h-7 rounded-md bg-app-accent text-[12px] font-semibold text-app-on-accent hover:opacity-90 disabled:opacity-60"
+        />
+      </div>
+    );
+  }
   if (lighter.accountIndex === null) {
     return (
       <a
