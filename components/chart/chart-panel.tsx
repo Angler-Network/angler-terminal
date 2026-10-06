@@ -16,6 +16,7 @@ import type { ChartInterval } from "@/lib/chart/candles";
 import { tradingViewInterval, tradingViewSymbol } from "@/lib/chart/tradingview";
 import type { NewsItem } from "@/lib/types";
 
+import { fittingIntervalCount } from "@/lib/chart/interval-fit";
 import { IntervalPicker } from "./interval-picker";
 
 const AnglerChart = dynamic(() => import("./angler-chart").then((module) => module.AnglerChart), { ssr: false });
@@ -41,6 +42,38 @@ function useIsStock(symbol: string) {
     };
   }, [symbol, kinds]);
   return kinds[symbol];
+}
+
+const HEADER_GAP_PX = 12;
+const STATS_FADE_PX = 16;
+
+/**
+ * How many quick interval buttons fit next to the market stats: whatever is left of the header after the asset,
+ * price and the stats' full width. Re-measured when the header or the stats resize.
+ */
+function useQuickIntervalCount(hasStats: boolean) {
+  const headerRef = useRef<HTMLElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const [count, setCount] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const header = headerRef.current;
+    const stats = statsRef.current;
+    if (!header) return;
+    const measure = () => {
+      const box = header.getBoundingClientRect();
+      const inner = box.width - parseFloat(getComputedStyle(header).paddingRight);
+      // The stats strip starts after the asset and price; its content keeps its natural width even when clipped.
+      const strip = stats?.parentElement;
+      const used = strip && stats ? strip.getBoundingClientRect().left - box.left + stats.offsetWidth + STATS_FADE_PX : inner / 2;
+      setCount(fittingIntervalCount(inner - used - HEADER_GAP_PX));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    if (stats) observer.observe(stats);
+    return () => observer.disconnect();
+  }, [hasStats]);
+  return { headerRef, statsRef, count };
 }
 
 function useIsDarkTone(dependency: unknown) {
@@ -120,13 +153,14 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   }, [markets, symbol, isStock]);
   const selected = markets?.find((market) => market.symbol === symbol);
   const quote = selected ? pickQuote(selected, preferences.tapeSource)?.quote : undefined;
+  const fit = useQuickIntervalCount(Boolean(venueMarket));
 
   return (
     <section aria-label={t("chart.title")} className={panelClass}>
-      <header className="flex shrink-0 items-center gap-3 border-b border-app-hairline px-3 py-2">
+      <header ref={fit.headerRef} className="flex shrink-0 items-center gap-3 border-b border-app-hairline px-3 py-2">
         <SearchableSelect
           compact
-          className="w-[150px]"
+          className="w-[124px] shrink-0"
           items={options}
           value={symbol}
           onChange={selectAsset}
@@ -157,8 +191,8 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
             </span>
           </div>
         )}
-        <MarketStats market={venueMarket ?? null} />
-        {!isTradingView && <IntervalPicker />}
+        <MarketStats market={venueMarket ?? null} contentRef={fit.statsRef} />
+        {!isTradingView && <IntervalPicker maxQuick={fit.count} />}
       </header>
       {isStock === undefined || venueMarket === undefined ? (
         <div aria-hidden className="m-3 flex-1 animate-pulse rounded-xl bg-app-chip/60" />

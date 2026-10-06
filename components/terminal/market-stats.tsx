@@ -27,13 +27,15 @@ function Stat({ label, title, children }: { label: string; title?: string; child
 }
 
 /** Mark, 24h volume, open interest and hourly funding with its countdown for the chart's perp market. */
-export function MarketStats({ market }: { market: VenueMarket | null }) {
+export function MarketStats({ market, contentRef }: { market: VenueMarket | null; contentRef?: React.Ref<HTMLDivElement> }) {
   const funding = useFunding();
   const now = useNow(1000);
   if (!market) return null;
   const rate8h = funding?.[market.symbol]?.[market.venue];
   return (
-    <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-3 overflow-x-auto pr-4 [mask-image:linear-gradient(90deg,#000_calc(100%-24px),transparent)]">
+    <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto pr-4 [mask-image:linear-gradient(90deg,#000_calc(100%-24px),transparent)]">
+      {/* Sized to its content so the chart header can measure what the stats need. */}
+      <div ref={contentRef} className="flex w-max items-center gap-3">
       <Stat label="Mark" title={`${PERP_VENUE_NAMES[market.venue]} mark price`}>
         {market.markPx ? formatPrice(market.markPx) : "—"}
       </Stat>
@@ -45,6 +47,7 @@ export function MarketStats({ market }: { market: VenueMarket | null }) {
         </span>
         <span className="text-app-muted"> / {now === null ? "--:--" : fundingCountdown(now)}</span>
       </Stat>
+      </div>
     </div>
   );
 }

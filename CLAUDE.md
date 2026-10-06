@@ -199,7 +199,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   or the TradingView advanced chart widget from angler-news, opened on the selected asset (`lib/chart/tradingview.ts`:
   crypto → `BINANCE:<SYM>USDT.P`, stocks → ticker). The widget has its own interval bar, so ours is hidden.
 - Chart intervals: `lib/chart/candles.ts` lists the 14 intervals Binance and Hyperliquid both accept (1m–1M);
-  `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons.
+  `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons. In the
+  terminal the chart header measures what's left after the market stats and passes `maxQuick` (`lib/chart/interval-fit.ts`):
+  narrow headers keep only the active interval, the rest stay in the dropdown.
 - Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. Clicking a ticker
   tape pill calls `focusAsset`: it selects the chart and narrows the feed to that symbol (`newsFocus`, cleared from
   the "Only X" chip). The clickable pill is a terminal-only change to the copied `ticker-pill.tsx`/`ticker-tape.tsx`.

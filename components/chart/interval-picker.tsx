@@ -3,12 +3,16 @@
 import { ChevronDown, ChevronUp, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { quickIntervals } from "@/lib/chart/interval-fit";
 import { chartIntervals, intervalGroups, intervalLabel, intervalShortLabel, type ChartInterval } from "@/lib/chart/candles";
 
 const byOrder = (a: ChartInterval, b: ChartInterval) => chartIntervals.indexOf(a) - chartIntervals.indexOf(b);
 
-/** TradingView-style interval picker: starred intervals as quick buttons, the full list in a dropdown. */
-export function IntervalPicker() {
+/**
+ * TradingView-style interval picker: starred intervals as quick buttons, the full list in a dropdown. `maxQuick`
+ * (terminal addition) limits the buttons when the chart header is narrow; the active one always stays.
+ */
+export function IntervalPicker({ maxQuick }: { maxQuick?: number } = {}) {
   const { preferences, updatePreference } = usePreferences();
   const interval = preferences.chartInterval;
   const favorites = preferences.chartFavoriteIntervals;
@@ -42,10 +46,10 @@ export function IntervalPicker() {
     );
 
   // Keep the active interval visible as a quick button even when it isn't starred.
-  const quick = [...new Set([...favorites, interval])].sort(byOrder);
+  const quick = quickIntervals(favorites, interval, maxQuick);
 
   return (
-    <div ref={rootRef} className="relative ml-auto flex items-center gap-0.5 rounded-lg bg-app-chip p-0.5">
+    <div ref={rootRef} className="relative ml-auto flex shrink-0 items-center gap-0.5 rounded-lg bg-app-chip p-0.5">
       <div role="group" aria-label="Chart interval" className="flex gap-0.5">
         {quick.map((value) => (
           <button
