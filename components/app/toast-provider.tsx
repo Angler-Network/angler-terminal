@@ -2,6 +2,8 @@
 
 import { CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import type { ToastPosition } from "@/lib/preferences";
+import { usePreferences } from "./preferences-provider";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -37,7 +39,18 @@ export function useToast() {
   return context.toast;
 }
 
+/**
+ * Stack placement per `toastPosition`. Top stacks put the newest toast first (nearest the edge); phones keep the
+ * bottom one above the tab bar.
+ */
+const placements: Record<ToastPosition, string> = {
+  top: "inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] flex-col-reverse lg:inset-x-auto lg:left-1/2 lg:top-3 lg:w-[380px] lg:-translate-x-1/2",
+  "top-right": "inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] flex-col-reverse lg:inset-x-auto lg:right-4 lg:top-3 lg:w-[340px]",
+  "bottom-right": "inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] flex-col lg:inset-x-auto lg:bottom-4 lg:right-4 lg:w-[340px]",
+};
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { preferences } = usePreferences();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
 
@@ -55,7 +68,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 lg:inset-x-auto lg:bottom-4 lg:right-4 lg:w-[340px]">
+      <div aria-live="polite" className={`pointer-events-none fixed z-50 flex gap-2 ${placements[preferences.toastPosition]}`}>
         {toasts.map(({ id, tone, title, message, link, action }) => {
           const { Icon, className } = tones[tone];
           return (

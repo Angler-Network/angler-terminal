@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { deployment, otherDeploymentUrl, venueAvailable, type VenueKey } from "@/lib/deployment";
 import { useT } from "@/lib/i18n/client";
-import { alertSounds, navModeChange, panelNames, type AlertSound, type TerminalPanels } from "@/lib/preferences";
+import { alertSounds, navModeChange, panelNames, toastPositions, type AlertSound, type TerminalPanels } from "@/lib/preferences";
 import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
@@ -324,6 +324,9 @@ function LayoutSettings() {
           ]}
           onChange={(value) => updatePreference("tapePosition", value)}
         />
+      </SettingRow>
+      <SettingRow title="Notifications" description="Where order results and errors pop up.">
+        <SegmentedControl label="Notifications" value={preferences.toastPosition} options={toastPositions} onChange={(value) => updatePreference("toastPosition", value)} />
       </SettingRow>
       {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
         <SettingRow key={key} title={panelNames[key]} description={descriptions[key]}>

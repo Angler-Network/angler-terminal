@@ -32,6 +32,14 @@ export type ChartDataSource = "binance" | "hyperliquid";
 
 export type ChartMarket = "spot" | "perp";
 
+export type ToastPosition = "top" | "top-right" | "bottom-right";
+
+export const toastPositions: { value: ToastPosition; label: string }[] = [
+  { value: "top", label: "Top" },
+  { value: "top-right", label: "Top right" },
+  { value: "bottom-right", label: "Bottom right" },
+];
+
 /** Where the Angler chart's candles come from: "auto" follows the venue picked in the order panel. */
 export type ChartSource = "auto" | "hyperliquid" | "lighter" | "binance";
 
@@ -119,6 +127,8 @@ export interface Preferences extends Appearance {
   navMode: NavMode;
   /** Where the price tape sits, or off. */
   tapePosition: TapePosition;
+  /** Where toasts (order results, errors) appear: top center by default so they're seen. */
+  toastPosition: ToastPosition;
   showTopBar: boolean;
   sidebarHiding: boolean;
   topBarHiding: boolean;
@@ -204,6 +214,7 @@ export const defaultPreferences: Preferences = {
   showSidebar: true,
   navMode: "sidebar",
   tapePosition: "top",
+  toastPosition: "top",
   showTopBar: true,
   sidebarHiding: false,
   topBarHiding: false,
@@ -326,6 +337,7 @@ export function parsePreferences(raw: string | null): Preferences {
       showSidebar: readBoolean(stored.showSidebar, true),
       navMode: stored.navMode === "top" ? "top" : "sidebar",
       tapePosition: stored.tapePosition === "bottom" || stored.tapePosition === "off" ? stored.tapePosition : "top",
+      toastPosition: stored.toastPosition === "top-right" || stored.toastPosition === "bottom-right" ? stored.toastPosition : "top",
       showTopBar: readBoolean(stored.showTopBar, true),
       sidebarHiding: readBoolean(stored.sidebarHiding, defaultPreferences.sidebarHiding),
       topBarHiding: readBoolean(stored.topBarHiding, defaultPreferences.topBarHiding),

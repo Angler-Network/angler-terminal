@@ -3,7 +3,7 @@
 import { Check, LayoutGrid } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { layoutPresets, navModeChange, panelNames, type NavMode, type TapePosition, type TerminalPanels } from "@/lib/preferences";
+import { layoutPresets, navModeChange, panelNames, toastPositions, type NavMode, type TapePosition, type TerminalPanels, type ToastPosition } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
 
 function samePanels(a: TerminalPanels, b: TerminalPanels) {
@@ -176,6 +176,8 @@ export function LayoutMenu({
               ]}
               onChange={(value: TapePosition) => updatePreference("tapePosition", value)}
             />
+            <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint">Notifications</p>
+            <Choice value={preferences.toastPosition} options={toastPositions} onChange={(value: ToastPosition) => updatePreference("toastPosition", value)} />
           </div>
           <div className="min-w-0 max-sm:mt-1 sm:border-l sm:border-app-hairline sm:pl-2">
             <p className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint">Panels</p>
