@@ -20,8 +20,6 @@ import { useArcusToken } from "./use-arcus-token";
 import { useAssetVenues } from "./use-asset-venue";
 import { useWallet } from "./wallet-provider";
 
-export const DISCLAIMER = "Not financial advice. Scores are model outputs.";
-
 const BALANCE_REFRESH_MS = 15_000;
 
 function Section({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
@@ -266,7 +264,6 @@ export function AccountPanel({ orderEntry, account }: { orderEntry: boolean; acc
         {showAccount && solanaAddress && <JupiterSection />}
         {showAccount && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>
-      <p className="shrink-0 px-1 text-center text-[10px] leading-tight text-app-faint">{DISCLAIMER}</p>
     </div>
   );
 }

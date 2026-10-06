@@ -153,7 +153,7 @@ export function FundingArbDialog({
             Too small{lighterMinimum ? `: Lighter's ${symbol} minimum is about $${Math.ceil(lighterMinimum * price)} per leg` : ""}.
           </p>
         )}
-        <p className="text-[11px] text-app-faint">Not financial advice. Both legs are separate positions: watch margin on each venue.</p>
+        <p className="text-[11px] text-app-faint">Both legs are separate positions: watch margin on each venue.</p>
         <button
           type="button"
           disabled={isPlacing || (Boolean(address) && !notReady && tooSmall)}
