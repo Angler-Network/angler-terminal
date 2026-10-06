@@ -369,8 +369,9 @@ export function OrderPanel() {
   };
 
   const submit = async () => {
+    // "Connect wallet" must work before the form is valid (the size is still empty then).
+    if (!address && choice?.id !== "jupiter") return openWallets();
     if (!choice || !isValid || isPlacing) return;
-    if (!address && choice.id !== "jupiter") return openWallets();
     if (!armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
     setIsPlacing(true);
