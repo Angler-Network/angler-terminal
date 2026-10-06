@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Sora } from "next/font/google";
+import { preconnect } from "react-dom";
 import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { LazyDialogs } from "@/components/app/lazy-dialogs";
@@ -17,6 +18,7 @@ import { WalletModalProvider } from "@/components/terminal/wallet-modal";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { preferencesScript } from "@/lib/preferences";
+import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import "./globals.css";
 
 const sora = Sora({
@@ -46,6 +48,9 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // The first screen loads coin icons and Hyperliquid candles/books before anything else from these hosts.
+  preconnect("https://app.hyperliquid.xyz");
+  preconnect(hlConfig.apiUrl, { crossOrigin: "anonymous" });
   return (
     <html lang="en-US" className={sora.variable} data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>

@@ -20,10 +20,10 @@ interface MarketIconProps {
 /**
  * Sources tried in order until one loads: the ones for the market's kind, then Lighter's, then the other kind's
  * (venues mislabel some markets, e.g. Lighter lists stocks next to tokens), then the same for the base name of
- * multiplied or USD-quoted tickers (1000PEPE → PEPE, SAMSUNGUSD → SAMSUNG), then the letter avatar.
+ * multiplied or USD-quoted tickers (1000PEPE / kPEPE → PEPE, SAMSUNGUSD → SAMSUNG), then the letter avatar.
  */
 function iconSources(symbol: string, kind: MarketIconProps["kind"]): string[] {
-  const unscaled = symbol.replace(/^1000+/, "");
+  const unscaled = symbol.replace(/^1000+/, "").replace(/^k(?=[A-Z0-9]{2})/, "");
   const base = unscaled.length > 6 && unscaled.endsWith("USD") ? unscaled.slice(0, -3) : unscaled;
   return base && base !== symbol ? [...symbolSources(symbol, kind), ...symbolSources(base, kind)] : symbolSources(symbol, kind);
 }
@@ -39,8 +39,11 @@ function symbolSources(symbol: string, kind: MarketIconProps["kind"]) {
   return kind === "stock" ? [...stock, ...lighter, ...crypto] : [...crypto, ...lighter, ...stock];
 }
 
+/** URLs that failed this session: every later icon skips them instead of requesting the same 404 again. */
+const failedSources = new Set<string>();
+
 export function MarketIcon({ symbol, kind, size = 24 }: MarketIconProps) {
-  const sources = iconSources(symbol, kind ?? assets[symbol]?.kind);
+  const sources = iconSources(symbol, kind ?? assets[symbol]?.kind).filter((source) => !failedSources.has(source));
   const sourceKey = sources.join(" ");
   const [failure, setFailure] = useState({ sourceKey, index: 0 });
   const index = failure.sourceKey === sourceKey ? failure.index : 0;
@@ -55,7 +58,10 @@ export function MarketIcon({ symbol, kind, size = 24 }: MarketIconProps) {
       width={size}
       height={size}
       loading="lazy"
-      onError={() => setFailure({ sourceKey, index: index + 1 })}
+      onError={() => {
+        failedSources.add(sources[index]);
+        setFailure({ sourceKey, index: index + 1 });
+      }}
       className="shrink-0 object-contain"
       style={{ width: size, height: size }}
     />
