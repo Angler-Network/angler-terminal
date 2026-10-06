@@ -310,6 +310,9 @@ function NewsFilterSettings() {
       <SettingRow title="Show raw headlines" description="Headlines that arrived but aren't analyzed yet (no assets, sentiment or impact). Hidden while an asset filter is on.">
         <Toggle label="Show raw headlines" checked={filters.showRaw} onChange={(checked) => update({ showRaw: checked })} />
       </SettingRow>
+      <SettingRow title="English headlines" description="Show non-English news (Chinese, Korean…) translated to English. Hover a translated headline to see the original.">
+        <Toggle label="English headlines" checked={preferences.newsTranslate} onChange={(checked) => updatePreference("newsTranslate", checked)} />
+      </SettingRow>
       <div className="py-4">
         <button
           type="button"

@@ -24,10 +24,10 @@ type Slot = { column: string; row: string };
  */
 export function TerminalShell() {
   const { symbol, newsFocus } = useSelectedAsset();
-  const { newsFilters, panels } = usePreferences().preferences;
+  const { newsFilters, panels, newsTranslate } = usePreferences().preferences;
   // With one asset in view, history is requested for that coin so its older news shows up too.
   const coin = newsFocus ?? (newsFilters.assets.length === 1 ? newsFilters.assets[0] : undefined);
-  const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin });
+  const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin, translate: newsTranslate });
   const hasWallet = useHasWallet();
   const { account } = useTrading();
   // An empty portfolio only needs room for its tabs and one line; rows get the full height.

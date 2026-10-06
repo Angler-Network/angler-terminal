@@ -37,7 +37,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   against live responses; `lib/angler/fixtures/*.json` are real samples the tests read.
   - `GET /api/news` proxies `/v1/news` (coin, min_importance, limit, cursor; `next_cursor` is null on the last
     page) and answers a validated `ApiNewsPage` without `content`. REST items have a numeric `id`, `source_id`,
-    `title`, `importance_score` and ticker `coins`, but no sentiment, predictions or summary.
+    `title`, `importance_score`, ticker `coins` and `summary_short` (when the plan shows it), but no sentiment or
+    predictions.
+  - Translations (API v2026.10.3): `title`/`lang` stay in the original language; a non-English item carries its
+    English title under `translations.en.title` (REST and `news.enriched`; the event sends `null` parts while
+    untranslated, `translations: null` for English items, and a deprecated `title_en`). `map.ts` keeps only the
+    title (bodies are dropped like `content`) as `FeedNews.titleEn`; `toNewsItem` shows it as the headline with the
+    original as `originalHeadline` (tooltip + "zh → EN" tag) unless `newsTranslate` is off (Settings → News filters).
   - `GET /api/sources` proxies `/v1/sources` (cached 10 min) to name sources: REST items by `source_id`, realtime
     items by slug (`external_id`).
   - `POST /api/ws-ticket` calls `/v1/ws/ticket` with `Authorization: Bearer <key>` and returns

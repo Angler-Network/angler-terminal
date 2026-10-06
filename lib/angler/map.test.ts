@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import newsPage from "./fixtures/news-page.json";
 import sources from "./fixtures/sources.json";
 import enrichedMessage from "./fixtures/stage-enriched.json";
+import translatedItem from "./fixtures/news-translated.json";
 import rawMessage from "./fixtures/stage-raw.json";
 import {
   fromApiNewsItem,
+  readApiNewsItem,
   mergeFeedNews,
   readApiNewsPage,
   readNewsPage,
@@ -78,6 +80,52 @@ describe("GET /v1/news", () => {
     const [first] = newsPage.items;
     const page = readApiNewsPage({ items: [{ ...first, id: "x" }, { ...first, title: " " }, { ...first, importance_score: undefined }], next_cursor: null });
     expect(page.items).toEqual([]);
+  });
+});
+
+describe("translations and summaries", () => {
+  // Live /v1/news item (2026-10-06): Chinese original with its English translation, bodies shortened.
+  const translated = readApiNewsItem(translatedItem)!;
+
+  it("keeps the English title of a translated REST item and drops the bodies", () => {
+    expect(translated.title).toBe(translatedItem.title);
+    expect(translated.translations).toEqual({ en: { title: translatedItem.translations.en.title } });
+    expect("content" in translated).toBe(false);
+    expect(readApiNewsItem(JSON.parse(JSON.stringify(translated)))).toEqual(translated);
+  });
+
+  it("shows the English headline and keeps the original for its tooltip", () => {
+    const item = toNewsItem(fromApiNewsItem(translated), NOW, names);
+    expect(item).toMatchObject({ headline: translatedItem.translations.en.title, originalHeadline: translatedItem.title, lang: "zh" });
+    const original = toNewsItem(fromApiNewsItem(translated), NOW, names, false);
+    expect(original.headline).toBe(translatedItem.title);
+    expect(original.originalHeadline).toBeUndefined();
+  });
+
+  it("ignores missing or untranslated titles", () => {
+    const body = { ...translatedItem, translations: { en: { content: "<p>…</p>" } } };
+    expect(readApiNewsItem(body)?.translations).toBeUndefined();
+    expect(toNewsItem(fromApiNewsItem(readApiNewsItem(body)!), NOW).headline).toBe(translatedItem.title);
+  });
+
+  it("reads summary_short on REST items", () => {
+    const news = fromApiNewsItem(readApiNewsItem({ ...newsPage.items[0], summary_short: " Short take. " })!);
+    expect(toNewsItem(news, NOW).summary).toBe("Short take.");
+  });
+
+  it("reads translations.en on news.enriched, null parts and the deprecated title_en", () => {
+    const base = { ...enrichedMessage, item: { ...enrichedMessage.item, title: "原标题", lang: "zh" } };
+    expect(readStageMessage({ ...base, item: { ...base.item, translations: { en: { title: "English title", content: null } } } })?.titleEn).toBe("English title");
+    expect(readStageMessage({ ...base, item: { ...base.item, translations: { en: { title: null, content: "x" } } } })?.titleEn).toBeUndefined();
+    expect(readStageMessage({ ...base, item: { ...base.item, translations: null, title_en: "Old field" } })?.titleEn).toBe("Old field");
+    // English items carry translations: null.
+    expect(readStageMessage(enrichedMessage)?.titleEn).toBeUndefined();
+  });
+
+  it("keeps the translation when a later stage arrives without it", () => {
+    const raw = readStageMessage(rawMessage)!;
+    const enriched = { ...readStageMessage(enrichedMessage)!, titleEn: "English title" };
+    expect(mergeFeedNews(enriched, raw).titleEn).toBe("English title");
   });
 });
 

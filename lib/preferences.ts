@@ -144,6 +144,8 @@ export interface Preferences extends Appearance {
   highImpactSound: boolean;
   /** Browser notifications for high-impact news while the tab is in the background. */
   newsNotifications: boolean;
+  /** Show the API's English translation of non-English headlines (the original stays in the tooltip). */
+  newsTranslate: boolean;
   /** Default USD size for news trades; null uses the venue's first preset. */
   defaultPerpUsd: number | null;
   defaultSpotUsd: number | null;
@@ -214,6 +216,7 @@ export const defaultPreferences: Preferences = {
   highImpactThreshold: 80,
   highImpactSound: false,
   newsNotifications: false,
+  newsTranslate: true,
   defaultPerpUsd: null,
   defaultSpotUsd: null,
   tradeMinImpact: 60,
@@ -339,6 +342,7 @@ export function parsePreferences(raw: string | null): Preferences {
       highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
       newsNotifications: readBoolean(stored.newsNotifications, defaultPreferences.newsNotifications),
+      newsTranslate: readBoolean(stored.newsTranslate, defaultPreferences.newsTranslate),
       defaultPerpUsd: readSize(stored.defaultPerpUsd),
       defaultSpotUsd: readSize(stored.defaultSpotUsd),
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),

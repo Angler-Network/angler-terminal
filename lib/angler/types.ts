@@ -2,12 +2,16 @@
  * Angler News API payloads (https://api.angler.network, spec at /openapi.yaml), checked against live responses.
  *
  * News reaches the terminal in two shapes:
- * - REST (`GET /v1/news`): a stored row, `ApiNewsItem`. It carries `importance_score` and `coins` but no
- *   sentiment, predictions or summary.
+ * - REST (`GET /v1/news`): a stored row, `ApiNewsItem`. It carries `importance_score`, `coins`, the English
+ *   translation of a non-English item and (with a plan that shows it) `summary_short`, but no sentiment or
+ *   predictions.
  * - Realtime stage messages (`news.raw`, then `news.enriched` for the same `news_item_id`): `{ news_item_id, item }`.
  *   The raw item has no id and no score; the enriched item has `id: ""`, so the id always comes from
  *   `news_item_id`. Sources are a slug there (`source`) and a numeric `source_id` on REST, both resolved
  *   through `GET /v1/sources`.
+ *
+ * `title` always stays in the original language (`lang`). A non-English item gets its English title under
+ * `translations.en.title` once translated (REST and `news.enriched`; the event's `title_en` is deprecated).
  *
  * The API carries no Solana mints. ./map.ts turns both shapes into `FeedNews`.
  */
@@ -34,6 +38,16 @@ export interface ApiNewsItem {
   published_at: ApiTimestamp;
   ingested_at: ApiTimestamp;
   is_unique?: boolean;
+  /** One- or two-sentence English summary; absent until summarised or when the plan hides it. */
+  summary_short?: string;
+  /** Translations by language code; only the title is kept (the body is dropped like `content`). */
+  translations?: Record<string, ApiTranslation>;
+}
+
+/** A translated item; a part that is not translated yet is absent (REST) or null (realtime event). */
+export interface ApiTranslation {
+  title?: string | null;
+  content?: string | null;
 }
 
 export interface ApiNewsPage {
@@ -137,6 +151,9 @@ export interface EnrichedStageMessage {
     entities?: Entity[];
     summary_short?: string;
     ai_comment?: string;
+    /** null for an English item. */
+    translations?: Record<string, ApiTranslation> | null;
+    /** Deprecated: same as `translations.en.title`. */
     title_en?: string | null;
     decisions?: {
       event_type?: { label: string; confidence: number };
@@ -154,7 +171,10 @@ export interface EnrichedStageMessage {
 /** What the terminal keeps per news id after reading any of the shapes above. */
 export interface FeedNews {
   id: string;
+  /** Original language. */
   title: string;
+  /** English title of a non-English item, once translated. */
+  titleEn?: string;
   url?: string;
   /** REST items name their source by id, realtime items by slug. */
   sourceId?: number;

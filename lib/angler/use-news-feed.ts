@@ -38,7 +38,7 @@ function publishedAt(news: FeedNews) {
  * Live Angler news: history from /api/news, then news.raw and news.enriched over Centrifugo. Publications are
  * stage messages keyed by `news_item_id`, so the enriched payload upserts the raw one in place.
  */
-export function useNewsFeed({ minImportance = 0, coin }: { minImportance?: number; coin?: string } = {}) {
+export function useNewsFeed({ minImportance = 0, coin, translate = true }: { minImportance?: number; coin?: string; translate?: boolean } = {}) {
   const [store, setStore] = useState<Map<string, FeedNews>>(() => new Map());
   const [status, setStatus] = useState<FeedStatus>("connecting");
   const [cursor, setCursor] = useState<string | null>(null);
@@ -238,10 +238,10 @@ export function useNewsFeed({ minImportance = 0, coin }: { minImportance?: numbe
   const items = useMemo<NewsItem[]>(
     () =>
       [...store.values()]
-        .map((news) => toNewsItem(news, now, names))
+        .map((news) => toNewsItem(news, now, names, translate))
         .filter((item) => !item.enriched || item.score >= minImportance)
         .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0)),
-    [store, now, minImportance, names],
+    [store, now, minImportance, names, translate],
   );
 
   return { items, status, liveError, hasMore: Boolean(cursor), isLoadingMore, loadMore, historyError };

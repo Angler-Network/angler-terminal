@@ -41,4 +41,7 @@ export interface NewsItem {
   mints?: Record<string, string>;
   /** False while only the raw item has arrived. */
   enriched?: boolean;
+  /** Set when `headline` is an English translation: the original headline and its language. */
+  originalHeadline?: string;
+  lang?: string;
 }

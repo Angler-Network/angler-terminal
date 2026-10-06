@@ -81,7 +81,15 @@ function hostname(url: string | undefined) {
   }
 }
 
-/** Validates one `GET /v1/news` item. Drops `content`, which the terminal never shows and can be ~250 KB. */
+/** English title from `translations.en.title`, falling back to the deprecated `title_en` of realtime events. */
+function englishTitle(translations: unknown, deprecated?: unknown) {
+  return text(fields(fields(translations)?.en)?.title) ?? text(deprecated);
+}
+
+/**
+ * Validates one `GET /v1/news` item. Drops `content` and translated bodies, which the terminal never shows and can
+ * be ~250 KB.
+ */
 export function readApiNewsItem(value: unknown): ApiNewsItem | null {
   const record = fields(value);
   const id = integerId(record?.id);
@@ -90,6 +98,8 @@ export function readApiNewsItem(value: unknown): ApiNewsItem | null {
   const importance = score(record?.importance_score);
   if (!record || !id || !title || !publishedAt || importance === undefined) return null;
   const coins = readCoins(record.coins);
+  const titleEn = englishTitle(record.translations);
+  const summary = text(record.summary_short);
   return {
     id,
     source_id: integerId(record.source_id) ?? 0,
@@ -102,6 +112,8 @@ export function readApiNewsItem(value: unknown): ApiNewsItem | null {
     published_at: publishedAt,
     ingested_at: timestamp(record.ingested_at) ?? publishedAt,
     ...(typeof record.is_unique === "boolean" ? { is_unique: record.is_unique } : {}),
+    ...(summary ? { summary_short: summary } : {}),
+    ...(titleEn ? { translations: { en: { title: titleEn } } } : {}),
   };
 }
 
@@ -119,6 +131,7 @@ export function fromApiNewsItem(item: ApiNewsItem): FeedNews {
   return {
     id: String(item.id),
     title: item.title,
+    titleEn: englishTitle(item.translations),
     url: item.url,
     sourceId: item.source_id || undefined,
     lang: item.lang,
@@ -126,6 +139,7 @@ export function fromApiNewsItem(item: ApiNewsItem): FeedNews {
     importanceScore: item.importance_score,
     coins: item.coins ?? [],
     impactPredictions: [],
+    summaryShort: item.summary_short,
   };
 }
 
@@ -149,6 +163,7 @@ export function readStageMessage(value: unknown): FeedNews | null {
   return {
     id: String(id),
     title,
+    titleEn: englishTitle(item.translations, item.title_en),
     url: text(item.url),
     sourceSlug: text(item.source),
     lang: text(item.lang),
@@ -203,8 +218,11 @@ function sourceName(news: FeedNews, names: SourceNames | undefined) {
   return named ?? news.sourceSlug ?? hostname(news.url)?.replace(/^www\./, "");
 }
 
-/** Maps a feed item onto the NewsItem shape the angler-news components render. */
-export function toNewsItem(news: FeedNews, now = Date.now(), names?: SourceNames): NewsItem {
+/**
+ * Maps a feed item onto the NewsItem shape the angler-news components render. The headline is the English
+ * translation when there is one (and `translate` is on), with the original kept for its tooltip.
+ */
+export function toNewsItem(news: FeedNews, now = Date.now(), names?: SourceNames, translate = true): NewsItem {
   const predictions = [...news.impactPredictions].sort((a, b) => b.magnitude - a.magnitude);
   const lead = predictions[0];
   const sentiment = sentimentValue(news.sentiment);
@@ -214,11 +232,13 @@ export function toNewsItem(news: FeedNews, now = Date.now(), names?: SourceNames
   const parsed = news.publishedAt ? Date.parse(news.publishedAt) : Number.NaN;
   const publishedAt = Number.isFinite(parsed) ? parsed : now;
   const source = sourceName(news, names);
+  const translated = translate && news.titleEn && news.titleEn !== news.title ? news.titleEn : undefined;
 
   return {
     id: news.id,
     severity: severityFor(value),
-    headline: news.title,
+    headline: translated ?? news.title,
+    ...(translated ? { originalHeadline: news.title, lang: news.lang } : {}),
     symbol: coins[0] ?? PLACEHOLDER_SYMBOL,
     direction,
     score: value,
@@ -246,6 +266,7 @@ export function mergeFeedNews(previous: FeedNews | undefined, next: FeedNews): F
   return {
     id: next.id,
     title: next.title || previous.title,
+    titleEn: next.titleEn ?? previous.titleEn,
     url: next.url ?? previous.url,
     sourceId: next.sourceId ?? previous.sourceId,
     sourceSlug: next.sourceSlug ?? previous.sourceSlug,

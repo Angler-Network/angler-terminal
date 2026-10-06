@@ -189,6 +189,14 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
               {otherSources.length > 0 && <span className="shrink-0 text-app-faint">+{otherSources.length}</span>}
             </span>
           )}
+          {item.originalHeadline && (
+            <span
+              title={item.originalHeadline}
+              className="shrink-0 rounded bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-[0.06em] text-app-faint"
+            >
+              {item.lang ? `${item.lang.split("-")[0]} → EN` : "Translated"}
+            </span>
+          )}
           {item.alerted && <Bell className="size-3 shrink-0 text-[#c27c12]" aria-label={t("news.alertSet")} />}
           <time
             dateTime={publishedAt?.toISOString()}
@@ -199,7 +207,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
           </time>
         </div>
 
-        <h3 className={`mt-1 font-semibold leading-snug text-app-ink ${compact ? "text-[13px]" : "text-[14px]"}`}>
+        <h3 title={item.originalHeadline} className={`mt-1 font-semibold leading-snug text-app-ink ${compact ? "text-[13px]" : "text-[14px]"}`}>
           {item.url ? (
             <a
               href={item.url}
