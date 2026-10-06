@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
+import { readTitanFeeConfig, titanFeeParams } from "@/lib/venues/titan/fees";
 import { readTitanRoute, titanErrorMessage } from "@/lib/venues/titan/route";
 import { buildTitanTransaction, readTitanServerConfig, titanFetch } from "@/lib/venues/titan/server";
 
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
     numQuotes: "3",
     includeAltContents: "true",
     titanSwapVersion: "3",
+    // Partner fee in USDC (TITAN_FEE_WALLET + TITAN_FEE_BPS), when configured.
+    ...titanFeeParams(readTitanFeeConfig(process.env), inputMint!, outputMint!),
   });
   let response: Response;
   try {

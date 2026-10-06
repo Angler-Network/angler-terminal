@@ -123,7 +123,9 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   takes the `ExpectedWinner` route and builds the unsigned v0 transaction server-side with `@solana/web3.js`
   (Titan returns instructions only); `app/api/titan/execute` sends the signed tx through `SOLANA_RPC_URL` and waits
   for confirmation. `use-news-trader.ts` asks Jupiter and Titan in parallel and executes the larger output
-  (`lib/trading/best-quote.ts`, Jupiter wins ties). No key → 503 → Jupiter alone. Partner fees need Titan approval.
+  (`lib/trading/best-quote.ts`, Jupiter wins ties). No key → 503 → Jupiter alone. Partner fee (`fees.ts`):
+  `TITAN_FEE_WALLET` + `TITAN_FEE_BPS` add `feeAccount`/`feeBps` to the quote, always in USDC (the wallet's USDC ATA:
+  `feeFromInputMint` on buys, output on sells); the ATA must already exist.
 - Arcus (`lib/venues/arcus/`): stock/index tokens on Robinhood Chain (testnet 46630, mainnet 4663;
   `NEXT_PUBLIC_ARCUS_NETWORK`, testnet default), via `@arcus-xyz/arcus-spot-sdk` for signing only.
   - The browser calls `app/api/arcus/[...path]` (tokens, price, quote, status, submit only): the mainnet router allows
