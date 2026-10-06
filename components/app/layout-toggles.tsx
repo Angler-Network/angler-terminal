@@ -11,8 +11,9 @@ const iconButton =
 
 const IDLE_DELAY_MS = 5000;
 
+// Solid, high-contrast tabs: they're the only way back to a hidden sidebar or top bar, so they must stand out.
 const revealButton =
-  "absolute z-30 inline-flex items-center justify-center border border-app-hairline-strong bg-app-card/90 text-app-muted shadow-sm transition-[opacity,color] duration-300 hover:text-app-ink hover:opacity-100 focus-visible:opacity-100";
+  "absolute z-30 inline-flex items-center justify-center bg-app-accent text-app-on-accent shadow-[0_2px_12px_rgba(0,0,0,0.45)] transition-[opacity,filter] duration-300 hover:opacity-100 hover:brightness-110 focus-visible:opacity-100";
 
 function useIdle(enabled: boolean) {
   const [isIdle, setIsIdle] = useState(false);
@@ -65,7 +66,8 @@ export function TopBarToggle() {
 export function LayoutRevealButtons() {
   const { preferences, updatePreference } = usePreferences();
   const isIdle = useIdle(!preferences.showSidebar || !preferences.showTopBar);
-  const visibility = isIdle ? "pointer-events-none opacity-0" : "opacity-60";
+  // Idle tabs dim but never disappear, so they're still there to find.
+  const visibility = isIdle ? "opacity-50" : "opacity-100";
 
   return (
     <>
@@ -74,9 +76,10 @@ export function LayoutRevealButtons() {
           type="button"
           onClick={() => updatePreference("showSidebar", true)}
           aria-label="Show sidebar"
-          className={`${revealButton} ${visibility} left-0 top-1/2 hidden h-12 w-5 -translate-y-1/2 rounded-r-lg border-l-0 lg:inline-flex`}
+          title="Show sidebar"
+          className={`${revealButton} ${visibility} left-0 top-1/2 hidden h-16 w-6 -translate-y-1/2 rounded-r-lg lg:inline-flex`}
         >
-          <ChevronRight className="size-3.5" aria-hidden />
+          <ChevronRight className="size-4" strokeWidth={2.5} aria-hidden />
         </button>
       )}
       {!preferences.showTopBar && (
@@ -84,9 +87,10 @@ export function LayoutRevealButtons() {
           type="button"
           onClick={() => updatePreference("showTopBar", true)}
           aria-label="Show top bar"
-          className={`${revealButton} ${visibility} left-1/2 top-0 h-5 w-12 -translate-x-1/2 rounded-b-lg border-t-0 max-lg:hidden`}
+          title="Show top bar"
+          className={`${revealButton} ${visibility} left-1/2 top-0 h-6 w-16 -translate-x-1/2 rounded-b-lg max-lg:hidden`}
         >
-          <ChevronDown className="size-3.5" aria-hidden />
+          <ChevronDown className="size-4" strokeWidth={2.5} aria-hidden />
         </button>
       )}
     </>
