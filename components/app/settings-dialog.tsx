@@ -14,6 +14,7 @@ import { LIGHTER_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, lighterConfig } fr
 import { useMarketList } from "@/components/app/use-market-list";
 import type { Market } from "@/lib/markets/model";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters, type Sentiment } from "@/lib/news/filter";
+import { describeRule, MAX_RULES, type NewsRule, type RuleAction, type RuleSentiment } from "@/lib/news/rules";
 import type { Severity } from "@/lib/types";
 import { openWelcomeTour } from "./alpha-notice";
 import { AppearanceSettings } from "./appearance-settings";
@@ -29,6 +30,7 @@ const sections = [
   { id: "appearance", label: "Appearance" },
   { id: "layout", label: "Layout" },
   { id: "filters", label: "News filters" },
+  { id: "rules", label: "News rules" },
   { id: "trading", label: "Trading" },
   { id: "venues", label: "Venues & networks" },
   { id: "notifications", label: "Notifications" },
@@ -109,6 +111,157 @@ function ImpactStepper({ label, value, onChange }: { label: string; value: numbe
     else setDraft(String(value));
   };
   return <NumberStepper label={label} value={draft} min={0} max={100} step={5} className="w-[120px]" onChange={setDraft} onCommit={commit} />;
+}
+
+const ruleInput =
+  "h-10 rounded-xl border border-app-field-border bg-app-field px-3 text-[14px] text-app-ink outline-none focus:border-app-ink";
+
+/** "When news like this arrives, do that": rules run by `news-rules-runner.tsx` while the terminal is open. */
+function NewsRulesSettings() {
+  const { preferences, updatePreference } = usePreferences();
+  const rules = preferences.newsRules;
+  const [scope, setScope] = useState<"*" | "positions" | "symbol">("*");
+  const [symbol, setSymbol] = useState("BTC");
+  const [minImpact, setMinImpact] = useState(80);
+  const [sentiment, setSentiment] = useState<RuleSentiment>("any");
+  const [action, setAction] = useState<RuleAction>("alert");
+  const [sizeUsd, setSizeUsd] = useState("25");
+  const [auto, setAuto] = useState(false);
+  const isTrade = action === "long" || action === "short";
+  const ticker = symbol.trim().toUpperCase();
+  const valid = (scope !== "symbol" || /^[A-Z0-9]{1,20}$/.test(ticker)) && (!isTrade || Number(sizeUsd) > 0) && rules.length < MAX_RULES;
+  const save = (next: NewsRule[]) => updatePreference("newsRules", next);
+
+  const add = () => {
+    if (!valid) return;
+    save([
+      ...rules,
+      {
+        id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        enabled: true,
+        asset: scope === "symbol" ? ticker : scope,
+        minImpact,
+        sentiment,
+        action,
+        sizeUsd: isTrade ? Number(sizeUsd) : 0,
+        auto: action !== "alert" && auto,
+      },
+    ]);
+  };
+
+  return (
+    <div>
+      <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
+        Rules watch the feed while the terminal is open and act on fresh analyzed news: alert you, open a perp position on the best venue, or close a
+        position. Trades ask with a one-press prompt unless you make them automatic. Bullish, bearish and adverse rules need sentiment, which comes
+        with the realtime feed.
+      </p>
+      {rules.length > 0 && (
+        <ul className="border-b border-app-line py-2">
+          {rules.map((rule) => (
+            <li key={rule.id} className="flex items-center gap-3 py-2">
+              <Toggle
+                label={`Rule: ${describeRule(rule)}`}
+                checked={rule.enabled}
+                onChange={(checked) => save(rules.map((entry) => (entry.id === rule.id ? { ...entry, enabled: checked } : entry)))}
+              />
+              <span className={`min-w-0 flex-1 text-[14px] ${rule.enabled ? "text-app-ink" : "text-app-faint"}`}>{describeRule(rule)}</span>
+              <button
+                type="button"
+                onClick={() => save(rules.filter((entry) => entry.id !== rule.id))}
+                aria-label={`Delete rule: ${describeRule(rule)}`}
+                className="rounded-lg p-1.5 text-app-faint hover:bg-app-selected hover:text-app-down"
+              >
+                <X className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-col gap-3 py-4">
+        <p className="text-[15px] font-semibold text-app-ink">New rule</p>
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-app-muted">
+          When
+          <SelectField
+            label="Sentiment"
+            className="w-[130px]"
+            value={sentiment}
+            options={[
+              { value: "any", label: "any" },
+              { value: "positive", label: "bullish" },
+              { value: "negative", label: "bearish" },
+              { value: "adverse", label: "adverse" },
+            ]}
+            onChange={(value) => setSentiment(value as RuleSentiment)}
+          />
+          news on
+          <SelectField
+            label="Asset"
+            className="w-[150px]"
+            value={scope}
+            options={[
+              { value: "*", label: "any asset" },
+              { value: "positions", label: "my positions" },
+              { value: "symbol", label: "one asset" },
+            ]}
+            onChange={(value) => setScope(value as typeof scope)}
+          />
+          {scope === "symbol" && (
+            <input aria-label="Asset ticker" className={`${ruleInput} w-[100px] uppercase`} value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+          )}
+          scores at least
+          <ImpactStepper label="Minimum impact" value={minImpact} onChange={setMinImpact} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-app-muted">
+          then
+          <SelectField
+            label="Action"
+            className="w-[170px]"
+            value={action}
+            options={[
+              { value: "alert", label: "alert me" },
+              { value: "long", label: "open a long" },
+              { value: "short", label: "open a short" },
+              { value: "close", label: "close the position" },
+            ]}
+            onChange={(value) => setAction(value as RuleAction)}
+          />
+          {isTrade && (
+            <>
+              of $
+              <input aria-label="Size in USD" inputMode="decimal" className={`${ruleInput} w-[90px]`} value={sizeUsd} onChange={(event) => setSizeUsd(event.target.value.replace(/[^0-9.]/g, ""))} />
+            </>
+          )}
+          {action !== "alert" && (
+            <label className="ml-2 flex items-center gap-2">
+              <Toggle label="Run automatically" checked={auto} onChange={setAuto} />
+              without asking
+            </label>
+          )}
+        </div>
+        {action !== "alert" && auto && (
+          <p className="text-[12px] text-app-down">
+            Automatic rules trade with real funds on mainnet as soon as matching news arrives, at most once every 5 minutes per rule. Model scores
+            can be wrong.
+          </p>
+        )}
+        {sentiment === "adverse" && scope !== "positions" && (
+          <p className="text-[12px] text-app-faint">Adverse means against a position you hold, so it only fires on assets you have a position in.</p>
+        )}
+        <div>
+          <button
+            type="button"
+            disabled={!valid}
+            onClick={add}
+            className="h-10 rounded-xl bg-app-accent px-4 text-[14px] font-semibold text-app-on-accent transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            Add rule
+          </button>
+          {rules.length >= MAX_RULES && <span className="ml-3 text-[12px] text-app-faint">Up to {MAX_RULES} rules.</span>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LayoutSettings() {
@@ -585,6 +738,7 @@ function SectionContent({ section }: { section: SectionId }) {
   if (section === "appearance") return <AppearanceSettings />;
   if (section === "layout") return <LayoutSettings />;
   if (section === "filters") return <NewsFilterSettings />;
+  if (section === "rules") return <NewsRulesSettings />;
   if (section === "trading") return <TradingSettings />;
   if (section === "venues") return <VenueSettings />;
   if (section === "notifications") return <NotificationSettings />;

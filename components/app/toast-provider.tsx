@@ -11,6 +11,10 @@ interface Toast {
   title: string;
   message?: string;
   link?: { href: string; label: string };
+  /** A button in the toast; pressing it runs `onClick` and dismisses the toast. */
+  action?: { label: string; onClick: () => void };
+  /** Overrides how long the toast stays (actions need time to be pressed). */
+  durationMs?: number;
 }
 
 interface ToastContextValue {
@@ -42,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (input: Omit<Toast, "id">) => {
       const id = nextId.current++;
       setToasts((current) => [...current.slice(-3), { ...input, id }]);
-      window.setTimeout(() => dismiss(id), DURATION_MS[input.tone]);
+      window.setTimeout(() => dismiss(id), input.durationMs ?? DURATION_MS[input.tone]);
     },
     [dismiss],
   );
@@ -52,7 +56,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[340px] flex-col gap-2">
-        {toasts.map(({ id, tone, title, message, link }) => {
+        {toasts.map(({ id, tone, title, message, link, action }) => {
           const { Icon, className } = tones[tone];
           return (
             <div
@@ -68,6 +72,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   <a href={link.href} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12px] font-semibold text-app-ink underline">
                     {link.label}
                   </a>
+                )}
+                {action && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dismiss(id);
+                      action.onClick();
+                    }}
+                    className="mt-1.5 h-7 rounded-md bg-app-accent px-2.5 text-[12px] font-semibold text-app-on-accent hover:opacity-90"
+                  >
+                    {action.label}
+                  </button>
                 )}
               </div>
               <button type="button" onClick={() => dismiss(id)} aria-label="Dismiss" className="text-app-faint hover:text-app-ink">

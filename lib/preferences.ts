@@ -23,6 +23,7 @@ import {
 } from "./markets/model";
 import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from "./chart/candles";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters } from "./news/filter";
+import { readNewsRules, type NewsRule } from "./news/rules";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -146,6 +147,8 @@ export interface Preferences extends Appearance {
   newsNotifications: boolean;
   /** Show the API's English translation of non-English headlines (the original stays in the tooltip). */
   newsTranslate: boolean;
+  /** "When news like this arrives, do that" rules (lib/news/rules.ts), run while the terminal is open. */
+  newsRules: NewsRule[];
   /** Default USD size for news trades; null uses the venue's first preset. */
   defaultPerpUsd: number | null;
   defaultSpotUsd: number | null;
@@ -217,6 +220,7 @@ export const defaultPreferences: Preferences = {
   highImpactSound: false,
   newsNotifications: false,
   newsTranslate: true,
+  newsRules: [],
   defaultPerpUsd: null,
   defaultSpotUsd: null,
   tradeMinImpact: 60,
@@ -343,6 +347,7 @@ export function parsePreferences(raw: string | null): Preferences {
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),
       newsNotifications: readBoolean(stored.newsNotifications, defaultPreferences.newsNotifications),
       newsTranslate: readBoolean(stored.newsTranslate, defaultPreferences.newsTranslate),
+      newsRules: readNewsRules(stored.newsRules),
       defaultPerpUsd: readSize(stored.defaultPerpUsd),
       defaultSpotUsd: readSize(stored.defaultSpotUsd),
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),

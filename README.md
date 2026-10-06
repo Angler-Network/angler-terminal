@@ -17,11 +17,18 @@ cheapest venue for you, and every important headline turns into a one-tap trade 
   importance (0-100), sentiment (-1 to +1), predicted impact per asset and a short summary. Non-English news is
   shown translated to English. You can filter by asset, sentiment, severity and minimum impact, and get browser
   notifications for high-impact items.
+- **What happened after similar news.** Important cards show how the asset moved 1h, 4h and 24h after its past news
+  of the same impact over the last ~50 days, and how often it went up.
+- **News rules.** "When bearish BTC news scores 80+, short $50" or "close my position on adverse news": rules
+  watch the feed and alert you, open a perp position or close one, with a one-press prompt unless you make them
+  automatic.
 - **Trade from the news.** Important news about a tradable asset shows Long/Short size buttons. One press arms
   the order and a second press places it. The asset is resolved to the best venue that lists it. Keyboard
   shortcuts work too: `L` / `S`, `1`–`4`, `Enter`.
 - **One order panel for every venue.** Market and limit orders, leverage, cross or isolated margin, reduce-only
   and TP/SL. A summary shows the estimated entry price, slippage, fees, margin, liquidation price and funding.
+- **Merged order book and split orders.** See Hyperliquid and Lighter depth in one book, colored by venue, and
+  split large market orders across both when that fills cheaper.
 - **Best execution.** For market orders the terminal walks the live order books of both perp venues for your size,
   adds each venue's taker fees and routes to the cheaper one. This is on by default and can be turned off.
 - **Funding.** Funding rates across Hyperliquid, Lighter, Binance and Bybit, a Markets page with spreads, and a

@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
@@ -87,6 +87,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   const { ticket, press, confirm, cancel, setSizePreset, selectedNewsId, selectNews } = useTradeTicket();
   const { items, status, liveError, hasMore, isLoadingMore, loadMore, historyError } = feed;
   const filters = preferences.newsFilters;
+  const activeRules = preferences.newsRules.filter((rule) => rule.enabled).length;
   const minImportance = filters.minImpact;
   const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
   const activeFilters = countActiveFilters(filters);
@@ -171,6 +172,22 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => openSettings("rules")}
+          title={activeRules > 0 ? `News rules (${activeRules} on)` : "News rules: act on news automatically"}
+          aria-label="News rules"
+          className={`relative grid size-7 place-items-center rounded-lg transition-colors hover:bg-app-chip hover:text-app-ink ${
+            activeRules > 0 ? "text-[#f5c97b]" : "text-app-muted"
+          }`}
+        >
+          <Zap className="size-3.5" />
+          {activeRules > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 grid min-w-3.5 place-items-center rounded-full bg-[#f5c97b] px-0.5 text-[9px] font-bold leading-[14px] text-black">
+              {activeRules}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => openSettings("filters")}

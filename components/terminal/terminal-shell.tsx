@@ -6,6 +6,7 @@ import { ChartPanel } from "@/components/chart/chart-panel";
 import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { AccountPanel, useHasWallet } from "./account-panel";
+import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
 import { PositionsBar } from "./positions-bar";
@@ -62,6 +63,7 @@ export function TerminalShell() {
 
   return (
     <OrderDraftProvider>
+      <NewsRulesRunner items={feed.items} />
       <div
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
         className="grid h-full min-h-0 grid-cols-1 gap-2 overflow-y-auto lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"

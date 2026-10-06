@@ -172,6 +172,11 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
     Move (Lighter tab, mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
     (`withdrawalArrived`) → deposit to the Lighter intent address. The order panel shows total buying power and, when
     the chosen venue lacks margin, offers to trade on a funded venue, move funds or deposit (`openDeposit(venue, mode)`).
+  - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
+    (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
+    other's ask; trades merged with venue dots). `useBestExecution` also returns `splitExecution` (cheapest levels of
+    both books after fees); the order panel offers "Split HL $X + Lighter $Y" when it saves ≥ $0.25 and 0.5 bp, every
+    leg clears its venue minimum (`minOrderUsd`) and no TP/SL is set, and sends the legs in parallel.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
@@ -191,6 +196,17 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   more venues), connected wallets listed once per chain below. Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
+- News reaction (`components/news/news-reaction.tsx`, on tradable cards): how the lead asset moved 1h/4h/24h after
+  its past news in the same impact bucket (`reactionBucket`: 40/60/80). `/api/news/reaction` (`lib/news/reaction-server.ts`,
+  cached 15 min) pages `/v1/news?coin=` back ~50 days, merges bursts within an hour (`distinctEvents`) and prices
+  them from Hyperliquid mainnet 15m candles (`xyz:` dex for stocks); math in `lib/news/reaction.ts`. The API's
+  `exposure_outcomes` would be the source once the terminal key has a plan (it returns nothing without one).
+- News rules (`lib/news/rules.ts`, `newsRules` preference, Settings → News rules, ⚡ button in the feed header):
+  asset (any / my positions / ticker), minimum impact, sentiment (any / bullish / bearish / adverse to my position;
+  direction comes from the asset's impact prediction, else the sentiment, so REST items only match "any"), action
+  (alert, long/short $N on the best perp venue through `use-news-trader.ts`, close the position). `news-rules-runner.tsx`
+  runs them on fresh enriched items while the tab is open: a toast with a one-press action unless the rule is
+  automatic; cooldowns 1 min (alerts) and 5 min (trades) per rule.
 - High-impact highlight: `lib/trading/high-impact.ts` (threshold and sound in settings, sound off by default).
   `newsNotifications` (Settings → Notifications, asks for permission) shows a browser notification for fresh
   high-impact items while the tab is in the background (`lib/alerts/notify.ts`; click focuses the tab and selects the
