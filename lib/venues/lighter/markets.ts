@@ -17,6 +17,8 @@ export interface OrderBookDetailLike {
   /** Percent, e.g. "0.0200". */
   taker_fee?: string;
   daily_quote_token_volume?: number;
+  /** Undocumented market group: 5 US stocks and ETFs, 6 Asian stocks (see lib/markets/server.ts). */
+  strategy_index?: number;
   /** Base units. */
   open_interest?: number | string;
   is_taker_fee_enabled?: boolean;
@@ -47,7 +49,7 @@ export function maxLeverageFor(minInitialMarginFraction: number) {
 
 /**
  * Active, visible perp markets as terminal markets. Ids and decimals always come from the API, never hard-coded.
- * Lighter doesn't say which markets are equities, so every market is labelled crypto (the label only picks icons).
+ * Lighter has no asset-class field; its stock groups (strategy 5 and 6) are labelled stock, the rest crypto.
  */
 export function marketsFromDetails(details: unknown): VenueMarket[] {
   if (!Array.isArray(details)) return [];
@@ -79,7 +81,7 @@ export function marketsFromDetails(details: unknown): VenueMarket[] {
         minBaseAmount: positive(detail.min_base_amount) ?? 0,
         minQuoteAmount: positive(detail.min_quote_amount) ?? 0,
         maxLeverage: maxLeverageFor(Number(detail.min_initial_margin_fraction)),
-        kind: "crypto",
+        kind: detail.strategy_index === 5 || detail.strategy_index === 6 ? "stock" : "crypto",
         // market_margin_mode 1 = isolated only.
         onlyIsolated: detail.market_config?.market_margin_mode === 1,
         takerFee: detail.is_taker_fee_enabled === false ? 0 : (Number(detail.taker_fee) || 0) / 100,
