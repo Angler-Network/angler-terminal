@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ArrowLeftRight, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -46,7 +46,7 @@ function Segmented<T extends string>({
 }: {
   label: string;
   value: T;
-  options: Array<{ value: T; label: string; title?: string }>;
+  options: Array<{ value: T; label: string; title?: string; disabled?: boolean }>;
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
@@ -57,7 +57,7 @@ function Segmented<T extends string>({
           key={option.value}
           type="button"
           title={option.title}
-          disabled={disabled}
+          disabled={disabled || option.disabled}
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={`h-7 flex-1 whitespace-nowrap rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
@@ -257,6 +257,11 @@ export function OrderPanel() {
   const { choices, isLoading } = useVenueChoices(symbol, mint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
+  // Perp or spot first, then a venue of that kind. An asset without the chosen kind shows the one it has.
+  const [marketKind, setMarketKind] = useState<"perp" | "spot">("perp");
+  const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
+  const activeKind = hasKind(marketKind) ? marketKind : (choices[0]?.kind ?? marketKind);
+  const kindChoices = choices.filter((entry) => entry.kind === activeKind);
   const [kind, setKind] = useState<OrderKind>("market");
   const [side, setSide] = useState<OrderSide>("buy");
   const [size, setSize] = useState("");
@@ -271,14 +276,14 @@ export function OrderPanel() {
   const [isPlacing, setIsPlacing] = useState(false);
 
   const perpMarkets = choices.flatMap((entry) => (entry.kind === "perp" ? [entry.market] : []));
-  const manual = choices.find((entry) => entry.id === venueId) ?? null;
+  const manual = kindChoices.find((entry) => entry.id === venueId) ?? null;
   const sizeValue = Number(size);
   // Reduce-only closes a position on its own venue, and limit orders rest where they are placed: no routing there.
-  const routable = kind === "market" && !reduceOnly && manual?.kind !== "spot";
+  const routable = activeKind === "perp" && kind === "market" && !reduceOnly;
   const { quotes, split } = useBestExecution(perpMarkets, side, sizeValue, routable);
   const [splitOn, setSplitOn] = useState(true);
   const routed = preferences.autoRoute && routable && quotes[0] ? choices.find((entry) => entry.id === quotes[0].venue) : undefined;
-  const choice = routed ?? manual ?? choices[0] ?? null;
+  const choice = routed ?? manual ?? kindChoices[0] ?? null;
   const pickVenue = (id: VenueChoice["id"]) => {
     setVenueId(id);
     // Picking a perp venue by hand means the user wants that venue, not the router's.
@@ -455,6 +460,30 @@ export function OrderPanel() {
         </>
       ) : (
         <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => (address ? openDeposit("lighter", "move") : openWallets())}
+              title="Move USDC between venues (Hyperliquid → Lighter)"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-chip"
+            >
+              <ArrowLeftRight className="size-3.5" aria-hidden />
+              Move funds
+            </button>
+            <div className="min-w-0 flex-1">
+              <Segmented
+                label="Market type"
+                value={activeKind}
+                options={(["perp", "spot"] as const).map((value) => ({
+                  value,
+                  label: value === "perp" ? "Perp" : "Spot",
+                  disabled: !hasKind(value),
+                  title: hasKind(value) ? undefined : `No ${value} venue lists ${symbol}`,
+                }))}
+                onChange={setMarketKind}
+              />
+            </div>
+          </div>
           <div role="group" aria-label="Side" className="grid grid-cols-2 gap-0.5 rounded-lg bg-app-chip p-0.5">
             {(["buy", "sell"] as const).map((value) => (
               <button
@@ -475,12 +504,12 @@ export function OrderPanel() {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            {choices.length > 1 ? (
+            {kindChoices.length > 1 ? (
               <div className="min-w-0 flex-1">
                 <Segmented
                   label="Venue"
                   value={choice!.id}
-                  options={choices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
+                  options={kindChoices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
                   onChange={pickVenue}
                 />
               </div>
