@@ -90,7 +90,7 @@ function integratorFields(session: LighterSession) {
  * `sendTx` 200 only means accepted. Polls the order by its client index until it filled, rests, or was canceled
  * (IOC that couldn't fill); checks the tx itself now and then in case the sequencer rejected it outright.
  */
-async function confirmOrder(session: LighterSession, clientIndex: number, hash: string, market: VenueMarket): Promise<OrderResult> {
+async function confirmOrder(session: LighterSession, clientIndex: number, hash: string, market: VenueMarket, partnerFeeBps: number): Promise<OrderResult> {
   const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
   const auth = await authToken(session);
   for (let attempt = 0; Date.now() < deadline; attempt += 1) {
@@ -98,7 +98,7 @@ async function confirmOrder(session: LighterSession, clientIndex: number, hash: 
     const [order] = await accountOrders(session.accountIndex, [clientIndex], auth).catch(() => []);
     if (order) {
       const outcome = readOrderOutcome(order);
-      if (outcome.state === "filled") return { status: "filled", oid: outcome.orderIndex, filledSize: outcome.filledSize, avgPx: outcome.avgPx };
+      if (outcome.state === "filled") return { status: "filled", oid: outcome.orderIndex, filledSize: outcome.filledSize, avgPx: outcome.avgPx, partnerFeeBps };
       if (outcome.state === "resting") return { status: "resting", oid: outcome.orderIndex };
       if (outcome.state === "canceled") throw new VenueError(humanizeLighterStatus(outcome.status), outcome.status);
     } else if (attempt % 4 === 3) {
@@ -208,7 +208,8 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
         : // The entry triggers the TP/SL orders once it fills (OTO for one, OTOCO for both: one cancels the other).
           signCreateGroupedOrders(session.signer, triggers.length === 2 ? GROUPING.otoco : GROUPING.oto, [entry, ...triggers], integrator, nonce),
     );
-    return await confirmOrder(session, clientIndex, hash, market);
+    // The integrator fee is in millionths of the trade size.
+    return await confirmOrder(session, clientIndex, hash, market, (integrator?.takerFee ?? 0) / 100);
   } catch (error) {
     throw toLighterVenueError(error);
   }

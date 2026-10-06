@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { trackTrade } from "@/lib/analytics/client";
+import { filledUsd, type TradeEvent } from "@/lib/analytics/trades";
 import { MAX_SPOT_PRICE_IMPACT_PCT, sideLabel, type TradeVenueKind } from "@/lib/trading/presets";
 import { fromBaseUnits, usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { spendableBalance } from "@/lib/venues/jupiter/balances";
@@ -43,6 +44,9 @@ export interface NewsTrade {
   oneClick: boolean;
 }
 
+/** What a placed trade reports to analytics; `false` when nothing was placed. */
+type Placed = Pick<TradeEvent, "venue" | "usd" | "feeBps"> | false;
+
 function amountText(amount: bigint, token: SpotToken) {
   return `${fromBaseUnits(amount, token.decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${token.symbol}`;
 }
@@ -63,7 +67,7 @@ export function useNewsTrader() {
   const fail = useCallback((message: string) => toast({ tone: "error", title: "Order not placed", message }), [toast]);
 
   const tradePerp = useCallback(
-    async (trade: NewsTrade) => {
+    async (trade: NewsTrade): Promise<Placed> => {
       const venueName = trade.perpVenue ? PERP_VENUE_NAMES[trade.perpVenue] : "a perp venue";
       if (!evmAddress) {
         fail(`Connect an EVM wallet to trade on ${venueName}.`);
@@ -99,13 +103,14 @@ export function useNewsTrader() {
         size,
         leverage: Math.max(1, Math.min(trade.leverage ?? preferences.newsLeverage, market.maxLeverage)),
       });
-      return placed ? market.venue : false;
+      if (!placed) return false;
+      return { venue: market.venue, usd: filledUsd(placed), feeBps: placed.status === "filled" ? placed.partnerFeeBps : null } satisfies Placed;
     },
     [evmAddress, openWallets, marketsByVenue, perpOrder, placeOrder, preferences.newsLeverage, preferences.autoRoute, fail],
   );
 
   const tradeSpot = useCallback(
-    async (trade: NewsTrade) => {
+    async (trade: NewsTrade): Promise<Placed> => {
       if (!solanaAddress || !signTransaction) {
         fail("Connect a Solana wallet to trade on Jupiter.");
         openWallets();
@@ -152,7 +157,9 @@ export function useNewsTrader() {
           message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, usdc)} · min. received was ${amountText(quote.minOutAmount, outputToken)} · via ${viaTitan ? "Titan" : "Jupiter"}`,
           link: { href: result.explorerUrl, label: "View on Solscan" },
         });
-        return true;
+        // The USDC side of the swap is its USD volume.
+        const usd = fromBaseUnits(bought ? result.inAmount : result.outAmount, usdc.decimals);
+        return { venue: viaTitan ? "titan" : "jupiter", usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({
           tone: "error",
@@ -167,7 +174,7 @@ export function useNewsTrader() {
   );
 
   const tradeArcus = useCallback(
-    async (trade: NewsTrade) => {
+    async (trade: NewsTrade): Promise<Placed> => {
       if (!evmAddress || !evmWallet) {
         fail("Connect an EVM wallet to trade stock tokens on Arcus.");
         openWallets();
@@ -196,7 +203,9 @@ export function useNewsTrader() {
             : `Received ${format(result.bought.amount, result.bought.token.decimals, result.bought.token.symbol)} on Arcus`,
           link: { href: result.explorerUrl, label: "View transaction" },
         });
-        return true;
+        // USDG is the dollar side of an Arcus swap.
+        const usd = bought ? fromBaseUnits(result.sold.amount, result.sold.token.decimals) : fromBaseUnits(result.bought.amount, result.bought.token.decimals);
+        return { venue: "arcus", usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({
           tone: "error",
@@ -217,15 +226,8 @@ export function useNewsTrader() {
     async (trade: NewsTrade) => {
       const placed =
         trade.venue === "perp" ? await tradePerp(trade) : trade.spotVenue === "arcus" ? await tradeArcus(trade) : await tradeSpot(trade);
-      if (placed) {
-        trackTrade({
-          // A perp trade reports the venue it actually went to (routing can change it).
-          venue: trade.venue === "perp" ? (typeof placed === "string" ? placed : (trade.perpVenue ?? "hyperliquid")) : (trade.spotVenue ?? "jupiter"),
-          side: trade.side,
-          newsId: trade.newsId ?? null,
-          oneClick: trade.oneClick,
-        });
-      }
+      // Perp trades report the venue they actually went to (routing can change it), swaps Jupiter or Titan.
+      if (placed) trackTrade({ ...placed, side: trade.side, newsId: trade.newsId ?? null, oneClick: trade.oneClick });
       return Boolean(placed);
     },
     [tradePerp, tradeSpot, tradeArcus],

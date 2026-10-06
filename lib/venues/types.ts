@@ -68,7 +68,8 @@ export interface PositionTpsl {
 }
 
 export type OrderResult =
-  | { status: "filled"; oid: number; filledSize: number; avgPx: number }
+  /** `partnerFeeBps`: our builder (Hyperliquid) or integrator (Lighter) fee on this fill, in bps. */
+  | { status: "filled"; oid: number; filledSize: number; avgPx: number; partnerFeeBps: number }
   | { status: "resting"; oid: number };
 
 export interface VenuePosition {

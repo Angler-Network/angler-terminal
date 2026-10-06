@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
-import { trackTrade } from "@/lib/analytics/client";
+import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib/trading/order-math";
 import { sideLabel } from "@/lib/trading/presets";
@@ -359,7 +359,8 @@ export function OrderPanel() {
       ),
     );
     orders.forEach((order, index) => {
-      if (results[index]) trackTrade({ venue: order.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
+      const result = results[index];
+      if (result) trackPerpOrder(result, { venue: order.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
     });
     if (results.some(Boolean) && !results.every(Boolean)) {
       const filled = orders.filter((_, index) => results[index]).map((order) => PERP_VENUE_NAMES[order.market.venue]);
@@ -407,7 +408,7 @@ export function OrderPanel() {
         takeProfit: tp,
         stopLoss: sl,
       });
-      if (placed) trackTrade({ venue: choice.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
+      if (placed) trackPerpOrder(placed, { venue: choice.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
     } finally {
       setIsPlacing(false);
     }

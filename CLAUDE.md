@@ -235,8 +235,13 @@ News-driven trading terminal (Next.js App Router, TypeScript, Tailwind). Sister 
   `newsNotifications` (Settings → Notifications, asks for permission) shows a browser notification for fresh
   high-impact items while the tab is in the background (`lib/alerts/notify.ts`; click focuses the tab and selects the
   item). No push server: notifications need an open tab. `app/manifest.ts` makes the site installable (PWA).
-- Analytics: `lib/analytics/*` counts placed trades (venue, side, news id, one-click). Never add wallet addresses,
-  amounts or other personal data. `GET /api/analytics/trade` needs `ANALYTICS_TOKEN`.
+- Analytics: `lib/analytics/*` keeps daily totals only (trades, filled USD volume, estimated partner fees per venue,
+  news-driven and one-click counts) in Redis (`KV_REST_API_URL`/`TOKEN`, Upstash REST; memory without it). Perp
+  volume is the fill (`filledUsd`, our fee from `OrderResult.partnerFeeBps`), spot volume the USDC/USDG side; spot
+  fees are estimated from server config (Jupiter net of its 20%). Never store wallet addresses, IPs or per-trade
+  records; the rate limit hashes the IP into a key that expires after a minute. POST checks Origin and allows 30
+  events a minute per client. The totals are private: only `GET /api/analytics/trade` (`ANALYTICS_TOKEN`) reads
+  them (all-time, 7/30-day sums, per day, top news); there is no public stats page.
 - The disclaimer "Not financial advice. Scores are model outputs." lives in the onboarding alpha step and in Settings
   (Trading, About); the user asked to keep it off the trading screen.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per

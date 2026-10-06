@@ -27,6 +27,7 @@ import { lighterVenue } from "@/lib/venues/lighter/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
+  OrderResult,
   PositionTpsl,
   PerpVenue,
   PerpVenueId,
@@ -36,6 +37,7 @@ import type {
   VenuePosition,
 } from "@/lib/venues/types";
 import { formatPrice } from "@/lib/format";
+import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
@@ -72,7 +74,8 @@ interface TradingContextValue {
   registerLighter: () => Promise<boolean>;
   approveLighter: () => Promise<boolean>;
   revokeLighter: () => Promise<void>;
-  placeOrder: (input: PlaceOrderInput) => Promise<boolean>;
+  /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
+  placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
   closePosition: (position: VenuePosition) => Promise<void>;
   setPositionTpsl: (position: VenuePosition, levels: PositionTpsl) => Promise<boolean>;
@@ -305,11 +308,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput) => {
-      if (!address) return false;
+      if (!address) return null;
       const venue = input.market.venue;
       if (!isVenueReady(venue)) {
         setSetupVenue(venue);
-        return false;
+        return null;
       }
       try {
         const result = await venues[venue].placeOrder(address, input);
@@ -323,10 +326,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
               }
             : { tone: "success", title: "Order placed", message: `${input.side === "buy" ? "Buy" : "Sell"} ${input.size} ${input.market.symbol} resting on ${PERP_VENUE_NAMES[venue]}.` },
         );
-        return true;
+        return result;
       } catch (error) {
         fail(venue, `Order rejected by ${PERP_VENUE_NAMES[venue]}`, error);
-        return false;
+        return null;
       }
     },
     [address, isVenueReady, toast, fail],
@@ -386,6 +389,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       if (!isVenueReady(position.venue)) return setSetupVenue(position.venue);
       try {
         const result = await venues[position.venue].closePosition(address, position);
+        trackPerpOrder(result, { venue: position.venue, side: position.size > 0 ? "sell" : "buy", newsId: null, oneClick: false });
         toast({
           tone: "success",
           title: `Closed ${position.symbol}`,

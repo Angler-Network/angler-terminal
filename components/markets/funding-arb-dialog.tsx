@@ -8,7 +8,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { takerFeeFor } from "@/components/terminal/use-best-execution";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
-import { trackTrade } from "@/lib/analytics/client";
+import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { arbLegSize, dailyArbFunding, type FundingArb } from "@/lib/trading/funding";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
@@ -82,7 +82,8 @@ export function FundingArbDialog({
     );
     setIsPlacing(false);
     legs.forEach((leg, index) => {
-      if (results[index]) trackTrade({ venue: leg.market.venue, side: leg.side, newsId: null, oneClick: preferences.oneClickTrading });
+      const result = results[index];
+      if (result) trackPerpOrder(result, { venue: leg.market.venue, side: leg.side, newsId: null, oneClick: preferences.oneClickTrading });
     });
     if (results.every(Boolean)) {
       toast({ tone: "success", title: `${symbol} funding position open`, message: `Long ${PERP_VENUE_NAMES[longVenue]}, short ${PERP_VENUE_NAMES[shortVenue]}, ${base} ${symbol} each.` });

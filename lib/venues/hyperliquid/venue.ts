@@ -165,7 +165,14 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
 
     const status = result.response.data.statuses[0];
     if (typeof status === "object" && "filled" in status) {
-      return { status: "filled", oid: status.filled.oid, filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx) };
+      return {
+        status: "filled",
+        oid: status.filled.oid,
+        filledSize: Number(status.filled.totalSz),
+        avgPx: Number(status.filled.avgPx),
+        // The builder fee is in tenths of a bp.
+        partnerFeeBps: builder.fee / 10,
+      };
     }
     if (typeof status === "object" && "resting" in status) return { status: "resting", oid: status.resting.oid };
     throw new VenueError("Hyperliquid accepted the order but returned no fill or resting status.");
