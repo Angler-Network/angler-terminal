@@ -216,7 +216,7 @@ function LayoutStep() {
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-1.5 pt-1" aria-label="Panels">
+      <div className="flex flex-wrap gap-1.5 pt-1" role="group" aria-label="Panels">
         {(Object.keys(panelNames) as Array<keyof TerminalPanels>).map((key) => (
           <button
             key={key}
@@ -306,12 +306,19 @@ export function AlphaNotice() {
       onCancel={(event) => event.preventDefault()}
       className="surface-menu m-auto max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100vw-2rem))] max-w-none overflow-y-auto rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
     >
+      {/* Content mounts only while open, so returning visitors don't download the welcome logos. */}
+      {isOpen && (
       <div className="flex flex-col gap-5 p-6">
         {step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}
         <div className="flex items-center gap-3">
-          <div aria-label={`Step ${step + 1} of ${STEPS}`} className="flex gap-1.5">
+          <div className="flex gap-1.5">
+            <span className="sr-only">{`Step ${step + 1} of ${STEPS}`}</span>
             {Array.from({ length: STEPS }, (_, index) => (
-              <span key={index} className={`h-1.5 rounded-full transition-all ${index === step ? "w-5 bg-app-ink" : "w-1.5 bg-app-hairline-strong"}`} />
+              <span
+                key={index}
+                aria-hidden
+                className={`h-1.5 rounded-full transition-all ${index === step ? "w-5 bg-app-ink" : "w-1.5 bg-app-hairline-strong"}`}
+              />
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -335,6 +342,7 @@ export function AlphaNotice() {
           </div>
         </div>
       </div>
+      )}
     </dialog>
   );
 }

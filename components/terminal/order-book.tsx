@@ -254,7 +254,7 @@ export function OrderBook() {
               className="grid h-[18px] w-full grid-cols-3 px-2 text-[11px] tabular-nums hover:bg-app-chip"
             >
               <span className={`flex items-center gap-1 text-left ${trade.side === "buy" ? "text-app-up" : "text-app-down"}`}>
-                {trade.venue && <span aria-label={VENUE_SHORT[trade.venue]} className="size-1.5 shrink-0 rounded-full" style={{ background: VENUE_COLORS[trade.venue] }} />}
+                {trade.venue && <span role="img" aria-label={VENUE_SHORT[trade.venue]} className="size-1.5 shrink-0 rounded-full" style={{ background: VENUE_COLORS[trade.venue] }} />}
                 {trade.price.toLocaleString("en-US", { maximumFractionDigits: 8 })}
               </span>
               <span className="text-right text-app-ink">{formatSize(trade.size)}</span>

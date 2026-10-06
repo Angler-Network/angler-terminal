@@ -263,7 +263,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
           </div>
         )}
         {items.length === 0 && status !== "unconfigured" && !historyError && (
-          <div className="flex flex-col gap-3 py-3" aria-label="Loading news">
+          <div className="flex flex-col gap-3 py-3" role="status" aria-label="Loading news">
             {[0, 1, 2].map((index) => (
               <div key={index} className="flex gap-3">
                 <span className="size-8 shrink-0 animate-pulse rounded-lg bg-app-chip" />

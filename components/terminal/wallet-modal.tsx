@@ -182,7 +182,7 @@ function VenueTile({ venue, connected, network, onPick }: { venue: VenueOption; 
       {network === "testnet" && (
         <span className="absolute left-1.5 top-1.5 rounded bg-black/35 px-1 py-[1px] text-[8px] font-bold uppercase tracking-[0.08em] text-white/80">Test</span>
       )}
-      {connected && <span aria-label="Connected" className="absolute right-2 top-2 size-2 rounded-full bg-app-up shadow-[0_0_0_3px_rgba(0,0,0,0.25)]" />}
+      {connected && <span role="img" aria-label="Connected" className="absolute right-2 top-2 size-2 rounded-full bg-app-up shadow-[0_0_0_3px_rgba(0,0,0,0.25)]" />}
       <VenueIcon venue={venue} size={38} />
       <span className="text-[12px] font-semibold leading-none">{venue.name}</span>
       <span className="text-[10px] leading-none text-white/70">{venue.kind}</span>
