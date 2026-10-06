@@ -120,3 +120,32 @@ export function tickOptions(price: number | undefined) {
   const base = 10 ** (Math.floor(Math.log10(price)) - 4);
   return [base, base * 10, base * 100].map((value) => Number(value.toPrecision(1)));
 }
+
+export interface MergedLevel extends BookLevel {
+  /** Size per venue at this price. */
+  byVenue: Record<string, number>;
+}
+
+/**
+ * Several venues' books as one: each side grouped by `tick`, then levels at the same price summed, keeping each
+ * venue's share for coloring. `crossed` is true when one venue's best bid is above another's best ask.
+ */
+export function mergeVenueBooks(books: Array<{ venue: string; book: BookSide }>, tick: number) {
+  const merge = (side: "bids" | "asks") => {
+    const byPrice = new Map<number, MergedLevel>();
+    for (const { venue, book } of books) {
+      for (const row of groupLevels(book[side], tick, side)) {
+        const level = byPrice.get(row.price) ?? { price: row.price, size: 0, byVenue: {} };
+        level.size += row.size;
+        level.byVenue[venue] = (level.byVenue[venue] ?? 0) + row.size;
+        byPrice.set(row.price, level);
+      }
+    }
+    return [...byPrice.values()].sort((a, b) => (side === "bids" ? b.price - a.price : a.price - b.price));
+  };
+  const bids = merge("bids");
+  const asks = merge("asks");
+  const bestBid = Math.max(...books.map(({ book }) => book.bids[0]?.price ?? -Infinity));
+  const bestAsk = Math.min(...books.map(({ book }) => book.asks[0]?.price ?? Infinity));
+  return { bids, asks, crossed: Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid >= bestAsk };
+}

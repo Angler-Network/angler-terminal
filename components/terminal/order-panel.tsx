@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { useToast } from "@/components/app/toast-provider";
 import { trackTrade } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib/trading/order-math";
@@ -18,7 +19,7 @@ import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { fundingApr } from "@/lib/trading/funding";
-import { hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
+import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { useArcusToken } from "./use-arcus-token";
 import { takerFeeFor, useBestExecution } from "./use-best-execution";
@@ -246,6 +247,7 @@ function useVenueChoices(symbol: string, mint?: string) {
 export function OrderPanel() {
   const { symbol, mint } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
+  const toast = useToast();
   const { accounts, placeOrder, openDeposit } = useTrading();
   const funding = useFunding();
   const { address } = useWallet();
@@ -273,7 +275,8 @@ export function OrderPanel() {
   const sizeValue = Number(size);
   // Reduce-only closes a position on its own venue, and limit orders rest where they are placed: no routing there.
   const routable = kind === "market" && !reduceOnly && manual?.kind !== "spot";
-  const quotes = useBestExecution(perpMarkets, side, sizeValue, routable);
+  const { quotes, split } = useBestExecution(perpMarkets, side, sizeValue, routable);
+  const [splitOn, setSplitOn] = useState(true);
   const routed = preferences.autoRoute && routable && quotes[0] ? choices.find((entry) => entry.id === quotes[0].venue) : undefined;
   const choice = routed ?? manual ?? choices[0] ?? null;
   const pickVenue = (id: VenueChoice["id"]) => {
@@ -307,6 +310,9 @@ export function OrderPanel() {
   const tp = tpslActive ? optionalPrice(takeProfit) : undefined;
   const sl = tpslActive ? optionalPrice(stopLoss) : undefined;
   const levelsError = tpslActive && price ? tpslError({ side, reference: price, takeProfit: tp, stopLoss: sl }) : null;
+  // Splitting pays off only when it saves more than noise: at least $0.25 and 0.5 bp of the order.
+  const splitWorth = split !== null && preferences.autoRoute && routable && !tpslActive && split.savingsUsd >= Math.max(0.25, sizeUsd * 0.00005);
+  const splitActive = splitWorth && splitOn && isPerp;
   const isValid = sizeUsd > 0 && !levelsError && (!isPerp || (Boolean(price && price > 0) && baseSize > 0));
 
   // A price clicked in the order book becomes the limit price.
@@ -325,12 +331,41 @@ export function OrderPanel() {
     setTakeProfit("");
     setStopLoss("");
   }, [symbol, choice?.id]);
-  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl]);
+  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl, splitActive]);
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
     return () => window.clearTimeout(timer);
   }, [armed]);
+
+  /** Sends every leg of a split order at once; a half-filled split is reported so the user can rebalance. */
+  const placeSplit = async (legs: NonNullable<typeof split>["legs"]) => {
+    const orders = legs.flatMap((leg) => {
+      const legMarket = perpMarkets.find((entry) => entry.venue === leg.venue);
+      const legPrice = legMarket ? (legMarket.midPx ?? legMarket.markPx) : undefined;
+      const legSize = legMarket && legPrice ? sizeForNotional(leg.usd, legPrice, legMarket.szDecimals) : 0;
+      return legMarket && legSize > 0 ? [{ market: legMarket, size: legSize }] : [];
+    });
+    const results = await Promise.all(
+      orders.map((order) =>
+        placeOrder({
+          market: order.market,
+          side,
+          kind: "market",
+          size: order.size,
+          leverage: Math.max(1, Math.min(lev, order.market.maxLeverage)),
+          isCross: cross && !order.market.onlyIsolated,
+        }),
+      ),
+    );
+    orders.forEach((order, index) => {
+      if (results[index]) trackTrade({ venue: order.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
+    });
+    if (results.some(Boolean) && !results.every(Boolean)) {
+      const filled = orders.filter((_, index) => results[index]).map((order) => PERP_VENUE_NAMES[order.market.venue]);
+      toast({ tone: "error", title: "Split order partly filled", message: `Only the ${filled.join(" and ")} part was placed. Check Positions and resend the rest.` });
+    }
+  };
 
   const submit = async () => {
     if (!choice || !isValid || isPlacing) return;
@@ -349,6 +384,10 @@ export function OrderPanel() {
           sizeUsd,
           oneClick: preferences.oneClickTrading,
         });
+        return;
+      }
+      if (splitActive && split) {
+        await placeSplit(split.legs);
         return;
       }
       if (choice.market.venue === "lighter" && !reduceOnly && price && baseSize < minimumSize(choice.market, price)) {
@@ -381,11 +420,25 @@ export function OrderPanel() {
       ? "Placing…"
       : armed
         ? `Confirm ${verb.toLowerCase()}`
-        : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
+        : splitActive
+          ? `${verb} $${sizeUsd} ${symbol} on ${split!.legs.length} venues`
+          : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
   const venueQuote = market ? quotes.find((quote) => quote.venue === market.venue) : undefined;
-  const entryPx = orderKind === "market" ? (venueQuote?.avgPx ?? mid) : price;
-  const slippage = orderKind === "market" && venueQuote && mid ? slippagePct(side, mid, venueQuote.avgPx) : undefined;
-  const feeUsd = market && sizeUsd > 0 ? (venueQuote?.feeUsd ?? sizeUsd * takerFeeFor(market)) : undefined;
+  // A split fills at the blended price of its legs.
+  const splitBase = splitActive && split ? split.legs.reduce((sum, leg) => sum + leg.base, 0) : 0;
+  const fillPx = splitActive && split && splitBase > 0 ? split.legs.reduce((sum, leg) => sum + leg.usd, 0) / splitBase : venueQuote?.avgPx;
+  const entryPx = orderKind === "market" ? (fillPx ?? mid) : price;
+  // Slippage against the best price of the same books that were walked (the market list's mid can be a minute old).
+  const tops = (splitActive && split ? quotes.filter((quote) => split.legs.some((leg) => leg.venue === quote.venue)) : venueQuote ? [venueQuote] : []).map(
+    (quote) => quote.topPx,
+  );
+  const topPx = tops.length ? (side === "buy" ? Math.min(...tops) : Math.max(...tops)) : undefined;
+  const slippage = orderKind === "market" && fillPx && topPx ? slippagePct(side, topPx, fillPx) : undefined;
+  const feeUsd = splitActive && split && fillPx
+    ? Math.abs(split.effectivePx - fillPx) * splitBase
+    : market && sizeUsd > 0
+      ? (venueQuote?.feeUsd ?? sizeUsd * takerFeeFor(market))
+      : undefined;
   const percent = available && available > 0 && sizeUsd > 0 ? Math.min(100, Math.round((sizeUsd / (available * lev)) * 100)) : 0;
 
   return (
@@ -609,6 +662,18 @@ export function OrderPanel() {
                   </span>
                 </button>
               ))}
+              {splitWorth && split && (
+                <label
+                  className="mt-0.5 flex items-center gap-2 rounded-md border-t border-app-hairline px-1 pt-1.5 text-[11px] tabular-nums"
+                  title="Fill part of the order on each venue, taking the cheapest prices of both books after fees"
+                >
+                  <input type="checkbox" checked={splitOn} onChange={(event) => setSplitOn(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
+                  <span className="min-w-0 flex-1 truncate text-app-ink">
+                    Split {split.legs.map((leg) => `${leg.venue === "hyperliquid" ? "HL" : "Lighter"} ${formatUsdCompact(leg.usd)}`).join(" + ")}
+                  </span>
+                  <span className="shrink-0 font-semibold text-app-up">−{formatPrice(split.savingsUsd)}</span>
+                </label>
+              )}
             </div>
           )}
           {choice?.id === "jupiter" && <p className="text-[11px] text-app-faint">Jupiter swaps are on Solana mainnet with real funds.</p>}
@@ -635,12 +700,12 @@ export function OrderPanel() {
             <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">
               <Summary label={orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>
               {orderKind === "market" && (
-                <Summary label="Est. slippage" title="Average fill from the live order book vs the mid price">
+                <Summary label="Est. slippage" title="Average fill vs the best price in the live order books">
                   {slippage === undefined ? "—" : `${slippage.toFixed(3)}%`}
                 </Summary>
               )}
               <Summary label="Fees" title="Taker fee incl. builder / integrator fee">
-                {feeUsd === undefined ? "—" : formatPrice(feeUsd)}
+                {feeUsd === undefined ? "—" : feeUsd < 0.005 ? "$0.00" : formatPrice(feeUsd)}
               </Summary>
               <Summary label="Margin required">{sizeUsd > 0 ? formatPrice(marginRequired(sizeUsd, lev)) : "—"}</Summary>
               <Summary label="Est. liquidation" title={cross ? "Cross margin: depends on the whole account" : "Estimate for an isolated position"}>
