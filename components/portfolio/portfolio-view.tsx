@@ -326,8 +326,10 @@ export function PortfolioView() {
     );
   }
 
+  // Children keep their height ([&>*]:shrink-0) and the page scrolls; otherwise flex squeezes the cards with
+  // overflow-hidden (positions, trades) to nothing when the window is shorter than the page.
   return (
-    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
+    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto [&>*]:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
       <header className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-[18px] font-semibold text-app-ink">Portfolio</h1>

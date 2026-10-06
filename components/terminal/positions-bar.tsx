@@ -17,8 +17,9 @@ type Tab = "positions" | "orders" | "venues";
 
 const ARM_MS = 5_000;
 
-const th = "px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint";
-const tdBase = "px-3 py-1.5 tabular-nums";
+// One line per cell: a narrow panel scrolls sideways instead of wrapping headers and pushing rows out of view.
+const th = "whitespace-nowrap px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint";
+const tdBase = "whitespace-nowrap px-3 py-1.5 tabular-nums";
 const td = `${tdBase} text-app-ink`;
 
 export function signed(value: number) {
