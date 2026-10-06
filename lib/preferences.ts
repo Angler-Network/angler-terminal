@@ -32,6 +32,9 @@ export type ChartDataSource = "binance" | "hyperliquid";
 
 export type ChartMarket = "spot" | "perp";
 
+/** Where the Angler chart's candles come from: "auto" follows the venue picked in the order panel. */
+export type ChartSource = "auto" | "hyperliquid" | "lighter" | "binance";
+
 export const chartDataSources: { value: ChartDataSource; label: string }[] = [
   { value: "binance", label: "Binance" },
   { value: "hyperliquid", label: "Hyperliquid" },
@@ -101,6 +104,7 @@ export interface Preferences extends Appearance {
   chartPrimarySource: ChartDataSource;
   chartFallbackSource: ChartDataSource | "none";
   chartMarket: ChartMarket;
+  chartSource: ChartSource;
   showChart: boolean;
   chartSymbol: string;
   chartInterval: ChartInterval;
@@ -188,6 +192,7 @@ export const defaultPreferences: Preferences = {
   chartPrimarySource: "binance",
   chartFallbackSource: "hyperliquid",
   chartMarket: "perp",
+  chartSource: "auto",
   showChart: true,
   chartSymbol: "BTC",
   chartInterval: "1h",
@@ -303,6 +308,7 @@ export function parsePreferences(raw: string | null): Preferences {
           ? chartDataSources.find((source) => source.value !== primary)!.value
           : fallback,
       chartMarket: stored.chartMarket === "spot" ? "spot" : "perp",
+      chartSource: (["hyperliquid", "lighter", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
       showChart: readBoolean(stored.showChart, defaultPreferences.showChart),
       chartSymbol:
         typeof stored.chartSymbol === "string" && /^[A-Za-z0-9]{1,20}$/.test(stored.chartSymbol)

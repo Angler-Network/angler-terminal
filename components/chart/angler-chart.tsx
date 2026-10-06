@@ -17,10 +17,14 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useLang, useT } from "@/lib/i18n/client";
 import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
-import type { ChartDataSource } from "@/lib/preferences";
+import type { ChartDataSource, ChartSource } from "@/lib/preferences";
+import { useSelectedAsset } from "@/components/terminal/selected-asset";
+import { useTrading } from "@/components/terminal/trading-provider";
+import { findMarket } from "@/lib/venues/hyperliquid/markets";
+import { LIGHTER_CANDLE_RESOLUTIONS } from "@/lib/venues/lighter/config";
 import type { NewsItem } from "@/lib/types";
 import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
-import type { VenueMarket } from "@/lib/venues/types";
+import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
 
 const REFRESH_MS = 30_000;
 
@@ -35,13 +39,27 @@ interface AnglerChartProps {
 
 const CANDLE_COUNT = 1000;
 
-async function loadVenueCandles(market: VenueMarket, interval: ChartInterval) {
+type CandleSource = "binance" | PerpVenueId;
+
+const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter" };
+
+/** Candles straight from a perp venue for its market; null when it can't serve this asset or interval. */
+async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval) {
+  if (venue === "lighter" && !LIGHTER_CANDLE_RESOLUTIONS.has(interval)) return null;
   try {
-    const candles = await hyperliquidVenue.loadCandles(market, interval, Date.now() - intervalDuration(interval) * CANDLE_COUNT);
-    return candles.length > 0 ? { source: "hyperliquid" as const, candles } : null;
+    // Lighter's venue module (and its signer) only loads when its candles are asked for.
+    const source = venue === "hyperliquid" ? hyperliquidVenue : (await import("@/lib/venues/lighter/venue")).lighterVenue;
+    const candles = await source.loadCandles(market, interval, Date.now() - intervalDuration(interval) * CANDLE_COUNT);
+    return candles.length > 0 ? { source: venue as CandleSource, candles } : null;
   } catch {
     return null;
   }
+}
+
+/** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
+function venueOrder(chartSource: ChartSource, tradeVenue: PerpVenueId | null): PerpVenueId[] {
+  const first = chartSource === "auto" ? tradeVenue : chartSource === "binance" ? null : chartSource;
+  return [...new Set([first, "hyperliquid", "lighter"].filter((venue): venue is PerpVenueId => venue !== null))];
 }
 
 interface ChartHandles {
@@ -83,10 +101,12 @@ const toTime =(milliseconds: number) => Math.floor(milliseconds / 1000) as UTCTi
 export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: AnglerChartProps) {
   const t = useT();
   const locale = langTags[useLang()];
-  const { preferences } = usePreferences();
+  const { preferences, updatePreference } = usePreferences();
   const containerRef = useRef<HTMLDivElement>(null);
   const handlesRef = useRef<ChartHandles | null>(null);
-  const [data, setData] = useState<{ key: string; source: ChartDataSource; candles: Candle[] } | null>(null);
+  const [data, setData] = useState<{ key: string; source: CandleSource; candles: Candle[] } | null>(null);
+  const { tradeVenue } = useSelectedAsset();
+  const { marketsByVenue } = useTrading();
   const [failed, setFailed] = useState(false);
   const sources = useMemo(
     () =>
@@ -95,8 +115,15 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
       ),
     [preferences.chartPrimarySource, preferences.chartFallbackSource],
   );
-  const venueCoin = venueMarket?.coin ?? "";
-  const key = [symbol, interval, isStock, preferences.chartMarket, sources.join(), venueCoin].join("|");
+  // The Hyperliquid market comes from the panel (it knows the dex); Lighter's from its market list.
+  const lighterList = marketsByVenue.lighter;
+  const venueMarkets = useMemo<Partial<Record<PerpVenueId, VenueMarket | null>>>(
+    () => ({ hyperliquid: venueMarket ?? null, lighter: lighterList ? findMarket(lighterList, symbol) : null }),
+    [venueMarket, lighterList, symbol],
+  );
+  const venues = venueOrder(preferences.chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
+  const venueKey = venues.map((venue) => `${venue}:${venueMarkets[venue]!.coin}`).join(",");
+  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey].join("|");
   const candles = data?.key === key ? data.candles : null;
   const newsByTime = useMemo(() => {
     const groups = new Map<number, NewsItem[]>();
@@ -183,9 +210,17 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
     let isActive = true;
     setFailed(false);
     const load = async () => {
-      const result =
-        (venueMarket ? await loadVenueCandles(venueMarket, interval) : null) ??
-        (await loadCandles(symbol, interval, { market: preferences.chartMarket, sources, isStock }));
+      const fromVenues = async () => {
+        for (const venue of venues) {
+          const result = await loadVenueCandles(venue, venueMarkets[venue]!, interval);
+          if (result) return result;
+        }
+        return null;
+      };
+      const feeds: ChartDataSource[] = preferences.chartSource === "binance" ? ["binance", "hyperliquid"] : sources;
+      const fromFeeds = () => loadCandles(symbol, interval, { market: preferences.chartMarket, sources: feeds, isStock });
+      // "Binance" asks Binance first; every other choice asks the venues first, then the public feeds.
+      const result = preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds()));
       if (!isActive) return;
       if (result) setData({ key, ...result });
       else setFailed(true);
@@ -198,7 +233,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
       isActive = false;
       window.clearInterval(timer);
     };
-    // venueMarket is captured through venueCoin in key; its live prices must not restart polling.
+    // The venue markets are captured through venueKey in key; their live prices must not restart polling.
   }, [key, symbol, interval, isStock, preferences.chartMarket, sources]);
 
   const fittedKeyRef = useRef<string | null>(null);
@@ -256,11 +291,24 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={containerRef} className="absolute inset-0" />
-      {data && candles && (
-        <span className="pointer-events-none absolute left-3 top-2 z-10 text-[11px] text-app-faint">
-          {data.source === "binance" ? "Binance" : "Hyperliquid"}
-        </span>
-      )}
+      <label className="absolute left-2 top-1.5 z-10">
+        <span className="sr-only">Chart data source</span>
+        <select
+          value={preferences.chartSource}
+          onChange={(event) => updatePreference("chartSource", event.target.value as ChartSource)}
+          title="Where the candles come from. Auto follows the venue in the order panel."
+          className="cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-[11px] text-app-faint outline-none hover:bg-app-chip hover:text-app-ink focus-visible:ring-2 focus-visible:ring-app-ring"
+        >
+          {(["auto", "hyperliquid", "lighter", "binance"] as const).map((source) => (
+            <option key={source} value={source} className="bg-app-dialog text-app-ink">
+              {source === "auto"
+                ? `Auto${data && candles ? ` · ${SOURCE_NAMES[data.source]}` : ""}`
+                : // A pick the chart couldn't serve shows what it fell back to.
+                  `${SOURCE_NAMES[source]}${data && candles && preferences.chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`}
+            </option>
+          ))}
+        </select>
+      </label>
       {hovered && (
         <div
           className="surface-menu pointer-events-none absolute top-8 z-20 w-64 rounded-xl border border-app-hairline-strong bg-app-card px-3 py-2 shadow-[0_12px_32px_-12px_rgba(19,35,58,0.35)]"

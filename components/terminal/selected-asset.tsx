@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import type { PerpVenueId } from "@/lib/venues/types";
 
 interface SelectedAssetValue {
   symbol: string;
@@ -13,6 +14,9 @@ interface SelectedAssetValue {
   /** Selects the asset in the chart and narrows the news feed to it. */
   focusAsset: (symbol: string) => void;
   clearNewsFocus: () => void;
+  /** Perp venue the order panel is on (picked or routed), or null for spot; the chart follows it on "auto". */
+  tradeVenue: PerpVenueId | null;
+  setTradeVenue: (venue: PerpVenueId | null) => void;
 }
 
 const SelectedAssetContext = createContext<SelectedAssetValue | null>(null);
@@ -47,9 +51,10 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
     [selectAsset],
   );
   const clearNewsFocus = useCallback(() => setNewsFocus(null), []);
+  const [tradeVenue, setTradeVenue] = useState<PerpVenueId | null>(null);
   const value = useMemo(
-    () => ({ symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus }),
-    [symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus],
+    () => ({ symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue }),
+    [symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue],
   );
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }

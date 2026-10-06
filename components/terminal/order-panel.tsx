@@ -245,7 +245,7 @@ function useVenueChoices(symbol: string, mint?: string) {
  * reduce-only) and market spot swaps. A press arms the order; the second press places it (one-click skips that).
  */
 export function OrderPanel() {
-  const { symbol, mint } = useSelectedAsset();
+  const { symbol, mint, setTradeVenue } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
   const toast = useToast();
   const { accounts, placeOrder, openDeposit } = useTrading();
@@ -285,6 +285,9 @@ export function OrderPanel() {
     if (preferences.autoRoute && id !== "jupiter" && id !== "arcus") updatePreference("autoRoute", false);
   };
   const market = choice?.kind === "perp" ? choice.market : null;
+  // The chart's "auto" source follows the venue this panel trades on.
+  useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
+  useEffect(() => () => setTradeVenue(null), [setTradeVenue]);
   const isPerp = market !== null;
   const orderKind: OrderKind = isPerp ? kind : "market";
   const maxLeverage = market?.maxLeverage ?? 1;

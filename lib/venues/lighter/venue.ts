@@ -21,7 +21,7 @@ import {
   toSnapshot,
 } from "./account";
 import { accountOrders, bestPrices, getAccountIndex, lighterGet, txStatus } from "./api";
-import { DEFAULT_SLIPPAGE, lighterConfig } from "./config";
+import { DEFAULT_SLIPPAGE, LIGHTER_CANDLE_RESOLUTIONS, lighterConfig } from "./config";
 import { humanizeLighterStatus, LighterApiError, toLighterVenueError } from "./errors";
 import { findLighterMarket, readOrderBookDetails } from "./markets";
 import { baseAmountFor, fromUnits, leverageFraction, minimumSize, nextClientOrderIndex, toUnits, worstPrice } from "./pricing";
@@ -328,11 +328,10 @@ function subscribeAccount(user: `0x${string}`, handlers: AccountHandlers) {
   };
 }
 
-const RESOLUTIONS = new Set(["1m", "5m", "15m", "30m", "1h", "4h", "12h", "1d"]);
 const MAX_CANDLES = 500;
 
 async function loadCandles(market: VenueMarket, interval: string, startTime: number): Promise<Candle[]> {
-  const resolution = RESOLUTIONS.has(interval) ? interval : "1h";
+  const resolution = LIGHTER_CANDLE_RESOLUTIONS.has(interval) ? interval : "1h";
   const body = await lighterGet("candles", {
     market_id: market.assetId,
     resolution,

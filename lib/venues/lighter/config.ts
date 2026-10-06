@@ -98,6 +98,9 @@ function readNetworkOverride(): LighterNetwork | undefined {
   }
 }
 
+/** Candle resolutions Lighter's `candles` endpoint serves. */
+export const LIGHTER_CANDLE_RESOLUTIONS: ReadonlySet<string> = new Set(["1m", "5m", "15m", "30m", "1h", "4h", "12h", "1d"]);
+
 // Next.js inlines NEXT_PUBLIC_* only when accessed by their full name.
 export const lighterConfig = readLighterConfig({
   NEXT_PUBLIC_LIGHTER_NETWORK: pinnedNetwork(deployment, readNetworkOverride(), process.env.NEXT_PUBLIC_LIGHTER_NETWORK),
