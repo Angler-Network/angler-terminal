@@ -11,6 +11,18 @@ cheapest venue for you, and every important headline turns into a one-tap trade 
 > **Alpha.** The terminal runs on testnets by default. Mainnet trades use real funds. Not financial advice: news
 > scores and predictions are model outputs.
 
+## Why Angler Terminal
+
+Most multi-venue terminals compete on how many venues they connect and how many bots they run for you. Angler
+Terminal is built for people who manage their own on-chain portfolio and want to make the decisions themselves:
+
+- **You see why the market moves before you trade it.** Every headline arrives scored, translated and linked to
+  the assets it affects, next to the chart, the order book and your positions on every venue.
+- **You keep the keys and the final say.** Nothing trades without your press unless you write the rule yourself,
+  and no key or fund ever leaves your wallet or browser.
+- **It stays fast and simple.** One screen, one order panel for every venue, live data straight from the venues
+  and a first load of about 200 kB of JavaScript.
+
 ## Features
 
 - **Live news feed.** Headlines stream over WebSocket from the Angler News API and are scored by AI models:
@@ -58,15 +70,50 @@ Browser ──WebSocket──▶ Hyperliquid, Lighter      order books, trades, 
         ──HTTPS─────▶ Next.js route handlers ──▶ Angler API, Jupiter, Titan, Arcus, Solana RPC (keys added here)
 ```
 
-- **Non-custodial.** Funds stay in your wallet and on the venues. Trading keys for Hyperliquid and Lighter are
-  generated in your browser and used only to sign there; they are never logged or sent anywhere. Hyperliquid
-  agent keys cannot withdraw. Both can be revoked from the account panel.
-- **Secrets stay on the server.** API keys (Angler, Jupiter, Titan, Arcus, RPC) are read only by route handlers and
-  never reach the browser. Only `NEXT_PUBLIC_*` settings are public.
-- **No accounts, no database.** There is no login. Preferences live in your browser. Analytics count trades per
-  venue and side only, with no wallet addresses or amounts.
-- **Live data goes straight to the venues.** Order books, prices and account updates go from your browser to each
-  venue, so the server only proxies cached market lists and the calls that need a key.
+The browser talks to the venues directly; the server only adds API keys and caches shared data.
+
+## Security
+
+Angler Terminal never holds your funds or your keys, and the code that signs your orders is open for anyone to read.
+
+- **Non-custodial by design.** Funds stay in your wallet and on the venues. There is no deposit contract and no
+  pooled account, and the app can't move your funds: deposits and withdrawals are signed by your own wallet.
+- **Keys are created and kept in your browser.** Hyperliquid and Lighter trading keys are generated locally and
+  used only to sign locally; they are never logged or sent anywhere. A Hyperliquid agent key can trade but cannot
+  withdraw. The Lighter key is stored encrypted (AES-GCM) with a non-extractable WebCrypto key, so the raw key
+  can't be read back out of the browser's storage. Both can be revoked from the account panel at any time.
+- **Official signers only.** Hyperliquid orders are signed with a maintained open-source SDK, Lighter orders with
+  Lighter's own WASM signer built from a pinned commit (`scripts/build-lighter-signer.sh`), and spot swaps by your
+  own wallet (Wallet Standard on Solana, EIP-712 / Permit2 on EVM).
+- **Server secrets stay on the server.** API keys (Angler, Jupiter, Titan, Arcus, RPC) are read only by route
+  handlers and never reach the browser. Only `NEXT_PUBLIC_*` settings are public.
+- **Guard rails on every trade.**
+  - Orders need two presses by default; one-click trading is opt-in.
+  - Automatic news rules are off by default and limited to one trade per rule every five minutes.
+  - Spot swaps are re-quoted right before signing and refused above 3% price impact.
+  - Wallets never connect on page load unless you connected them in this app before.
+- **Nothing about you is stored.** There is no login and no database. Preferences live in your browser.
+  Analytics count trades per venue and side only, with no wallet addresses or amounts.
+
+Found a vulnerability? Report it privately to the maintainers rather than in a public issue.
+
+## Performance
+
+Speed comes from what the app doesn't do: no account server sits between you and the venues, and nothing heavy
+loads until you need it.
+
+- **Direct to the venues.** Order books, trades, prices and your positions stream from each venue to your browser
+  over WebSockets, with no relay server adding latency. Book updates are batched so the page stays smooth in
+  fast markets.
+- **Realtime news.** Headlines arrive over WebSocket the moment they're ingested, and the analyzed version
+  replaces the raw headline in place.
+- **Light first load.** The terminal page ships about 200 kB of JavaScript on first load (compressed, at the time
+  of writing). Trading SDKs, wallet clients and dialogs load on demand, and the server-rendered price tape streams
+  in without blocking the page.
+- **Better fills.** Market orders are priced from both perp venues' live order books with every fee included,
+  routed to the cheaper venue, and split across venues when that fills cheaper.
+- **Shared, cached data.** Market lists, funding rates, news sources and news reaction stats are cached on the
+  server, so a crowd of users costs the upstream APIs about the same as one.
 
 ## Getting started
 
@@ -145,8 +192,6 @@ data come from [angler-news](https://news.angler.network), so the two products l
 
 Issues and pull requests are welcome. Before opening a pull request, make sure `npm test`, `npm run typecheck` and
 `npm run build` pass. Never commit keys or a real `.env` file: `.env.example` holds placeholders only.
-
-Report security issues privately to the maintainers, not in a public issue.
 
 ## Disclaimer
 
