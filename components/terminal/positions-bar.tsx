@@ -2,9 +2,10 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { formatPrice } from "@/lib/format";
 import { liquidationDistancePct } from "@/lib/trading/order-math";
-import { summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
+import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
 import { optionalPrice, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
@@ -157,9 +158,37 @@ function TpslEditor({ position, mark, onDone }: { position: VenuePosition; mark?
   );
 }
 
+/** Header row for one venue's group: name, count, unrealized PnL and a close-all for that venue. */
+function VenueGroupRow({ venue, count, noun, pnl, onCloseAll, colSpan }: { venue: PerpVenueId; count: number; noun: string; pnl?: number; onCloseAll?: () => Promise<void>; colSpan: number }) {
+  return (
+    <tr className="border-t border-app-hairline bg-app-chip/40">
+      <td colSpan={colSpan} className="px-3 py-1.5">
+        <span className="flex items-center gap-3 text-[11px]">
+          <span className="font-semibold uppercase tracking-[0.06em] text-app-ink">{PERP_VENUE_NAMES[venue]}</span>
+          <span className="tabular-nums text-app-faint">
+            {count} {noun}
+            {count === 1 ? "" : "s"}
+          </span>
+          {pnl !== undefined && <span className={`tabular-nums ${pnl >= 0 ? "text-app-up" : "text-app-down"}`}>{signed(pnl)}</span>}
+          {/* Next to the totals, not right-aligned: a wide table scrolls sideways and would hide it. */}
+          {onCloseAll && count > 1 && <ConfirmButton label="Close all" confirmLabel={`Close ${count}?`} onConfirm={onCloseAll} />}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+/** Whether rows spanning several venues should show under a header per venue (the user's choice, grouped by default). */
+function useGrouped(rows: Array<{ venue: PerpVenueId }>) {
+  const { preferences } = usePreferences();
+  return preferences.positionsLayout === "grouped" && new Set(rows.map((row) => row.venue)).size > 1;
+}
+
 export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const { closePosition, marketsByVenue } = useTrading();
+  const closeAll = useCloseAll();
+  const grouped = useGrouped(positions);
   const markOf = (position: VenuePosition) => {
     const list = marketsByVenue[position.venue];
     const market = list ? findMarket(list, position.coin) : null;
@@ -179,7 +208,19 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
         </tr>
       </thead>
       <tbody>
-        {positions.map((position) => {
+        {(grouped ? groupByVenue(positions) : [{ venue: null, rows: positions }]).map((group) => (
+          <Fragment key={group.venue ?? "all"}>
+        {group.venue && (
+          <VenueGroupRow
+            venue={group.venue}
+            count={group.rows.length}
+            noun="position"
+            pnl={group.rows.reduce((sum, position) => sum + position.unrealizedPnl, 0)}
+            onCloseAll={() => closeAll(group.rows)}
+            colSpan={7}
+          />
+        )}
+        {group.rows.map((position) => {
           const isLong = position.size > 0;
           const key = `${position.venue}:${position.coin}`;
           return (
@@ -187,7 +228,7 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
             <tr className="border-t border-app-hairline">
               <td className={td}>
                 <SymbolCell symbol={position.symbol} coin={position.coin} />
-                <VenueBadge venue={position.venue} />
+                {!grouped && <VenueBadge venue={position.venue} />}
                 <span className="ml-1.5 text-app-faint">
                   {position.leverage}x {position.leverageType}
                 </span>
@@ -237,6 +278,8 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
             </Fragment>
           );
         })}
+          </Fragment>
+        ))}
       </tbody>
     </table>
   );
@@ -244,6 +287,7 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
 
 export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   const { cancelOrder } = useTrading();
+  const grouped = useGrouped(orders);
   return (
     <table className="w-full text-[12px]">
       <thead className="sticky top-0 bg-app-card">
@@ -258,11 +302,14 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
         </tr>
       </thead>
       <tbody>
-        {orders.map((order) => (
+        {(grouped ? groupByVenue(orders) : [{ venue: null, rows: orders }]).map((group) => (
+          <Fragment key={group.venue ?? "all"}>
+        {group.venue && <VenueGroupRow venue={group.venue} count={group.rows.length} noun="order" colSpan={7} />}
+        {group.rows.map((order) => (
           <tr key={`${order.venue}:${order.oid}`} className="border-t border-app-hairline">
             <td className={td}>
               <SymbolCell symbol={order.symbol} coin={order.coin} />
-              <VenueBadge venue={order.venue} />
+              {!grouped && <VenueBadge venue={order.venue} />}
             </td>
             <td className={td}>
               {order.orderType}
@@ -279,6 +326,8 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
               <RowButton onClick={() => cancelOrder(order)}>Cancel</RowButton>
             </td>
           </tr>
+        ))}
+          </Fragment>
         ))}
       </tbody>
     </table>
@@ -345,27 +394,27 @@ export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positio
   );
 }
 
-type VenueFilter = PerpVenueId | "all";
-
 /**
- * The portfolio across every perp venue (each venue's WebSocket feed): positions and open orders merged with a venue
- * badge and filter, a per-venue summary, and close-all actions behind a confirm press.
+ * The portfolio across every perp venue (each venue's WebSocket feed): positions and open orders merged, grouped
+ * under a header per venue once more than one venue has rows (or one list with venue badges, the user's choice),
+ * a per-venue summary, and close-all actions behind a confirm press. No per-venue filter buttons: they don't scale
+ * past a few venues.
  */
 export function PositionsBar() {
   const [tab, setTab] = useState<Tab>("positions");
-  const [filter, setFilter] = useState<VenueFilter>("all");
   const { address } = useWallet();
   const { account, accounts } = useTrading();
+  const { preferences, updatePreference } = usePreferences();
   const closeAll = useCloseAll();
   const summaries = (Object.keys(accounts) as PerpVenueId[]).flatMap((venue) => {
     const snapshot = accounts[venue];
     return snapshot ? [summarizeVenue(venue, snapshot)] : [];
   });
   const total = totalSummary(summaries);
-  const matches = (venue: PerpVenueId) => filter === "all" || venue === filter;
-  const allPositions = account?.positions ?? [];
-  const positions = allPositions.filter((position) => matches(position.venue));
-  const orders = (account?.orders ?? []).filter((order) => matches(order.venue));
+  const positions = account?.positions ?? [];
+  const orders = account?.orders ?? [];
+  const rowsOnScreen: Array<{ venue: PerpVenueId }> = tab === "positions" ? positions : tab === "orders" ? orders : [];
+  const multiVenue = new Set(rowsOnScreen.map((row) => row.venue)).size > 1;
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "positions", label: "Positions", count: positions.length },
     { id: "orders", label: "Open orders", count: orders.length },
@@ -394,17 +443,20 @@ export function PositionsBar() {
             <span className="ml-1.5 tabular-nums text-app-faint">{count}</span>
           </button>
         ))}
-        {summaries.length > 1 && tab !== "venues" && (
-          <div role="group" aria-label="Venue filter" className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
-            {(["all", ...summaries.map((row) => row.venue)] as VenueFilter[]).map((value) => (
+        {multiVenue && (
+          <div role="group" aria-label="Layout" className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+            {(["grouped", "list"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
-                aria-pressed={filter === value}
-                onClick={() => setFilter(value)}
-                className={`h-6 rounded-md px-2 text-[11px] font-semibold ${filter === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"}`}
+                aria-pressed={preferences.positionsLayout === value}
+                onClick={() => updatePreference("positionsLayout", value)}
+                title={value === "grouped" ? "A section per venue" : "One list, venue badge on each row"}
+                className={`h-6 rounded-md px-2 text-[11px] font-semibold ${
+                  preferences.positionsLayout === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+                }`}
               >
-                {value === "all" ? "All" : PERP_VENUE_NAMES[value]}
+                {value === "grouped" ? "By venue" : "List"}
               </button>
             ))}
           </div>
@@ -422,7 +474,7 @@ export function PositionsBar() {
             </span>
             {tab === "positions" && positions.length > 0 && (
               <ConfirmButton
-                label={filter === "all" ? "Close all" : `Close all on ${PERP_VENUE_NAMES[filter]}`}
+                label="Close all"
                 confirmLabel={`Close ${positions.length}?`}
                 onConfirm={() => closeAll(positions)}
               />
@@ -444,7 +496,7 @@ export function PositionsBar() {
         ) : tab === "orders" ? (
           <OrdersTable orders={orders} />
         ) : (
-          <VenuesTable rows={summaries} positions={allPositions} />
+          <VenuesTable rows={summaries} positions={positions} />
         )}
       </div>
     </section>

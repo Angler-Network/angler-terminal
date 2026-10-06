@@ -159,6 +159,8 @@ export interface Preferences extends Appearance {
   newsLeverage: number;
   /** Height of the positions panel under the chart, dragged by the user; null sizes it to its content. */
   positionsHeight: number | null;
+  /** With positions or orders on more than one venue: grouped under a header per venue, or one list. */
+  positionsLayout: "grouped" | "list";
   appearanceVersion: number;
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
@@ -229,6 +231,7 @@ export const defaultPreferences: Preferences = {
   tradeMinImpact: 60,
   newsLeverage: 5,
   positionsHeight: null,
+  positionsLayout: "grouped",
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
@@ -357,6 +360,7 @@ export function parsePreferences(raw: string | null): Preferences {
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       positionsHeight: stored.positionsHeight == null ? null : readRange(stored.positionsHeight, 80, 2000, 1, 240),
+      positionsLayout: stored.positionsLayout === "list" ? "list" : "grouped",
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
