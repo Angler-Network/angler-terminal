@@ -130,7 +130,15 @@ interface LighterDetail {
   last_trade_price?: number;
   daily_price_change?: number;
   daily_quote_token_volume?: number;
+  strategy_index?: number;
 }
+
+/**
+ * Lighter groups markets by `strategy_index` (undocumented; checked against the live list on 2026-10-06): 5 holds US
+ * stocks and ETFs (MSTR, AMD, SPY...), 6 Asian stocks (SKHY, BYD, XIAOMI...). Marking them as stocks gives them
+ * stock logos and TradingView stock symbols instead of the crypto ones.
+ */
+const LIGHTER_STOCK_STRATEGIES = new Set([5, 6]);
 
 /** Lighter mainnet perps: last price, 24h change in percent and USD volume. */
 async function lighterPerps(): Promise<Listing[]> {
@@ -141,7 +149,8 @@ async function lighterPerps(): Promise<Listing[]> {
     const changePct = Number(detail.daily_price_change);
     if (detail.status !== "active" || (detail.market_type && detail.market_type !== "perp") || !SYMBOL_PATTERN.test(symbol)) return [];
     if (!(price > 0) || !Number.isFinite(changePct)) return [];
-    return [{ symbol, kind: "crypto", volume: Number(detail.daily_quote_token_volume) || 0, source: "lighter", quote: { price, changePct } }];
+    const kind = LIGHTER_STOCK_STRATEGIES.has(Number(detail.strategy_index)) ? "stock" : "crypto";
+    return [{ symbol, kind, volume: Number(detail.daily_quote_token_volume) || 0, source: "lighter", quote: { price, changePct } }];
   });
 }
 
