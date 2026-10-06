@@ -157,6 +157,8 @@ export interface Preferences extends Appearance {
   tradeMinImpact: number;
   /** Leverage for perp trades placed from news. */
   newsLeverage: number;
+  /** Height of the positions panel under the chart, dragged by the user; null sizes it to its content. */
+  positionsHeight: number | null;
   appearanceVersion: number;
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
@@ -226,6 +228,7 @@ export const defaultPreferences: Preferences = {
   defaultSpotUsd: null,
   tradeMinImpact: 60,
   newsLeverage: 5,
+  positionsHeight: null,
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
@@ -353,6 +356,7 @@ export function parsePreferences(raw: string | null): Preferences {
       defaultSpotUsd: readSize(stored.defaultSpotUsd),
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
+      positionsHeight: stored.positionsHeight == null ? null : readRange(stored.positionsHeight, 80, 2000, 1, 240),
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),

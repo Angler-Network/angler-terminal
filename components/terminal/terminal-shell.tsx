@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useIsMobile, useMobileView, type MobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
 import type { TerminalPanels } from "@/lib/preferences";
@@ -11,6 +11,7 @@ import { AccountPanel, useHasWallet } from "./account-panel";
 import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
+import { PanelResizer } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
@@ -18,6 +19,9 @@ import { useTrading } from "./trading-provider";
 type Slot = { column: string; row: string };
 
 const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true };
+const MIN_POSITIONS_HEIGHT = 80;
+/** The chart keeps at least this much when the positions panel is dragged up (plus the 8px grid gap). */
+const MIN_CHART_HEIGHT = 200;
 
 /**
  * Modular desktop layout; every panel but the chart can be turned off (`panels` preference) and the chart takes
@@ -29,7 +33,8 @@ const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions
  */
 export function TerminalShell() {
   const { symbol, newsFocus } = useSelectedAsset();
-  const { newsFilters, panels, newsTranslate } = usePreferences().preferences;
+  const { preferences, updatePreference } = usePreferences();
+  const { newsFilters, panels, newsTranslate } = preferences;
   // With one asset in view, history is requested for that coin so its older news shows up too.
   const coin = newsFocus ?? (newsFilters.assets.length === 1 ? newsFilters.assets[0] : undefined);
   const feed = useNewsFeed({ minImportance: newsFilters.minImpact, coin, translate: newsTranslate });
@@ -38,7 +43,11 @@ export function TerminalShell() {
   const { view } = useMobileView();
   const { account } = useTrading();
   // An empty portfolio only needs room for its tabs and one line; rows get the full height.
-  const positionsHeight = (account?.positions.length ?? 0) + (account?.orders.length ?? 0) > 0 ? 240 : 132;
+  const autoPositionsHeight = (account?.positions.length ?? 0) + (account?.orders.length ?? 0) > 0 ? 240 : 132;
+  // While dragging the live height lives here; it's saved (positionsHeight preference) on release.
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const positionsHeight = dragHeight ?? preferences.positionsHeight ?? autoPositionsHeight;
+  const gridRef = useRef<HTMLDivElement>(null);
   // The chart marks news on candles by item.symbol, so give each matching item the selected symbol.
   const chartItems = useMemo(
     () => feed.items.filter((item) => item.coins?.includes(symbol)).map((item) => ({ ...item, symbol })),
@@ -51,7 +60,8 @@ export function TerminalShell() {
     const columns = ["minmax(0,1fr)"];
     const side = showSide ? columns.push("clamp(280px,20vw,340px)") : 0;
     const news = panels.news ? columns.push("clamp(290px,21vw,380px)") : 0;
-    const rows = panels.positions ? `minmax(0,1fr) ${positionsHeight}px` : "minmax(0,1fr)";
+    // min() keeps a saved height from squeezing the chart away on a shorter window.
+    const rows = panels.positions ? `minmax(0,1fr) min(${positionsHeight}px, calc(100% - ${MIN_CHART_HEIGHT + 8}px))` : "minmax(0,1fr)";
     const allRows = panels.positions ? "1 / 3" : "1 / 2";
     const slot = (column: number | string, row: string): Slot => ({ column: String(column), row });
     return {
@@ -74,6 +84,7 @@ export function TerminalShell() {
     <OrderDraftProvider>
       <NewsRulesRunner items={feed.items} />
       <div
+        ref={gridRef}
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
         className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"
       >
@@ -96,7 +107,23 @@ export function TerminalShell() {
           </div>
         )}
         {shown.positions && (
-          <div style={isMobile ? undefined : { ...place(layout.positions), height: positionsHeight }} className={`${placed} ${mobileView("portfolio")}`}>
+          <div style={isMobile ? undefined : place(layout.positions)} className={`relative ${placed} ${mobileView("portfolio")}`}>
+            {!isMobile && (
+              <PanelResizer
+                height={positionsHeight}
+                min={MIN_POSITIONS_HEIGHT}
+                max={() => (gridRef.current?.clientHeight ?? 800) - MIN_CHART_HEIGHT - 8}
+                onResize={setDragHeight}
+                onCommit={(height) => {
+                  updatePreference("positionsHeight", height);
+                  setDragHeight(null);
+                }}
+                onReset={() => {
+                  updatePreference("positionsHeight", null);
+                  setDragHeight(null);
+                }}
+              />
+            )}
             <PositionsBar />
           </div>
         )}
