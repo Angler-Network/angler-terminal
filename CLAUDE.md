@@ -160,7 +160,10 @@ dependency versions and design are free to diverge from angler-news.
     sidebar/top bar) and Settings → Layout). Columns: chart (rest of the width, positions under it) | trading column
     (order panel + account card on top, order book under it, filling the height) | news; side widths use
     `clamp(…vw)` so the chart keeps room on laptops. The sidebar and top bar hide like angler-news
-    (`layout-toggles.tsx`, always available here).
+    (`layout-toggles.tsx`, always available here). Every panel edge facing the chart has a drag handle
+    (`panel-resizer.tsx`, desktop only; double-click or Home resets): positions height (`positionsHeight`), watchlist,
+    trading and news column widths and the order book height (`panelSizes`, `lib/layout/panel-sizes.ts`). A dragged
+    width is capped at a share of the grid (`min(Wpx, N%)`) and a drag stops where the chart would drop below 360px.
   - Mobile (below `lg`, 1024px): no rail, no frame, top bar always shown; a bottom tab bar (`mobile-nav.tsx`: Chart,
     Trade, News, Portfolio, More → Markets / Wallets / Settings / news site) switches full-screen views
     (`mobile-view.tsx` context; `terminal-shell.tsx` hides the others with `max-lg:hidden`, so no layout flash, and
