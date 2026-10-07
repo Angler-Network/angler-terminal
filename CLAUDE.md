@@ -464,12 +464,12 @@ dependency versions and design are free to diverge from angler-news.
   `openOnboardingScript` (right after it in `layout.tsx`) calls `showModal()` at once. Opening it from React later
   would move it into the top layer after its first paint (a new, later LCP). The welcome logo is a CSS background
   (`.welcome-logo`) so it only downloads when the dialog is open.
-- Wallets: one Connect button opens `wallet-modal.tsx`, a single screen with no venue step ("Plug in a wallet"). Two
-  chain ports (EVM, Solana: a socket that shows the plugged wallet and address with Unplug, the venues it serves
-  printed under it) over a numbered list of every detected wallet (EVM via EIP-6963, Solana via Wallet Standard)
-  merged by name, so a wallet with both (Phantom, Backpack) is one row and one press connects both chains. Hovering
-  a row slides its icon into the ports it would fill; keys 1-9 connect; the modal closes once no other wallet could
-  add a missing chain. The user rejected a rotating venue orbit as generic: keep it terminal-like, no glow art.
+- Wallets: one Connect button opens `wallet-modal.tsx`, a single screen with no venue step ("Connect Wallet"): one row of wallet
+  tiles in an inner panel, faint chain logos behind the card, connected addresses with Disconnect under the tiles.
+  Every detected wallet (EVM via EIP-6963, Solana via Wallet Standard) is merged by name, so a wallet with both
+  (Phantom, Backpack) is one tile and one press connects both chains; the modal closes once no other wallet could
+  add a missing chain. The user rejected a rotating venue orbit (generic) and a plug-in port design (overdone):
+  keep it this plain.
   Install links when none is found. One wallet per chain serves every venue on that chain. No embedded-wallet SDK
   (Privy was tried and dropped: it would load for everyone; if added later it must load only on demand). The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
