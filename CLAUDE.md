@@ -164,7 +164,9 @@ dependency versions and design are free to diverge from angler-news.
 - Arcus (`lib/venues/arcus/`): stock/index tokens on Robinhood Chain (testnet 46630, mainnet 4663;
   `NEXT_PUBLIC_ARCUS_NETWORK`, testnet default), via `@arcus-xyz/arcus-spot-sdk` for signing only.
   - The browser calls `app/api/arcus/[...path]` (tokens, price, quote, status, submit only): the mainnet router allows
-    listed origins only, and the server adds `ARCUS_API_KEY` + `ARCUS_BUILDER_FEE_BPS` when set.
+    listed origins only, and the server adds `ARCUS_API_KEY` + `ARCUS_BUILDER_FEE_BPS` when set. The server's router
+    network follows `NEXT_PUBLIC_DEPLOYMENT` first (`readArcusServerConfig`), like the browser: before that fix the
+    mainnet site, which doesn't set `NEXT_PUBLIC_ARCUS_NETWORK`, proxied the testnet router.
   - Flow (`venue.ts`): size in USDG (mUSDG on testnet; sells sized from `/v1/price`), balance check, `/v1/quote`,
     keep only the gasless `arcus` venue quote, refuse impact above `MAX_SPOT_PRICE_IMPACT_PCT` vs `referencePrice`,
     switch/add Robinhood Chain in the wallet, Permit2 allowance (EIP-2612 permit or one-time approve), sign the
@@ -310,10 +312,14 @@ dependency versions and design are free to diverge from angler-news.
     points yet; analytics records venue `uniswap`.
   - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/ETH/WETH/USDT to
     pay with; native ETH is the zero address `NATIVE_TOKEN`: no approval, sent as the tx value, priced and charted as
-    WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 60 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
-    side with the key) priced by DexScreener (`lib/spot/dexscreener.ts`, free, `tokens/v1` in batches of 30), and the
-    search adds DexScreener's search (tokens on those chains with a Uniswap pool). Verified = on Uniswap's default list
-    or ≥ $250k pool liquidity, never with a transfer tax; blocked tokens are dropped. A picked token rides in the
+    WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 150 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
+    side with the key; not Robinhood, `listTop: false`), priced by DefiLlama (`lib/spot/llama.ts`: `coins.llama.fi`
+    prices + 24h change, free, batches of 60) with volume/liquidity from DexScreener when it answers
+    (`lib/spot/dexscreener.ts`; it returns empty results to rate-limited IPs instead of a 429, which silently left
+    every token unpriced). The search adds Relay's token search (`lib/spot/relay-currencies.ts`, `POST
+    /currencies/v2`) plus DexScreener's, priced by DefiLlama; hits outside the list are unverified. Verified = on
+    Uniswap's default list, or ≥ $250k pool liquidity, or (no liquidity figure) DefiLlama confidence ≥ 0.95; never with a
+    transfer tax; blocked tokens are dropped. A picked token rides in the
     selected asset's `mint` slot as `evm:<chainId>:<address>` (`evmRef`/`parseEvmRef`; Jupiter lookups skip it, the
     watchlist accepts it), and /swap then shows `EvmSwapCard` (`evm-swap-card.tsx`: exact-input sell/buy boxes,
     balances over each chain's public RPC, a debounced Uniswap quote, `uniswapSwap` with the viem chain) instead of the

@@ -9,6 +9,9 @@ import { uniswapOnRobinhood } from "@/lib/venues/robinhood-sources";
 import { EVM_SWAP_CHAINS, isNativeToken, wrappedNative } from "@/lib/venues/uniswap/chains";
 import { readUniswapServerConfig, uniswapFetch } from "@/lib/venues/uniswap/server";
 import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener";
+import { LLAMA_BATCH, llamaKey, readLlamaMarkets } from "./llama";
+import { readRelayCurrencies, relayCurrenciesBody } from "./relay-currencies";
+import { readRelayServerConfig, relayFetch } from "@/lib/venues/relay-server";
 import {
   fromArcusToken,
   fromJupRecord,
@@ -23,7 +26,8 @@ import {
 const REVALIDATE_SECONDS = 120;
 const TOP_LIMIT = 100;
 /** Most traded Uniswap tokens listed per EVM chain. */
-const UNISWAP_TOP_LIMIT = 60;
+const UNISWAP_TOP_LIMIT = 150;
+const LLAMA_URL = "https://coins.llama.fi";
 const DEXSCREENER_URL = "https://api.dexscreener.com";
 const DEXSCREENER_TIMEOUT_MS = 10_000;
 
@@ -89,7 +93,34 @@ async function dexMarkets(chain: string, addresses: string[]) {
   return markets;
 }
 
-/** Uniswap's most traded tokens on each EVM swap chain (Trading API `/tokens`), priced from DexScreener. */
+/** DefiLlama prices and 24h changes for a chain's tokens, in batches; a failed batch only leaves those tokens bare. */
+async function llamaMarkets(chain: string, addresses: string[]) {
+  const markets = new Map<string, TokenMarket>();
+  const batches = [];
+  for (let index = 0; index < addresses.length; index += LLAMA_BATCH) batches.push(addresses.slice(index, index + LLAMA_BATCH).map((address) => llamaKey(chain, address)));
+  const results = await Promise.allSettled(
+    batches.map(async (keys) => {
+      const path = keys.join(",");
+      const [prices, changes] = await Promise.all([
+        fetch(`${LLAMA_URL}/prices/current/${path}`, { signal: AbortSignal.timeout(DEXSCREENER_TIMEOUT_MS) }).then((response) => (response.ok ? response.json() : null)),
+        fetch(`${LLAMA_URL}/percentage/${path}`, { signal: AbortSignal.timeout(DEXSCREENER_TIMEOUT_MS) })
+          .then((response) => (response.ok ? response.json() : null))
+          .catch(() => null),
+      ]);
+      return readLlamaMarkets(prices, changes);
+    }),
+  );
+  for (const result of results) {
+    if (result.status === "fulfilled") for (const [key, market] of result.value) markets.set(key, market);
+    else console.error("[spot] defillama prices failed:", result.reason);
+  }
+  return markets;
+}
+
+/**
+ * Uniswap's most traded tokens on each EVM swap chain (Trading API `/tokens`): prices and 24h change from DefiLlama,
+ * volume and liquidity from DexScreener when it answers.
+ */
 async function uniswapListings(): Promise<SpotListing[]> {
   const { apiKey } = readUniswapServerConfig(process.env);
   if (!venueAvailable("uniswap") || !apiKey) return [];
@@ -100,9 +131,15 @@ async function uniswapListings(): Promise<SpotListing[]> {
       const records = (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
       const weth = wrappedNative(chain).address;
       const addresses = records.flatMap((record) => (typeof record.address === "string" && !isNativeToken(record.address) ? [record.address] : []));
-      const markets = await dexMarkets(chain.dexscreener, [...new Set([...addresses, weth])]);
+      const wanted = [...new Set([...addresses, weth])];
+      const [prices, pools] = await Promise.all([llamaMarkets(chain.llama, wanted), dexMarkets(chain.dexscreener, wanted)]);
       // Native ETH has no pool of its own: it trades at WETH's price.
-      const marketOf = (address: string) => markets.get((isNativeToken(address) ? weth : address).toLowerCase());
+      const marketOf = (address: string): TokenMarket => {
+        const key = isNativeToken(address) ? weth : address;
+        const pool = pools.get(key.toLowerCase());
+        const price = prices.get(llamaKey(chain.llama, key));
+        return { ...pool, ...Object.fromEntries(Object.entries(price ?? {}).filter(([, value]) => value !== undefined)) };
+      };
       return records.flatMap((record) => fromUniswapToken(record, marketOf(String(record.address))) ?? []);
     }),
   );
@@ -110,10 +147,35 @@ async function uniswapListings(): Promise<SpotListing[]> {
   return lists.flatMap((list) => (list.status === "fulfilled" ? list.value : []));
 }
 
-/** Tokens on the EVM swap chains for any query (DexScreener search), when Uniswap is on. */
+/**
+ * Tokens on the EVM swap chains for any query, when Uniswap is on: Relay's token search (decimals and logos) and
+ * DexScreener's when it answers, priced from DefiLlama.
+ */
 export async function searchUniswapListings(query: string): Promise<SpotListing[]> {
   if (!uniswapOn()) return [];
-  return readDexSearch(await dexscreener(`/latest/dex/search?q=${encodeURIComponent(query)}`));
+  const { apiKey } = readRelayServerConfig(process.env);
+  const [relay, dex] = await Promise.allSettled([
+    relayFetch("/currencies/v2", apiKey, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(relayCurrenciesBody(query, EVM_SWAP_CHAINS.map((chain) => chain.id))),
+    }).then(async (response) => (response.ok ? readRelayCurrencies(await response.json()) : [])),
+    dexscreener(`/latest/dex/search?q=${encodeURIComponent(query)}`).then(readDexSearch),
+  ]);
+  const hits = mergeListings(relay.status === "fulfilled" ? relay.value : [], dex.status === "fulfilled" ? dex.value : []);
+  // One DefiLlama call per chain prices the hits.
+  const priced = await Promise.all(
+    EVM_SWAP_CHAINS.map(async (chain) => {
+      const onChain = hits.filter((hit) => hit.chainId === chain.id);
+      if (onChain.length === 0) return [];
+      const prices = await llamaMarkets(chain.llama, onChain.map((hit) => hit.address)).catch(() => new Map<string, TokenMarket>());
+      return onChain.map((hit) => {
+        const market = prices.get(llamaKey(chain.llama, hit.address));
+        return market ? { ...hit, price: hit.price ?? market.price, change24h: hit.change24h ?? market.change24h } : hit;
+      });
+    }),
+  );
+  return priced.flat();
 }
 
 async function loadSpotListings(): Promise<SpotListing[]> {
@@ -130,7 +192,7 @@ async function loadSpotListings(): Promise<SpotListing[]> {
 }
 
 /** Every spot pair the integrated venues offer right now (cached across requests). */
-export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v3"], { revalidate: REVALIDATE_SECONDS });
+export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v4"], { revalidate: REVALIDATE_SECONDS });
 
 /** Jupiter search (any token, verified or not) for queries outside the cached lists. */
 export async function searchJupiterListings(query: string): Promise<SpotListing[]> {

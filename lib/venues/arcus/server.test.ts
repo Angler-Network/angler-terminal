@@ -12,4 +12,10 @@ describe("Arcus server config", () => {
     });
     expect(readArcusServerConfig({ ARCUS_API_KEY: "k", ARCUS_BUILDER_FEE_BPS: "abc" }).builderFeeBps).toBeNull();
   });
+
+  it("follows the deployment pin over the venue's own network", () => {
+    // The mainnet site without NEXT_PUBLIC_ARCUS_NETWORK used to ask the testnet router.
+    expect(readArcusServerConfig({ NEXT_PUBLIC_DEPLOYMENT: "mainnet" }).network).toBe("mainnet");
+    expect(readArcusServerConfig({ NEXT_PUBLIC_DEPLOYMENT: "testnet", NEXT_PUBLIC_ARCUS_NETWORK: "mainnet" }).network).toBe("testnet");
+  });
 });

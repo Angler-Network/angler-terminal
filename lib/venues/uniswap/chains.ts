@@ -20,8 +20,10 @@ export interface EvmSwapChain {
   pool: "eth" | "base" | "arbitrum" | "robinhood";
   /** False keeps the chain out of the top-token list (Robinhood: Arcus lists its stock tokens already). */
   listTop?: boolean;
-  /** DexScreener chain id (prices, search). */
+  /** DexScreener chain id (volume, liquidity, search). */
   dexscreener: string;
+  /** DefiLlama chain name (prices). */
+  llama: string;
   explorer: string;
   rpc: string;
   /** What a token is bought with (or sold into): the chain's dollar first (USDC, USDG on Robinhood), then native ETH. */
@@ -45,6 +47,7 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     name: "Base",
     pool: "base",
     dexscreener: "base",
+    llama: "base",
     explorer: "https://basescan.org",
     rpc: "https://mainnet.base.org",
     pay: [
@@ -60,6 +63,7 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     name: "Arbitrum",
     pool: "arbitrum",
     dexscreener: "arbitrum",
+    llama: "arbitrum",
     explorer: "https://arbiscan.io",
     rpc: "https://arb1.arbitrum.io/rpc",
     pay: [
@@ -75,6 +79,7 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     name: "Ethereum",
     pool: "eth",
     dexscreener: "ethereum",
+    llama: "ethereum",
     explorer: "https://etherscan.io",
     rpc: "https://ethereum-rpc.publicnode.com",
     pay: [
@@ -90,6 +95,7 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     name: "Robinhood Chain",
     pool: "robinhood",
     dexscreener: "robinhood",
+    llama: "robinhood",
     explorer: "https://robinhoodchain.blockscout.com",
     rpc: "https://rpc.mainnet.chain.robinhood.com",
     listTop: false,

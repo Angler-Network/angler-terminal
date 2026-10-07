@@ -1,4 +1,5 @@
 import "server-only";
+import { pinnedNetwork, readDeployment } from "@/lib/deployment";
 import { ROUTER_URLS, readArcusNetwork } from "./config";
 
 const TIMEOUT_MS = 15_000;
@@ -11,7 +12,8 @@ export function readArcusServerConfig(env: Record<string, string | undefined>) {
   const apiKey = env.ARCUS_API_KEY?.trim() || null;
   const fee = Number(env.ARCUS_BUILDER_FEE_BPS);
   return {
-    network: readArcusNetwork(env.NEXT_PUBLIC_ARCUS_NETWORK),
+    // The deployment pin wins, like in the browser (`arcusConfig`): a mainnet site must never ask the testnet router.
+    network: readArcusNetwork(pinnedNetwork(readDeployment(env.NEXT_PUBLIC_DEPLOYMENT), undefined, env.NEXT_PUBLIC_ARCUS_NETWORK)),
     apiKey,
     builderFeeBps: apiKey && Number.isInteger(fee) && fee > 0 && fee <= 1000 ? fee : null,
   };

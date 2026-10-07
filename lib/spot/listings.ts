@@ -185,10 +185,14 @@ export interface TokenMarket {
   liquidity?: number;
   marketCap?: number;
   icon?: string;
+  /** DefiLlama's confidence in the price (0-1); stands in for liquidity when DexScreener has no numbers. */
+  confidence?: number;
 }
 
 /** Pool liquidity that makes a Uniswap-listed token count as verified when it isn't on Uniswap's default list. */
 export const UNISWAP_VERIFIED_LIQUIDITY_USD = 250_000;
+/** DefiLlama price confidence that does the same when no liquidity figure is known. */
+export const UNISWAP_VERIFIED_CONFIDENCE = 0.95;
 
 const DOLLAR_SYMBOL = /^(USDC|USDT|USDT0|USD₮0|DAI|USDS|USDE|SUSDE|PYUSD|FDUSD|USDG|GHO|LUSD|CRVUSD|USDBC|FRAX|RLUSD|USD0|USDX|EURC)$/i;
 
@@ -210,7 +214,9 @@ export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket
   const safety = record.extensions?.safetyInfo;
   if (safety?.safetyLevel === "blocked") return null;
   const taxed = (safety?.buyFee ?? 0) > 0 || (safety?.sellFee ?? 0) > 0;
-  const verified = native || (!taxed && (safety?.safetyLevel === "verified" || (market.liquidity ?? 0) >= UNISWAP_VERIFIED_LIQUIDITY_USD));
+  // Liquidity decides when DexScreener reported it; else DefiLlama's confidence in the price does.
+  const liquid = market.liquidity !== undefined ? market.liquidity >= UNISWAP_VERIFIED_LIQUIDITY_USD : (market.confidence ?? 0) >= UNISWAP_VERIFIED_CONFIDENCE;
+  const verified = native || (!taxed && (safety?.safetyLevel === "verified" || liquid));
   return {
     id: uniswapListingId(chainId, address),
     venue: "uniswap",

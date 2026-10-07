@@ -48,6 +48,9 @@ describe("Uniswap token list entries", () => {
     });
     expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "info" } } }, { liquidity: 1_000_000 })?.verified).toBe(true);
     expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "info" } } }, { liquidity: 1_000 })?.verified).toBe(false);
+    // Without a liquidity figure (DexScreener silent), DefiLlama's price confidence decides.
+    expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "info" } } }, { confidence: 0.99 })?.verified).toBe(true);
+    expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "info" } } }, { confidence: 0.5 })?.verified).toBe(false);
   });
 
   it("drops blocked tokens and marks taxed ones unverified", () => {
