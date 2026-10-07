@@ -14,6 +14,7 @@ import {
   BRIDGE_VENUES,
   WALLET_CHAINS,
   acrossRecipientMinimum,
+  walletChainSource,
   WALLET_CHAIN_NAMES,
   bridgeVenueDomain,
   endpointName,
@@ -57,6 +58,25 @@ interface Run {
 }
 
 const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
+
+/** Brand colors of the two dollar stablecoins the window moves (Circle's USDC, Paxos's USDG). */
+const TOKEN_COLORS: Record<string, string> = { USDC: "#2775CA", USDG: "#00A07A" };
+const TOKEN_ABOUT: Record<string, string> = { USDC: "Circle's dollar", USDG: "Paxos's Global Dollar, the dollar Robinhood Chain venues use" };
+
+function TokenBadge({ symbol, size = 18 }: { symbol: string; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      className="grid shrink-0 place-items-center rounded-full font-bold text-white"
+      style={{ width: size, height: size, fontSize: size * 0.55, background: TOKEN_COLORS[symbol] ?? "#666" }}
+    >
+      $
+    </span>
+  );
+}
+
+/** What a venue holds its margin in. */
+const venueToken = (venue: PerpVenueId) => (isLighterVenue(venue) ? lighterConfigs[venue].collateral : "USDC");
 /** The wallet's icon, or a venue's logo (its site favicon through /api/favicon), its initial when that fails. */
 function EndpointLogo({ endpoint, size = 18 }: { endpoint: FundsEndpoint; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -120,7 +140,7 @@ function Picker<T extends string>({ value, options, onChange, label, disabled }:
   }, [open]);
   const toggle = () => {
     const rect = ref.current?.getBoundingClientRect();
-    setAnchor(open || !rect ? null : { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 184) });
+    setAnchor(open || !rect ? null : { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 248) });
   };
   return (
     <span ref={ref} className="relative inline-block">
@@ -139,7 +159,7 @@ function Picker<T extends string>({ value, options, onChange, label, disabled }:
       </button>
       {open &&
         createPortal(
-          <span ref={listRef} role="listbox" style={anchor ?? undefined} className="surface-menu fixed z-50 flex w-44 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 shadow-lg">
+          <span ref={listRef} role="listbox" style={anchor ?? undefined} className="surface-menu fixed z-50 flex w-60 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 shadow-lg">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -268,14 +288,14 @@ export function DepositDialog() {
       label: venue.name,
       icon: <EndpointLogo endpoint={venue.id} size={20} />,
       disabled: !venue.live,
-      note: venue.live ? undefined : "Soon",
+      note: !venue.live ? "Soon" : isPerpEndpoint(venue.id) ? venueToken(venue.id) : undefined,
     })),
   ];
-  const chainOptions: Array<PickerOption<WalletChain>> = WALLET_CHAINS.map((chain) => ({
-    value: chain,
-    label: WALLET_CHAIN_NAMES[chain],
-    note: chain === "robinhood" ? "USDG" : "USDC",
-  }));
+  // The wallet side is a stablecoin on a chain: the user picks what they send or want to receive.
+  const chainOptions: Array<PickerOption<WalletChain>> = WALLET_CHAINS.map((chain) => {
+    const symbol = walletChainSource(chain).symbol;
+    return { value: chain, label: `${symbol} · ${WALLET_CHAIN_NAMES[chain]}`, icon: <TokenBadge symbol={symbol} /> };
+  });
 
   // Opening (or reopening on another venue) starts on the route the caller asked for, unless a run is under way.
   useEffect(() => {
@@ -459,14 +479,31 @@ export function DepositDialog() {
   };
 
   const chainPicker = (side: "from" | "to") => (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      on
-      <Picker label={side === "from" ? "From chain" : "To chain"} value={chains[side]} options={chainOptions} onChange={(chain) => setChains((current) => ({ ...current, [side]: chain }))} disabled={locked} />
-    </span>
+    <Picker
+      label={side === "from" ? "Send token" : "Receive token"}
+      value={chains[side]}
+      options={chainOptions}
+      onChange={(chain) => setChains((current) => ({ ...current, [side]: chain }))}
+      disabled={locked}
+    />
   );
   const fromName = endpointName(from);
   const toName = to === "wallet" ? WALLET_CHAIN_NAMES[chains.to] : endpointName(to);
   const quoteLine = quote && quote.key === quoteKey ? quote : null;
+  // Send / receive card: what leaves, what arrives (after Hyperliquid's fee and Across's quote), and any conversion.
+  const converted = input !== null && output !== null && input.symbol !== output.symbol;
+  const receive =
+    route.kind !== "steps" || !(value > 0)
+      ? null
+      : acrossStep
+        ? quoteLine?.summary
+          ? units6(quoteLine.summary.expectedOut)
+          : null
+        : steps[0].kind === "hlWithdraw"
+          ? Math.max(0, value - HL_WITHDRAW_FEE_USDC)
+          : value;
+  const sendWhere = from === "wallet" && input ? `Wallet · ${input.name}` : fromName;
+  const receiveWhere = to === "wallet" && output ? `Wallet · ${output.name}` : toName;
   const showSteps = steps.length > 1 || acrossStep !== null;
   const activeStep = run ? run.index : 0;
 
@@ -606,18 +643,43 @@ export function DepositDialog() {
               </p>
             )}
 
-            {acrossStep && !locked && run?.phase !== "done" && quoteLine && (
-              <p className={`text-[12px] ${quoteLine.error ? "text-app-down" : "text-app-muted"}`}>
-                {quoteLine.error ??
-                  (quoteLine.summary &&
-                    `You receive ≈ ${units6(quoteLine.summary.expectedOut).toFixed(2)} ${acrossStep.to.symbol}${acrossStep.recipient === "wallet" ? "" : ` in ${PERP_VENUE_NAMES[acrossStep.recipient]}`} · bridge fee ${formatPrice(quoteLine.summary.feeUsd)} · ~${Math.max(1, quoteLine.summary.fillSeconds)}s`)}
-              </p>
+            {input && output && value > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/40 p-3 text-[13px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-[12px] text-app-muted">You send</span>
+                  <TokenBadge symbol={input.symbol} />
+                  <span className="font-semibold tabular-nums text-app-ink">
+                    {value.toFixed(2)} {input.symbol}
+                  </span>
+                  <span className="ml-auto truncate text-[12px] text-app-muted">{sendWhere}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-[12px] text-app-muted">You receive</span>
+                  <TokenBadge symbol={output.symbol} />
+                  <span className="font-semibold tabular-nums text-app-ink">
+                    {receive === null ? (quoteLine?.error ? "—" : "…") : `≈ ${receive.toFixed(2)}`} {output.symbol}
+                  </span>
+                  <span className="ml-auto truncate text-[12px] text-app-muted">{receiveWhere}</span>
+                </div>
+                {converted && (
+                  <p className="text-[12px] text-app-ink">
+                    Your {input.symbol} is converted to {output.symbol} on the way, about 1:1 ({output.symbol} is {TOKEN_ABOUT[output.symbol] ?? "a dollar stablecoin"}).
+                  </p>
+                )}
+                {acrossStep && quoteLine?.error && <p className="text-[12px] text-app-down">{quoteLine.error}</p>}
+                {acrossStep && quoteLine?.summary && (
+                  <p className="text-[11px] text-app-muted">
+                    {converted ? "Bridge and conversion" : "Bridge"} by Across · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
+                    {steps[0].kind === "hlWithdraw" ? " · after Hyperliquid's 1 USDC withdrawal fee" : ""}
+                  </p>
+                )}
+              </div>
             )}
             {amount && error && !locked && <p className="text-[12px] text-app-down">{error}</p>}
 
             {(run === null || run.phase === "done") && (
               <button type="button" disabled={Boolean(address) && Boolean(error)} onClick={start} className={primaryButton}>
-                {!address ? "Connect wallet" : `${kind ? TITLES[kind] : "Move"} ${amount || ""} ${token} to ${toName}`}
+                {!address ? "Connect wallet" : `${kind ? TITLES[kind] : "Move"} ${amount || ""} ${converted ? `${token} → ${output?.symbol}` : token} to ${toName}`}
               </button>
             )}
             {run?.phase === "busy" && (
