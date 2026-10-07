@@ -80,8 +80,9 @@ export function usePerpRows(enabled: boolean): MarketRow[] | null {
   }, [enabled, marketsByVenue, perpOrder, quotes, preferences.tapeSource]);
 }
 
-export function spotRow(listing: SpotListing): MarketRow | null {
-  const asset = assetSymbolOf(listing);
+export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = {}): MarketRow | null {
+  // Tokens that stand for no terminal asset (stablecoins…) are skipped, unless picking a token to pay with.
+  const asset = assetSymbolOf(listing) ?? (options.anyToken ? listing.symbol : null);
   if (!asset) return null;
   const mint = listing.venue === "jupiter" ? listing.address : undefined;
   return {
@@ -123,13 +124,18 @@ export function Change({ value }: { value?: number }) {
   );
 }
 
-/** Every spot pair (plus the live search results for `query`), as rows; null until the pairs load. */
-export function useSpotRows(enabled: boolean, query = "") {
+/**
+ * Every spot pair (plus the live search results for `query`), as rows; null until the pairs load. `solanaTokens` keeps
+ * Solana tokens only, every one of them (the swap card's pay token picker).
+ */
+export function useSpotRows(enabled: boolean, query = "", solanaTokens = false) {
   const listings = useSpotListings(enabled);
   const searched = useSpotSearch(enabled ? query : "");
   const rows = useMemo(() => {
     if (!enabled || !listings) return null;
-    return mergeListings(listings, searched ?? []).flatMap((listing) => spotRow(listing) ?? []);
-  }, [enabled, listings, searched]);
+    return mergeListings(listings, searched ?? [])
+      .filter((listing) => !solanaTokens || listing.venue === "jupiter")
+      .flatMap((listing) => spotRow(listing, { anyToken: solanaTokens }) ?? []);
+  }, [enabled, listings, searched, solanaTokens]);
   return { rows, searching: query.trim().length >= 2 && searched === undefined };
 }

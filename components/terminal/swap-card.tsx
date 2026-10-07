@@ -26,9 +26,8 @@ import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { USDC_MINT, WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import type { OrderSide, SpotToken } from "@/lib/venues/types";
-import { useAssetSearch } from "./asset-search";
+import { useAssetSearch, type TokenChoice } from "./asset-search";
 import { Picker, type PickerOption } from "./inline-picker";
-import { TokenPicker, type TokenChoice } from "./token-picker";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { CoinIcon } from "./token-icon";
@@ -54,9 +53,9 @@ const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 const TOKEN_LIST = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet";
 /** What a Solana swap can be paid with (or paid out in on a sell) besides the wallet's other priced tokens. */
 const COMMON_PAY = [
-  { mint: USDC_MINT, symbol: "USDC", icon: undefined },
-  { mint: WSOL_MINT, symbol: "SOL", icon: `${TOKEN_LIST}/${WSOL_MINT}/logo.png` },
-  { mint: USDT_MINT, symbol: "USDT", icon: `${TOKEN_LIST}/${USDT_MINT}/logo.svg` },
+  { mint: USDC_MINT, symbol: "USDC", name: "USD Coin", icon: undefined },
+  { mint: WSOL_MINT, symbol: "SOL", name: "Solana", icon: `${TOKEN_LIST}/${WSOL_MINT}/logo.png` },
+  { mint: USDT_MINT, symbol: "USDT", name: "Tether USD", icon: `${TOKEN_LIST}/${USDT_MINT}/logo.svg` },
 ];
 const DOLLARS = new Set([USDC_MINT, USDT_MINT]);
 /** SOL left in the wallet for network fees when "Max" spends SOL. */
@@ -300,7 +299,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
   const { open: openWallets } = useWalletModal();
-  const { open: openSearch } = useAssetSearch();
+  const { open: openSearch, pickToken } = useAssetSearch();
   const trade = useNewsTrader();
   const [venueId, setVenueId] = useState<SpotChoice["id"] | null>(null);
   const [side, setSide] = useState<OrderSide>("buy");
@@ -583,25 +582,32 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   );
   // Solana: any token. USDC, SOL, USDT and the wallet's tokens first, then the top pairs and a live search.
   const pinnedPay: TokenChoice[] = [
-    ...COMMON_PAY.map((entry) => ({ ...entry, verified: true })),
+    ...COMMON_PAY.map((entry) => ({ ...entry, verified: true, source: "Popular" })),
     ...(holdings.data?.holdings ?? [])
       .filter((holding) => !COMMON_PAY.some((entry) => entry.mint === holding.mint))
       .map((holding) => ({ mint: holding.mint, symbol: holding.symbol, icon: holding.icon ?? undefined, price: holding.usdPrice ?? undefined })),
   ];
   const stablePill = isSolana ? (
-    <TokenPicker
-      label={side === "buy" ? "Pay with" : "Receive"}
-      value={payMint}
-      pinned={pinnedPay}
-      exclude={choice.token.mint}
-      onChange={(token) => {
-        setPicked(token);
-        setAmount("");
-      }}
-      buttonClassName={`${pillClass} hover:bg-app-selected`}
+    <button
+      type="button"
+      aria-label={side === "buy" ? "Pay with" : "Receive"}
+      title="Pick any Solana token"
+      onClick={() =>
+        pickToken({
+          title: side === "buy" ? "Pay with" : "Receive",
+          pinned: pinnedPay,
+          exclude: choice.token.mint,
+          onPick: (token) => {
+            setPicked(token);
+            setAmount("");
+          },
+        })
+      }
+      className={`${pillClass} hover:bg-app-selected`}
     >
       {stableFace}
-    </TokenPicker>
+      <ChevronDown className="size-4 text-app-muted" aria-hidden />
+    </button>
   ) : (
     <span className={pillClass} title={`${stable.symbol} on ${stable.chainName}, the dollar this venue trades against`}>
       {stableFace}

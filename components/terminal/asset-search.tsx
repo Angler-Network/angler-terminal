@@ -13,8 +13,50 @@ import { isWatched, toggleWatch } from "@/lib/watchlist";
 import { Change, TokenIcon, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 
+/** A Solana token picked to pay with (or receive) in the swap card. */
+export interface TokenChoice {
+  mint: string;
+  symbol: string;
+  icon?: string;
+  name?: string;
+  verified?: boolean;
+  price?: number;
+  /** Shown in the venue column of a pinned row ("Wallet", "Popular"). */
+  source?: string;
+}
+
+/** The search opened as a token picker: Solana tokens only, `pinned` ones (USDC, SOL, the wallet's) first. */
+export interface TokenPickRequest {
+  title: string;
+  pinned: TokenChoice[];
+  /** The token on the other side of the swap. */
+  exclude?: string;
+  onPick: (token: TokenChoice) => void;
+}
+
 interface AssetSearchValue {
   open: () => void;
+  pickToken: (request: TokenPickRequest) => void;
+}
+
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function pinnedRow(token: TokenChoice, venue: string): MarketRow {
+  const id = `pick:${token.mint}`;
+  return {
+    id,
+    symbol: token.symbol,
+    name: token.name ?? token.symbol,
+    asset: token.symbol,
+    mint: token.mint,
+    icon: token.icon,
+    kind: "crypto",
+    category: "crypto",
+    price: token.price,
+    venues: [venue],
+    verified: token.verified ?? true,
+    watch: { id, kind: "spot", symbol: token.symbol, asset: token.symbol, mint: token.mint },
+  };
 }
 
 const AssetSearchContext = createContext<AssetSearchValue | null>(null);
@@ -72,7 +114,7 @@ function SortHeader({ label, column, sort, onSort, className = "" }: { label: st
   );
 }
 
-function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () => void }) {
+function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?: TokenPickRequest | null; onClose: () => void }) {
   const { preferences, updatePreference } = usePreferences();
   const { selectAsset } = useSelectedAsset();
   const backdropRef = useModalEnter(true);
@@ -83,10 +125,10 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [sort, setSort] = useState<SortState>(null);
   const [active, setActive] = useState(0);
-  const isSpot = kind === "spot";
+  const isSpot = kind === "spot" || Boolean(pick);
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows, searching } = useSpotRows(isSpot, query);
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query, Boolean(pick));
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -112,14 +154,32 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
               watch: entry,
             }))
         : [];
+    const matches = (row: MarketRow) =>
+      !wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim();
     const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
         (!isSpot || !verifiedOnly || row.verified) &&
-        (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim()),
+        matches(row) &&
+        row.mint !== pick?.exclude,
     );
-    return sortRows(filtered, sort);
-  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort]);
+    const sorted = sortRows(filtered, sort);
+    if (!pick || tab !== "all") return sorted;
+    // Picking a token: the wallet's and the common ones first (verified or not, the user holds them), then the rest;
+    // a pasted mint nobody lists yet can still be used.
+    const pinned = pick.pinned
+      .filter((token) => token.mint !== pick.exclude)
+      .map((token) => pinnedRow(token, token.source ?? "Wallet"))
+      .filter(matches);
+    const pinnedMints = new Set(pinned.map((row) => row.mint));
+    const rest = sorted.filter((row) => !pinnedMints.has(row.mint));
+    const address = query.trim();
+    const pasted =
+      SOLANA_ADDRESS.test(address) && address !== pick.exclude && !pinnedMints.has(address) && !rest.some((row) => row.mint === address)
+        ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
+        : [];
+    return [...pasted, ...pinned, ...rest];
+  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick]);
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
@@ -139,7 +199,12 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
 
   const choose = (row: MarketRow | undefined) => {
     if (!row) return;
-    selectAsset(row.asset, row.mint);
+    if (pick) {
+      if (!row.mint) return;
+      pick.onPick({ mint: row.mint, symbol: row.symbol, icon: row.icon, name: row.name, verified: row.verified, price: row.price });
+    } else {
+      selectAsset(row.asset, row.mint);
+    }
     onClose();
   };
   const toggleFavorite = (row: MarketRow | undefined) => row && updatePreference("watchlist", toggleWatch(watchlist, row.watch));
@@ -157,14 +222,14 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
-    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    } else if (!pick && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
       toggleFavorite(rows[active]);
     }
   };
 
   const loading = (isSpot ? spotRows : perpRows) === null;
-  const tabs: Array<{ value: Tab; label: string; count?: number }> = [
+  const tabs: Array<{ value: Tab; label: string; count?: number }> = pick ? [{ value: "all", label: pick.title }] : [
     { value: "all", label: "All" },
     ...MARKET_CATEGORIES.filter((category) => counts[category.value]).map((category) => ({ value: category.value as Tab, label: category.label, count: counts[category.value] })),
   ];
@@ -175,7 +240,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={isSpot ? "Search spot markets" : "Search perp markets"}
+        aria-label={pick ? pick.title : isSpot ? "Search spot markets" : "Search perp markets"}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
         className="surface-menu flex h-[min(680px,84vh)] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl border border-app-hairline-strong bg-app-dialog text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.7)]"
@@ -186,7 +251,9 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"}
+            placeholder={
+              pick ? "Search any Solana token by name, ticker or paste an address" : isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"
+            }
             aria-label="Search"
             role="combobox"
             aria-expanded="true"
@@ -206,7 +273,8 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
         </div>
 
         <div role="tablist" aria-label="Category" className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-app-hairline px-4 py-2.5">
-          <button
+          {!pick && (
+            <button
             type="button"
             role="tab"
             aria-selected={tab === "favorites"}
@@ -216,7 +284,8 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
             className={`grid size-8 shrink-0 place-items-center rounded-lg transition-colors ${tab === "favorites" ? "bg-app-chip text-[#f5c97b]" : "text-app-muted hover:text-app-ink"}`}
           >
             <Star className="size-4" fill={tab === "favorites" ? "currentColor" : "none"} />
-          </button>
+            </button>
+          )}
           {tabs.map((option) => (
             <button
               key={option.value}
@@ -268,6 +337,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
                     {/* Mouse shortcut only: the row is an option, so it can't hold a button; keyboards use Ctrl+S. */}
+                    {!pick && (
                     <span
                       aria-hidden
                       title={watched ? "Remove from favorites (Ctrl S)" : "Add to favorites (Ctrl S)"}
@@ -279,6 +349,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
                     >
                       <Star className="size-3.5" fill={watched ? "currentColor" : "none"} />
                     </span>
+                    )}
                     <TokenIcon row={row} />
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
@@ -308,7 +379,9 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
             ["Enter", "Select"],
             ["Ctrl S", "Favorite"],
             ["Esc", "Close"],
-          ].map(([key, label]) => (
+          ]
+            .filter(([key]) => !pick || key !== "Ctrl S")
+            .map(([key, label]) => (
             <span key={key} className="flex items-center gap-1.5">
               <kbd className="rounded border border-app-hairline-strong bg-app-chip px-1.5 font-sans font-semibold text-app-muted">{key}</kbd>
               {label}
@@ -328,13 +401,16 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
 export function AssetSearchProvider({ children }: { children: React.ReactNode }) {
   const kind = terminalKindOf(usePathname()) ?? "perp";
   const [isOpen, setIsOpen] = useState(false);
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const [pick, setPick] = useState<TokenPickRequest | null>(null);
+  const open = useCallback(() => (setPick(null), setIsOpen(true)), []);
+  const pickToken = useCallback((request: TokenPickRequest) => (setPick(request), setIsOpen(true)), []);
+  const close = useCallback(() => (setIsOpen(false), setPick(null)), []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setPick(null);
         setIsOpen((current) => !current);
       }
     };
@@ -342,11 +418,11 @@ export function AssetSearchProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const value = useMemo(() => ({ open }), [open]);
+  const value = useMemo(() => ({ open, pickToken }), [open, pickToken]);
   return (
     <AssetSearchContext.Provider value={value}>
       {children}
-      {isOpen && <AssetSearchDialog kind={kind} onClose={close} />}
+      {isOpen && <AssetSearchDialog kind={kind} pick={pick} onClose={close} />}
     </AssetSearchContext.Provider>
   );
 }
