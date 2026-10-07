@@ -69,19 +69,19 @@ export const layoutPresets: Array<{ id: string; name: string; description: strin
     id: "news",
     name: "News trader",
     description: "Live news with trade buttons, the chart and your positions.",
-    panels: { news: true, orderEntry: true, positions: true, orderbook: false, account: true },
+    panels: { news: true, orderEntry: true, positions: true, orderbook: false, account: true, watchlist: false },
   },
   {
     id: "pro",
     name: "Pro trader",
-    description: "Everything: order book, order entry, positions and news.",
-    panels: { news: true, orderEntry: true, positions: true, orderbook: true, account: true },
+    description: "Everything: watchlist, order book, order entry, positions and news.",
+    panels: { news: true, orderEntry: true, positions: true, orderbook: true, account: true, watchlist: true },
   },
   {
     id: "minimal",
     name: "Minimal",
     description: "Just the chart, an order form and your positions.",
-    panels: { news: false, orderEntry: true, positions: true, orderbook: false, account: true },
+    panels: { news: false, orderEntry: true, positions: true, orderbook: false, account: true, watchlist: false },
   },
 ];
 
@@ -91,6 +91,8 @@ export interface TerminalPanels {
   positions: boolean;
   news: boolean;
   account: boolean;
+  /** Markets list left of the chart (all, yours, starred). Off by default. */
+  watchlist: boolean;
 }
 
 export const panelNames: Record<keyof TerminalPanels, string> = {
@@ -99,9 +101,10 @@ export const panelNames: Record<keyof TerminalPanels, string> = {
   positions: "Positions & orders",
   news: "News feed",
   account: "Account & balances",
+  watchlist: "Watchlist",
 };
 
-export const defaultPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true };
+export const defaultPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true, watchlist: false };
 
 function readPanels(value: unknown): TerminalPanels {
   const stored = value && typeof value === "object" ? (value as Record<string, unknown>) : {};

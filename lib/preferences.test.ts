@@ -32,9 +32,13 @@ describe("perp venue preferences", () => {
 });
 
 describe("panel preferences", () => {
-  it("shows every panel by default and keeps the stored choices", () => {
-    expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true });
-    expect(parsePreferences(JSON.stringify({ panels: { orderbook: false, news: "no" } })).panels).toMatchObject({ orderbook: false, news: true });
+  it("shows every panel but the optional watchlist by default and keeps the stored choices", () => {
+    expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true, watchlist: false });
+    expect(parsePreferences(JSON.stringify({ panels: { orderbook: false, news: "no", watchlist: true } })).panels).toMatchObject({
+      orderbook: false,
+      news: true,
+      watchlist: true,
+    });
   });
 });
 

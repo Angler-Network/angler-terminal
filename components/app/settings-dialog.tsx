@@ -294,6 +294,7 @@ function LayoutSettings() {
     positions: "Positions and open orders of every connected venue, with per-venue totals.",
     news: "The live Angler News feed with trade buttons on important news.",
     account: "Balances and trading keys per venue (shown once a wallet is connected).",
+    watchlist: "A markets column left of the chart: every market, the ones you hold and the ones you starred.",
   };
   return (
     <>

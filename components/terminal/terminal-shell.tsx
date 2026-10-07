@@ -10,6 +10,7 @@ import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
 import { AccountPanel, useHasWallet } from "./account-panel";
 import { AssetSearchProvider } from "./asset-search";
+import { WatchlistPanel } from "./watchlist-panel";
 import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
@@ -22,7 +23,8 @@ import { terminalKindOf } from "@/lib/terminal-kind";
 
 type Slot = { column: string; row: string };
 
-const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true };
+// Phones show every panel as a view; the watchlist stays desktop-only (the market search covers it there).
+const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions: true, news: true, account: true, watchlist: false };
 const MIN_POSITIONS_HEIGHT = 80;
 /** The chart keeps at least this much when the positions panel is dragged up (plus the 8px grid gap). */
 const MIN_CHART_HEIGHT = 200;
@@ -30,9 +32,9 @@ const MIN_CHART_HEIGHT = 200;
 /**
  * Modular desktop layout; every panel but the chart can be turned off (`panels` preference) and the chart takes
  * the free space:
- *   [ chart              ][ order entry + account ][ news ]
- *   [ positions / orders ][ order book            ][      ]
- * The order book sits under the order panel so the chart gets the width.
+ *   [ watchlist ][ chart              ][ order entry + account ][ news ]
+ *   [           ][ positions / orders ][ order book            ][      ]
+ * The watchlist is optional (off by default). The order book sits under the order panel so the chart gets the width.
  * Below `lg` the panels become full-screen views picked from the bottom tab bar (`mobile-nav.tsx`).
  */
 export function TerminalShell() {
@@ -74,7 +76,9 @@ export function TerminalShell() {
   const showTrading = panels.orderEntry || (panels.account && hasWallet);
   const showSide = showTrading || (panels.orderbook && !isSpot);
   const layout = useMemo(() => {
-    const columns = ["minmax(0,1fr)"];
+    // The optional watchlist leads; the chart takes the free width after it.
+    const columns = panels.watchlist ? ["clamp(220px,15vw,260px)", "minmax(0,1fr)"] : ["minmax(0,1fr)"];
+    const main = columns.length;
     const side = showSide ? columns.push("clamp(280px,20vw,340px)") : 0;
     const news = panels.news ? columns.push("clamp(290px,21vw,380px)") : 0;
     // min() keeps a saved height from squeezing the chart away on a shorter window.
@@ -84,12 +88,13 @@ export function TerminalShell() {
     return {
       columns: columns.join(" "),
       rows,
-      chart: slot(1, "1"),
-      positions: slot(1, "2"),
+      watchlist: slot(1, allRows),
+      chart: slot(main, "1"),
+      positions: slot(main, "2"),
       side: slot(side, allRows),
       news: slot(news, allRows),
     };
-  }, [panels.news, panels.positions, showSide, positionsHeight]);
+  }, [panels.watchlist, panels.news, panels.positions, showSide, positionsHeight]);
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
   const placed = "min-h-0 lg:col-(--col) lg:row-(--row) lg:h-auto";
@@ -106,6 +111,11 @@ export function TerminalShell() {
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
         className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:grid-cols-(--cols) lg:grid-rows-(--rows)"
       >
+        {panels.watchlist && !isMobile && (
+          <div style={place(layout.watchlist)} className={`${placed} max-lg:hidden`}>
+            <WatchlistPanel />
+          </div>
+        )}
         <div data-mobile-view="chart" style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
           <ChartPanel items={chartItems} />
         </div>

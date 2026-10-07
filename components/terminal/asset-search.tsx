@@ -3,22 +3,15 @@
 import { Search, Star, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
-import { useMarketList } from "@/components/app/use-market-list";
 import { useModalEnter } from "@/components/app/use-motion";
-import { formatPercent, formatPrice } from "@/lib/format";
-import { MARKET_CATEGORIES, marketCategory, type MarketCategory } from "@/lib/markets/category";
-import { pickQuote } from "@/lib/markets/model";
-import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
+import { formatPrice } from "@/lib/format";
+import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
-import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import type { PerpVenueId } from "@/lib/venues/types";
-import { isWatched, perpWatchId, toggleWatch, type WatchlistEntry } from "@/lib/watchlist";
+import { isWatched, toggleWatch } from "@/lib/watchlist";
+import { Change, TokenIcon, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
-import { useTrading } from "./trading-provider";
-import { useSpotListings, useSpotSearch } from "./use-spot-listings";
 
 interface AssetSearchValue {
   open: () => void;
@@ -30,112 +23,6 @@ export function useAssetSearch() {
   const context = useContext(AssetSearchContext);
   if (!context) throw new Error("useAssetSearch must be used within AssetSearchProvider");
   return context;
-}
-
-/** One row of the search, perp or spot. */
-interface Row {
-  id: string;
-  symbol: string;
-  name: string;
-  /** The terminal asset picking the row selects (WBTC → BTC). */
-  asset: string;
-  mint?: string;
-  icon?: string;
-  kind: "crypto" | "stock";
-  category: MarketCategory;
-  price?: number;
-  change24h?: number;
-  volume24h?: number;
-  liquidity?: number;
-  venues: string[];
-  verified: boolean;
-  watch: WatchlistEntry;
-}
-
-const SPOT_CATEGORY: Record<SpotCategory, MarketCategory> = { crypto: "crypto", stock: "stocks", index: "indices", commodity: "commodities" };
-const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus" } as const;
-
-/** Every perp market an enabled perp venue lists, priced from the shared market list (Binance, then Hyperliquid). */
-function usePerpRows(enabled: boolean): Row[] | null {
-  const { marketsByVenue, perpOrder } = useTrading();
-  const { preferences } = usePreferences();
-  const quotes = useMarketList("perp");
-  return useMemo(() => {
-    if (!enabled) return null;
-    const lists = perpOrder.map((venue) => [venue, marketsByVenue[venue]] as const);
-    if (lists.every(([, list]) => list === undefined)) return null;
-    const bySymbol = new Map((quotes ?? []).map((market) => [market.symbol, market]));
-    const rows = new Map<string, Row>();
-    for (const [venue, list] of lists) {
-      for (const market of list ?? []) {
-        const existing = rows.get(market.symbol);
-        if (existing) {
-          existing.venues.push(PERP_VENUE_NAMES[venue as PerpVenueId]);
-          existing.volume24h = (existing.volume24h ?? 0) + (market.volume24hUsd ?? 0);
-          continue;
-        }
-        const quote = bySymbol.get(market.symbol);
-        const picked = quote ? pickQuote(quote, preferences.tapeSource)?.quote : undefined;
-        rows.set(market.symbol, {
-          id: perpWatchId(market.symbol),
-          symbol: market.symbol,
-          name: market.kind === "stock" ? "Stock perp" : "Perpetual",
-          asset: market.symbol,
-          kind: market.kind,
-          category: marketCategory(market.symbol, market.kind),
-          price: picked?.price ?? market.markPx ?? market.midPx,
-          change24h: picked?.changePct,
-          volume24h: market.volume24hUsd,
-          venues: [PERP_VENUE_NAMES[venue as PerpVenueId]],
-          verified: true,
-          watch: { id: perpWatchId(market.symbol), kind: "perp", symbol: market.symbol, asset: market.symbol },
-        });
-      }
-    }
-    return [...rows.values()].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0));
-  }, [enabled, marketsByVenue, perpOrder, quotes, preferences.tapeSource]);
-}
-
-function spotRow(listing: SpotListing): Row | null {
-  const asset = assetSymbolOf(listing);
-  if (!asset) return null;
-  const mint = listing.venue === "jupiter" ? listing.address : undefined;
-  return {
-    id: listing.id,
-    symbol: listing.symbol,
-    name: listing.name,
-    asset,
-    mint,
-    icon: listing.icon,
-    kind: listing.category === "crypto" ? "crypto" : "stock",
-    category: SPOT_CATEGORY[listing.category],
-    price: listing.price,
-    change24h: listing.change24h,
-    volume24h: listing.volume24h,
-    liquidity: listing.liquidity,
-    venues: [SPOT_VENUE_NAMES[listing.venue]],
-    verified: listing.verified,
-    watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
-  };
-}
-
-function TokenIcon({ row }: { row: Row }) {
-  const [failed, setFailed] = useState(false);
-  if (row.icon && !failed) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={row.icon} alt="" width={24} height={24} loading="lazy" onError={() => setFailed(true)} className="size-6 shrink-0 rounded-full object-cover" />;
-  }
-  return <MarketIcon symbol={row.asset} kind={row.kind} size={24} />;
-}
-
-function Change({ value }: { value?: number }) {
-  if (value === undefined) return <span className="text-app-faint">—</span>;
-  return (
-    <span className={value >= 0 ? "text-app-up" : "text-app-down"}>
-      {value >= 0 ? "+" : "-"}
-      {formatPercent(value)}
-    </span>
-  );
 }
 
 type Tab = "favorites" | "all" | MarketCategory;
@@ -153,13 +40,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
   const isSpot = kind === "spot";
 
   const perpRows = usePerpRows(!isSpot);
-  const listings = useSpotListings(isSpot);
-  const searched = useSpotSearch(isSpot ? query : "");
-  const spotRows = useMemo(() => {
-    if (!isSpot) return null;
-    if (!listings) return null;
-    return mergeListings(listings, searched ?? []).flatMap((listing) => spotRow(listing) ?? []);
-  }, [isSpot, listings, searched]);
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query);
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -167,7 +48,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
     const wanted = query.trim().toUpperCase();
     const watched = new Set(watchlist.map((entry) => entry.id));
     // Favorites the current list doesn't carry (found by a search once) still show, without live numbers.
-    const extra: Row[] =
+    const extra: MarketRow[] =
       tab === "favorites"
         ? watchlist
             .filter((entry) => entry.kind === kind && !source.some((row) => row.id === entry.id))
@@ -205,12 +86,12 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
-  const choose = (row: Row | undefined) => {
+  const choose = (row: MarketRow | undefined) => {
     if (!row) return;
     selectAsset(row.asset, row.mint);
     onClose();
   };
-  const toggleFavorite = (row: Row | undefined) => row && updatePreference("watchlist", toggleWatch(watchlist, row.watch));
+  const toggleFavorite = (row: MarketRow | undefined) => row && updatePreference("watchlist", toggleWatch(watchlist, row.watch));
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "ArrowDown") {
@@ -316,7 +197,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
             <p className="py-12 text-center text-[13px] text-app-muted">Loading markets…</p>
           ) : rows.length === 0 ? (
             <p className="py-12 text-center text-[13px] text-app-muted">
-              {tab === "favorites" ? "No favorites yet. Star a market to keep it here." : isSpot && query.trim().length >= 2 && searched === undefined ? "Searching…" : "No market matches."}
+              {tab === "favorites" ? "No favorites yet. Star a market to keep it here." : isSpot && searching ? "Searching…" : "No market matches."}
             </p>
           ) : (
             rows.map((row, index) => {
@@ -333,10 +214,10 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
                   className={`grid cursor-pointer ${columns} items-center gap-3 px-4 py-2 text-[13px] tabular-nums ${index === active ? "bg-app-chip" : ""}`}
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
-                    <button
-                      type="button"
-                      aria-label={watched ? `Remove ${row.symbol} from favorites` : `Add ${row.symbol} to favorites`}
-                      aria-pressed={watched}
+                    {/* Mouse shortcut only: the row is an option, so it can't hold a button; keyboards use Ctrl+S. */}
+                    <span
+                      aria-hidden
+                      title={watched ? "Remove from favorites (Ctrl S)" : "Add to favorites (Ctrl S)"}
                       onClick={(event) => {
                         event.stopPropagation();
                         toggleFavorite(row);
@@ -344,7 +225,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
                       className={`shrink-0 ${watched ? "text-[#f5c97b]" : "text-app-faint hover:text-app-ink"}`}
                     >
                       <Star className="size-3.5" fill={watched ? "currentColor" : "none"} />
-                    </button>
+                    </span>
                     <TokenIcon row={row} />
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
