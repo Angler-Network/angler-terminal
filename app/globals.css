@@ -427,6 +427,8 @@ html[data-frame="off"] .app-frame {
   html:not([data-viewport="fit"]) .app-sidebar {
     position: sticky;
     top: 0;
+    /* Sticky makes the rail a stacking context: lift it so its popovers (Layout) paint above the terminal. */
+    z-index: 40;
     align-self: flex-start;
     /* The framed shell sits inside 1rem of padding and a 1px border. */
     height: calc(100dvh - 2rem - 2px);
