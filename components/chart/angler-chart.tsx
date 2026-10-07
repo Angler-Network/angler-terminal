@@ -39,10 +39,19 @@ interface AnglerChartProps {
   /** When the asset trades on Hyperliquid, candles come from the configured Hyperliquid network. */
   venueMarket?: VenueMarket | null;
   /** On /swap: the traded token, charted from its own busiest DEX pool (cbBTC, not "BTC") when "Auto". */
-  spotToken?: { network: PoolNetwork | null; address: string; symbol: string; price?: number } | null;
+  spotToken?: { network: PoolNetwork | null; address: string; symbol: string; price?: number; book?: BookSpotChart } | null;
 }
 
 const CANDLE_COUNT = 1000;
+
+/** A Hyperliquid or Lighter spot market, charted from the venue's own candles. */
+export interface BookSpotChart {
+  venue: "hyperliquid" | "lighter";
+  /** Hyperliquid's coin name for the pair ("@107"). */
+  coin: string;
+  /** Lighter market id. */
+  id: number;
+}
 
 type CandleSource = "binance" | PerpVenueId | "pool";
 
@@ -52,7 +61,7 @@ type CandleSource = "binance" | PerpVenueId | "pool";
  */
 interface CandleData {
   key: string;
-  origin: "venue" | "feed" | "pool";
+  origin: "venue" | "feed" | "pool" | "book";
   source: CandleSource;
   candles: Candle[];
   /** "cbBTC / USDC · orca" for pool candles. */
@@ -90,6 +99,13 @@ async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interva
   } catch {
     return null;
   }
+}
+
+/** A Hyperliquid or Lighter spot market's candles: the venue loaders take its coin (Hyperliquid) or market id (Lighter). */
+async function loadBookCandles(book: BookSpotChart, interval: ChartInterval, since?: number) {
+  const market = { coin: book.coin, assetId: book.id } as VenueMarket;
+  const result = await loadVenueCandles(book.venue, market, interval, since);
+  return result && { ...result, origin: "book" as const };
 }
 
 /** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
@@ -172,7 +188,12 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   const venueKey = venues[0] ? `${venues[0]}:${venueMarkets[venues[0]]!.coin}` : "";
   // On /swap with "Auto", the token's own pool comes first.
   const pool = preferences.chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
-  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? ""].join("|");
+  // A Hyperliquid or Lighter spot market is charted from its own book, whatever the chart source.
+  const book = spotToken?.book ?? null;
+  const bookKey = book ? `${book.venue}:${book.coin}:${book.id}` : "";
+  const bookRef = useRef(book);
+  bookRef.current = book;
+  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? "", bookKey].join("|");
   // Pool candles are refetched every few minutes (they cost API credits); the token's live price moves the last one.
   const livePrice = spotToken?.price;
   const livePriceRef = useRef(livePrice);
@@ -288,7 +309,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       // "Binance" asks Binance first; every other choice asks the venues first, then the public feeds. A spot token's
       // own pool goes before all of them, and the asset's market chart stands in when no pool can be read.
       const fromPool = async () => (pool ? await loadPoolCandles(pool.network, pool.address, interval, CANDLE_COUNT) : null);
+      const fromBook = async () => (bookRef.current ? await loadBookCandles(bookRef.current, interval) : null);
       const result =
+        (await fromBook()) ??
         (await fromPool()) ??
         (preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds())));
       if (!isActive) return;
@@ -302,7 +325,11 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       const since = current.candles[current.candles.length - 2].time;
       const market = venuesRef.current.venueMarkets[current.source as PerpVenueId];
       const tail =
-        current.origin === "pool"
+        current.origin === "book"
+          ? bookRef.current
+            ? await loadBookCandles(bookRef.current, interval, since)
+            : null
+          : current.origin === "pool"
           ? pool
             ? await loadPoolCandles(pool.network, pool.address, interval, 3)
             : null

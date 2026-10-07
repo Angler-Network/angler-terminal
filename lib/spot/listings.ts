@@ -4,15 +4,16 @@
  * an asset (BTC → cbBTC or WBTC) is decided by live trading volume every time the list is read. Pure, unit-tested.
  */
 
-export type SpotVenueKey = "jupiter" | "arcus" | "uniswap";
+/** Pool and router venues, plus the order-book spot markets of Hyperliquid and Lighter (`book-spot.ts`). */
+export type SpotVenueKey = "jupiter" | "arcus" | "uniswap" | "hyperliquid" | "lighter";
 
 export type SpotCategory = "crypto" | "stock" | "index" | "commodity";
 
 export interface SpotListing {
-  /** `${venue}:${address}`, unique across venues. */
+  /** `${venue}:${address}` (book spot markets: `${venue}:${id}`), unique across venues. */
   id: string;
   venue: SpotVenueKey;
-  /** Solana mint or EVM token address. */
+  /** Solana mint, EVM token address, or a book spot ref (`book:hyperliquid:107`) for Hyperliquid and Lighter. */
   address: string;
   /** EVM chain of a Uniswap token (Ethereum, Base, Arbitrum). */
   chainId?: number;
@@ -20,6 +21,8 @@ export interface SpotListing {
   decimals?: number;
   symbol: string;
   name: string;
+  /** The terminal asset it trades as, when the venue says so (Hyperliquid "UBTC" → "BTC"); else read from the symbol. */
+  asset?: string;
   icon?: string;
   category: SpotCategory;
   verified: boolean;
@@ -130,7 +133,8 @@ export function representsAsset(listing: Pick<SpotListing, "symbol" | "name" | "
  * The terminal asset a spot token trades as (WBTC → BTC, NVDAx → NVDA, WIF → WIF), so picking it moves the chart,
  * news and order panel to that asset. Null when its ticker can't be a terminal symbol.
  */
-export function assetSymbolOf(listing: Pick<SpotListing, "symbol" | "name" | "category">): string | null {
+export function assetSymbolOf(listing: Pick<SpotListing, "symbol" | "name" | "category" | "asset">): string | null {
+  if (listing.asset) return /^[A-Z0-9]{1,20}$/.test(listing.asset) ? listing.asset : null;
   const symbol = normalizeSpotSymbol(listing.symbol);
   if (listing.category === "stock" && symbol.endsWith("X") && representsAsset(listing, symbol.slice(0, -1))) return symbol.slice(0, -1);
   for (const prefix of WRAPPER_PREFIXES) {

@@ -346,7 +346,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/chains/${chain.key}.svg`} alt={chain.name} width={18} height={18} className="size-[18px] rounded-full" />
+                    <img src={chain.logo ?? `/chains/${chain.key}.svg`} alt={chain.name} width={18} height={18} className="size-[18px] rounded-full" />
                   </button>
                 );
               })}

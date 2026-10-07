@@ -17,6 +17,9 @@ import { decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-mem
 import { getOnchainTokenStats } from "./pool-candles-server";
 import type { PoolNetwork } from "./pool-candles";
 import { redisConfig, redisPipeline } from "@/lib/redis";
+import { hlConfig } from "@/lib/venues/hyperliquid/config";
+import { lighterConfig } from "@/lib/venues/lighter/config";
+import { bookSpotListing, HL_SPOT_MIN_VOLUME_USD, readHlSpotMarkets, readLighterSpotMarkets } from "./book-spot";
 import { readRelayCurrencies, relayCurrenciesBody } from "./relay-currencies";
 import { readRelayServerConfig, relayFetch } from "@/lib/venues/relay-server";
 import {
@@ -280,21 +283,52 @@ export async function searchUniswapListings(query: string): Promise<SpotListing[
   return priced.flat();
 }
 
+/**
+ * Hyperliquid's USDC spot pairs with some volume and Lighter's spot markets, on the network each venue is pinned to
+ * (testnet and mainnet both have them, unlike the pool venues).
+ */
+async function bookSpotListings(): Promise<SpotListing[]> {
+  const [hl, lighter] = await Promise.allSettled([
+    venueAvailable("hyperliquid")
+      ? fetch(`${hlConfig.apiUrl}/info`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ type: "spotMetaAndAssetCtxs" }),
+          signal: AbortSignal.timeout(DEXSCREENER_TIMEOUT_MS),
+        }).then(async (response) => {
+          if (!response.ok) throw new Error(`Hyperliquid spot responded ${response.status}`);
+          return readHlSpotMarkets(await response.json(), HL_SPOT_MIN_VOLUME_USD[hlConfig.network]);
+        })
+      : [],
+    venueAvailable("lighter")
+      ? fetch(`${lighterConfig.apiUrl}/api/v1/orderBookDetails?filter=spot`, { signal: AbortSignal.timeout(DEXSCREENER_TIMEOUT_MS) }).then(async (response) => {
+          if (!response.ok) throw new Error(`Lighter spot responded ${response.status}`);
+          return readLighterSpotMarkets(await response.json());
+        })
+      : [],
+  ]);
+  if (hl.status === "rejected") console.error("[spot] hyperliquid spot failed:", hl.reason);
+  if (lighter.status === "rejected") console.error("[spot] lighter spot failed:", lighter.reason);
+  return [...(hl.status === "fulfilled" ? hl.value : []), ...(lighter.status === "fulfilled" ? lighter.value : [])].map(bookSpotListing);
+}
+
 async function loadSpotListings(): Promise<SpotListing[]> {
-  const [jupiter, arcus, uniswap] = await Promise.allSettled([jupiterListings(), arcusListings(), uniswapListings()]);
+  const [jupiter, arcus, uniswap, book] = await Promise.allSettled([jupiterListings(), arcusListings(), uniswapListings(), bookSpotListings()]);
   if (arcus.status === "rejected") console.error("[spot] arcus listings failed:", arcus.reason);
   const listings = mergeListings(
     jupiter.status === "fulfilled" ? jupiter.value : [],
     arcus.status === "fulfilled" ? arcus.value : [],
     uniswap.status === "fulfilled" ? uniswap.value : [],
+    book.status === "fulfilled" ? book.value : [],
   );
   // An all-empty load is an outage: throwing keeps the cache's last good list.
-  if (listings.length === 0 && (venueAvailable("jupiter") || venueAvailable("arcus") || uniswapOnRobinhood() || uniswapOn())) throw new Error("No spot venue answered");
+  const anyVenue = venueAvailable("jupiter") || venueAvailable("arcus") || venueAvailable("hyperliquid") || venueAvailable("lighter") || uniswapOnRobinhood() || uniswapOn();
+  if (listings.length === 0 && anyVenue) throw new Error("No spot venue answered");
   return listings;
 }
 
 /** Every spot pair the integrated venues offer right now (cached across requests). */
-export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v4"], { revalidate: REVALIDATE_SECONDS });
+export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v5"], { revalidate: REVALIDATE_SECONDS });
 
 /** Jupiter search (any token, verified or not) for queries outside the cached lists. */
 export async function searchJupiterListings(query: string): Promise<SpotListing[]> {

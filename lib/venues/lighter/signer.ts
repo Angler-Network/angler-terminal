@@ -36,6 +36,7 @@ interface SignerGlobals {
   SignCancelOrder: (...args: number[]) => Result<SignedTx>;
   SignUpdateLeverage: (...args: number[]) => Result<SignedTx>;
   SignApproveIntegrator: (...args: number[]) => Result<SignedTx>;
+  SignTransfer: (...args: Array<number | string>) => Result<SignedTx>;
 }
 
 function check<T>(result: Result<T> | undefined, what: string): T {
@@ -236,6 +237,41 @@ export async function signApproveIntegrator(
   return check(
     signer.SignApproveIntegrator(integratorIndex, maxPerpsTakerFee, 0, 0, 0, expiryMs, 0, nonce, context.apiKeyIndex, context.accountIndex),
     "SignApproveIntegrator",
+  );
+}
+
+/** Lighter's routes: an account keeps perps margin and spot balances apart. */
+export const ROUTE = { perps: 0, spot: 1 } as const;
+
+export interface TransferArgs {
+  toAccountIndex: number;
+  assetIndex: number;
+  fromRoute: (typeof ROUTE)[keyof typeof ROUTE];
+  toRoute: (typeof ROUTE)[keyof typeof ROUTE];
+  /** Integer in the asset's Lighter decimals (USDC: 6). */
+  amount: number;
+  /** `transferFeeInfo`'s fee, charged on top; it must match exactly. */
+  usdcFee: number;
+}
+
+/** Moves an asset between accounts or, to the same account, between its perps and spot routes. */
+export async function signTransfer(context: SignerContext, transfer: TransferArgs, nonce: number) {
+  const signer = await signerFor(context);
+  return check(
+    signer.SignTransfer(
+      transfer.toAccountIndex,
+      transfer.assetIndex,
+      transfer.fromRoute,
+      transfer.toRoute,
+      transfer.amount,
+      transfer.usdcFee,
+      "0".repeat(64), // memo: 32 zero bytes, hex
+      0, // skipNonce
+      nonce,
+      context.apiKeyIndex,
+      context.accountIndex,
+    ),
+    "SignTransfer",
   );
 }
 

@@ -28,6 +28,12 @@ describe("readWatchlist", () => {
     expect(readWatchlist(undefined)).toEqual([]);
   });
 
+  it("keeps Hyperliquid and Lighter spot market refs", () => {
+    const hype: WatchlistEntry = { id: "hyperliquid:107", kind: "spot", symbol: "HYPE", asset: "HYPE", mint: "book:hyperliquid:107" };
+    expect(readWatchlist([hype])).toEqual([hype]);
+    expect(readWatchlist([{ ...hype, mint: "book:uniswap:1" }])[0].mint).toBeUndefined();
+  });
+
   it("caps the list", () => {
     const many = Array.from({ length: MAX_WATCHLIST + 5 }, (_, index) => ({ ...btc, id: `perp:A${index}`, asset: `A${index}` }));
     expect(readWatchlist(many)).toHaveLength(MAX_WATCHLIST);

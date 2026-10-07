@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
+import { BookSpotCard, useBookSpotFallback } from "./book-spot-card";
 import { EvmSwapCard } from "./evm-swap-card";
 import { SwapCard, type SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
@@ -29,6 +30,7 @@ import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { ROBINHOOD_SOURCE_NAMES, robinhoodSources } from "@/lib/venues/robinhood-sources";
+import { isBookSpotRef } from "@/lib/spot/book-spot";
 import { isEvmRef } from "@/lib/venues/uniswap/chains";
 import { useArcusToken } from "./use-arcus-token";
 import { takerFeeFor, useBestExecution } from "./use-best-execution";
@@ -243,7 +245,12 @@ function useVenueChoices(symbol: string, mint?: string) {
     const name = rhSources.map((source) => ROBINHOOD_SOURCE_NAMES[source]).join(" · ");
     choices.push({ id: "arcus", name, network: arcusConfig.network, kind: "spot", arcusToken });
   }
-  return { choices, isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined };
+  return {
+    choices,
+    isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined,
+    // Both spot lookups answered (a Jupiter or Arcus token, or none), so an empty spot list is final.
+    spotSettled: token !== undefined && arcusToken !== undefined,
+  };
 }
 
 /**
@@ -261,7 +268,7 @@ export function OrderPanel() {
   const { open: openWallets } = useWalletModal();
   const { pickedPrice } = useOrderDraft();
   const trade = useNewsTrader();
-  const { choices, isLoading } = useVenueChoices(symbol, mint);
+  const { choices, isLoading, spotSettled } = useVenueChoices(symbol, mint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
   // Perp or spot comes from the sidebar (/perp, /swap), then a venue of that kind.
@@ -269,6 +276,9 @@ export function OrderPanel() {
   const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
   const kindChoices = choices.filter((entry) => entry.kind === activeKind);
+  // On /swap an asset no pool venue lists (HYPE, anything on testnet) trades on Hyperliquid or Lighter spot.
+  const bookFallback = useBookSpotFallback(symbol, activeKind === "spot" && !mint && spotSettled && !kindChoices.some((entry) => entry.kind === "spot"));
+  const bookRef = activeKind === "spot" ? (isBookSpotRef(mint) ? mint : bookFallback) : null;
   const [kind, setKind] = useState<OrderKind>("market");
   const [side, setSide] = useState<OrderSide>("buy");
   const [size, setSize] = useState("");
@@ -452,6 +462,9 @@ export function OrderPanel() {
       {activeKind === "spot" && isEvmRef(mint) ? (
         // A Uniswap token on Base, Arbitrum or Ethereum picked in the search.
         <EvmSwapCard tokenRef={mint!} />
+      ) : bookRef ? (
+        // A Hyperliquid or Lighter spot market: picked in the search, or the asset's only spot market.
+        <BookSpotCard tokenRef={bookRef} />
       ) : choices.length === 0 && isLoading ? (
         // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
         <div role="status" aria-label="Loading markets" className="flex h-[451px] flex-col gap-2.5">

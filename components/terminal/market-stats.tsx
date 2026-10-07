@@ -71,7 +71,7 @@ export function SpotStats({
   contentRef,
   className = "",
 }: {
-  token: { venue: string; liquidity?: number; volume24h?: number; marketCap?: number };
+  token: { venue: string; liquidity?: number; volume24h?: number; marketCap?: number; book?: unknown };
   contentRef?: React.Ref<HTMLDivElement>;
   className?: string;
 }) {
@@ -83,6 +83,12 @@ export function SpotStats({
           <Stat label="Pricing" title="Arcus prices every swap on request from market makers; there is no pool">
             Quote on request
           </Stat>
+        ) : token.book ? (
+          // Hyperliquid or Lighter spot: an order book, so 24h volume but no pool liquidity or market cap.
+          <>
+            <Stat label="24h volume">{formatUsdCompact(token.volume24h)}</Stat>
+            <Stat label="Market">Order book</Stat>
+          </>
         ) : (
           <>
             <Stat label="Liquidity" title="Total liquidity in the token's DEX pools">
@@ -92,7 +98,7 @@ export function SpotStats({
             <Stat label="Market cap">{formatUsdCompact(token.marketCap)}</Stat>
           </>
         )}
-        <Stat label="Venue">{token.venue}</Stat>
+        <Stat label="Venue">{token.book ? `${token.venue} spot` : token.venue}</Stat>
       </div>
     </div>
   );

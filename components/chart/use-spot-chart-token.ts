@@ -7,6 +7,7 @@ import { useArcusToken } from "@/components/terminal/use-arcus-token";
 import { useEvmToken } from "@/components/terminal/use-evm-token";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
 import { useSpotToken } from "@/components/terminal/use-spot-token";
+import { BOOK_SPOT_VENUE_NAMES, hlSpotCoin, parseBookSpotRef, pickBookSpotListing } from "@/lib/spot/book-spot";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { arcusConfig } from "@/lib/venues/arcus/config";
@@ -21,8 +22,10 @@ export interface SpotChartToken {
   symbol: string;
   name: string;
   icon?: string;
-  /** "Jupiter", "Arcus", "Uniswap · Base". */
+  /** "Jupiter", "Arcus", "Uniswap · Base", "Hyperliquid". */
   venue: string;
+  /** A Hyperliquid or Lighter spot market: charted from the venue's own candles. */
+  book?: { venue: "hyperliquid" | "lighter"; coin: string; id: number };
   price?: number;
   change24h?: number;
   liquidity?: number;
@@ -47,6 +50,24 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
   const evm = useEvmToken(isSpot ? mint : undefined);
 
   if (!isSpot) return null;
+  /** A Hyperliquid or Lighter spot market: picked (`book:` ref), or the asset's only spot market. */
+  const bookToken = (ref: string | undefined): SpotChartToken | null => {
+    const book = parseBookSpotRef(ref);
+    if (!book) return null;
+    const listing = listings?.find((entry) => entry.id === `${book.venue}:${book.id}`);
+    return {
+      network: null,
+      address: ref!,
+      symbol: listing?.symbol ?? symbol,
+      name: listing?.name ?? symbol,
+      venue: BOOK_SPOT_VENUE_NAMES[book.venue],
+      book: { venue: book.venue, coin: book.venue === "hyperliquid" ? hlSpotCoin(book.id) : String(book.id), id: book.id },
+      price: listing?.price,
+      change24h: listing?.change24h,
+      volume24h: listing?.volume24h,
+    };
+  };
+  if (parseBookSpotRef(mint)) return bookToken(mint);
   if (isEvmRef(mint)) {
     if (!evm) return evm;
     return {
@@ -82,7 +103,11 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
     };
   }
   if (needArcus && arcus === undefined) return undefined;
-  if (!arcus) return null;
+  if (!arcus) {
+    if (mint || !listings) return listings ? null : undefined;
+    const fallback = pickBookSpotListing(listings, symbol, { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter });
+    return bookToken(fallback?.address);
+  }
   const listing = listings?.find((entry) => entry.id === `arcus:${arcus.address}`);
   return {
     network: arcusConfig.network === "mainnet" ? "robinhood" : null,

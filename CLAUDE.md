@@ -428,6 +428,19 @@ dependency versions and design are free to diverge from angler-news.
     `/api/geoblock` runs in the browser first; blocked or unreachable (Turkey's DNS block) means no trading. Funding:
     `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
     there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume doesn't earn profile points yet.
+- Hyperliquid and Lighter spot (`lib/spot/book-spot.ts`, `lib/venues/hyperliquid/spot.ts`, `lib/venues/lighter/spot.ts`,
+  `components/terminal/book-spot-card.tsx`): order-book spot markets against USDC on both networks, so testnet /swap has
+  real pairs (HL testnet: HYPE, PURR, UETH…; Lighter testnet: ETH, LIT). Listed with the spot pairs (HL pairs with ≥ $1k
+  24h volume on mainnet, ≥ $10 on testnet, `HL_SPOT_MIN_VOLUME_USD`; Lighter's `spot_order_book_details`), following the
+  `venueHyperliquid` / `venueLighter` switches. A market rides in the `mint` slot as `book:<venue>:<id>` (HL pair index,
+  Lighter market id); on /swap an asset no pool venue lists falls back to its busiest book market (`pickBookSpotListing`).
+  HL: coin `@<index>` ("PURR/USDC" for 0), order asset 10000 + index, spot price rule (8 - szDecimals), IOC at mid ± 5%,
+  ≥ $10, our builder fee; contexts match by `coin` and tokens by `index` (neither list is aligned by position); Unit
+  tokens trade as the asset (UBTC → BTC, `hlSpotAsset`). Spends spot USDC (unified accounts share it); a standard
+  account moves USDC perps → spot first (`moveUsdcToSpot`, wallet-signed). Lighter (core only): spot balances live on the
+  account's spot route (`account.assets`), so a buy first moves USDC perps → spot with `SignTransfer` to the same account
+  (route 0 → 1, trading key, no wallet signature); IOC at best ask/bid ± 3%, no integrator fee (the approval covers perps
+  only). The chart uses the venue's own candles (`spotToken.book`), the card shows "Order book" instead of liquidity.
 - Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
   live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
   Arcus stock/index/commodity tokens priced from the same asset's perp quote. Dollar tokens (Jupiter tags `stable`,

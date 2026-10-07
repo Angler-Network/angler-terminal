@@ -7,6 +7,7 @@ import { useMarketList } from "@/components/app/use-market-list";
 import { formatPercent } from "@/lib/format";
 import { marketCategory, type MarketCategory } from "@/lib/markets/category";
 import { pickQuote } from "@/lib/markets/model";
+import { parseBookSpotRef, type BookSpotVenue } from "@/lib/spot/book-spot";
 import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, parseEvmRef, type EvmSwapChainKey } from "@/lib/venues/uniswap/chains";
@@ -40,26 +41,33 @@ export interface MarketRow {
   watch: WatchlistEntry;
 }
 
-export type RowChain = "solana" | EvmSwapChainKey;
+export type RowChain = "solana" | EvmSwapChainKey | BookSpotVenue;
 
-/** The chains the spot search filters by, in the order the filter shows them (logos in `public/chains`). */
-export const ROW_CHAINS: Array<{ key: RowChain; name: string }> = [
+/**
+ * The chains the spot search filters by, in the order the filter shows them (logos in `public/chains`; Lighter, an
+ * exchange rather than a chain, uses its site icon). Hyperliquid and Lighter hold their own order-book spot markets.
+ */
+export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> = [
   { key: "solana", name: "Solana" },
   { key: "ethereum", name: "Ethereum" },
   { key: "base", name: "Base" },
   { key: "arbitrum", name: "Arbitrum" },
   { key: "robinhood", name: "Robinhood Chain" },
+  { key: "hyperliquid", name: "Hyperliquid" },
+  { key: "lighter", name: "Lighter", logo: "/api/favicon?domain=lighter.xyz" },
 ];
 
 /** A row's chain: its own, else read from the mint (an EVM ref, or a Solana mint). */
 export function rowChain(row: MarketRow): RowChain | undefined {
   if (row.chain) return row.chain;
   if (!row.mint) return undefined;
-  return parseEvmRef(row.mint)?.chain.key ?? (row.mint.startsWith("evm:") ? undefined : "solana");
+  const book = parseBookSpotRef(row.mint);
+  if (book) return book.venue;
+  return parseEvmRef(row.mint)?.chain.key ?? (/^(evm|book):/.test(row.mint) ? undefined : "solana");
 }
 
 const SPOT_CATEGORY: Record<SpotCategory, MarketCategory> = { crypto: "crypto", stock: "stocks", index: "indices", commodity: "commodities" };
-const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus", uniswap: "Uniswap" } as const;
+const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus", uniswap: "Uniswap", hyperliquid: "Hyperliquid", lighter: "Lighter" } as const;
 
 /** Every perp market an enabled perp venue lists, priced from the shared market list (Binance, then Hyperliquid). */
 export function usePerpRows(enabled: boolean): MarketRow[] | null {
@@ -108,7 +116,9 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
   if (!asset) return null;
   // Uniswap tokens ride in the mint slot as "evm:<chain>:<address>" (`chains.ts`).
   const evmChain = listing.venue === "uniswap" ? evmSwapChain(listing.chainId) : null;
-  const mint = listing.venue === "jupiter" ? listing.address : evmChain ? evmRef(evmChain.id, listing.address) : undefined;
+  // Hyperliquid and Lighter spot markets ride there as "book:<venue>:<id>" (`book-spot.ts`).
+  const isBook = listing.venue === "hyperliquid" || listing.venue === "lighter";
+  const mint = listing.venue === "jupiter" || isBook ? listing.address : evmChain ? evmRef(evmChain.id, listing.address) : undefined;
   return {
     id: listing.id,
     symbol: listing.symbol,
@@ -125,7 +135,7 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     venues: [evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
     stable: listing.stable,
-    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "robinhood" : evmChain?.key,
+    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "robinhood" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }
@@ -156,12 +166,16 @@ export function Change({ value }: { value?: number }) {
 export function useSpotRows(enabled: boolean, query = "", only?: Array<"jupiter" | "uniswap">) {
   const listings = useSpotListings(enabled);
   const searched = useSpotSearch(enabled ? query : "");
+  const { preferences } = usePreferences();
+  const { venueHyperliquid, venueLighter } = preferences;
   const rows = useMemo(() => {
     if (!enabled || !listings) return null;
+    // Order-book spot markets follow the perp venue switches in Settings.
+    const off = (listing: SpotListing) => (listing.venue === "hyperliquid" && !venueHyperliquid) || (listing.venue === "lighter" && !venueLighter);
     return mergeListings(listings, searched ?? [])
-      .filter((listing) => !only || (only as string[]).includes(listing.venue))
+      .filter((listing) => (!only || (only as string[]).includes(listing.venue)) && !off(listing))
       .flatMap((listing) => spotRow(listing, { anyToken: Boolean(only) }) ?? []);
-  }, [enabled, listings, searched, only]);
+  }, [enabled, listings, searched, only, venueHyperliquid, venueLighter]);
   return { rows, searching: query.trim().length >= 2 && searched === undefined };
 }
 

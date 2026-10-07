@@ -202,7 +202,7 @@ export function SwapHoldings() {
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-auto text-[12px]">
         {tab === "swaps" &&
           (!token?.network ? (
-            <Empty>No on-chain pool data for this token.</Empty>
+            <Empty>{token?.book ? `${token.symbol} trades on ${token.venue}'s spot order book, not an on-chain pool.` : "No on-chain pool data for this token."}</Empty>
           ) : !trades ? (
             <Empty>Loading swaps…</Empty>
           ) : shownTrades.length === 0 ? (
@@ -247,7 +247,9 @@ export function SwapHoldings() {
 
         {tab === "holders" &&
           (token?.network !== "solana" ? (
-            token ? (
+            token?.book ? (
+              <Empty>{token.symbol} balances are held inside {token.venue}; there is no public holder list.</Empty>
+            ) : token ? (
               <Empty>
                 Holders of {token.symbol} on {token.network ? EXPLORERS[token.network].name : "this chain"} are on the explorer.
                 <a
