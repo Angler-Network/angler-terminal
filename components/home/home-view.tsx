@@ -11,6 +11,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { formatPrice, formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
+import { HeroArt } from "./hero-art";
 import { assetRows, matchesQuery, sortAssetRows, type AssetRow, type AssetSort } from "@/lib/markets/rows";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -34,33 +35,6 @@ function Change({ value }: { value: number | undefined }) {
       {value >= 0 ? "+" : ""}
       {value.toFixed(2)}%
     </span>
-  );
-}
-
-/** Featured on the hero: the busiest assets, big and tappable. */
-const FEATURED = ["BTC", "ETH", "SOL", "HYPE"];
-
-function AssetTile({ row, onOpen }: { row: AssetRow | undefined; onOpen: (symbol: string) => void }) {
-  if (!row) return <span aria-hidden className="h-[104px] animate-pulse rounded-xl border border-app-hairline bg-app-card/40" />;
-  const up = (row.change24hPct ?? 0) >= 0;
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(row.symbol)}
-      className="group flex flex-col gap-2.5 rounded-xl border border-app-hairline bg-app-card/40 p-3.5 text-left transition-colors hover:border-app-hairline-strong hover:bg-app-card/70"
-    >
-      <span className="flex items-center gap-2">
-        <MarketIcon symbol={row.symbol} kind={row.kind} size={26} />
-        <span className="text-[14px] font-semibold text-app-ink">{row.symbol}</span>
-        {row.change24hPct !== undefined && (
-          <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${up ? "bg-app-up/12 text-app-up" : "bg-app-down/12 text-app-down"}`}>
-            {up ? "+" : ""}
-            {row.change24hPct.toFixed(2)}%
-          </span>
-        )}
-      </span>
-      <span className="text-[20px] font-semibold tabular-nums tracking-tight text-app-ink">{row.price ? formatPrice(row.price) : "—"}</span>
-    </button>
   );
 }
 
@@ -181,7 +155,7 @@ function ReferralBanner() {
   );
 }
 
-/** The landing page: the majors at a glance, a market search, today's movers, the referral program and news. */
+/** The landing page: a market search, today's movers, the referral program and news. */
 export function HomeView() {
   const router = useRouter();
   const { selectAsset } = useSelectedAsset();
@@ -190,13 +164,6 @@ export function HomeView() {
 
   const rows = useMemo(() => assetRows(marketsByVenue), [marketsByVenue]);
   const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
-  const bySymbol = useMemo(() => new Map(rows.map((row) => [row.symbol, row])), [rows]);
-  // The usual majors, topped up with the busiest assets when a venue doesn't list one of them.
-  const featured = useMemo(() => {
-    const listed = FEATURED.filter((symbol) => rows.length === 0 || bySymbol.has(symbol));
-    const extra = sortAssetRows(rows, "volume").map((row) => row.symbol).filter((symbol) => !listed.includes(symbol));
-    return [...listed, ...extra].slice(0, FEATURED.length);
-  }, [rows, bySymbol]);
   const movers = useMemo(() => MOVERS.map((mover) => ({ ...mover, rows: sortAssetRows(rows, mover.sort).slice(0, MOVER_ROWS) })), [rows]);
   const results = useMemo(() => (query.trim() ? sortAssetRows(rows.filter((row) => matchesQuery(row, query)), "volume").slice(0, SEARCH_ROWS) : []), [rows, query]);
 
@@ -247,11 +214,7 @@ export function HomeView() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {featured.map((symbol) => (
-                <AssetTile key={symbol} row={bySymbol.get(symbol)} onOpen={open} />
-              ))}
-            </div>
+            <HeroArt className="pointer-events-none -my-4 hidden h-auto w-full select-none lg:block" />
           </div>
         </section>
 
