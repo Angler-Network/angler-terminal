@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
-import { BookSpotCard, useBookSpotFallback } from "./book-spot-card";
+import { useBookSpotFallback } from "./book-spot-card";
 import { EvmSwapCard } from "./evm-swap-card";
 import { SwapCard, type SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
@@ -268,7 +268,9 @@ export function OrderPanel() {
   const { open: openWallets } = useWalletModal();
   const { pickedPrice } = useOrderDraft();
   const trade = useNewsTrader();
-  const { choices, isLoading, spotSettled } = useVenueChoices(symbol, mint);
+  // A Hyperliquid or Lighter market picked on /spot isn't a swap token: the swap looks the asset up afresh.
+  const swapMint = isBookSpotRef(mint) ? undefined : mint;
+  const { choices, isLoading, spotSettled } = useVenueChoices(symbol, swapMint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
   // Perp or spot comes from the sidebar (/perp, /swap), then a venue of that kind.
@@ -276,9 +278,8 @@ export function OrderPanel() {
   const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
   const kindChoices = choices.filter((entry) => entry.kind === activeKind);
-  // On /swap an asset no pool venue lists (HYPE, anything on testnet) trades on Hyperliquid or Lighter spot.
-  const bookFallback = useBookSpotFallback(symbol, activeKind === "spot" && !mint && spotSettled && !kindChoices.some((entry) => entry.kind === "spot"));
-  const bookRef = activeKind === "spot" ? (isBookSpotRef(mint) ? mint : bookFallback) : null;
+  // An asset no swap venue lists (HYPE, anything on testnet) may trade on Hyperliquid or Lighter spot: /spot has it.
+  const onSpot = useBookSpotFallback(symbol, activeKind === "spot" && !swapMint && spotSettled && kindChoices.length === 0) !== null;
   const [kind, setKind] = useState<OrderKind>("market");
   const [side, setSide] = useState<OrderSide>("buy");
   const [size, setSize] = useState("");
@@ -462,9 +463,6 @@ export function OrderPanel() {
       {activeKind === "spot" && isEvmRef(mint) ? (
         // A Uniswap token on Base, Arbitrum or Ethereum picked in the search.
         <EvmSwapCard tokenRef={mint!} />
-      ) : bookRef ? (
-        // A Hyperliquid or Lighter spot market: picked in the search, or the asset's only spot market.
-        <BookSpotCard tokenRef={bookRef} />
       ) : choices.length === 0 && isLoading ? (
         // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
         <div role="status" aria-label="Loading markets" className="flex h-[451px] flex-col gap-2.5">
@@ -479,7 +477,7 @@ export function OrderPanel() {
             {activeKind === "perp" ? `Trade ${symbol} perps` : `Swap ${symbol}`}
           </h3>
           <p className="text-[12px] text-app-faint">
-            {hasKind(otherKind)
+            {hasKind(otherKind) || onSpot
               ? `No enabled ${activeKind === "perp" ? "perp" : "swap"} venue lists ${symbol}.`
               : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}
           </p>
@@ -505,6 +503,15 @@ export function OrderPanel() {
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
               {otherKind === "perp" ? `Trade ${symbol} on Perp` : `Swap ${symbol}`}
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+          )}
+          {onSpot && (
+            <Link
+              href={TERMINAL_PATHS.book}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
+            >
+              Trade {symbol} on Spot (order book)
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}

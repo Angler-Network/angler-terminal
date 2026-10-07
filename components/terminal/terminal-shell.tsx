@@ -18,6 +18,7 @@ import { OrderDraftProvider } from "./order-draft";
 import { PanelResizer, type ResizeEdge } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
 import { SwapHoldings } from "./swap-holdings";
+import { useBookSpotRef, useBookVenueMarket } from "./use-book-spot";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { usePathname } from "next/navigation";
@@ -119,7 +120,13 @@ export function TerminalShell() {
   );
 
   // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /swap shows the trading card alone.
-  const isSpot = terminalKindOf(usePathname()) === "spot";
+  const kind = terminalKindOf(usePathname());
+  const isSpot = kind === "spot";
+  // /spot: the order book streams the view's Hyperliquid or Lighter spot market (null while it resolves).
+  const bookRef = useBookSpotRef();
+  const bookMarket = useBookVenueMarket(bookRef);
+  const bookMarkets = kind === "book" ? (bookRef === undefined ? null : bookMarket ? [bookMarket] : []) : undefined;
+  const orderBook = <OrderBook markets={bookMarkets} emptyText={kind === "book" ? `Hyperliquid and Lighter have no ${symbol} spot market.` : undefined} />;
   // Phones keep the classic split: the order book under the order panel, news as its own view.
   const arrangement = isMobile ? { ...preferences.arrangement, stack: "orderbook" as const } : preferences.arrangement;
   const stackPanel = arrangement.stack;
@@ -224,7 +231,7 @@ export function TerminalShell() {
           () => (columnRefs.side.current?.clientHeight ?? 800) - MIN_TRADING_HEIGHT - GAP,
         )}
       {handle({ panel: stackPanel }, `Move the ${panelLabel(stackPanel)}`)}
-      {stackPanel === "news" ? <NewsFeed feed={feed} /> : <OrderBook />}
+      {stackPanel === "news" ? <NewsFeed feed={feed} /> : orderBook}
     </div>
   );
 
@@ -282,7 +289,7 @@ export function TerminalShell() {
           >
             {!isMobile && columnResizer("news", layout.edge("rail"), `Resize ${panelLabel(railPanel)}`)}
             {handle({ column: "rail", panel: railPanel }, `Move the ${panelLabel(railPanel)}`)}
-            {railPanel === "news" ? <NewsFeed feed={feed} /> : <OrderBook />}
+            {railPanel === "news" ? <NewsFeed feed={feed} /> : orderBook}
           </div>
         )}
         {shown.positions && (

@@ -1,4 +1,4 @@
-import { CandlestickChart, Coins, Target, type LucideIcon } from "lucide-react";
+import { BookOpen, CandlestickChart, Coins, Target, type LucideIcon } from "lucide-react";
 import { terminalKindOf } from "@/lib/terminal-kind";
 
 export interface MarketNavItem {
@@ -15,5 +15,6 @@ export interface MarketNavItem {
 export const marketNav: MarketNavItem[] = [
   { href: "/perp", label: "Perp", title: "Perpetual futures", icon: CandlestickChart, isActive: (pathname) => terminalKindOf(pathname) === "perp" },
   { href: "/swap", label: "Swap", title: "Swap tokens and tokenized stocks", icon: Coins, isActive: (pathname) => terminalKindOf(pathname) === "spot" },
+  { href: "/spot", label: "Spot", title: "Order-book spot: Hyperliquid and Lighter", icon: BookOpen, isActive: (pathname) => terminalKindOf(pathname) === "book" },
   { href: "/prediction", label: "Prediction", title: "Prediction markets: Polymarket and Hyperliquid", icon: Target, isActive: (pathname) => pathname === "/prediction" },
 ];

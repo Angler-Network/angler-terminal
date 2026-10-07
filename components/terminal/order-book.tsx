@@ -110,8 +110,12 @@ function Levels({
   );
 }
 
-/** Live order book and trade tape of the chart's asset on a perp venue. Clicking a price fills the order panel. */
-export function OrderBook() {
+/**
+ * Live order book and trade tape of the chart's asset on a perp venue. Clicking a price fills the order panel.
+ * `markets` replaces the perp markets (the Spot view's Hyperliquid or Lighter spot market); `emptyText` says what's
+ * missing when there is none.
+ */
+export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | null; emptyText?: string } = {}) {
   const { symbol } = useSelectedAsset();
   const { marketsByVenue, perpOrder, account } = useTrading();
   const { pickPrice } = useOrderDraft();
@@ -119,13 +123,16 @@ export function OrderBook() {
   const [tab, setTab] = useState<Tab>("book");
   const [tickIndex, setTickIndex] = useState(0);
 
-  const choices = perpOrder.flatMap((venue) => {
-    const list = marketsByVenue[venue];
-    const market = list ? findMarket(list, symbol) : null;
-    return market ? [market] : [];
-  });
+  const choices =
+    markets !== undefined
+      ? (markets ?? [])
+      : perpOrder.flatMap((venue) => {
+          const list = marketsByVenue[venue];
+          const market = list ? findMarket(list, symbol) : null;
+          return market ? [market] : [];
+        });
   // Until a venue's market list arrives, the book shows a placeholder rather than "not listed".
-  const isLoading = choices.length === 0 && perpOrder.some((venue) => marketsByVenue[venue] === undefined);
+  const isLoading = markets !== undefined ? markets === null : choices.length === 0 && perpOrder.some((venue) => marketsByVenue[venue] === undefined);
   // Several venues list the asset: show them merged unless the user picked one.
   const isAll = (view ?? "all") === "all" && choices.length > 1;
   const market: VenueMarket | null = isAll ? choices[0] : (choices.find((entry) => entry.venue === view) ?? choices[0] ?? null);
@@ -233,7 +240,7 @@ export function OrderBook() {
             ))}
           </div>
         ) : (
-          <p className="p-3 text-[12px] text-app-faint">No perp venue lists {symbol}.</p>
+          <p className="p-3 text-[12px] text-app-faint">{emptyText ?? `No perp venue lists ${symbol}.`}</p>
         )
       ) : tab === "book" ? (
         <div className="flex min-h-0 flex-1 flex-col py-1">

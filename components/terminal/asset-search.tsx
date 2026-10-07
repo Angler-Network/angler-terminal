@@ -10,6 +10,7 @@ import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
+import { isBookSpotRef } from "@/lib/spot/book-spot";
 import { evmSwapChain } from "@/lib/venues/uniswap/chains";
 import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
@@ -136,10 +137,12 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   // The one chain to show (a press again shows every chain); empty = every chain.
   const [chains, setChains] = useState<RowChain[]>([]);
   const [active, setActive] = useState(0);
-  const isSpot = kind === "spot" || Boolean(pick);
+  // /spot lists only order-book markets (Hyperliquid, Lighter); /swap only pools and routers.
+  const isBook = kind === "book" && !pick;
+  const isSpot = kind === "spot" || kind === "book" || Boolean(pick);
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : undefined);
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : isBook ? ["hyperliquid", "lighter"] : ["jupiter", "uniswap", "arcus"]);
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -150,7 +153,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     const extra: MarketRow[] =
       tab === "favorites"
         ? watchlist
-            .filter((entry) => entry.kind === kind && !source.some((row) => row.id === entry.id))
+            .filter((entry) => entry.kind === (kind === "book" ? "spot" : kind) && isBookSpotRef(entry.mint) === isBook && !source.some((row) => row.id === entry.id))
             .map((entry) => ({
               id: entry.id,
               symbol: entry.symbol,
@@ -264,7 +267,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={pick ? pick.title : isSpot ? "Search spot markets" : "Search perp markets"}
+        aria-label={pick ? pick.title : isBook ? "Search spot markets" : isSpot ? "Search swap tokens" : "Search perp markets"}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
         className="surface-menu flex h-[min(680px,84vh)] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl border border-app-hairline-strong bg-app-dialog text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.7)]"
@@ -280,7 +283,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
                 ? pick.scope === "evm"
                   ? "Search any token on Base, Arbitrum, Ethereum or Solana by name, ticker or address"
                   : "Search any Solana token by name, ticker or paste an address"
-                : isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"
+                : isBook ? "Search Hyperliquid and Lighter spot markets" : isSpot ? "Search any token by name, ticker or address" : "Search perp markets by ticker"
             }
             aria-label="Search"
             role="combobox"
@@ -289,7 +292,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
             aria-activedescendant={rows[active] ? `asset-search-${active}` : undefined}
             className="min-w-0 flex-1 bg-transparent text-[15px] outline-hidden placeholder:text-app-faint"
           />
-          {isSpot && (
+          {isSpot && !isBook && (
             <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] font-semibold text-app-muted">
               <input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} className="size-3.5 accent-[rgb(var(--app-accent))]" />
               Verified only

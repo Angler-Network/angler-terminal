@@ -8,6 +8,7 @@ import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import { formatPrice } from "@/lib/format";
 import { assetSymbolOf, byMarketThenStable } from "@/lib/spot/listings";
 import { terminalKindOf } from "@/lib/terminal-kind";
+import { isBookSpotRef } from "@/lib/spot/book-spot";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { toggleWatch } from "@/lib/watchlist";
 import { Change, TokenIcon, rowChain, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
@@ -67,7 +68,10 @@ function useYourRows(isSpot: boolean, rows: MarketRow[]): { rows: MarketRow[]; e
  * A row selects its asset, like the search does.
  */
 export function WatchlistPanel() {
-  const isSpot = terminalKindOf(usePathname()) === "spot";
+  const view = terminalKindOf(usePathname());
+  // /swap and /spot both list spot pairs: pools and routers on one, order books (Hyperliquid, Lighter) on the other.
+  const isBook = view === "book";
+  const isSpot = view === "spot" || isBook;
   const { preferences, updatePreference } = usePreferences();
   const { symbol, mint, selectAsset } = useSelectedAsset();
   // On /swap the highlighted row is the token actually traded (BTC → the busiest BTC token), not every BTC wrapper.
@@ -78,14 +82,14 @@ export function WatchlistPanel() {
   const [query, setQuery] = useState("");
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows } = useSpotRows(isSpot);
+  const { rows: spotRows } = useSpotRows(isSpot, "", isBook ? ["hyperliquid", "lighter"] : ["jupiter", "uniswap", "arcus"]);
   const all = useMemo(() => (isSpot ? spotRows : perpRows) ?? [], [isSpot, spotRows, perpRows]);
   const yours = useYourRows(isSpot, all);
   const kind = isSpot ? "spot" : "perp";
   const starred = useMemo(
     () =>
       preferences.watchlist
-        .filter((entry) => entry.kind === kind)
+        .filter((entry) => entry.kind === kind && (!isSpot || isBookSpotRef(entry.mint) === isBook))
         .map(
           (entry): MarketRow =>
             all.find((row) => row.id === entry.id) ?? {
@@ -102,7 +106,7 @@ export function WatchlistPanel() {
               watch: entry,
             },
         ),
-    [preferences.watchlist, kind, all],
+    [preferences.watchlist, kind, all, isSpot, isBook],
   );
 
   const rows = useMemo(() => {

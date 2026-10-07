@@ -16,6 +16,7 @@ import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { OrderPanel } from "./order-panel";
+import { SpotOrderPanel } from "./spot-order-panel";
 import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
@@ -356,7 +357,7 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
       <div className={`surface-panel scrollbar-subtle flex min-h-0 flex-col overflow-y-auto rounded-2xl border border-app-card/80 bg-app-card/55 ${grow ? "flex-1" : ""}`}>
         {orderEntry && (
           <div className="border-b border-app-hairline last:border-b-0">
-            <OrderPanel />
+            {kind === "book" ? <SpotOrderPanel /> : <OrderPanel />}
           </div>
         )}
         {showAccount && kind === "perp" && evmAddress && <PerpAccount />}

@@ -10,6 +10,7 @@ import { useSpotToken } from "@/components/terminal/use-spot-token";
 import { BOOK_SPOT_VENUE_NAMES, hlSpotCoin, parseBookSpotRef, pickBookSpotListing } from "@/lib/spot/book-spot";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
+import { useBookSpotRef } from "@/components/terminal/use-book-spot";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { isEvmRef, isNativeToken, wrappedNative } from "@/lib/venues/uniswap/chains";
@@ -34,22 +35,25 @@ export interface SpotChartToken {
 }
 
 /**
- * On /swap: the traded token (Jupiter's, which the order panel resolves the same way: BTC → the most traded BTC token;
+ * On /spot: the Hyperliquid or Lighter spot market the view trades (its own candles). On /swap: the traded token (Jupiter's, which the order panel resolves the same way: BTC → the most traded BTC token;
  * else Arcus's stock token), live numbers from the spot pairs list. null outside /swap or when no spot venue lists the
  * asset; undefined while resolving.
  */
 export function useSpotChartToken(): SpotChartToken | null | undefined {
-  const isSpot = terminalKindOf(usePathname()) === "spot";
+  const kind = terminalKindOf(usePathname());
+  const isSpot = kind === "spot";
+  const isBook = kind === "book";
+  // /spot: the order-book market the view trades.
+  const bookRef = useBookSpotRef();
   const { symbol, mint } = useSelectedAsset();
   const { preferences } = usePreferences();
   const jupiter = useSpotToken(symbol, mint, isSpot && preferences.venueJupiter);
   const needArcus = isSpot && robinhoodSources(preferences).length > 0 && jupiter === null && !mint;
   const arcus = useArcusToken(symbol, needArcus);
-  const listings = useSpotListings(isSpot);
+  const listings = useSpotListings(isSpot || isBook);
   // A Uniswap token picked in the search (Base, Arbitrum, Ethereum).
   const evm = useEvmToken(isSpot ? mint : undefined);
 
-  if (!isSpot) return null;
   /** A Hyperliquid or Lighter spot market: picked (`book:` ref), or the asset's only spot market. */
   const bookToken = (ref: string | undefined): SpotChartToken | null => {
     const book = parseBookSpotRef(ref);
@@ -67,6 +71,8 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
       volume24h: listing?.volume24h,
     };
   };
+  if (isBook) return bookRef === undefined ? undefined : bookRef ? bookToken(bookRef) : null;
+  if (!isSpot) return null;
   if (parseBookSpotRef(mint)) return bookToken(mint);
   if (isEvmRef(mint)) {
     if (!evm) return evm;

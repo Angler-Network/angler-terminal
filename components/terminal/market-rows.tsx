@@ -165,7 +165,7 @@ export function Change({ value }: { value?: number }) {
  * Every spot pair (plus the live search results for `query`), as rows; null until the pairs load. `only` keeps those
  * venues' tokens, every one of them, stablecoins included (the swap cards' pay token pickers: Jupiter, or Uniswap + Jupiter).
  */
-export function useSpotRows(enabled: boolean, query = "", only?: Array<"jupiter" | "uniswap">) {
+export function useSpotRows(enabled: boolean, query = "", only?: SpotListing["venue"][]) {
   const listings = useSpotListings(enabled);
   const searched = useSpotSearch(enabled ? query : "");
   const { preferences } = usePreferences();
