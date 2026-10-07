@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, PencilLine } from "lucide-react";
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -180,7 +180,7 @@ export function ChartPanel({ items }: { items: NewsItem[] }) {
 
 function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   const t = useT();
-  const { preferences } = usePreferences();
+  const { preferences, updatePreference } = usePreferences();
   const { symbol } = useSelectedAsset();
   const search = useAssetSearch();
   const { market: venueMarket } = useTrading();
@@ -229,6 +229,19 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
           <MarketStats market={venueMarket} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
         )}
         {!isTradingView && <IntervalPicker maxQuick={fit.count} />}
+        {/* Drawing tools live in the TradingView chart; this switches to it (and back) without opening Settings. */}
+        <button
+          type="button"
+          onClick={() => updatePreference("chart", isTradingView ? "angler" : "tradingview")}
+          title={isTradingView ? "Back to the Angler chart (news markers, venue candles)" : "Draw: trend lines, levels and indicators (TradingView chart)"}
+          aria-pressed={isTradingView}
+          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${
+            isTradingView ? "bg-app-accent/15 text-app-accent" : "text-app-muted hover:bg-app-chip hover:text-app-ink"
+          }`}
+        >
+          <PencilLine className="size-3.5" aria-hidden />
+          {isTradingView ? "Angler chart" : "Draw"}
+        </button>
       </header>
       {isStock === undefined || venueMarket === undefined || spotToken === undefined ? (
         <div aria-hidden className="m-3 flex-1 animate-pulse rounded-xl bg-app-chip/60" />

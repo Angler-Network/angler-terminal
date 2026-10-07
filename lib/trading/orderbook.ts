@@ -85,17 +85,34 @@ export function sortedSide(book: Map<number, number>, side: "bids" | "asks"): Bo
 }
 
 /** Groups levels into buckets of `tick` (bids round down, asks round up), best price first. */
+/** The grouped level a price falls in: bids round down to the tick, asks up. */
+export function levelOf(price: number, tick: number, side: "bids" | "asks") {
+  if (!(tick > 0)) return price;
+  const steps = price / tick;
+  // Snap away float noise (86021.0 / 0.1 = 860209.9999…) before rounding.
+  const snapped = Math.abs(steps - Math.round(steps)) < 1e-9 ? Math.round(steps) : steps;
+  return Number(((side === "bids" ? Math.floor(snapped) : Math.ceil(snapped)) * tick).toPrecision(12));
+}
+
 export function groupLevels(rows: BookLevel[], tick: number, side: "bids" | "asks"): BookLevel[] {
   if (!(tick > 0)) return rows;
   const buckets = new Map<number, number>();
   for (const row of rows) {
-    const steps = row.price / tick;
-    // Snap away float noise (86021.0 / 0.1 = 860209.9999…) before rounding.
-    const snapped = Math.abs(steps - Math.round(steps)) < 1e-9 ? Math.round(steps) : steps;
-    const bucket = Number(((side === "bids" ? Math.floor(snapped) : Math.ceil(snapped)) * tick).toPrecision(12));
+    const bucket = levelOf(row.price, tick, side);
     buckets.set(bucket, (buckets.get(bucket) ?? 0) + row.size);
   }
   return sortedSide(buckets, side);
+}
+
+/** The user's resting size per grouped level on one side (buy orders sit in the bids, sell orders in the asks). */
+export function ownSizeByLevel(orders: Array<{ side: "buy" | "sell"; limitPx: number; size: number }>, tick: number, side: "bids" | "asks") {
+  const levels = new Map<number, number>();
+  for (const order of orders) {
+    if ((order.side === "buy") !== (side === "bids")) continue;
+    const level = levelOf(order.limitPx, tick, side);
+    levels.set(level, (levels.get(level) ?? 0) + order.size);
+  }
+  return levels;
 }
 
 /** Levels with a running total from the best price outward, for depth bars. */

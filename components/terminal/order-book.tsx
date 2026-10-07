@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { groupLevels, mergeVenueBooks, spreadOf, tickOptions, withTotals, type BookLevel, type MergedLevel } from "@/lib/trading/orderbook";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { groupLevels, mergeVenueBooks, ownSizeByLevel, spreadOf, tickOptions, withTotals, type BookLevel, type MergedLevel } from "@/lib/trading/orderbook";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
@@ -11,7 +11,8 @@ import { useTrading } from "./trading-provider";
 import { useOrderBook } from "./use-order-book";
 import { SelectField } from "@/components/app/select-field";
 
-const LEVELS = 30;
+/** Levels per side; the sides scroll, so more than fit on screen are worth having. */
+const LEVELS = 50;
 
 type Tab = "book" | "trades";
 type VenueView = PerpVenueId | "all";
@@ -38,6 +39,7 @@ function Levels({
   maxSize,
   decimals,
   onPick,
+  mine,
 }: {
   rows: Row[];
   side: "bids" | "asks";
@@ -46,25 +48,46 @@ function Levels({
   maxSize?: number;
   decimals: number;
   onPick: (price: number) => void;
+  /** The user's resting order size per level on this side. */
+  mine?: Map<number, number>;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Asks stay scrolled to the spread (their bottom) until the user scrolls away from it.
+  const pinned = useRef(true);
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (side === "asks" && element && pinned.current) element.scrollTop = element.scrollHeight;
+  });
   const color = side === "bids" ? "text-app-up" : "text-app-down";
   const bar = side === "bids" ? "bg-app-up/10" : "bg-app-down/10";
   // Asks print best-last so the best prices of both sides meet at the spread.
   const ordered = side === "asks" ? [...rows].reverse() : rows;
   return (
-    <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${side === "asks" ? "justify-end" : "justify-start"}`}>
-      {ordered.map((row) => (
+    <div
+      ref={scrollRef}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 4;
+      }}
+      className="scrollbar-subtle flex min-h-0 flex-1 flex-col overflow-y-auto"
+    >
+      {/* Short books sit against the spread: asks at the bottom of their half, bids at the top. */}
+      {side === "asks" && <div className="flex-1" aria-hidden />}
+      {ordered.map((row) => {
+        const own = mine?.get(row.price);
+        return (
         <button
           key={row.price}
           type="button"
           onClick={() => onPick(row.price)}
-          title={
+          title={`${
             row.byVenue
               ? `${Object.entries(row.byVenue).map(([venue, size]) => `${VENUE_SHORT[venue as PerpVenueId]} ${formatSize(size)}`).join(" · ")} · use as limit price`
               : "Use as limit price"
-          }
-          className="relative grid h-[18px] shrink-0 grid-cols-3 px-2 text-[11px] tabular-nums hover:bg-app-chip"
+          }${own ? ` · your orders: ${formatSize(own)}` : ""}`}
+          className={`relative grid h-[18px] shrink-0 grid-cols-3 px-2 text-[11px] tabular-nums hover:bg-app-chip ${own ? "bg-[#f5c97b]/10" : ""}`}
         >
+          {own && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-[#f5c97b]" />}
           {row.byVenue && maxSize ? (
             <span aria-hidden className="absolute inset-y-[3px] right-0 flex flex-row-reverse opacity-30" style={{ width: `${(row.size / maxSize) * 100}%` }}>
               {Object.entries(row.byVenue).map(([venue, size]) => (
@@ -75,10 +98,14 @@ function Levels({
             <span aria-hidden className={`absolute inset-y-0 right-0 ${bar}`} style={{ width: `${maxTotal ? (row.total / maxTotal) * 100 : 0}%` }} />
           )}
           <span className={`relative text-left ${color}`}>{row.price.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>
-          <span className="relative text-right text-app-ink">{formatSize(row.size)}</span>
+          <span className="relative text-right text-app-ink">
+            {own && <span className="mr-1 rounded bg-[#f5c97b]/20 px-1 text-[10px] font-semibold text-[#f5c97b]">{formatSize(own)}</span>}
+            {formatSize(row.size)}
+          </span>
           <span className="relative text-right text-app-muted">{formatSize(row.total)}</span>
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -86,7 +113,7 @@ function Levels({
 /** Live order book and trade tape of the chart's asset on a perp venue. Clicking a price fills the order panel. */
 export function OrderBook() {
   const { symbol } = useSelectedAsset();
-  const { marketsByVenue, perpOrder } = useTrading();
+  const { marketsByVenue, perpOrder, account } = useTrading();
   const { pickPrice } = useOrderDraft();
   const [view, setView] = useState<VenueView | null>(null);
   const [tab, setTab] = useState<Tab>("book");
@@ -125,6 +152,13 @@ export function OrderBook() {
   const ticks = tickOptions(spread?.mid ?? market?.midPx ?? market?.markPx);
   const tick = ticks[Math.min(tickIndex, ticks.length - 1)] ?? 0;
   const decimals = tick ? decimalsFor(tick) : 2;
+
+  // The user's open orders on the venues shown, marked on their levels.
+  const mine = useMemo(() => {
+    const venues = new Set([market?.venue, other?.venue].filter(Boolean));
+    const orders = (account?.orders ?? []).filter((order) => venues.has(order.venue) && order.symbol === symbol);
+    return { bids: ownSizeByLevel(orders, tick, "bids"), asks: ownSizeByLevel(orders, tick, "asks") };
+  }, [account?.orders, market?.venue, other?.venue, symbol, tick]);
 
   const { bids, asks, maxTotal, maxSize, crossed } = useMemo(() => {
     if (isAll && market && other) {
@@ -212,7 +246,7 @@ export function OrderBook() {
             <p className="p-3 text-[12px] text-app-faint">{status === "offline" ? "Order book unavailable. Reconnecting…" : "Loading order book…"}</p>
           ) : (
             <>
-              <Levels rows={asks} side="asks" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} />
+              <Levels rows={asks} side="asks" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.asks} />
               <div className="flex shrink-0 items-center justify-between border-y border-app-hairline px-2 py-1 text-[11px] tabular-nums">
                 <span className="font-semibold text-app-ink">
                   {spread ? spread.mid.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals + 1 }) : "—"}
@@ -225,7 +259,7 @@ export function OrderBook() {
                   <span className="text-app-faint">Spread {spread ? `${spread.pct.toFixed(3)}%` : "—"}</span>
                 )}
               </div>
-              <Levels rows={bids} side="bids" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} />
+              <Levels rows={bids} side="bids" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.bids} />
             </>
           )}
         </div>

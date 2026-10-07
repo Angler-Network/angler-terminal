@@ -62,3 +62,16 @@ describe("grouping and depth", () => {
     expect(tickOptions(0.5)).toEqual([0.00001, 0.0001, 0.001]);
   });
 });
+
+describe("ownSizeByLevel", () => {
+  it("puts each open order in the level the book groups its price into", async () => {
+    const { ownSizeByLevel } = await import("./orderbook");
+    const orders = [
+      { side: "buy" as const, limitPx: 100.07, size: 1 },
+      { side: "buy" as const, limitPx: 100.02, size: 2 },
+      { side: "sell" as const, limitPx: 100.31, size: 0.5 },
+    ];
+    expect([...ownSizeByLevel(orders, 0.1, "bids")]).toEqual([[100, 3]]);
+    expect([...ownSizeByLevel(orders, 0.1, "asks")]).toEqual([[100.4, 0.5]]);
+  });
+});
