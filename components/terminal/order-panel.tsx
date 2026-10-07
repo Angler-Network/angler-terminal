@@ -256,7 +256,7 @@ function useVenueChoices(symbol: string, mint?: string) {
  * that).
  */
 export function OrderPanel() {
-  const { symbol, mint, setTradeVenue } = useSelectedAsset();
+  const { symbol, mint, setTradeVenue, perpVenueRequest, requestPerpVenue } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
   const toast = useToast();
   const { accounts, placeOrder, openDeposit } = useTrading();
@@ -306,6 +306,16 @@ export function OrderPanel() {
     // Picking a perp venue by hand means the user wants that venue, not the router's.
     if (preferences.autoRoute && choices.find((entry) => entry.id === id)?.kind === "perp") updatePreference("autoRoute", false);
   };
+  // A venue picked in the home search: switch to it once its market is listed here.
+  const requestListed = Boolean(perpVenueRequest) && kindChoices.some((entry) => entry.id === perpVenueRequest);
+  useEffect(() => {
+    if (!perpVenueRequest || activeKind !== "perp" || (!requestListed && isLoading)) return;
+    if (requestListed) {
+      setVenueId(perpVenueRequest);
+      if (preferences.autoRoute) updatePreference("autoRoute", false);
+    }
+    requestPerpVenue(null);
+  }, [perpVenueRequest, requestListed, activeKind, isLoading, preferences.autoRoute, updatePreference, requestPerpVenue]);
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);

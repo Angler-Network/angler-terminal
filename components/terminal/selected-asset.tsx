@@ -25,6 +25,9 @@ interface SelectedAssetValue {
   /** Swap venue the swap card is on, or null when no swap card shows; the account card lists only its balances. */
   swapVenue: SwapVenue | null;
   setSwapVenue: (venue: SwapVenue | null) => void;
+  /** A perp venue picked outside the terminal (the home search); the order panel switches to it once, then clears it. */
+  perpVenueRequest: PerpVenueId | null;
+  requestPerpVenue: (venue: PerpVenueId | null) => void;
 }
 
 export type SwapVenue = "solana" | "arcus";
@@ -64,9 +67,10 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
   const clearNewsFocus = useCallback(() => setNewsFocus(null), []);
   const [tradeVenue, setTradeVenue] = useState<PerpVenueId | null>(null);
   const [swapVenue, setSwapVenue] = useState<SwapVenue | null>(null);
+  const [perpVenueRequest, requestPerpVenue] = useState<PerpVenueId | null>(null);
   const value = useMemo(
-    () => ({ symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue, swapVenue, setSwapVenue }),
-    [symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, swapVenue],
+    () => ({ symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue, swapVenue, setSwapVenue, perpVenueRequest, requestPerpVenue }),
+    [symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, swapVenue, perpVenueRequest],
   );
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }

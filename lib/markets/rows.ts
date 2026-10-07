@@ -1,6 +1,7 @@
 import type { MarketsByVenue } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { assets } from "@/lib/data";
+import type { SpotListing } from "@/lib/spot/listings";
 import { marketCategory, type MarketCategory } from "./category";
 
 /**
@@ -55,8 +56,23 @@ export function sortAssetRows(rows: AssetRow[], sort: AssetSort): AssetRow[] {
   return movers.sort((a, b) => direction * (a.change24hPct! - b.change24hPct!));
 }
 
-/** By ticker, or by name for the assets the terminal knows one for ("bitc" finds BTC). */
-export function matchesQuery(row: AssetRow, query: string) {
+/**
+ * Asset names by terminal symbol from the spot listings (perp venues send tickers only): "TSLA" → "Tesla". Stock
+ * venues name a stock best, so Arcus and the order books win over Jupiter's token names.
+ */
+export function assetNames(listings: SpotListing[] | null): Map<string, string> {
+  const names = new Map<string, string>();
+  const rank = (listing: SpotListing) => (listing.venue === "jupiter" || listing.venue === "uniswap" ? 1 : 0);
+  for (const listing of [...(listings ?? [])].filter((entry) => entry.verified).sort((a, b) => rank(a) - rank(b))) {
+    const symbol = (listing.asset ?? listing.symbol).toUpperCase();
+    if (!names.has(symbol) && listing.name && listing.name.toUpperCase() !== symbol) names.set(symbol, listing.name);
+  }
+  return names;
+}
+
+/** By ticker, or by name ("bitc" finds BTC, "tesla" TSLA) from the built-in catalog and `names`. */
+export function matchesQuery(row: AssetRow, query: string, names?: Map<string, string>) {
   const wanted = query.trim().toUpperCase();
-  return !wanted || row.symbol.includes(wanted) || Boolean(assets[row.symbol]?.name.toUpperCase().includes(wanted));
+  if (!wanted || row.symbol.includes(wanted)) return true;
+  return [assets[row.symbol]?.name, names?.get(row.symbol)].some((name) => name?.toUpperCase().includes(wanted));
 }

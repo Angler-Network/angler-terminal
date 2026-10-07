@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Flame, Gift, Search, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Flame, Gift, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { marketNav } from "@/components/app/market-nav";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
@@ -11,13 +11,13 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { formatPrice, formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
-import { assetRows, matchesQuery, sortAssetRows, type AssetRow, type AssetSort } from "@/lib/markets/rows";
+import { HomeSearch } from "./home-search";
+import { assetRows, sortAssetRows, type AssetRow, type AssetSort } from "@/lib/markets/rows";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 
 const NEWS_SITE = "https://news.angler.network";
 const MOVER_ROWS = 6;
-const SEARCH_ROWS = 12;
 
 const MOVERS: Array<{ sort: AssetSort; title: string; icon: LucideIcon; tone: string }> = [
   { sort: "volume", title: "Most traded", icon: Flame, tone: "text-[#f5c97b]" },
@@ -154,17 +154,15 @@ function ReferralBanner() {
   );
 }
 
-/** The landing page: a market search, today's movers, the referral program and news. */
+/** The landing page: a market search across perps, spot and swaps, today's movers, the referral program and news. */
 export function HomeView() {
   const router = useRouter();
   const { selectAsset } = useSelectedAsset();
   const { marketsByVenue } = useTrading();
-  const [query, setQuery] = useState("");
 
   const rows = useMemo(() => assetRows(marketsByVenue), [marketsByVenue]);
   const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
   const movers = useMemo(() => MOVERS.map((mover) => ({ ...mover, rows: sortAssetRows(rows, mover.sort).slice(0, MOVER_ROWS) })), [rows]);
-  const results = useMemo(() => (query.trim() ? sortAssetRows(rows.filter((row) => matchesQuery(row, query)), "volume").slice(0, SEARCH_ROWS) : []), [rows, query]);
 
   const open = (symbol: string) => {
     selectAsset(symbol);
@@ -188,30 +186,7 @@ export function HomeView() {
                   Robinhood Chain, and AI-scored news you can trade in two taps.
                 </p>
               </div>
-              <div className="relative max-w-[560px]">
-                <label className="flex h-11 items-center gap-2.5 rounded-xl border border-app-field-border bg-app-field px-3.5">
-                  <Search className="size-[18px] text-app-faint" aria-hidden />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && results[0]) open(results[0].symbol);
-                      if (event.key === "Escape") setQuery("");
-                    }}
-                    placeholder="Find a market: BTC, NVDA, GOLD…"
-                    aria-label="Find a market"
-                    className="min-w-0 flex-1 bg-transparent text-[14px] text-app-ink outline-hidden placeholder:text-app-faint"
-                  />
-                </label>
-                {query.trim() && (
-                  <ul className="absolute inset-x-0 top-full z-20 mt-1.5 max-h-[360px] overflow-y-auto rounded-xl border border-app-hairline-strong bg-app-card py-1 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
-                    {results.map((row) => (
-                      <AssetLine key={row.symbol} row={row} onOpen={open} />
-                    ))}
-                    {results.length === 0 && <li className="px-4 py-3 text-[12px] text-app-muted">{loaded ? "No market matches." : "Loading markets…"}</li>}
-                  </ul>
-                )}
-              </div>
+              <HomeSearch rows={rows} venueIds={venueIds} />
             </div>
           </div>
         </section>

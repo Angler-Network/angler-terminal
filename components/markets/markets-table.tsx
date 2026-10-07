@@ -7,9 +7,10 @@ import { MarketIcon } from "@/components/app/market-icon";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useFunding } from "@/components/terminal/use-funding";
+import { useSpotListings } from "@/components/terminal/use-spot-listings";
 import { formatPrice } from "@/lib/format";
 import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
-import { assetRows, matchesQuery, type AssetRow } from "@/lib/markets/rows";
+import { assetNames, assetRows, matchesQuery, type AssetRow } from "@/lib/markets/rows";
 import { FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
 import { PERP_VENUE_NAMES, PERP_VENUE_SHORT } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -75,12 +76,14 @@ export function MarketsTable() {
       }),
     [marketsByVenue, funding],
   );
+  const listings = useSpotListings(query.trim().length > 0);
+  const names = useMemo(() => assetNames(listings), [listings]);
   const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
 
   const shown = useMemo(() => {
     const filtered = rows.filter(
       (row) =>
-        matchesQuery(row, query) &&
+        matchesQuery(row, query, names) &&
         (venue === "all" || (venue === "multi" ? Object.keys(row.venues).length > 1 : Boolean(row.venues[venue]))) &&
         (category === "all" || row.category === category),
     );
@@ -93,7 +96,7 @@ export function MarketsTable() {
       return row.rates[sort] ?? -Infinity;
     };
     return filtered.sort((a, b) => (sort === "symbol" ? a.symbol.localeCompare(b.symbol) : value(b) - value(a)));
-  }, [rows, query, venue, sort, category]);
+  }, [rows, query, names, venue, sort, category]);
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
     for (const row of rows) byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;

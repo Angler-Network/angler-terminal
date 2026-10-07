@@ -720,6 +720,24 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
+/* Home search: the venue filters slide in next to the market type they belong to. */
+@keyframes home-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+.home-slide {
+  animation: home-slide 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-slide {
+    animation: none;
+  }
+}
+
 /* Terminal: brief highlight for high-impact news arrivals */
 @keyframes news-flash {
   0%,
