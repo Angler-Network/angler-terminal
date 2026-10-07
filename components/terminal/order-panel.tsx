@@ -33,6 +33,7 @@ import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
+import { normalizeSpotSymbol } from "@/lib/spot/listings";
 
 type VenueChoice =
   | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
@@ -521,6 +522,13 @@ export function OrderPanel() {
               {choice!.network}
             </span>
           </div>
+          {choice?.kind === "spot" && choice.id === "jupiter" && normalizeSpotSymbol(choice.token.symbol) !== normalizeSpotSymbol(symbol) && (
+            // The asset has no token of its own name on Solana: say which token the swap actually buys or sells.
+            <p className="-mt-1 text-[11px] leading-snug text-app-faint">
+              Trades <span className="font-semibold text-app-muted">{choice.token.symbol}</span> ({choice.token.name}), the most liquid {symbol} on
+              Solana right now.
+            </p>
+          )}
           {isPerp && (
             <div className="grid grid-cols-2 gap-2">
               <LeverageControl

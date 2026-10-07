@@ -1,0 +1,393 @@
+[
+ {
+  "id": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+  "name": "Wrapped BTC (Portal)",
+  "symbol": "WBTC",
+  "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh/logo.png",
+  "decimals": 8,
+  "usdPrice": 85246.0259770267,
+  "liquidity": 39716658.59965584,
+  "mcap": 208908234.2770825,
+  "isVerified": true,
+  "tags": [
+   "strict",
+   "verified",
+   "major",
+   "birdeye-trending",
+   "community"
+  ],
+  "stats24h": {
+   "priceChange": -0.5779442169230447,
+   "buyVolume": 5889149.59383324,
+   "sellVolume": 6345771.99650711
+  }
+ },
+ {
+  "id": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+  "name": "Coinbase Wrapped BTC",
+  "symbol": "cbBTC",
+  "icon": "https://ipfs.io/ipfs/QmZ7L8yd5j36oXXydUiYFiFsRHbi3EdgC4RuFwvM7dcqge",
+  "decimals": 8,
+  "usdPrice": 85289.90374175721,
+  "liquidity": 29351449.071210455,
+  "mcap": 248200345.55521947,
+  "isVerified": true,
+  "tags": [
+   "community",
+   "moonshot-verified",
+   "verified"
+  ],
+  "stats24h": {
+   "priceChange": -0.47478517054267266,
+   "buyVolume": 27028304.15421108,
+   "sellVolume": 26488991.02146017
+  }
+ },
+ {
+  "id": "CtzPWv73Sn1dMGVU3ZtLv9yWSyUAanBni19YWDaznnkn",
+  "name": "OKX Wrapped BTC",
+  "symbol": "xBTC",
+  "icon": "https://static.coinall.ltd/cdn/oksupport/common/20250512-095503.72e1f41d9b9a06.png",
+  "decimals": 8,
+  "usdPrice": 85366.11926552141,
+  "liquidity": 759350.1775821685,
+  "mcap": 23108642.25174512,
+  "isVerified": true,
+  "tags": [
+   "verified",
+   "major",
+   "community-assist"
+  ],
+  "stats24h": {
+   "priceChange": -0.48262456224617406,
+   "buyVolume": 166079.97086116634,
+   "sellVolume": 164711.25494066873
+  }
+ },
+ {
+  "id": "zBTCug3er3tLyffELcvDNrKkCymbPWysGcWihESYfLg",
+  "name": "zBTC",
+  "symbol": "zBTC",
+  "icon": "https://raw.githubusercontent.com/ZeusNetworkHQ/zbtc-metadata/refs/heads/main/lgoo-v2.png",
+  "decimals": 8,
+  "usdPrice": 84908.68632853072,
+  "liquidity": 43293.662103243005,
+  "mcap": 4291502.048929762,
+  "isVerified": true,
+  "tags": [
+   "birdeye-trending",
+   "internal",
+   "verified",
+   "major"
+  ],
+  "stats24h": {
+   "priceChange": -0.6920916798809414,
+   "buyVolume": 15692.737379892538,
+   "sellVolume": 16551.89167857925
+  }
+ },
+ {
+  "id": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+  "name": "Lombard Staked BTC",
+  "symbol": "LBTC",
+  "icon": "https://www.lombard.finance/lbtc/LBTC.png",
+  "decimals": 8,
+  "usdPrice": 85698.93169727118,
+  "liquidity": 851324.9079813448,
+  "mcap": 4305316.436782775,
+  "isVerified": true,
+  "tags": [
+   "community-assist",
+   "verified",
+   "major",
+   "yield"
+  ],
+  "stats24h": {
+   "priceChange": 0.10513919870590524,
+   "buyVolume": 141.5173325295697,
+   "sellVolume": 3559.65110544492
+  }
+ },
+ {
+  "id": "5XZw2LKTyrfvfiskJ78AMpackRjPcyCif1WhUsPDuVqQ",
+  "name": "Wrapped BTC",
+  "symbol": "WBTC",
+  "icon": "https://j73gp4w27ucraqtyzsqa5th4fwldfvqgq576cnceekfactgk4fla.arweave.net/T_Zn8tr9BRBCeMygDsz8LZYy1gaHf-E0RCKKAUzK4VY\n",
+  "decimals": 8,
+  "usdPrice": 85453.43477685374,
+  "liquidity": 244948.10932885425,
+  "mcap": 8958013.933362648,
+  "isVerified": true,
+  "tags": [
+   "community-assist",
+   "verified",
+   "major"
+  ],
+  "stats24h": {
+   "priceChange": -0.6870650343989668,
+   "buyVolume": 202164.72009590318,
+   "sellVolume": 217908.15489542796
+  }
+ },
+ {
+  "id": "2zCo6bUowJMvr89ajxuWsPadAqJ2F9akCkxumNsSdgsL",
+  "name": "Hylo Leveraged BTC",
+  "symbol": "xBTC",
+  "icon": "https://hylo-token-metadata.s3.us-east-2.amazonaws.com/xBTC/icon.png",
+  "decimals": 6,
+  "usdPrice": 2.2459836577724945,
+  "liquidity": 192046.3705054788,
+  "mcap": 1467601.25536901,
+  "isVerified": true,
+  "tags": [
+   "verified"
+  ],
+  "stats24h": {
+   "priceChange": -0.12582361737833173,
+   "buyVolume": 168678.52158230162,
+   "sellVolume": 205621.87956685165
+  }
+ },
+ {
+  "id": "E4Ap4icMLwKot8rkkTbq5JkS5kZxt5XCE3yfxbzYBjHx",
+  "name": "Buy The Cat",
+  "symbol": "BTC",
+  "icon": "https://assets.coingecko.com/coins/images/102176771/standard/24u5bzlbm1s8kcd5wfgkj2ulivzh.?1788680089",
+  "decimals": 9,
+  "usdPrice": 0.0012799288050754528,
+  "liquidity": 89566.0722207627,
+  "mcap": 1234596.5889024767,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": 48.874513374526565,
+   "buyVolume": 57508.32040738652,
+   "sellVolume": 35238.90272208937
+  }
+ },
+ {
+  "id": "DweNJW8ncU4xuUoKmapRe3xzajPBywpGC9BMWKg7xwYc",
+  "name": "Be The Champ",
+  "symbol": "BTC",
+  "icon": "https://axiomtrading-v2.axiom-cdn.io/AjaVFRAXDnudF4BBn3shNYtTxFKa9GcjVaQcfHxBYPw7.webp",
+  "decimals": 6,
+  "usdPrice": 0.0000040664659047547054,
+  "liquidity": 2513455.640546784,
+  "mcap": 4066.4659047547057,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -9.109612249417998,
+   "buyVolume": 413.2373453912513,
+   "sellVolume": 413.39730663028536
+  }
+ },
+ {
+  "id": "CkS8iXyTkFdKy7AA4pFmYs5CTTtrKcmDDBaoFBVjpump",
+  "name": "Burn The Coin",
+  "symbol": "BTC",
+  "icon": "https://ipfs.io/ipfs/bafkreifqtrwe524hqzvsqlyenmtoown2xvu5fsax57xw6ery6jdasvhn2u",
+  "decimals": 6,
+  "usdPrice": 0.000004000393696391182,
+  "liquidity": 2506522.0251403116,
+  "mcap": 4000.3936963911815,
+  "tags": [
+   "token-2022",
+   "unknown"
+  ],
+  "stats24h": {
+   "priceChange": -0.42651330234561424,
+   "buyVolume": 317.594916640993,
+   "sellVolume": 317.3600277199179
+  }
+ },
+ {
+  "id": "EU9gg2PkrZwfiNinK8P5BaGW1uWPoiVXc61VX4tcpump",
+  "name": "Blessed Titty Church",
+  "symbol": "BTC",
+  "icon": "https://ipfs.io/ipfs/bafkreiekvbvzc2ok2fgaly4xi2gw5hw2tokynk64qmb7ousjqlrbxj6po4",
+  "decimals": 6,
+  "usdPrice": 0.000004461152660877116,
+  "liquidity": 2528802.9707623855,
+  "mcap": 4461.1526608771155,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.05529142924799458,
+   "buyVolume": 178.81443117469297,
+   "sellVolume": 178.71556211999481
+  }
+ },
+ {
+  "id": "5Sy3j2yfq57BLSWiGd8ASzuHZH15hLdBaXnYQuHAvzVM",
+  "name": "Break The Ceiling",
+  "symbol": "BTC",
+  "icon": "https://axiomtrading-v2.axiom-cdn.io/BeEVhMJuyKpAFfGhWUagXY7deLnWY8iA5NfSKmkGjtoL.webp",
+  "decimals": 6,
+  "usdPrice": 0.000004458626191373853,
+  "liquidity": 2527518.1693311017,
+  "mcap": 4458.626191373853,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.030714609967218545,
+   "buyVolume": 178.41333057267073,
+   "sellVolume": 178.3585316140558
+  }
+ },
+ {
+  "id": "Dzq8dqUfYNcYKDqC28ZgWinf2FFfcHxEFFUAnP16pump",
+  "name": "BREAK THE CEILING",
+  "symbol": "BTC",
+  "icon": "https://axiomtrading.sfo3.cdn.digitaloceanspaces.com/ErXVK92xz2V1omojriFHZW7J1PjFY3xM7hdmz2QEmMZg.webp",
+  "decimals": 6,
+  "usdPrice": 0.000004440479968450352,
+  "liquidity": 2516887.3934924095,
+  "mcap": 4440.479968450351,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.3655489727969102,
+   "buyVolume": 178.9150883833148,
+   "sellVolume": 178.26106611555093
+  }
+ },
+ {
+  "id": "GmD4DhcRHJP6zB9r5RZnh83reyQcwvkUzcUBNY84pump",
+  "name": "Big Titty Coin",
+  "symbol": "BTC",
+  "decimals": 6,
+  "usdPrice": 0.000004445073109941827,
+  "liquidity": 2520138.321483576,
+  "mcap": 4445.073109941826,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": 0.01677055828902424,
+   "buyVolume": 177.2334457195268,
+   "sellVolume": 177.26316875784883
+  }
+ },
+ {
+  "id": "Br3T4F4fN4SjEjjbMCkir3YpGQVBk1ZNEiUb4nyypump",
+  "name": "Big Titty Coin",
+  "symbol": "BTC",
+  "decimals": 6,
+  "usdPrice": 0.000004442639733913992,
+  "liquidity": 2519060.4488541014,
+  "mcap": 4442.639733913992,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.021424733891482237,
+   "buyVolume": 176.65673307335925,
+   "sellVolume": 176.6188848383969
+  }
+ },
+ {
+  "id": "7xvsSLkpiKrb1iHeShuJg4m7LuwNE4Fr5VZKCF2Epump",
+  "name": "Balls Tingling Coin",
+  "symbol": "BTC",
+  "icon": "https://j7m.io/m/uYm4qK6SwS",
+  "decimals": 6,
+  "usdPrice": 0.0000044556899500953206,
+  "liquidity": 2528057.2605416835,
+  "mcap": 4455.6899500953205,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.03023538911457474,
+   "buyVolume": 174.2737575878561,
+   "sellVolume": 174.2210652391248
+  }
+ },
+ {
+  "id": "ETq3bxwHyedVXxZgr2fU8fg7gefZdcz74tnLzMdppump",
+  "name": "Big Titty Coin",
+  "symbol": "BTC",
+  "decimals": 6,
+  "usdPrice": 0.000004034775897372089,
+  "liquidity": 2520248.3706647223,
+  "mcap": 4034.775897372089,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -3.0062955680399877,
+   "buyVolume": 130.88445823364668,
+   "sellVolume": 130.8906571967078
+  }
+ },
+ {
+  "id": "DbzTLkYa1j3q3TFVAoRmmJPbJ3GKQQhoEVuw8BWupump",
+  "name": "Big Tit Coin",
+  "symbol": "BTC",
+  "decimals": 6,
+  "usdPrice": 0.000004033795944089712,
+  "liquidity": 2518734.1525409585,
+  "mcap": 4033.7959440897116,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": 1.1261459588647627,
+   "buyVolume": 108.15597815837833,
+   "sellVolume": 107.93911680356328
+  }
+ },
+ {
+  "id": "AbB1C7i8ad7TaN59wpW6k9s3ewacyHXFGYWNCSkrpump",
+  "name": "bennybit ",
+  "symbol": "btc",
+  "decimals": 6,
+  "usdPrice": 0.000004396322126062501,
+  "liquidity": 2536339.8819482955,
+  "mcap": 4396.3221260625005,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": -0.02622751137938107,
+   "buyVolume": 95.47934774001784,
+   "sellVolume": 95.45430588322438
+  }
+ },
+ {
+  "id": "C5xph2yL6gMdxmuLGxJBkGpmuDFfyi5fqkBNhvL6pump",
+  "name": "Big Titty Coin",
+  "symbol": "BTC",
+  "icon": "https://axiomtrading-v2.axiom-cdn.io/FQtqFpHSnAUcXrtXpFHL9EpjoF6FAmrXwQpWd1FMpump.webp",
+  "decimals": 6,
+  "usdPrice": 0.00011231643891768493,
+  "liquidity": 17056.72851535938,
+  "mcap": 111327.99915926681,
+  "tags": [
+   "unknown",
+   "token-2022"
+  ],
+  "stats24h": {
+   "priceChange": 12.301633002830346,
+   "buyVolume": 11954.86961740172,
+   "sellVolume": 10588.595876765688
+  }
+ }
+]

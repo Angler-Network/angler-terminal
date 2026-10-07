@@ -2,7 +2,8 @@ import { unstable_cache } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { jupFetch } from "@/lib/venues/jupiter/server";
-import { pickVerifiedToken, type JupTokenRecord } from "@/lib/venues/jupiter/tokens";
+import { fromJupRecord, pickSpotListing } from "@/lib/spot/listings";
+import { pickVerifiedToken, toSpotToken, type JupTokenRecord } from "@/lib/venues/jupiter/tokens";
 
 const SYMBOL_PATTERN = /^[A-Za-z0-9$._-]{1,20}$/;
 
@@ -30,7 +31,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const records = await search(mint ?? symbol!.replace(/^\$/, ""));
-    const token = pickVerifiedToken(records, mint ? { mint } : { symbol: symbol!.replace(/^\$/, "") });
+    let token = pickVerifiedToken(records, mint ? { mint } : { symbol: symbol!.replace(/^\$/, "") });
+    if (!token && !mint) {
+      // No verified token carries the ticker itself (BTC on Solana): trade the most liquid verified token that stands
+      // for the asset right now (WBTC, cbBTC, …), decided from Jupiter's live liquidity rather than a fixed alias.
+      const listing = pickSpotListing(records.flatMap((record) => fromJupRecord(record) ?? []), symbol!, "jupiter");
+      const record = listing ? records.find((entry) => entry.id === listing.address) : undefined;
+      token = record ? toSpotToken(record) : null;
+    }
     return NextResponse.json(
       { token },
       { headers: { "cache-control": "public, max-age=60, s-maxage=300" } },
