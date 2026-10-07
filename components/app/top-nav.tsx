@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings } from "lucide-react";
+import { ArrowLeftRight, BarChart3, Layers, Newspaper, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
@@ -37,10 +37,6 @@ export function TopNav() {
       <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
         <BarChart3 className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Markets</span>
-      </Link>
-      <Link href="/profile/portfolio" title="Portfolio" aria-current={pathname === "/profile/portfolio" ? "page" : undefined} className={itemClass(pathname === "/profile/portfolio")}>
-        <ChartPie className="size-[18px]" strokeWidth={1.75} aria-hidden />
-        <span className={label}>Portfolio</span>
       </Link>
       <LayoutMenu placement="below" className={itemClass(false)} iconClassName="size-[18px]" labelNode={<span className={label}>Layout</span>} />
       <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={itemClass(false)}>

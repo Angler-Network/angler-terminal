@@ -198,7 +198,8 @@ dependency versions and design are free to diverge from angler-news.
     chart header wraps the stats to their own row. Toasts sit above the tab bar; dialogs cap at the viewport height;
     `viewportFit: "cover"` + `env(safe-area-inset-bottom)` keep the bar above the home indicator. News asset chips
     switch to the Chart view on phones.
-  - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
+  - Chart header (phones: asset + price + Draw, then the intervals on their own row from the left edge, then the
+    stats): asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
     hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
   - Arrangement (`arrangement` preference, `lib/layout/arrangement.ts`): column order (watchlist, main = chart +
   positions, rail, trade) and which of the order book / news sits under the order panel (default: news there, order
@@ -439,8 +440,8 @@ dependency versions and design are free to diverge from angler-news.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
-- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Prediction, Markets, Portfolio,
-  Layout, News link, Pro order, Bridge, Settings; wallets are only the top bar's Connect button) and the settings
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Prediction, Markets, Layout,
+  News link, Pro order, Bridge, Settings; the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
   page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
   URL each: `/settings`, `/settings/rules`…; `openSettings(section)` navigates there, `closeSettings` returns to the
   page the user came from, the terminal when they landed on it), built from the copied angler-news `form-controls`,

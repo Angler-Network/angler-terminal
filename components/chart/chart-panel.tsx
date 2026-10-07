@@ -71,10 +71,11 @@ function useQuickIntervalCount(hasStats: boolean) {
       // The stats strip starts after the asset and price; its content keeps its natural width even when clipped.
       const strip = stats?.parentElement;
       const lead = leadRef.current?.getBoundingClientRect();
-      // On phones the stats wrap to their own row, leaving the first row to the asset, the price and the intervals.
+      // On phones the stats wrap to their own row and the intervals get a full row of their own (under the asset,
+      // the price and Draw).
       const wrapped = strip && lead ? strip.getBoundingClientRect().top >= lead.bottom : false;
-      const used = wrapped && lead
-        ? lead.right - box.left
+      const used = wrapped
+        ? parseFloat(getComputedStyle(header).paddingLeft)
         : strip && stats
           ? strip.getBoundingClientRect().left - box.left + stats.offsetWidth + STATS_FADE_PX
           : inner / 2;
@@ -228,15 +229,20 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
         ) : (
           <MarketStats market={venueMarket} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
         )}
-        {!isTradingView && <IntervalPicker maxQuick={fit.count} />}
+        {/* Phones: its own row under the asset and price, from the left edge (Draw stays on the first row). */}
+        {!isTradingView && (
+          <div className="flex max-lg:order-2 max-lg:basis-full lg:ml-auto">
+            <IntervalPicker maxQuick={fit.count} />
+          </div>
+        )}
         {/* Drawing tools live in the TradingView chart; this switches to it (and back) without opening Settings. */}
         <button
           type="button"
           onClick={() => updatePreference("chart", isTradingView ? "angler" : "tradingview")}
           title={isTradingView ? "Back to the Angler chart (news markers, venue candles)" : "Draw: trend lines, levels and indicators (TradingView chart)"}
           aria-pressed={isTradingView}
-          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${
-            isTradingView ? "bg-app-accent/15 text-app-accent" : "text-app-muted hover:bg-app-chip hover:text-app-ink"
+          className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors max-lg:order-1 max-lg:ml-auto ${
+            isTradingView ? "bg-app-accent/15 text-app-accent ml-auto" : "text-app-muted hover:bg-app-chip hover:text-app-ink"
           }`}
         >
           <PencilLine className="size-3.5" aria-hidden />

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -39,8 +39,10 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
   );
 }
 
-/** The rail: market views (perp, spot, prediction), markets, portfolio, the news site and settings (wallets and the
- * profile sit in the top bar). */
+/**
+ * The rail: market views (perp, swap, prediction), markets, the news site and settings. Wallets, the profile and the
+ * portfolio sit in the top bar's account menu.
+ */
 export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
@@ -70,10 +72,6 @@ export function Sidebar() {
         <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
           <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Markets</NavLabel>
-        </Link>
-        <Link href="/profile/portfolio" title="Portfolio" aria-current={pathname === "/profile/portfolio" ? "page" : undefined} className={navItemClass(pathname === "/profile/portfolio")}>
-          <ChartPie className="size-5" strokeWidth={1.75} aria-hidden />
-          <NavLabel>Portfolio</NavLabel>
         </Link>
         <LayoutMenu className={navItemClass(false)} labelNode={<NavLabel>Layout</NavLabel>} />
         <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>

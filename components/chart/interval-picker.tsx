@@ -49,7 +49,7 @@ export function IntervalPicker({ maxQuick }: { maxQuick?: number } = {}) {
   const quick = quickIntervals(favorites, interval, maxQuick);
 
   return (
-    <div ref={rootRef} className="relative ml-auto flex shrink-0 items-center gap-0.5 rounded-lg bg-app-chip p-0.5">
+    <div ref={rootRef} className="relative flex shrink-0 items-center gap-0.5 rounded-lg bg-app-chip p-0.5">
       <div role="group" aria-label="Chart interval" className="flex gap-0.5">
         {quick.map((value) => (
           <button
