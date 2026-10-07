@@ -10,7 +10,7 @@ import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
-import { isBookSpotRef } from "@/lib/spot/book-spot";
+import { onSpotView } from "@/lib/spot/book-spot";
 import { evmSwapChain } from "@/lib/venues/uniswap/chains";
 import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
@@ -137,12 +137,12 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   // The one chain to show (a press again shows every chain); empty = every chain.
   const [chains, setChains] = useState<RowChain[]>([]);
   const [active, setActive] = useState(0);
-  // /spot lists only order-book markets (Hyperliquid, Lighter); /swap only pools and routers.
+  // /spot lists order-book markets (Hyperliquid, Lighter) and Arcus stock tokens; /swap the pools and aggregators.
   const isBook = kind === "book" && !pick;
   const isSpot = kind === "spot" || kind === "book" || Boolean(pick);
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : isBook ? ["hyperliquid", "lighter"] : ["jupiter", "uniswap", "arcus"]);
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : isBook ? ["hyperliquid", "lighter", "arcus"] : ["jupiter", "uniswap"]);
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -153,7 +153,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     const extra: MarketRow[] =
       tab === "favorites"
         ? watchlist
-            .filter((entry) => entry.kind === (kind === "book" ? "spot" : kind) && isBookSpotRef(entry.mint) === isBook && !source.some((row) => row.id === entry.id))
+            .filter((entry) => entry.kind === (kind === "book" ? "spot" : kind) && (entry.kind !== "spot" || onSpotView(entry) === isBook) && !source.some((row) => row.id === entry.id))
             .map((entry) => ({
               id: entry.id,
               symbol: entry.symbol,
@@ -283,7 +283,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
                 ? pick.scope === "evm"
                   ? "Search any token on Base, Arbitrum, Ethereum or Solana by name, ticker or address"
                   : "Search any Solana token by name, ticker or paste an address"
-                : isBook ? "Search Hyperliquid and Lighter spot markets" : isSpot ? "Search any token by name, ticker or address" : "Search perp markets by ticker"
+                : isBook ? "Search Hyperliquid, Lighter and Arcus spot markets" : isSpot ? "Search any token by name, ticker or address" : "Search perp markets by ticker"
             }
             aria-label="Search"
             role="combobox"

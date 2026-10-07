@@ -399,10 +399,14 @@ dependency versions and design are free to diverge from angler-news.
 - Routes: the terminal is `/perp`, `/swap` and `/spot`, all rendered by `app/(terminal)/layout.tsx` (the shell lives
   in the layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/`
   redirects to `/perp` (`next.config.mjs`; the old `/spot` → `/swap` redirect is gone: /spot is the order-book view
-  now). Swap = pools and routers (Jupiter, Titan, Uniswap, Arcus, Relay, LI.FI); inside the code its market kind stays
-  `"spot"` (`TerminalKind`, `lib/spot/*`). Spot = order books (Hyperliquid, Lighter spot; centralized exchanges later),
-  kind `"book"` (see "Hyperliquid and Lighter spot" below). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
-  (`StatusScreen`). Perp / Swap / Spot / Prediction lead every
+  now). The navigation names them Dex Perp, Swap, Dex Spot. Swap = pools and aggregators (Jupiter, Titan, Uniswap,
+  Relay, LI.FI); inside the code its market kind stays `"spot"` (`TerminalKind`, `lib/spot/*`). Dex Spot = order books
+  (Hyperliquid, Lighter spot; centralized exchanges later) plus Arcus's Robinhood Chain stock tokens (no book: the
+  Arcus swap card, Arcus vs Uniswap, "Prefer Arcus"), kind `"book"`: `useSpotView` picks the order-book market first,
+  else the Arcus token (an Arcus-filter pick goes to Arcus); with Arcus the order book hides and the token's activity
+  sits under the chart, like /swap. `onSpotView` decides which list a search row or star belongs to. Arcus left /swap
+  (an asset only /spot lists links there). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
+  (`StatusScreen`). Dex Perp / Swap / Dex Spot / Prediction lead every
   navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /swap hides the order book
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
 - Prediction (`/prediction`, `components/prediction/*`, `lib/prediction/*`): Polymarket and Hyperliquid HIP-4

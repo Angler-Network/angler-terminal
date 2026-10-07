@@ -6,7 +6,10 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { hlSpotCoin, parseBookSpotRef, pickBookSpotListing } from "@/lib/spot/book-spot";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import type { VenueMarket } from "@/lib/venues/types";
+import { robinhoodSources } from "@/lib/venues/robinhood-sources";
+import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { useSelectedAsset } from "./selected-asset";
+import { useArcusToken } from "./use-arcus-token";
 import { useSpotListings } from "./use-spot-listings";
 
 /**
@@ -45,4 +48,27 @@ export function useBookVenueMarket(ref: string | null | undefined): VenueMarket 
       onlyIsolated: false,
     };
   }, [ref]);
+}
+
+/** What /spot trades: an order-book market (Hyperliquid, Lighter) or an Arcus stock token (quotes, no book). */
+export type SpotView = { mode: "book"; ref: string } | { mode: "arcus"; token: ArcusToken };
+
+/**
+ * On /spot: the order-book market first (`useBookSpotRef`), else the asset's Arcus stock token; a pick from the
+ * search's Arcus filter (`spotVenue: "arcus"`) goes to Arcus straight away. null when nothing lists the asset (or
+ * outside /spot), undefined while resolving.
+ */
+export function useSpotView(): SpotView | null | undefined {
+  const enabled = terminalKindOf(usePathname()) === "book";
+  const { symbol, mint, spotVenue } = useSelectedAsset();
+  const { preferences } = usePreferences();
+  const bookRef = useBookSpotRef();
+  const arcus = useArcusToken(symbol, enabled && robinhoodSources(preferences).length > 0 && !parseBookSpotRef(mint));
+  if (!enabled) return null;
+  if (spotVenue === "arcus" && arcus) return { mode: "arcus", token: arcus };
+  if (spotVenue === "arcus" && arcus === undefined) return undefined;
+  if (bookRef === undefined) return undefined;
+  if (bookRef) return { mode: "book", ref: bookRef };
+  if (arcus === undefined) return undefined;
+  return arcus ? { mode: "arcus", token: arcus } : null;
 }

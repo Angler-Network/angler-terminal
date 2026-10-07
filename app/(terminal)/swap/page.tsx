@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Swap",
-  description: "Swap Solana tokens and tokenized stocks with the best quote across Jupiter, Titan and Arcus, next to AI-scored news.",
+  description: "Swap tokens on Solana, Base, Arbitrum, Ethereum and Robinhood Chain at the best quote across Jupiter, Titan, Uniswap, Relay and LI.FI, next to AI-scored news.",
   alternates: { canonical: "/swap" },
 };
 

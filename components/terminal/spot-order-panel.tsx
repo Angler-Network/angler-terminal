@@ -2,32 +2,38 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { usePreferences } from "@/components/app/preferences-provider";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
+import { arcusConfig } from "@/lib/venues/arcus/config";
+import { ROBINHOOD_SOURCE_NAMES, robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { useAssetSearch } from "./asset-search";
 import { BookSpotCard } from "./book-spot-card";
 import { useSelectedAsset } from "./selected-asset";
-import { useBookSpotRef } from "./use-book-spot";
+import { SwapCard } from "./swap-card";
+import { useSpotView } from "./use-book-spot";
 
 /**
- * Order entry on /spot: the view's Hyperliquid or Lighter spot market (`useBookSpotRef`). An asset neither venue lists
+ * Order entry on /spot (`useSpotView`): the exchange-style form for a Hyperliquid or Lighter market, or the Arcus card
+ * (USDG ↔ stock token, Arcus or Uniswap, "Prefer Arcus") for a Robinhood Chain stock. An asset nothing here lists
  * offers the search and its swap instead.
  */
 export function SpotOrderPanel() {
-  const ref = useBookSpotRef();
+  const view = useSpotView();
   const { symbol } = useSelectedAsset();
+  const { preferences } = usePreferences();
   const { open: openSearch } = useAssetSearch();
   return (
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
-      {ref === undefined ? (
+      {view === undefined ? (
         <div role="status" aria-label="Loading market" className="flex h-[300px] flex-col gap-2.5">
           {["h-6", "h-24", "h-24", "h-11"].map((height, index) => (
             <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-xl bg-app-chip/60`} />
           ))}
         </div>
-      ) : ref === null ? (
+      ) : view === null ? (
         <>
           <h3 className="text-[12px] font-semibold text-app-ink">Spot {symbol}</h3>
-          <p className="text-[12px] text-app-faint">Hyperliquid and Lighter have no {symbol} spot market.</p>
+          <p className="text-[12px] text-app-faint">Hyperliquid, Lighter and Arcus have no {symbol} spot market.</p>
           <button
             type="button"
             onClick={openSearch}
@@ -43,8 +49,21 @@ export function SpotOrderPanel() {
             <ArrowRight className="size-3.5" aria-hidden />
           </Link>
         </>
+      ) : view.mode === "book" ? (
+        <BookSpotCard tokenRef={view.ref} />
       ) : (
-        <BookSpotCard tokenRef={ref} />
+        <SwapCard
+          key={view.token.address}
+          choices={[
+            {
+              id: "arcus",
+              name: robinhoodSources(preferences).map((source) => ROBINHOOD_SOURCE_NAMES[source]).join(" · "),
+              network: arcusConfig.network,
+              kind: "spot",
+              arcusToken: view.token,
+            },
+          ]}
+        />
       )}
     </section>
   );

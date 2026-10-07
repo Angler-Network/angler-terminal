@@ -17,7 +17,6 @@ import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib
 import { TERMINAL_PATHS, terminalKindOf } from "@/lib/terminal-kind";
 import { sideLabel } from "@/lib/trading/presets";
 import { optionalPrice, percentFrom, pnlAt, tpslError } from "@/lib/trading/tpsl";
-import { arcusConfig } from "@/lib/venues/arcus/config";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
@@ -29,7 +28,7 @@ import { useTrading } from "./trading-provider";
 import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import { ROBINHOOD_SOURCE_NAMES, robinhoodSources } from "@/lib/venues/robinhood-sources";
+import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { isBookSpotRef } from "@/lib/spot/book-spot";
 import { isEvmRef } from "@/lib/venues/uniswap/chains";
 import { useArcusToken } from "./use-arcus-token";
@@ -241,12 +240,10 @@ function useVenueChoices(symbol: string, mint?: string) {
     const titan = preferences.venueTitan && venueAvailable("titan");
     choices.push({ id: "solana", name: titan ? "Jupiter · Titan" : "Jupiter", network: "mainnet", kind: "spot", token });
   }
-  if (arcusToken) {
-    const name = rhSources.map((source) => ROBINHOOD_SOURCE_NAMES[source]).join(" · ");
-    choices.push({ id: "arcus", name, network: arcusConfig.network, kind: "spot", arcusToken });
-  }
+  // Arcus stock tokens trade on /spot now; the lookup only tells /swap to point there.
   return {
     choices,
+    arcusListed: Boolean(arcusToken),
     isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined,
     // Both spot lookups answered (a Jupiter or Arcus token, or none), so an empty spot list is final.
     spotSettled: token !== undefined && arcusToken !== undefined,
@@ -270,7 +267,7 @@ export function OrderPanel() {
   const trade = useNewsTrader();
   // A Hyperliquid or Lighter market picked on /spot isn't a swap token: the swap looks the asset up afresh.
   const swapMint = isBookSpotRef(mint) ? undefined : mint;
-  const { choices, isLoading, spotSettled } = useVenueChoices(symbol, swapMint);
+  const { choices, isLoading, spotSettled, arcusListed } = useVenueChoices(symbol, swapMint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
   // Perp or spot comes from the sidebar (/perp, /swap), then a venue of that kind.
@@ -278,8 +275,10 @@ export function OrderPanel() {
   const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
   const kindChoices = choices.filter((entry) => entry.kind === activeKind);
-  // An asset no swap venue lists (HYPE, anything on testnet) may trade on Hyperliquid or Lighter spot: /spot has it.
-  const onSpot = useBookSpotFallback(symbol, activeKind === "spot" && !swapMint && spotSettled && kindChoices.length === 0) !== null;
+  // An asset no swap venue lists (HYPE, a Robinhood stock, anything on testnet) may trade on /spot: Hyperliquid or
+  // Lighter spot, or Arcus.
+  const onBook = useBookSpotFallback(symbol, activeKind === "spot" && !swapMint && spotSettled && kindChoices.length === 0) !== null;
+  const onSpot = onBook || (activeKind === "spot" && kindChoices.length === 0 && arcusListed);
   const [kind, setKind] = useState<OrderKind>("market");
   const [side, setSide] = useState<OrderSide>("buy");
   const [size, setSize] = useState("");
@@ -502,7 +501,7 @@ export function OrderPanel() {
               href={TERMINAL_PATHS[otherKind]}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
-              {otherKind === "perp" ? `Trade ${symbol} on Perp` : `Swap ${symbol}`}
+              {otherKind === "perp" ? `Trade ${symbol} on Dex Perp` : `Swap ${symbol}`}
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}
@@ -511,7 +510,7 @@ export function OrderPanel() {
               href={TERMINAL_PATHS.book}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
-              Trade {symbol} on Spot (order book)
+              Trade {symbol} on Dex Spot
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}

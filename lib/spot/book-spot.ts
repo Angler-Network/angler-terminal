@@ -273,3 +273,8 @@ export function readHlSpotOpenOrders(body: unknown, coin: string): BookSpotOpenO
     })
     .sort((a, b) => b.time - a.time);
 }
+
+/** Whether a market (a search row or a starred entry) belongs to /spot: an order-book market or an Arcus stock token. */
+export function onSpotView(entry: { id: string; mint?: string }) {
+  return isBookSpotRef(entry.mint) || entry.id.startsWith("arcus:");
+}

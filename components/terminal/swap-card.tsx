@@ -349,14 +349,14 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const [bridged, setBridged] = useState<bigint | null>(null);
   const [crossQuote, setCrossQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; error?: string } | null>(null);
   const { run, setRun, execute } = useFundsRun({
-    resume: () => router.push(TERMINAL_PATHS.spot),
+    resume: () => router.push(choices[0]?.id === "arcus" ? TERMINAL_PATHS.book : TERMINAL_PATHS.spot),
     onDone: (carry) => {
       setBridged(carry);
       toast({
         tone: "info",
         title: `${units6(carry).toFixed(2)} ${arcusConfig.quoteSymbol} arrived on Robinhood Chain`,
         message: "Press Swap to finish the buy.",
-        action: { label: "Open", onClick: () => router.push(TERMINAL_PATHS.spot) },
+        action: { label: "Open", onClick: () => router.push(choices[0]?.id === "arcus" ? TERMINAL_PATHS.book : TERMINAL_PATHS.spot) },
         durationMs: 15_000,
       });
     },

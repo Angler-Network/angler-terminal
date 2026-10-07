@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Perp",
+  title: "Dex Perp",
   description: "Trade Hyperliquid and Lighter perps from one order panel, routed to the cheaper venue, next to AI-scored news.",
   alternates: { canonical: "/perp" },
 };

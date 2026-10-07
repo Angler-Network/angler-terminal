@@ -18,7 +18,7 @@ import { OrderDraftProvider } from "./order-draft";
 import { PanelResizer, type ResizeEdge } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
 import { SwapHoldings } from "./swap-holdings";
-import { useBookSpotRef, useBookVenueMarket } from "./use-book-spot";
+import { useBookVenueMarket, useSpotView } from "./use-book-spot";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { usePathname } from "next/navigation";
@@ -121,9 +121,11 @@ export function TerminalShell() {
 
   // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /swap shows the trading card alone.
   const kind = terminalKindOf(usePathname());
-  const isSpot = kind === "spot";
-  // /spot: the order book streams the view's Hyperliquid or Lighter spot market (null while it resolves).
-  const bookRef = useBookSpotRef();
+  // /spot: the order book streams the view's Hyperliquid or Lighter spot market (null while it resolves); an Arcus stock
+  // token has no book, so /spot shows it like /swap: the trading card alone, its activity under the chart.
+  const spotView = useSpotView();
+  const isSpot = kind === "spot" || (kind === "book" && spotView?.mode === "arcus");
+  const bookRef = spotView === undefined ? undefined : spotView?.mode === "book" ? spotView.ref : null;
   const bookMarket = useBookVenueMarket(bookRef);
   const bookMarkets = kind === "book" ? (bookRef === undefined ? null : bookMarket ? [bookMarket] : []) : undefined;
   const orderBook = <OrderBook markets={bookMarkets} emptyText={kind === "book" ? `Hyperliquid and Lighter have no ${symbol} spot market.` : undefined} />;

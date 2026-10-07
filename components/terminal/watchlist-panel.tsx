@@ -8,7 +8,7 @@ import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import { formatPrice } from "@/lib/format";
 import { assetSymbolOf, byMarketThenStable } from "@/lib/spot/listings";
 import { terminalKindOf } from "@/lib/terminal-kind";
-import { isBookSpotRef } from "@/lib/spot/book-spot";
+import { onSpotView } from "@/lib/spot/book-spot";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { toggleWatch } from "@/lib/watchlist";
 import { Change, TokenIcon, rowChain, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
@@ -69,7 +69,7 @@ function useYourRows(isSpot: boolean, rows: MarketRow[]): { rows: MarketRow[]; e
  */
 export function WatchlistPanel() {
   const view = terminalKindOf(usePathname());
-  // /swap and /spot both list spot pairs: pools and routers on one, order books (Hyperliquid, Lighter) on the other.
+  // /swap and /spot both list spot pairs: pools and aggregators on one, order books (Hyperliquid, Lighter) and Arcus on the other.
   const isBook = view === "book";
   const isSpot = view === "spot" || isBook;
   const { preferences, updatePreference } = usePreferences();
@@ -82,14 +82,14 @@ export function WatchlistPanel() {
   const [query, setQuery] = useState("");
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows } = useSpotRows(isSpot, "", isBook ? ["hyperliquid", "lighter"] : ["jupiter", "uniswap", "arcus"]);
+  const { rows: spotRows } = useSpotRows(isSpot, "", isBook ? ["hyperliquid", "lighter", "arcus"] : ["jupiter", "uniswap"]);
   const all = useMemo(() => (isSpot ? spotRows : perpRows) ?? [], [isSpot, spotRows, perpRows]);
   const yours = useYourRows(isSpot, all);
   const kind = isSpot ? "spot" : "perp";
   const starred = useMemo(
     () =>
       preferences.watchlist
-        .filter((entry) => entry.kind === kind && (!isSpot || isBookSpotRef(entry.mint) === isBook))
+        .filter((entry) => entry.kind === kind && (!isSpot || onSpotView(entry) === isBook))
         .map(
           (entry): MarketRow =>
             all.find((row) => row.id === entry.id) ?? {
