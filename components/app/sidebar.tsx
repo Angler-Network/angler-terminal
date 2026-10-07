@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, CandlestickChart, ChartPie, Layers, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,7 @@ import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
+import { marketNav } from "./market-nav";
 import { usePreferences } from "./preferences-provider";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,7 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
   );
 }
 
-/** Same rail as news.angler.network: the terminal, the news site, wallets and settings. */
+/** The rail: market views (perp, spot, prediction), markets, portfolio, the news site, wallets and settings. */
 export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
@@ -50,16 +51,22 @@ export function Sidebar() {
 
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
-      <Link href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
+      <Link href="/perp" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
         <Image src="/blacklogo.png" alt="Angler" width={30} height={30} className="[html[data-tone=dark]_&]:hidden" />
         <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} priority className="hidden [html[data-tone=dark]_&]:block" />
       </Link>
 
       <nav aria-label={t("nav.primary")} className="flex flex-col gap-1">
-        <Link href="/" title="Terminal" aria-current={pathname === "/" ? "page" : undefined} className={navItemClass(pathname === "/")}>
-          <CandlestickChart className="size-5" strokeWidth={1.75} aria-hidden />
-          <NavLabel>Terminal</NavLabel>
-        </Link>
+        {marketNav.map(({ href, label, title, icon: Icon, soon, isActive }) => (
+          <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
+            <span className="relative">
+              <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+              {soon && <span aria-hidden className="absolute -right-1 -top-0.5 size-1.5 rounded-full bg-[#f5c97b]" />}
+            </span>
+            <NavLabel>{label}</NavLabel>
+          </Link>
+        ))}
+        <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
         <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
           <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Markets</NavLabel>

@@ -4,11 +4,13 @@ import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPi
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { terminalKindOf } from "@/lib/terminal-kind";
 import { durations, ease, ENTER_PROPS } from "@/lib/motion";
 import { useEnter } from "./use-motion";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
+import { marketNav } from "./market-nav";
 import { useMobileView, type MobileView } from "./mobile-view";
 import { usePreferences } from "./preferences-provider";
 
@@ -37,7 +39,7 @@ export function MobileNav() {
   const { address } = useWallet();
   const { openDeposit, openProOrder } = useTrading();
   const [menuOpen, setMenuOpen] = useState(false);
-  const onTerminal = pathname === "/";
+  const onTerminal = terminalKindOf(pathname) !== null;
 
   useEffect(() => setMenuOpen(false), [pathname]);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export function MobileNav() {
 
   const show = (next: MobileView) => {
     setView(next);
-    if (!onTerminal) router.push("/");
+    if (!onTerminal) router.push("/perp");
   };
 
   return (
@@ -90,6 +92,23 @@ export function MobileNav() {
               <button type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu" className="rounded-lg p-1.5 text-app-faint hover:text-app-ink">
                 <X className="size-5" />
               </button>
+            </div>
+            {/* Perp, spot and prediction first, as in the sidebar. */}
+            <div className="mb-2 grid grid-cols-3 gap-1.5">
+              {marketNav.map(({ href, label, icon: Icon, soon, isActive }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={isActive(pathname) ? "page" : undefined}
+                  className={`relative flex h-16 flex-col items-center justify-center gap-1 rounded-2xl border text-[13px] font-semibold transition-colors ${
+                    isActive(pathname) ? "border-app-accent bg-app-accent/10 text-app-ink" : "border-app-hairline text-app-muted hover:bg-app-chip"
+                  }`}
+                >
+                  <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                  {label}
+                  {soon && <span className="absolute right-2 top-1.5 text-[9px] font-semibold uppercase tracking-wide text-[#f5c97b]">Soon</span>}
+                </Link>
+              ))}
             </div>
             <Link href="/markets" className={`${sheetItem} ${pathname === "/markets" ? "bg-app-chip" : ""}`}>
               <BarChart3 className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />

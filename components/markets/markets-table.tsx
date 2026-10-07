@@ -96,7 +96,7 @@ export function MarketsTable() {
 
   const open = (symbol: string) => {
     selectAsset(symbol);
-    router.push("/");
+    router.push("/perp");
   };
 
   const header = (key: SortKey, label: string, title?: string) => (

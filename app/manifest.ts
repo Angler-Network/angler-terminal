@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Angler Terminal",
     short_name: "Angler",
     description: "Every perp DEX on one screen, with AI-scored news you can trade in two taps.",
-    start_url: "/",
+    start_url: "/perp",
     display: "standalone",
     background_color: "#000000",
     theme_color: "#000000",

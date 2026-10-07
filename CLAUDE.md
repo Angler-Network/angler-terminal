@@ -211,7 +211,8 @@ dependency versions and design are free to diverge from angler-news.
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
     coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm
     press; partial results are reported. "Bridge" next to it opens the funds window on the HL → Lighter move.
-    The order panel starts with a Perp | Spot switch (venues of that kind only; a kind the asset lacks is disabled).
+    The market type comes from the route (`/perp`, `/spot`, `lib/terminal-kind.ts`), not a switch in the panel: an
+    asset without a venue of that kind shows a link to the other view.
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
     (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
     other's ask; trades merged with venue dots). `useBestExecution` also returns `splitExecution` (cheapest levels of
@@ -220,7 +221,15 @@ dependency versions and design are free to diverge from angler-news.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
-- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Terminal, News link, Wallets, Settings)
+- Routes: the terminal is `/perp` and `/spot`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
+  layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/` redirects
+  to `/perp` (`next.config.mjs`). `/prediction` is a "coming soon" page and `app/not-found.tsx` the 404, both
+  `StatusScreen` (`components/app/status-screen.tsx`). Perp / Spot / Prediction lead every navigation from one list
+  (`components/app/market-nav.ts`: sidebar, top bar, phone menu).
+- Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
+  fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
+  `globals.css`, `marks` as breaks in the track).
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Spot, Prediction, Markets, Portfolio, News link, Wallets, Settings)
   and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
   Notifications, About; `openSettings(section)` opens a given section),
   built from the copied angler-news `form-controls`, `select-field`, `appearance-settings`. Venues can be turned off

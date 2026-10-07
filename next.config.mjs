@@ -33,6 +33,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  // The terminal lives at /perp and /spot; the old root keeps working for bookmarks and shared links.
+  async redirects() {
+    return [{ source: "/", destination: "/perp", permanent: false }];
+  },
   // Self-hosted fonts carry a content hash in their name.
   async headers() {
     return [{ source: "/fonts/:file*.woff2", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];

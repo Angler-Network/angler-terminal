@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { layoutPresets, navModeChange, panelNames, toastPositions, type NavMode, type TapePosition, type TerminalPanels, type ToastPosition } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
+import { terminalKindOf } from "@/lib/terminal-kind";
 
 function samePanels(a: TerminalPanels, b: TerminalPanels) {
   return (Object.keys(a) as Array<keyof TerminalPanels>).every((key) => a[key] === b[key]);
@@ -105,8 +106,8 @@ export function LayoutMenu({
 
   const setPanels = (panels: TerminalPanels) => {
     updatePreference("panels", panels);
-    // Layout changes only show on the terminal page.
-    if (pathname !== "/") router.push("/");
+    // Layout changes only show on the terminal (perp or spot).
+    if (!terminalKindOf(pathname)) router.push("/perp");
   };
 
   return (

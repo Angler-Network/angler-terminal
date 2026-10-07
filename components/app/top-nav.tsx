@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, CandlestickChart, ChartPie, Layers, Newspaper, Settings, Wallet } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
+import { marketNav } from "./market-nav";
 import { usePreferences } from "./preferences-provider";
 
 function itemClass(active: boolean) {
@@ -26,10 +27,14 @@ export function TopNav() {
   const { openDeposit, openProOrder } = useTrading();
   return (
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
-      <Link href="/" title="Terminal" aria-current={pathname === "/" ? "page" : undefined} className={itemClass(pathname === "/")}>
-        <CandlestickChart className="size-[18px]" strokeWidth={1.75} aria-hidden />
-        <span className={label}>Terminal</span>
-      </Link>
+      {marketNav.map(({ href, label: text, title, icon: Icon, soon, isActive }) => (
+        <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={itemClass(isActive(pathname))}>
+          <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
+          <span className={label}>{text}</span>
+          {soon && <span className="hidden rounded bg-[#f5c97b]/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-[#f5c97b] xl:inline">Soon</span>}
+        </Link>
+      ))}
+      <span aria-hidden className="mx-1 h-5 w-px bg-app-hairline" />
       <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
         <BarChart3 className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Markets</span>

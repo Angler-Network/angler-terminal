@@ -1,6 +1,8 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { riseIn, useEnter } from "@/components/app/use-motion";
@@ -8,6 +10,7 @@ import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib/trading/order-math";
+import { TERMINAL_PATHS, terminalKindOf } from "@/lib/terminal-kind";
 import { sideLabel } from "@/lib/trading/presets";
 import { optionalPrice, percentFrom, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { arcusConfig } from "@/lib/venues/arcus/config";
@@ -251,10 +254,10 @@ export function OrderPanel() {
   const { choices, isLoading } = useVenueChoices(symbol, mint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
-  // Perp or spot first, then a venue of that kind. An asset without the chosen kind shows the one it has.
-  const [marketKind, setMarketKind] = useState<"perp" | "spot">("perp");
+  // Perp or spot comes from the sidebar (/perp, /spot), then a venue of that kind.
+  const activeKind = terminalKindOf(usePathname()) ?? "perp";
+  const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
-  const activeKind = hasKind(marketKind) ? marketKind : (choices[0]?.kind ?? marketKind);
   const kindChoices = choices.filter((entry) => entry.kind === activeKind);
   const [kind, setKind] = useState<OrderKind>("market");
   const [side, setSide] = useState<OrderSide>("buy");
@@ -449,34 +452,34 @@ export function OrderPanel() {
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
       {choices.length === 0 && isLoading ? (
         // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
-        <div role="status" aria-label="Loading markets" className="flex h-[497px] flex-col gap-2.5">
-          {["h-8", "h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (
+        <div role="status" aria-label="Loading markets" className="flex h-[451px] flex-col gap-2.5">
+          {["h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (
             <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-lg bg-app-chip/60`} />
           ))}
           <span aria-hidden className="mt-1 flex-1 animate-pulse rounded-lg bg-app-chip/40" />
         </div>
-      ) : choices.length === 0 ? (
+      ) : kindChoices.length === 0 ? (
         <>
-          <h3 className="text-[12px] font-semibold text-app-ink">Trade {symbol}</h3>
-          <p className="text-[12px] text-app-faint">No enabled venue lists {symbol}. Pick another asset on the chart.</p>
+          <h3 className="text-[12px] font-semibold text-app-ink">
+            Trade {symbol} {activeKind === "perp" ? "perps" : "spot"}
+          </h3>
+          <p className="text-[12px] text-app-faint">
+            {hasKind(otherKind)
+              ? `No enabled ${activeKind} venue lists ${symbol}.`
+              : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}
+          </p>
+          {hasKind(otherKind) && (
+            <Link
+              href={TERMINAL_PATHS[otherKind]}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
+            >
+              Trade {symbol} on {otherKind === "perp" ? "Perp" : "Spot"}
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+          )}
         </>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <Segmented
-                label="Market type"
-                value={activeKind}
-                options={(["perp", "spot"] as const).map((value) => ({
-                  value,
-                  label: value === "perp" ? "Perp" : "Spot",
-                  disabled: !hasKind(value),
-                  title: hasKind(value) ? undefined : `No ${value} venue lists ${symbol}`,
-                }))}
-                onChange={setMarketKind}
-              />
-            </div>
-          </div>
           <div role="group" aria-label="Side" className="grid grid-cols-2 gap-0.5 rounded-lg bg-app-chip p-0.5">
             {(["buy", "sell"] as const).map((value) => (
               <button
