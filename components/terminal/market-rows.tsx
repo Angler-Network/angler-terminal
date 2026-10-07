@@ -41,7 +41,8 @@ export interface MarketRow {
   watch: WatchlistEntry;
 }
 
-export type RowChain = "solana" | EvmSwapChainKey | BookSpotVenue;
+/** "arcus": Arcus's stock tokens, on Robinhood Chain but filtered on their own ("robinhood" is the chain's Uniswap tokens). */
+export type RowChain = "solana" | EvmSwapChainKey | BookSpotVenue | "arcus";
 
 /**
  * The chains the spot search filters by, in the order the filter shows them (logos in `public/chains`; Lighter, an
@@ -53,6 +54,7 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> =
   { key: "base", name: "Base" },
   { key: "arbitrum", name: "Arbitrum" },
   { key: "robinhood", name: "Robinhood Chain" },
+  { key: "arcus", name: "Arcus (stock tokens on Robinhood Chain)", logo: "/api/favicon?domain=arcus.xyz" },
   { key: "hyperliquid", name: "Hyperliquid" },
   { key: "lighter", name: "Lighter", logo: "/api/favicon?domain=lighter.xyz" },
 ];
@@ -135,7 +137,7 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     venues: [evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
     stable: listing.stable,
-    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "robinhood" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
+    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "arcus" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }
