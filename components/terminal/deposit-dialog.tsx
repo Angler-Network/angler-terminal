@@ -17,7 +17,7 @@ import {
   withdrawalArrived,
   type SourceChain,
 } from "@/lib/venues/deposits";
-import { BRIDGE_VENUES, bridgeVenueName, routeStatus, type BridgeVenueId } from "@/lib/venues/bridge-routes";
+import { BRIDGE_VENUES, bridgeVenueDomain, bridgeVenueName, routeStatus, type BridgeVenueId } from "@/lib/venues/bridge-routes";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { LighterFaucetButton } from "./lighter-faucet-button";
@@ -32,6 +32,27 @@ const ARRIVAL_POLL_MS = 10_000;
 const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
 
 type MoveStep = { kind: "idle" } | { kind: "waiting"; before: bigint; units: bigint; since: number } | { kind: "arrived"; units: bigint } | { kind: "done"; explorerUrl: string };
+
+/** A venue's logo (its site favicon through /api/favicon), its initial when that fails. */
+function BridgeVenueLogo({ venue, size = 18 }: { venue: BridgeVenueId; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <span aria-hidden className="grid shrink-0 place-items-center rounded-md bg-app-chip text-[10px] font-bold text-app-ink" style={{ width: size, height: size }}>
+      {bridgeVenueName(venue).charAt(0)}
+    </span>
+  ) : (
+    <img
+      src={`/api/favicon?domain=${bridgeVenueDomain(venue)}`}
+      alt=""
+      aria-hidden
+      width={size}
+      height={size}
+      onError={() => setFailed(true)}
+      className="shrink-0 rounded-md object-contain"
+      style={{ width: size, height: size }}
+    />
+  );
+}
 
 function VenuePicker({ value, onChange, label }: { value: BridgeVenueId; onChange: (venue: BridgeVenueId) => void; label: string }) {
   const [open, setOpen] = useState(false);
@@ -50,8 +71,9 @@ function VenuePicker({ value, onChange, label }: { value: BridgeVenueId; onChang
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex items-center gap-1 rounded-lg bg-app-chip px-2 py-0.5 font-semibold text-app-ink hover:bg-app-selected"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip py-0.5 pl-1.5 pr-2 font-semibold text-app-ink hover:bg-app-selected"
       >
+        <BridgeVenueLogo venue={value} size={20} />
         {bridgeVenueName(value)}
         <ChevronDown className="size-4 text-app-muted" aria-hidden />
       </button>
@@ -72,7 +94,10 @@ function VenuePicker({ value, onChange, label }: { value: BridgeVenueId; onChang
                 venue.id === value ? "bg-app-chip text-app-ink" : "text-app-ink hover:bg-app-chip"
               } disabled:cursor-default disabled:text-app-faint disabled:hover:bg-transparent`}
             >
-              {venue.name}
+              <span className="flex items-center gap-2">
+                <BridgeVenueLogo venue={venue.id} />
+                {venue.name}
+              </span>
               {!venue.live && <span className="text-[10px] font-semibold uppercase tracking-[0.06em]">Soon</span>}
             </button>
           ))}
@@ -305,8 +330,8 @@ export function DepositDialog() {
     setAmount("");
     setDone(null);
     setSourceIndex(0);
-    // Withdraw belongs to Hyperliquid, Move (from Hyperliquid) to Lighter.
-    setMode((current) => (venue === "hyperliquid" ? (current === "move" ? "deposit" : current) : current === "withdraw" ? "deposit" : current));
+    // Withdraw belongs to Hyperliquid; the Bridge is reachable from every venue.
+    setMode((current) => (venue !== "hyperliquid" && current === "withdraw" ? "deposit" : current));
   }, [venue]);
   useEffect(() => {
     if (depositVenue) setMode(depositMode);
@@ -394,6 +419,7 @@ export function DepositDialog() {
               ? [
                   { value: "deposit", label: "Deposit" },
                   { value: "withdraw", label: "Withdraw" },
+                  { value: "move", label: "Bridge" },
                 ]
               : [
                   { value: "deposit", label: "Deposit" },
