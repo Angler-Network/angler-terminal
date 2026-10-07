@@ -4,6 +4,7 @@ import { Check, LayoutGrid } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { layoutPresets, navModeChange, panelNames, toastPositions, type NavMode, type TapePosition, type TerminalPanels, type ToastPosition } from "@/lib/preferences";
+import { defaultArrangement } from "@/lib/layout/arrangement";
 import { usePreferences } from "./preferences-provider";
 import { terminalKindOf } from "@/lib/terminal-kind";
 
@@ -204,6 +205,15 @@ export function LayoutMenu({
               <CheckRow label="Sidebar" checked={preferences.showSidebar} onToggle={() => updatePreference("showSidebar", !preferences.showSidebar)} />
             )}
             <CheckRow label="Top bar" checked={preferences.showTopBar} onToggle={() => updatePreference("showTopBar", !preferences.showTopBar)} />
+            <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint">Arrange</p>
+            <p className="px-2.5 text-[11px] leading-snug text-app-muted">Hover a panel and drag the handle at its top onto another to swap places.</p>
+            <button
+              type="button"
+              onClick={() => updatePreference("arrangement", defaultArrangement)}
+              className="mx-2.5 mt-1.5 h-7 rounded-lg bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected"
+            >
+              Reset arrangement
+            </button>
           </div>
         </div>
       )}

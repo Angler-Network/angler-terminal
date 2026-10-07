@@ -1,5 +1,6 @@
 "use client";
 
+import { GripHorizontal } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile, useMobileView, type MobileView } from "@/components/app/mobile-view";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -21,6 +22,7 @@ import { useTrading } from "./trading-provider";
 import { usePathname } from "next/navigation";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { columnTrack, COLUMN_RULES, maxColumnWidth, MIN_ORDERBOOK_HEIGHT, type ColumnPanel, type PanelSizes } from "@/lib/layout/panel-sizes";
+import { dropOnto, type ArrangeTarget, type ColumnId, type StackPanel } from "@/lib/layout/arrangement";
 
 type Slot = { column: string; row: string };
 
@@ -38,10 +40,11 @@ const GAP = 8;
 
 /**
  * Modular desktop layout; every panel but the chart can be turned off (`panels` preference) and the chart takes
- * the free space:
- *   [ watchlist ][ chart              ][ order entry + account ][ news ]
- *   [           ][ positions / orders ][ order book            ][      ]
- * The watchlist is optional (off by default). The order book sits under the order panel so the chart gets the width.
+ * the free space. Default arrangement (`arrangement` preference, rearranged by dragging the handles):
+ *   [ watchlist ][ chart              ][ order entry + account ][ order book ]
+ *   [           ][ positions / orders ][ news                  ][            ]
+ * Columns swap places by dragging one onto another; the order book and news swap between the stack under the order
+ * panel and the rail. The watchlist is optional (off by default).
  * Below `lg` the panels become full-screen views picked from the bottom tab bar (`mobile-nav.tsx`).
  */
 export function TerminalShell() {
@@ -110,14 +113,26 @@ export function TerminalShell() {
 
   // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /spot shows the trading card alone.
   const isSpot = terminalKindOf(usePathname()) === "spot";
+  // Phones keep the classic split: the order book under the order panel, news as its own view.
+  const arrangement = isMobile ? { ...preferences.arrangement, stack: "orderbook" as const } : preferences.arrangement;
+  const stackPanel = arrangement.stack;
+  const railPanel: StackPanel = stackPanel === "news" ? "orderbook" : "news";
+  const shown = { ...(isMobile ? allPanels : panels), ...(isSpot && { orderbook: false }) };
   const showTrading = panels.orderEntry || (panels.account && hasWallet);
-  const showSide = showTrading || (panels.orderbook && !isSpot);
+  const showStack = shown[stackPanel];
+  const showRail = shown[railPanel];
+  const showSide = showTrading || showStack;
   const layout = useMemo(() => {
-    // The optional watchlist leads; the chart takes the free width after it.
-    const columns = panels.watchlist ? [columnTrack("watchlist", sizes.watchlist), "minmax(0,1fr)"] : ["minmax(0,1fr)"];
-    const main = columns.length;
-    const side = showSide ? columns.push(columnTrack("side", sizes.side)) : 0;
-    const news = panels.news ? columns.push(columnTrack("news", sizes.news)) : 0;
+    const visible = arrangement.columns.filter(
+      (id) => id === "main" || (id === "watchlist" ? panels.watchlist && !isMobile : id === "trade" ? showSide : showRail),
+    );
+    const track: Record<ColumnId, string> = {
+      watchlist: columnTrack("watchlist", sizes.watchlist),
+      main: "minmax(0,1fr)",
+      trade: columnTrack("side", sizes.side),
+      rail: columnTrack("news", sizes.news),
+    };
+    const position = (id: ColumnId) => visible.indexOf(id) + 1;
     // min() keeps a saved height from squeezing the chart away on a shorter window.
     const rows = panels.positions ? `minmax(0,1fr) min(${positionsHeight}px, calc(100% - ${MIN_CHART_HEIGHT + 8}px))` : "minmax(0,1fr)";
     const allRows = panels.positions ? "1 / 3" : "1 / 2";
@@ -125,24 +140,85 @@ export function TerminalShell() {
     // Scrolling page: a roomy chart and at least a comfortable positions panel, whatever the window height.
     const scrollRows = panels.positions ? `${SCROLL_CHART_HEIGHT}px ${Math.max(positionsHeight, SCROLL_MIN_POSITIONS)}px` : `${SCROLL_CHART_HEIGHT}px`;
     return {
-      columns: columns.join(" "),
+      columns: visible.map((id) => track[id]).join(" "),
       rows,
       scrollRows,
-      watchlist: slot(1, allRows),
-      chart: slot(main, "1"),
-      positions: slot(main, "2"),
-      side: slot(side, allRows),
-      news: slot(news, allRows),
+      // Columns left of the chart resize from their right edge, the others from their left one.
+      edge: (id: ColumnId): ResizeEdge => (position(id) < position("main") ? "right" : "left"),
+      watchlist: slot(position("watchlist"), allRows),
+      chart: slot(position("main"), "1"),
+      positions: slot(position("main"), "2"),
+      side: slot(position("trade"), allRows),
+      news: slot(position("rail"), allRows),
     };
-  }, [panels.watchlist, panels.news, panels.positions, showSide, positionsHeight, sizes.watchlist, sizes.side, sizes.news]);
+  }, [arrangement.columns, panels.watchlist, panels.positions, isMobile, showSide, showRail, positionsHeight, sizes.watchlist, sizes.side, sizes.news]);
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
   const placed = "min-h-0 lg:col-(--col) lg:row-(--row) lg:h-auto";
   // Phones and tablets show one view at a time (bottom tab bar), every panel available whatever the desktop layout.
   const mobileView = (name: MobileView) => `max-lg:h-full ${view === name ? "" : "max-lg:hidden"}`;
-  // A dragged order book height; the cards above it take the rest of the column.
+  // A dragged stack height (order book or news under the order panel); the cards above it take the rest.
   const bookHeight = isMobile || !showTrading ? null : sizes.orderbook;
-  const shown = { ...(isMobile ? allPanels : panels), ...(isSpot && { orderbook: false }) };
+
+  // Drag to rearrange: a handle on each column and on the two movable panels; dropping swaps places.
+  const [dragging, setDragging] = useState<ArrangeTarget | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const keyOf = (target: ArrangeTarget) => `${target.column ?? ""}:${target.panel ?? ""}`;
+  const dropZone = (target: ArrangeTarget) => ({
+    onDragOver: (event: React.DragEvent) => {
+      if (!dragging || !dropOnto(preferences.arrangement, dragging, target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOver(keyOf(target));
+    },
+    onDragLeave: (event: React.DragEvent) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node)) setOver((current) => (current === keyOf(target) ? null : current));
+    },
+    onDrop: (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = dragging && dropOnto(preferences.arrangement, dragging, target);
+      if (next) updatePreference("arrangement", next);
+      setDragging(null);
+      setOver(null);
+    },
+  });
+  const dropRing = (target: ArrangeTarget) => (over === keyOf(target) ? "ring-2 ring-app-accent ring-offset-2 ring-offset-transparent rounded-2xl" : "");
+  const handle = (target: ArrangeTarget, label: string) =>
+    isMobile ? null : (
+      <ArrangeHandle
+        label={label}
+        onStart={() => setDragging(target)}
+        onEnd={() => {
+          setDragging(null);
+          setOver(null);
+        }}
+      />
+    );
+  const panelLabel = (panel: StackPanel) => (panel === "news" ? "news" : "order book");
+
+  const stackContent = (
+    <div
+      ref={orderBookRef}
+      {...dropZone({ panel: stackPanel })}
+      style={bookHeight === null ? undefined : ({ "--book-h": `${bookHeight}px` } as React.CSSProperties)}
+      className={`group relative h-[420px] min-h-[260px] shrink-0 ${dropRing({ panel: stackPanel })} ${
+        bookHeight === null ? "lg:h-auto lg:flex-1 lg:shrink" : `lg:h-(--book-h) lg:max-h-[calc(100%-208px)] lg:min-h-0`
+      }`}
+    >
+      {!isMobile && showTrading &&
+        resizer(
+          "orderbook",
+          "top",
+          `Resize ${panelLabel(stackPanel)}`,
+          MIN_ORDERBOOK_HEIGHT,
+          () => orderBookRef.current?.offsetHeight ?? 400,
+          () => (columnRefs.side.current?.clientHeight ?? 800) - MIN_TRADING_HEIGHT - GAP,
+        )}
+      {handle({ panel: stackPanel }, `Move the ${panelLabel(stackPanel)}`)}
+      {stackPanel === "news" ? <NewsFeed feed={feed} /> : <OrderBook />}
+    </div>
+  );
 
   return (
     <AssetSearchProvider>
@@ -154,44 +230,51 @@ export function TerminalShell() {
         className="terminal-grid h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:grid-cols-(--cols) lg:grid-rows-(--rows)"
       >
         {panels.watchlist && !isMobile && (
-          <div ref={columnRefs.watchlist} style={place(layout.watchlist)} className={`relative ${placed} max-lg:hidden`}>
-            {columnResizer("watchlist", "right", "Resize watchlist")}
+          <div
+            ref={columnRefs.watchlist}
+            {...dropZone({ column: "watchlist" })}
+            style={place(layout.watchlist)}
+            className={`group relative ${placed} max-lg:hidden ${dropRing({ column: "watchlist" })}`}
+          >
+            {columnResizer("watchlist", layout.edge("watchlist"), "Resize watchlist")}
+            {handle({ column: "watchlist" }, "Move the watchlist column")}
             <WatchlistPanel />
           </div>
         )}
-        <div data-mobile-view="chart" style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
+        <div
+          data-mobile-view="chart"
+          {...dropZone({ column: "main" })}
+          style={place(layout.chart)}
+          className={`group relative ${placed} ${mobileView("chart")} ${dropRing({ column: "main" })}`}
+        >
+          {handle({ column: "main" }, "Move the chart column")}
           <ChartPanel items={chartItems} />
         </div>
         {(showSide || isMobile) && (
-          <div ref={columnRefs.side} data-mobile-view="trade" style={place(layout.side)} className={`relative flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")}`}>
-            {!isMobile && columnResizer("side", "left", "Resize trading column")}
-            {(showTrading || isMobile) && <AccountPanel orderEntry={shown.orderEntry} account={shown.account} grow={!shown.orderbook || bookHeight !== null} />}
-            {shown.orderbook && (
-              <div
-                ref={orderBookRef}
-                style={bookHeight === null ? undefined : ({ "--book-h": `${bookHeight}px` } as React.CSSProperties)}
-                className={`relative h-[420px] min-h-[260px] shrink-0 ${
-                  bookHeight === null ? "lg:h-auto lg:flex-1 lg:shrink" : `lg:h-(--book-h) lg:max-h-[calc(100%-208px)] lg:min-h-0`
-                }`}
-              >
-                {!isMobile && showTrading &&
-                  resizer(
-                    "orderbook",
-                    "top",
-                    "Resize order book",
-                    MIN_ORDERBOOK_HEIGHT,
-                    () => orderBookRef.current?.offsetHeight ?? 400,
-                    () => (columnRefs.side.current?.clientHeight ?? 800) - MIN_TRADING_HEIGHT - GAP,
-                  )}
-                <OrderBook />
-              </div>
-            )}
+          <div
+            ref={columnRefs.side}
+            data-mobile-view="trade"
+            {...dropZone({ column: "trade" })}
+            style={place(layout.side)}
+            className={`group relative flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")} ${dropRing({ column: "trade" })}`}
+          >
+            {!isMobile && columnResizer("side", layout.edge("trade"), "Resize trading column")}
+            {handle({ column: "trade" }, "Move the trading column")}
+            {(showTrading || isMobile) && <AccountPanel orderEntry={shown.orderEntry} account={shown.account} grow={!showStack || bookHeight !== null} />}
+            {showStack && stackContent}
           </div>
         )}
-        {shown.news && (
-          <div ref={columnRefs.news} data-mobile-view="news" style={place(layout.news)} className={`relative ${placed} ${mobileView("news")}`}>
-            {!isMobile && columnResizer("news", "left", "Resize news")}
-            <NewsFeed feed={feed} />
+        {showRail && (
+          <div
+            ref={columnRefs.news}
+            data-mobile-view={railPanel === "news" ? "news" : "trade"}
+            {...dropZone({ column: "rail", panel: railPanel })}
+            style={place(layout.news)}
+            className={`group relative ${placed} ${mobileView(railPanel === "news" ? "news" : "trade")} ${dropRing({ column: "rail", panel: railPanel })}`}
+          >
+            {!isMobile && columnResizer("news", layout.edge("rail"), `Resize ${panelLabel(railPanel)}`)}
+            {handle({ column: "rail", panel: railPanel }, `Move the ${panelLabel(railPanel)}`)}
+            {railPanel === "news" ? <NewsFeed feed={feed} /> : <OrderBook />}
           </div>
         )}
         {shown.positions && (
@@ -219,5 +302,29 @@ export function TerminalShell() {
       </div>
     </OrderDraftProvider>
     </AssetSearchProvider>
+  );
+}
+
+/**
+ * A small grip at the top of a column or movable panel, shown on hover. Drag it onto another column (or the order book
+ * onto the news, and back) to swap their places.
+ */
+function ArrangeHandle({ label, onStart, onEnd }: { label: string; onStart: () => void; onEnd: () => void }) {
+  return (
+    <button
+      type="button"
+      draggable
+      aria-label={label}
+      title={`${label}: drag onto another panel to swap places`}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", label);
+        onStart();
+      }}
+      onDragEnd={onEnd}
+      className="absolute left-1/2 top-1 z-20 flex h-4 w-10 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-app-chip/90 text-app-muted opacity-0 shadow-sm transition-opacity hover:text-app-ink focus-visible:opacity-100 active:cursor-grabbing group-hover:opacity-100 max-lg:hidden"
+    >
+      <GripHorizontal className="size-3.5" aria-hidden />
+    </button>
   );
 }

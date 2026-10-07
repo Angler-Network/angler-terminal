@@ -29,6 +29,7 @@ import { readNewsRules, type NewsRule } from "./news/rules";
 import { readWatchlist, type WatchlistEntry } from "./watchlist";
 import { venueAvailable } from "./deployment";
 import { defaultPanelSizes, readPanelSizes, type PanelSizes } from "./layout/panel-sizes";
+import { defaultArrangement, readArrangement, type Arrangement } from "./layout/arrangement";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -186,6 +187,8 @@ export interface Preferences extends Appearance {
   positionsHeight: number | null;
   /** Column widths and the order book height, dragged by the user; null keeps the automatic size. */
   panelSizes: PanelSizes;
+  /** Column order and which of the order book / news sits under the order panel (dragged by the user). */
+  arrangement: Arrangement;
   /** With positions or orders on more than one venue: grouped under a header per venue, or one list. */
   positionsLayout: "grouped" | "list";
   appearanceVersion: number;
@@ -263,6 +266,7 @@ export const defaultPreferences: Preferences = {
   newsLeverage: 5,
   positionsHeight: null,
   panelSizes: defaultPanelSizes,
+  arrangement: defaultArrangement,
   positionsLayout: "grouped",
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: venueAvailable("hyperliquid"),
@@ -397,6 +401,7 @@ export function parsePreferences(raw: string | null): Preferences {
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       positionsHeight: stored.positionsHeight == null ? null : readRange(stored.positionsHeight, 80, 2000, 1, 240),
       panelSizes: readPanelSizes(stored.panelSizes),
+      arrangement: readArrangement(stored.arrangement),
       positionsLayout: stored.positionsLayout === "list" ? "list" : "grouped",
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),

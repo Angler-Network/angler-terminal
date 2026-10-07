@@ -173,7 +173,11 @@ dependency versions and design are free to diverge from angler-news.
     switch to the Chart view on phones.
   - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
     hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
-  - Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
+  - Arrangement (`arrangement` preference, `lib/layout/arrangement.ts`): column order (watchlist, main = chart +
+  positions, trade, rail) and which of the order book / news sits under the order panel (default: news there, order
+  book in the rail). Hover a panel, drag the grip at its top onto another to swap (`ArrangeHandle`, HTML5 drag and
+  drop in `terminal-shell.tsx`); Layout menu → Reset arrangement. Phones keep the order book under the order panel.
+- Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
   desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll` (620px chart,
   positions at least 360px); list pages (`.app-main` without `.terminal-grid`) stay one screen tall. Fit screen is
   the old one-screen layout. CSS in `globals.css` ("Desktop page mode").
