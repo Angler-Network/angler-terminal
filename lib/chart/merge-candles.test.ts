@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Candle } from "./candles";
-import { applyLivePrice, mergeCandles } from "./merge-candles";
+import { applyLivePrice, chartReadyCandles, mergeCandles } from "./merge-candles";
 
 const candle = (time: number, close = time): Candle => ({ time, open: close, high: close, low: close, close, volume: 1 });
 
@@ -50,5 +50,16 @@ describe("applyLivePrice", () => {
     expect(applyLivePrice(candles, 0, HOUR / 2, HOUR)).toBe(candles);
     expect(applyLivePrice(candles, 100, HOUR / 2, HOUR)).toBe(candles);
     expect(applyLivePrice([], 100, 0, HOUR)).toEqual([]);
+  });
+});
+
+describe("chart-ready candles", () => {
+  it("sorts, keeps one candle per second (the later one) and drops times before 1970", () => {
+    const candle = (time: number, close: number) => ({ time, open: close, high: close, low: close, close, volume: 0 });
+    const ready = chartReadyCandles([candle(2_000, 2), candle(-1_787_810_400_000, 9), candle(1_000, 1), candle(2_500, 3)]);
+    expect(ready.map((entry) => [entry.time, entry.close])).toEqual([
+      [1_000, 1],
+      [2_500, 3],
+    ]);
   });
 });

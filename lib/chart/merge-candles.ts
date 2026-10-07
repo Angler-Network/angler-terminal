@@ -28,3 +28,17 @@ export function applyLivePrice(candles: Candle[], price: number, now: number, in
   }
   return [...candles, { time: start, open: last.close, high: Math.max(last.close, price), low: Math.min(last.close, price), close: price, volume: 0 }];
 }
+
+/**
+ * What the chart library accepts: strictly ascending times (whole seconds), no candle before 1970. A source that
+ * sends a stray, duplicated or out-of-order candle otherwise throws inside lightweight-charts and takes the page down;
+ * the later candle wins a duplicate second.
+ */
+export function chartReadyCandles(candles: Candle[]): Candle[] {
+  const bySecond = new Map<number, Candle>();
+  for (const candle of candles) {
+    if (!(candle.time > 0) || !Number.isFinite(candle.close)) continue;
+    bySecond.set(Math.floor(candle.time / 1000), candle);
+  }
+  return [...bySecond.entries()].sort(([a], [b]) => a - b).map(([, candle]) => candle);
+}

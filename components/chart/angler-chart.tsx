@@ -17,7 +17,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useLang, useT } from "@/lib/i18n/client";
 import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
-import { applyLivePrice, mergeCandles } from "@/lib/chart/merge-candles";
+import { applyLivePrice, chartReadyCandles, mergeCandles } from "@/lib/chart/merge-candles";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import type { ChartDataSource, ChartSource } from "@/lib/preferences";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
@@ -206,7 +206,8 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
         : current,
     );
   }, [livePrice, key, interval]);
-  const candles = data?.key === key ? data.candles : null;
+  // Sorted and one per second: a stray candle from a source would otherwise throw inside the chart library.
+  const candles = useMemo(() => (data?.key === key ? chartReadyCandles(data.candles) : null), [data, key]);
   const newsByTime = useMemo(() => {
     const groups = new Map<number, NewsItem[]>();
     if (!candles?.length) return groups;

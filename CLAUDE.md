@@ -313,7 +313,8 @@ dependency versions and design are free to diverge from angler-news.
     output wins (Arcus on a tie). `preferArcus` (default on, a checkbox under the swap card's route list, not in Settings:
     Arcus volume earns Arcus points) keeps Arcus first unless Uniswap pays over `PREFER_ARCUS_BPS` (0.5%) more
     (`orderRobinhoodQuotes`, also used by news trades). The route list (`SpotRoutes`) shows whenever two sources can
-    fill, before any amount: "Best price" or one source pinned (rows or chips). Execution
+    fill, before any amount: a "Route" header, one row per source (logo, name, "Best" next to the best quote); a press
+    pins a row, pressing it again goes back to the best. Execution
     (`venue.ts`, on demand): balance, `check_approval` (one-time Permit2 approve, needs ETH gas), a fresh quote for
     the wallet, Permit2 EIP-712 signature (`permitPrimaryType`), then `routing` decides: CLASSIC/WRAP/UNWRAP →
     `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,

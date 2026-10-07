@@ -46,6 +46,8 @@ const ARM_MS = 5_000;
 const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
 const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan", ...ROBINHOOD_SOURCE_NAMES };
+/** Logos in the route list (site icons through /api/favicon). */
+const SOURCE_DOMAINS: Record<SpotSource, string> = { jupiter: "jup.ag", titan: "titan.exchange", arcus: "arcus.xyz", uniswap: "uniswap.org" };
 const OTHER_TOKEN = "__other";
 const QUOTE_DEBOUNCE_MS = 600;
 const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
@@ -176,9 +178,9 @@ function useArcusPrice(token: ArcusToken | null) {
 }
 
 /**
- * The swap's route, always on screen when more than one source can fill it: "Best price" (the default: the best
- * quote, or Arcus within 0.5% when Arcus is preferred) or one source pinned. Sources can be pinned before an amount
- * is typed; once there is one, each row shows what it pays and how far it trails the best.
+ * The swap's route, always on screen when more than one source can fill it: one row per source (logo, name, "Best" next
+ * to the best quote). With nothing pinned the best quote is used (Arcus within 0.5% when Arcus is preferred); pressing a
+ * row pins it, pressing it again unpins. Rows can be pinned before an amount is typed.
  */
 function SpotRoutes({
   sources,
@@ -200,20 +202,11 @@ function SpotRoutes({
   const outs = rows.flatMap((quote) => (quote.outAmount !== null ? [quote.outAmount] : []));
   const best = outs.length ? outs.reduce((max, out) => (out > max ? out : max)) : null;
   const auto = rows.find((quote) => quote.outAmount !== null)?.source ?? null;
-  const chip = (active: boolean) => `h-6 shrink-0 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${active ? "bg-app-accent text-app-on-accent" : "text-app-muted hover:bg-app-chip hover:text-app-ink"}`;
   return (
     <div className="overflow-hidden rounded-xl border border-app-hairline">
-      <div className="flex items-center gap-1.5 border-b border-app-hairline bg-app-chip/40 px-2 py-1.5">
-        <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">Route</span>
-        <button type="button" aria-pressed={pick === null} onClick={() => onPick(null)} className={chip(pick === null)}>
-          Best price
-        </button>
-        {sources.map((source) => (
-          <button key={source} type="button" aria-pressed={pick === source} onClick={() => onPick(source)} className={chip(pick === source)}>
-            {SOURCE_NAMES[source]}
-          </button>
-        ))}
-        {loading && <span aria-hidden className="ml-auto size-1.5 animate-pulse rounded-full bg-app-accent" />}
+      <div className="flex items-center gap-2 border-b border-app-hairline bg-app-chip/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">
+        <span>Route</span>
+        {loading && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />}
       </div>
       {rows.map((quote) => {
         const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
@@ -227,9 +220,14 @@ function SpotRoutes({
             title={quote.note ?? (pick === quote.source ? "Pinned: press again for the best price" : "Swap on this route")}
             className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${used ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
           >
-            <span aria-hidden className={`grid size-3 shrink-0 place-items-center rounded-full border ${used ? "border-app-accent" : "border-app-hairline-strong"}`}>
-              {used && <span className="size-1.5 rounded-full bg-app-accent" />}
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/favicon?domain=${SOURCE_DOMAINS[quote.source]}`}
+              alt=""
+              width={16}
+              height={16}
+              className={`size-4 shrink-0 rounded ${used ? "ring-1 ring-app-accent ring-offset-1 ring-offset-app-card" : ""}`}
+            />
             <span className={`shrink-0 font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
             {quote.outAmount !== null && quote.outAmount === best && (
               <span className="rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
