@@ -27,6 +27,9 @@ export interface LevelInfo {
   progress: number;
 }
 
+/** Share of a referred user's volume that counts toward the referrer's points (their own points are untouched). */
+export const REFERRAL_SHARE = 0.1;
+
 /** Points earned for a dollar volume: one per whole dollar. */
 export function pointsFor(usd: number) {
   return Number.isFinite(usd) && usd > 0 ? Math.floor(usd) : 0;

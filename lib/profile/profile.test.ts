@@ -113,3 +113,13 @@ describe("base58", () => {
     expect(base58(getAddressEncoder().encode(address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")) as Uint8Array)).toBe("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
   });
 });
+
+describe("referral messages", () => {
+  it("round-trips the referral action", async () => {
+    const { profileMessage, readProfileMessage, REFERRAL_CODE } = await import("./identity");
+    const message = profileMessage({ kind: "referral", code: "magefx" }, "0xabc", "2026-10-07T12:00:00.000Z");
+    expect(readProfileMessage(message)?.action).toEqual({ kind: "referral", code: "magefx" });
+    expect(REFERRAL_CODE.test("0x454afa0a5a59e7ca968d28831298c0a2530862dc")).toBe(true);
+    expect(REFERRAL_CODE.test("bad code!")).toBe(false);
+  });
+});

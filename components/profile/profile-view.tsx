@@ -250,15 +250,93 @@ function Overview() {
           )}
         </section>
       )}
+      <ReferralCard />
       <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
           <li>One point per dollar traded through Angler, on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
+          <li>Referrals: you earn 10% of the points of everyone who joins with your link, from their volume after they join. Their own points stay the same.</li>
         </ul>
       </section>
     </>
+  );
+}
+
+/** Your referral link and stats; when a `?ref=` link brought you here (or you have a code), apply it with a signature. */
+function ReferralCard() {
+  const { id, profile, pendingReferral, applyReferral } = useProfile();
+  const [code, setCode] = useState(pendingReferral ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (pendingReferral) setCode(pendingReferral);
+  }, [pendingReferral]);
+  if (!id || !profile) return null;
+  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${profile.username ?? profile.id}`;
+  return (
+    <section className={`${card} p-4`}>
+      <h2 className="text-[13px] font-semibold text-app-ink">Referrals</h2>
+      <p className="mt-1 text-[12px] text-app-muted">Share your link: you earn 10% of the points of everyone who joins with it.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] text-app-ink">{link}</code>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(link).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+          className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70"
+        >
+          {copied ? "Copied" : "Copy link"}
+        </button>
+      </div>
+      {!profile.username && <p className="mt-1.5 text-[11px] text-app-faint">Set a username for a shorter link.</p>}
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
+          <p className="text-[11px] text-app-muted">Referred</p>
+          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.referrals}</p>
+        </div>
+        <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
+          <p className="text-[11px] text-app-muted">Referral points</p>
+          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.referralPoints.toLocaleString("en-US")}</p>
+        </div>
+      </div>
+      {profile.referrer ? (
+        <p className="mt-3 text-[12px] text-app-muted">Referred by {shortAddress(profile.referrer)}.</p>
+      ) : (
+        <form
+          className="mt-3 flex flex-wrap items-center gap-2"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setMessage(await applyReferral(code.trim()));
+            setBusy(false);
+          }}
+        >
+          <input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            placeholder="Referral code"
+            aria-label="Referral code"
+            className="h-9 w-48 rounded-xl border border-app-field-border bg-app-field px-3 text-[13px] text-app-ink outline-none focus:border-app-ink"
+          />
+          <button
+            type="submit"
+            disabled={busy || !code.trim()}
+            className="h-9 rounded-xl bg-app-accent px-3.5 text-[13px] font-semibold text-app-on-accent disabled:opacity-50"
+          >
+            {busy ? "Sign in your wallet…" : "Use code"}
+          </button>
+          <span className="basis-full text-[11px] text-app-faint">Once per profile; it can&apos;t be changed later.</span>
+          {message && <span className="text-[12px] text-app-down">{message}</span>}
+        </form>
+      )}
+    </section>
   );
 }
 

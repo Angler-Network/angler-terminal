@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ProfileButton } from "@/components/profile/profile-button";
-import { ConnectButton } from "@/components/terminal/connect-button";
 import { deployment, otherDeploymentUrl } from "@/lib/deployment";
 import { SidebarToggle, TopBarToggle } from "./layout-toggles";
 import { MobileNav } from "./mobile-nav";
@@ -53,7 +52,6 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
         <div className="flex shrink-0 items-center gap-2 lg:border-l lg:border-app-hairline lg:pl-3">
           {deployment === "testnet" && <TestnetBadge />}
           <ProfileButton />
-          <ConnectButton />
           <TopBarToggle />
         </div>
       </header>

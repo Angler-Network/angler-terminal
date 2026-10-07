@@ -4,11 +4,22 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { base58 } from "@/lib/profile/base58";
-import { profileMessage, type ProfileAction } from "@/lib/profile/identity";
+import { profileMessage, REFERRAL_CODE, type ProfileAction } from "@/lib/profile/identity";
 import { TRADE_EVENT } from "@/lib/profile/client";
 import type { ProfileView } from "@/lib/profile/store";
 
 const REFRESH_MS = 5 * 60_000;
+/** A `?ref=` code seen in a link, kept until the visitor applies it (or another one replaces it). */
+const REFERRAL_STORAGE_KEY = "angler-terminal:referral";
+
+function storedReferral() {
+  try {
+    const value = window.localStorage.getItem(REFERRAL_STORAGE_KEY);
+    return value && REFERRAL_CODE.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
 const AFTER_TRADE_MS = 8_000;
 
 interface ProfileContextValue {
@@ -22,6 +33,10 @@ interface ProfileContextValue {
   saveUsername: (username: string) => Promise<string | null>;
   /** Signs with the Solana wallet to count its swaps on the EVM profile. */
   linkSolana: (() => Promise<string | null>) | null;
+  /** Referral code from a `?ref=` link this browser opened, until it's applied. */
+  pendingReferral: string | null;
+  /** Signs "Use referral code" and saves who referred this profile (once); resolves to an error message or null. */
+  applyReferral: (code: string) => Promise<string | null>;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -54,6 +69,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
+  const [pendingReferral, setPendingReferral] = useState<string | null>(null);
+
+  // A `?ref=code` link remembers the code so it can be applied once the visitor connects a wallet.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("ref");
+    if (code && REFERRAL_CODE.test(code)) {
+      try {
+        window.localStorage.setItem(REFERRAL_STORAGE_KEY, code);
+      } catch {}
+      setPendingReferral(code);
+    } else setPendingReferral(storedReferral());
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -137,9 +164,40 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sign, evmAddress, load]);
 
+  const applyReferral = useCallback(
+    async (code: string) => {
+      try {
+        const { message, signature } = await sign({ kind: "referral", code }, evmAddress ? "evm" : "solana");
+        const failure = await postSigned("/api/profile/referral", message, signature);
+        if (!failure) {
+          try {
+            window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
+          } catch {}
+          setPendingReferral(null);
+          void load();
+        }
+        return failure;
+      } catch (failure) {
+        return failure instanceof Error ? failure.message : String(failure);
+      }
+    },
+    [sign, evmAddress, load],
+  );
+
   const value = useMemo(
-    () => ({ id, profile, loading, error, refresh: () => void load(), saveUsername, linkSolana: canLink ? linkSolana : null }),
-    [id, profile, loading, error, load, saveUsername, canLink, linkSolana],
+    () => ({
+      id,
+      profile,
+      loading,
+      error,
+      refresh: () => void load(),
+      saveUsername,
+      linkSolana: canLink ? linkSolana : null,
+      // Nothing to apply once the profile has a referrer, or for the referrer's own link.
+      pendingReferral: profile?.referrer || pendingReferral === profile?.username || pendingReferral === id ? null : pendingReferral,
+      applyReferral,
+    }),
+    [id, profile, loading, error, load, saveUsername, canLink, linkSolana, pendingReferral, applyReferral],
   );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }

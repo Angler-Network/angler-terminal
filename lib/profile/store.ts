@@ -1,6 +1,6 @@
 import "server-only";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
-import { levelFor, pointsFor, type LevelInfo } from "./levels";
+import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
 import { profileIdOf, type ProfileChain } from "./identity";
 
 /**
@@ -130,6 +130,11 @@ export interface ProfileView {
   /** EVM profiles: Solana wallets whose swaps count here. Solana wallets: the profile they count toward. */
   linkedWallets: string[];
   linkedTo: string | null;
+  /** The profile that referred this one, if any. */
+  referrer: string | null;
+  /** Profiles this one referred, and the points their volume earned it. */
+  referrals: number;
+  referralPoints: number;
 }
 
 function volumeOf(hash: Record<string, string>) {
@@ -143,6 +148,15 @@ function volumeOf(hash: Record<string, string>) {
 
 const totalOf = (volume: Record<ProfileVenue, number>) => PROFILE_VENUES.reduce((sum, venue) => sum + volume[venue], 0);
 
+/** Referred volume (`refUsd`: what referred profiles traded after joining) that counts toward points. */
+function referralUsdOf(hash: Record<string, string>) {
+  const value = Number(hash.refUsd ?? 0);
+  return Number.isFinite(value) && value > 0 ? value * REFERRAL_SHARE : 0;
+}
+
+/** Own volume plus the referral share: the points a profile shows and ranks by. */
+const pointsOf = (hash: Record<string, string>) => pointsFor(totalOf(volumeOf(hash)) + referralUsdOf(hash));
+
 async function rankOf(id: string): Promise<number | null> {
   if (!redisConfig()) {
     const points = memory.zset.get(id);
@@ -155,9 +169,13 @@ async function rankOf(id: string): Promise<number | null> {
 
 export async function readProfile(id: string): Promise<ProfileView> {
   const chain = profileIdOf(id)?.chain ?? "evm";
-  const [hash, linked] = await Promise.all([getHash(id), chain === "evm" ? members(key("links", id)) : Promise.resolve([])]);
+  const [hash, linked, referred] = await Promise.all([
+    getHash(id),
+    chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
+    members(key("refs", id)),
+  ]);
   const volume = volumeOf(hash);
-  const points = pointsFor(totalOf(volume));
+  const points = pointsOf(hash);
   return {
     id,
     chain,
@@ -168,6 +186,9 @@ export async function readProfile(id: string): Promise<ProfileView> {
     volume,
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
+    referrer: hash.referrer || null,
+    referrals: referred.length,
+    referralPoints: Math.floor(referralUsdOf(hash)),
   };
 }
 
@@ -198,7 +219,31 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number)
     hash[`usd:${venue}`] = String(Number(hash[`usd:${venue}`] ?? 0) + amount);
     memory.hashes.set(key("p", id), hash);
   }
-  await setPoints(id, pointsFor(totalOf(volumeOf(await getHash(id)))));
+  const hash = await getHash(id);
+  await setPoints(id, pointsOf(hash));
+  // The referrer earns a share of this volume (only volume traded after the referral, never a referrer's bonus).
+  if (hash.referrer) {
+    if (redisConfig()) await run([["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", amount]]);
+    else await setFields(hash.referrer, { refUsd: String(Number((await getHash(hash.referrer)).refUsd ?? 0) + amount) });
+    await setPoints(hash.referrer, pointsOf(await getHash(hash.referrer)));
+  }
+}
+
+export type ReferralResult = { ok: true; referrer: string } | { ok: false; error: string };
+
+/**
+ * Sets who referred a profile, once and for good. The code is the referrer's username or wallet address; it must be
+ * an existing profile other than this one (and not one this profile referred).
+ */
+export async function setReferrer(id: string, code: string): Promise<ReferralResult> {
+  if ((await getHash(id)).referrer) return { ok: false, error: "This profile already has a referrer." };
+  const referrer = profileIdOf(code)?.id ?? (await getKey(key("name", code.toLowerCase())));
+  if (!referrer) return { ok: false, error: "No profile uses that referral code." };
+  if (referrer === id) return { ok: false, error: "You can't refer yourself." };
+  if ((await getHash(referrer)).referrer === id) return { ok: false, error: "That profile was referred by you." };
+  await setFields(id, { referrer });
+  await addToSet(key("refs", referrer), id);
+  return { ok: true, referrer };
 }
 
 /** The profile a wallet's volume counts toward: a linked Solana wallet's EVM profile, else its own. */
