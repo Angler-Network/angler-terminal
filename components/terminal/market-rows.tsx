@@ -9,7 +9,7 @@ import { marketCategory, type MarketCategory } from "@/lib/markets/category";
 import { pickQuote } from "@/lib/markets/model";
 import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import { EVM_SWAP_CHAINS, evmRef, evmSwapChain } from "@/lib/venues/uniswap/chains";
+import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, parseEvmRef, type EvmSwapChainKey } from "@/lib/venues/uniswap/chains";
 import { CoinIcon } from "./token-icon";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { perpWatchId, type WatchlistEntry } from "@/lib/watchlist";
@@ -35,7 +35,27 @@ export interface MarketRow {
   verified: boolean;
   /** Dollar token: sorted after the rest in lists. */
   stable?: boolean;
+  /** Spot rows: the chain the token lives on (the search's chain filter). */
+  chain?: RowChain;
   watch: WatchlistEntry;
+}
+
+export type RowChain = "solana" | EvmSwapChainKey;
+
+/** The chains the spot search filters by, in the order the filter shows them (logos in `public/chains`). */
+export const ROW_CHAINS: Array<{ key: RowChain; name: string }> = [
+  { key: "solana", name: "Solana" },
+  { key: "ethereum", name: "Ethereum" },
+  { key: "base", name: "Base" },
+  { key: "arbitrum", name: "Arbitrum" },
+  { key: "robinhood", name: "Robinhood Chain" },
+];
+
+/** A row's chain: its own, else read from the mint (an EVM ref, or a Solana mint). */
+export function rowChain(row: MarketRow): RowChain | undefined {
+  if (row.chain) return row.chain;
+  if (!row.mint) return undefined;
+  return parseEvmRef(row.mint)?.chain.key ?? (row.mint.startsWith("evm:") ? undefined : "solana");
 }
 
 const SPOT_CATEGORY: Record<SpotCategory, MarketCategory> = { crypto: "crypto", stock: "stocks", index: "indices", commodity: "commodities" };
@@ -105,6 +125,7 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     venues: [evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
     stable: listing.stable,
+    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "robinhood" : evmChain?.key,
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }

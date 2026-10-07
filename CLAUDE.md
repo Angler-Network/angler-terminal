@@ -436,7 +436,8 @@ dependency versions and design are free to diverge from angler-news.
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
-  sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  a chain filter on the right of the tabs (spot only: Solana / Ethereum / Base / Arbitrum / Robinhood logos, several at once,
+  only chains present; `rowChain`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
 - History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid

@@ -10,7 +10,8 @@ import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
-import { Change, TokenIcon, VenueMarks, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
+import { evmSwapChain } from "@/lib/venues/uniswap/chains";
+import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 
 /** A token picked to pay with (or receive) in a swap card: a Solana mint, or an EVM ref ("evm:<chain>:<address>"). */
@@ -62,6 +63,7 @@ function pinnedRow(token: TokenChoice, venue: string): MarketRow {
     price: token.price,
     venues: [venue],
     verified: token.verified ?? true,
+    chain: token.chainId ? evmSwapChain(token.chainId)?.key : undefined,
     watch: { id, kind: "spot", symbol: token.symbol, asset: token.symbol, mint: token.mint },
   };
 }
@@ -131,6 +133,8 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   const [tab, setTab] = useState<Tab>("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [sort, setSort] = useState<SortState>(null);
+  // Chains to show; empty = every chain. Several can be on at once.
+  const [chains, setChains] = useState<RowChain[]>([]);
   const [active, setActive] = useState(0);
   const isSpot = kind === "spot" || Boolean(pick);
 
@@ -161,8 +165,9 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
               watch: entry,
             }))
         : [];
+    const onChain = (row: MarketRow) => chains.length === 0 || chains.includes(rowChain(row) as RowChain);
     const matches = (row: MarketRow) =>
-      !wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim();
+      onChain(row) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim());
     const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
@@ -186,19 +191,30 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
-  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick]);
+  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, chains]);
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
     for (const row of (isSpot ? spotRows : perpRows) ?? []) {
       if (isSpot && verifiedOnly && !row.verified) continue;
+      if (chains.length > 0 && !chains.includes(rowChain(row) as RowChain)) continue;
       byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
     }
     return byCategory;
-  }, [isSpot, spotRows, perpRows, verifiedOnly]);
+  }, [isSpot, spotRows, perpRows, verifiedOnly, chains]);
 
-  useEffect(() => setActive(0), [query, tab, verifiedOnly, sort]);
+  // The chain filter lists only chains the spot rows actually have (a Solana token picker shows none).
+  const chainOptions = useMemo(() => {
+    if (!isSpot) return [];
+    const present = new Set((spotRows ?? []).map(rowChain));
+    for (const token of pick?.pinned ?? []) if (token.chainId) present.add(evmSwapChain(token.chainId)?.key);
+    const options = ROW_CHAINS.filter((chain) => present.has(chain.key));
+    return options.length > 1 ? options : [];
+  }, [isSpot, spotRows, pick]);
+  const toggleChain = (chain: RowChain) => setChains((current) => (current.includes(chain) ? current.filter((entry) => entry !== chain) : [...current, chain]));
+
+  useEffect(() => setActive(0), [query, tab, verifiedOnly, sort, chains]);
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
@@ -313,7 +329,29 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
               {option.count !== undefined && <span className="ml-1.5 text-app-faint">{option.count}</span>}
             </button>
           ))}
-          {pick && <span className="ml-auto shrink-0 pl-3 text-[12px] font-semibold text-app-muted">{pick.title}</span>}
+          {pick && <span className={`shrink-0 pl-3 text-[12px] font-semibold text-app-muted ${chainOptions.length ? "" : "ml-auto"}`}>{pick.title}</span>}
+          {chainOptions.length > 0 && (
+            <div role="group" aria-label="Chains" className="ml-auto flex shrink-0 items-center gap-1 pl-3">
+              {chainOptions.map((chain) => {
+                const on = chains.includes(chain.key);
+                return (
+                  <button
+                    key={chain.key}
+                    type="button"
+                    aria-pressed={on}
+                    title={chain.name}
+                    onClick={() => toggleChain(chain.key)}
+                    className={`grid size-8 shrink-0 place-items-center rounded-lg transition-[background-color,opacity] ${
+                      on ? "bg-app-chip opacity-100" : chains.length ? "opacity-35 hover:opacity-80" : "opacity-80 hover:bg-app-chip/60 hover:opacity-100"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/chains/${chain.key}.svg`} alt={chain.name} width={18} height={18} className="size-[18px] rounded-full" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className={`grid shrink-0 ${columns} gap-3 border-b border-app-hairline px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint`}>
