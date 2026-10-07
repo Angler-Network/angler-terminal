@@ -17,6 +17,8 @@ export interface OrderBookDetailLike {
   /** Percent, e.g. "0.0200". */
   taker_fee?: string;
   daily_quote_token_volume?: number;
+  /** Percent. */
+  daily_price_change?: number;
   /** Undocumented market group: 5 US stocks and ETFs, 6 Asian stocks (see lib/markets/server.ts). */
   strategy_index?: number;
   /** Base units. */
@@ -88,6 +90,7 @@ export function marketsFromDetails(details: unknown): VenueMarket[] {
         markPx: positive(detail.mark_price),
         midPx: positive(detail.last_trade_price),
         volume24hUsd: positive(detail.daily_quote_token_volume),
+        change24hPct: typeof detail.daily_price_change === "number" && positive(detail.last_trade_price) ? detail.daily_price_change : undefined,
         openInterestUsd: openInterestUsd(detail),
       },
     ];

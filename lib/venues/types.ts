@@ -40,6 +40,8 @@ export interface VenueMarket {
   midPx?: number;
   /** 24h stats when the venue reports them (refreshed with the market list, so up to a minute old). */
   volume24hUsd?: number;
+  /** 24h price change in percent, when the venue reports it. */
+  change24hPct?: number;
   /** Open interest in USD (base open interest × mark). */
   openInterestUsd?: number;
 }

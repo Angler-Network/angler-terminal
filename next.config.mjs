@@ -37,10 +37,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
-  // The terminal lives at /perp, /swap and /spot; the old root keeps working for bookmarks and shared links.
+  // The terminal lives at /perp, /swap and /spot; the root is the home page.
   async redirects() {
     return [
-      { source: "/", destination: "/perp", permanent: false },
       // The portfolio moved into the profile.
       { source: "/portfolio", destination: "/profile/portfolio", permanent: true },
     ];

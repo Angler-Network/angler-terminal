@@ -47,6 +47,7 @@ describe("markets", () => {
     const stats = dayStats({ markPx: "110", dayNtlVlm: "2500000", openInterest: "3" });
     expect(stats).toMatchObject({ volume24hUsd: 2_500_000, openInterestUsd: 330 });
     expect(dayStats({ markPx: "110" })).toEqual({ volume24hUsd: undefined, openInterestUsd: undefined });
+    expect(dayStats({ markPx: "110", prevDayPx: "100" }).change24hPct).toBeCloseTo(10);
   });
 
   it("reads prices from asset contexts", () => {

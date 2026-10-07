@@ -10,6 +10,7 @@ export interface AssetCtxLike {
   midPx?: string | null;
   dayNtlVlm?: string | null;
   openInterest?: string | null;
+  prevDayPx?: string | null;
 }
 
 /** `perpDexs` returns null for the main dex at index 0, then builder-deployed (HIP-3) dexs. */
@@ -42,12 +43,14 @@ function toNumber(value: string | null | undefined) {
   return value != null && Number.isFinite(number) && number > 0 ? number : undefined;
 }
 
-/** 24h notional volume and open interest (base units × mark) from an asset context. */
+/** 24h notional volume, price change and open interest (base units × mark) from an asset context. */
 export function dayStats(ctx: AssetCtxLike | undefined) {
   const mark = toNumber(ctx?.markPx);
   const openInterest = toNumber(ctx?.openInterest);
+  const previous = toNumber(ctx?.prevDayPx);
   return {
     volume24hUsd: toNumber(ctx?.dayNtlVlm),
+    change24hPct: mark && previous ? ((mark - previous) / previous) * 100 : undefined,
     openInterestUsd: mark && openInterest ? mark * openInterest : undefined,
   };
 }

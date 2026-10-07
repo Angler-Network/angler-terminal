@@ -8,25 +8,23 @@ import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useFunding } from "@/components/terminal/use-funding";
 import { formatPrice } from "@/lib/format";
-import { MARKET_CATEGORIES, marketCategory, type MarketCategory } from "@/lib/markets/category";
+import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
+import { assetRows, matchesQuery, type AssetRow } from "@/lib/markets/rows";
 import { FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
-import type { VenueMarket } from "@/lib/venues/types";
+import { PERP_VENUE_NAMES, PERP_VENUE_SHORT } from "@/lib/venues/routing";
+import type { PerpVenueId } from "@/lib/venues/types";
 import { FundingArbDialog } from "./funding-arb-dialog";
 
 const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", binance: "Binance", bybit: "Bybit" };
 
-type SortKey = "volume" | "arb" | "symbol" | FundingVenue;
+type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | FundingVenue;
+
+/** Every venue, one venue, or assets listed on more than one venue. */
+type VenueFilter = "all" | "multi" | PerpVenueId;
 
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 
-interface Row {
-  symbol: string;
-  kind: VenueMarket["kind"];
-  category: MarketCategory;
-  /** 24h volume summed over the venues we trade. */
-  volume: number;
-  hyperliquid?: VenueMarket;
-  lighter?: VenueMarket;
+interface Row extends AssetRow {
   rates: Partial<Record<FundingVenue, number>>;
   arb: FundingArb | null;
 }
@@ -42,9 +40,20 @@ function Apr({ rate }: { rate: number | undefined }) {
   );
 }
 
+function Change({ value }: { value: number | undefined }) {
+  if (value === undefined) return <span className="text-app-faint">—</span>;
+  return (
+    <span className={value >= 0 ? "text-app-up" : "text-app-down"}>
+      {value >= 0 ? "+" : ""}
+      {value.toFixed(2)}%
+    </span>
+  );
+}
+
 /**
- * Every asset the terminal can trade, with mainnet funding on each venue and the funding spread between the venues
- * we trade (long where funding is lowest, short where it's highest).
+ * Every asset the terminal can trade on every perp venue (venues come from the market lists, so a new one shows up
+ * without changes here), with mainnet funding and the funding spread between Hyperliquid and Lighter (long where
+ * funding is lowest, short where it's highest).
  */
 export function MarketsTable() {
   const router = useRouter();
@@ -52,42 +61,39 @@ export function MarketsTable() {
   const { marketsByVenue } = useTrading();
   const funding = useFunding();
   const [query, setQuery] = useState("");
-  const [bothOnly, setBothOnly] = useState(false);
+  const [venue, setVenue] = useState<VenueFilter>("all");
   const [sort, setSort] = useState<SortKey>("volume");
   const [category, setCategory] = useState<MarketCategory | "all">("all");
   const [arbRow, setArbRow] = useState<Row | null>(null);
 
-  const rows = useMemo(() => {
-    const bySymbol = new Map<string, Row>();
-    for (const venue of ["hyperliquid", "lighter"] as const) {
-      for (const market of marketsByVenue[venue] ?? []) {
-        // Hyperliquid can list a symbol on several dexes; the main dex wins.
-        const row = bySymbol.get(market.symbol) ?? { symbol: market.symbol, kind: market.kind, category: "crypto", volume: 0, rates: {}, arb: null };
-        if (market.kind === "stock") row.kind = "stock";
-        row.volume += market.volume24hUsd ?? 0;
-        if (!row[venue] || market.dex === "") row[venue] = market;
-        bySymbol.set(market.symbol, row);
-      }
-    }
-    for (const row of bySymbol.values()) {
-      row.category = marketCategory(row.symbol, row.kind);
-      row.rates = funding?.[row.symbol] ?? {};
-      // A spread is only actionable when both venues we trade list the asset.
-      row.arb = row.hyperliquid && row.lighter ? bestFundingArb(row.rates) : null;
-    }
-    return [...bySymbol.values()];
-  }, [marketsByVenue, funding]);
+  const rows = useMemo<Row[]>(
+    () =>
+      assetRows(marketsByVenue).map((row) => {
+        const rates = funding?.[row.symbol] ?? {};
+        // A spread is only actionable when both venues we hedge across list the asset.
+        return { ...row, rates, arb: row.venues.hyperliquid && row.venues.lighter ? bestFundingArb(rates) : null };
+      }),
+    [marketsByVenue, funding],
+  );
+  const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
 
   const shown = useMemo(() => {
-    const wanted = query.trim().toUpperCase();
     const filtered = rows.filter(
       (row) =>
-        (!wanted || row.symbol.includes(wanted)) && (!bothOnly || (row.hyperliquid && row.lighter)) && (category === "all" || row.category === category),
+        matchesQuery(row, query) &&
+        (venue === "all" || (venue === "multi" ? Object.keys(row.venues).length > 1 : Boolean(row.venues[venue]))) &&
+        (category === "all" || row.category === category),
     );
-    const value = (row: Row) =>
-      sort === "volume" ? row.volume : sort === "arb" ? (row.arb?.apr ?? -Infinity) : sort === "symbol" ? 0 : (row.rates[sort] ?? -Infinity);
+    const value = (row: Row) => {
+      if (sort === "volume") return row.volume;
+      if (sort === "openInterest") return row.openInterest;
+      if (sort === "change") return row.change24hPct ?? -Infinity;
+      if (sort === "arb") return row.arb?.apr ?? -Infinity;
+      if (sort === "symbol") return 0;
+      return row.rates[sort] ?? -Infinity;
+    };
     return filtered.sort((a, b) => (sort === "symbol" ? a.symbol.localeCompare(b.symbol) : value(b) - value(a)));
-  }, [rows, query, bothOnly, sort, category]);
+  }, [rows, query, venue, sort, category]);
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
     for (const row of rows) byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
@@ -113,14 +119,20 @@ export function MarketsTable() {
     </th>
   );
 
+  const venueOptions: Array<{ value: VenueFilter; label: string }> = [
+    { value: "all", label: "All venues" },
+    ...venueIds.map((id) => ({ value: id, label: PERP_VENUE_NAMES[id] })),
+    { value: "multi", label: "Multi-venue" },
+  ];
+
   return (
     <section className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-app-hairline px-4 py-3">
         <div>
           <h1 className="text-[16px] font-semibold text-app-ink">Markets</h1>
           <p className="text-[12px] text-app-muted">
-            Funding on every venue (mainnet, 8-hour rates annualized; positive means longs pay shorts) and the spread between
-            Hyperliquid and Lighter.
+            Every perp on every venue, with funding (8-hour rates annualized; positive means longs pay shorts) and the
+            Hyperliquid–Lighter spread.
           </p>
         </div>
         <label className="ml-auto flex h-9 items-center gap-2 rounded-xl border border-app-field-border bg-app-field px-3">
@@ -133,30 +145,44 @@ export function MarketsTable() {
             className="w-40 bg-transparent text-[13px] text-app-ink outline-hidden placeholder:text-app-faint"
           />
         </label>
-        <label className="flex items-center gap-2 text-[12px] text-app-muted">
-          <input type="checkbox" checked={bothOnly} onChange={(event) => setBothOnly(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
-          On both venues
-        </label>
       </header>
-      <div role="group" aria-label="Category" className="scrollbar-none flex shrink-0 gap-1.5 overflow-x-auto border-b border-app-hairline px-4 py-2">
-        {[{ value: "all" as const, label: "All" }, ...MARKET_CATEGORIES].map((option) => {
-          const count = option.value === "all" ? rows.length : (counts[option.value] ?? 0);
-          if (option.value !== "all" && count === 0) return null;
-          return (
+      <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-app-hairline px-4 py-2">
+        <div role="group" aria-label="Venue" className="flex shrink-0 gap-0.5 rounded-lg bg-app-chip p-0.5">
+          {venueOptions.map((option) => (
             <button
               key={option.value}
               type="button"
-              aria-pressed={category === option.value}
-              onClick={() => setCategory(option.value)}
-              className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${
-                category === option.value ? "bg-app-ink text-app-card" : "bg-app-chip text-app-muted hover:text-app-ink"
+              aria-pressed={venue === option.value}
+              onClick={() => setVenue(option.value)}
+              className={`h-6 shrink-0 rounded-md px-2 text-[12px] font-semibold transition-colors ${
+                venue === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
               }`}
             >
               {option.label}
-              <span className="tabular-nums opacity-60">{count}</span>
             </button>
-          );
-        })}
+          ))}
+        </div>
+        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-app-hairline" />
+        <div role="group" aria-label="Category" className="flex shrink-0 gap-1.5">
+          {[{ value: "all" as const, label: "All" }, ...MARKET_CATEGORIES].map((option) => {
+            const count = option.value === "all" ? rows.length : (counts[option.value] ?? 0);
+            if (option.value !== "all" && count === 0) return null;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={category === option.value}
+                onClick={() => setCategory(option.value)}
+                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${
+                  category === option.value ? "bg-app-ink text-app-card" : "bg-app-chip text-app-muted hover:text-app-ink"
+                }`}
+              >
+                {option.label}
+                <span className="tabular-nums opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-auto">
         <table className="w-full text-[12px] tabular-nums">
@@ -164,77 +190,86 @@ export function MarketsTable() {
             <tr>
               {header("symbol", "Asset")}
               <th className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint">Price</th>
-              {header("volume", "24h volume", "Hyperliquid + Lighter")}
-              {FUNDING_VENUES.map((venue) => header(venue, VENUE_LABELS[venue], `Sort by ${VENUE_LABELS[venue]} funding`))}
+              {header("change", "24h")}
+              {header("volume", "24h volume", "Summed over every venue")}
+              {header("openInterest", "Open interest", "Summed over every venue")}
+              {FUNDING_VENUES.map((fundingVenue) => header(fundingVenue, VENUE_LABELS[fundingVenue], `Sort by ${VENUE_LABELS[fundingVenue]} funding`))}
               {header("arb", "Funding spread", "Long the lowest-funding venue, short the highest (Hyperliquid and Lighter)")}
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
-            {shown.map((row) => {
-              const price = row.hyperliquid?.markPx ?? row.lighter?.markPx;
-              return (
-                <tr key={row.symbol} className="border-t border-app-hairline hover:bg-app-chip/40">
-                  <td className="px-3 py-1.5">
-                    <button type="button" onClick={() => open(row.symbol)} className="inline-flex items-center gap-2 font-semibold text-app-ink hover:underline">
-                      <MarketIcon symbol={row.symbol} kind={row.kind} size={20} />
-                      {row.symbol}
-                      <span className="flex gap-1">
-                        {row.hyperliquid && <span className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">HL</span>}
-                        {row.lighter && <span className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">Lighter</span>}
-                      </span>
-                    </button>
+            {shown.map((row) => (
+              <tr key={row.symbol} className="border-t border-app-hairline hover:bg-app-chip/40">
+                <td className="px-3 py-1.5">
+                  <button type="button" onClick={() => open(row.symbol)} className="inline-flex items-center gap-2 font-semibold text-app-ink hover:underline">
+                    <MarketIcon symbol={row.symbol} kind={row.kind} size={20} />
+                    {row.symbol}
+                    <span className="flex gap-1">
+                      {venueIds.map(
+                        (id) =>
+                          row.venues[id] && (
+                            <span key={id} className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">
+                              {PERP_VENUE_SHORT[id]}
+                            </span>
+                          ),
+                      )}
+                    </span>
+                  </button>
+                </td>
+                <td className="px-3 py-1.5 text-right text-app-ink">{row.price ? formatPrice(row.price) : "—"}</td>
+                <td className="px-3 py-1.5 text-right">
+                  <Change value={row.change24hPct} />
+                </td>
+                <td className="px-3 py-1.5 text-right text-app-muted">{row.volume > 0 ? compactUsd.format(row.volume) : "—"}</td>
+                <td className="px-3 py-1.5 text-right text-app-muted">{row.openInterest > 0 ? compactUsd.format(row.openInterest) : "—"}</td>
+                {FUNDING_VENUES.map((fundingVenue) => (
+                  <td key={fundingVenue} className="px-3 py-1.5 text-right">
+                    <Apr rate={row.rates[fundingVenue]} />
                   </td>
-                  <td className="px-3 py-1.5 text-right text-app-ink">{price ? formatPrice(price) : "—"}</td>
-                  <td className="px-3 py-1.5 text-right text-app-muted">{row.volume > 0 ? compactUsd.format(row.volume) : "—"}</td>
-                  {FUNDING_VENUES.map((venue) => (
-                    <td key={venue} className="px-3 py-1.5 text-right">
-                      <Apr rate={row.rates[venue]} />
-                    </td>
-                  ))}
-                  <td className="px-3 py-1.5 text-right">
-                    {row.arb ? (
-                      <span title={`Long on ${VENUE_LABELS[row.arb.longVenue]}, short on ${VENUE_LABELS[row.arb.shortVenue]}`}>
-                        <span className="font-semibold text-app-ink">{row.arb.apr.toFixed(2)}%</span>
-                        <span className="ml-1.5 text-app-faint">
-                          L {VENUE_LABELS[row.arb.longVenue]} · S {VENUE_LABELS[row.arb.shortVenue]}
-                        </span>
+                ))}
+                <td className="px-3 py-1.5 text-right">
+                  {row.arb ? (
+                    <span title={`Long on ${VENUE_LABELS[row.arb.longVenue]}, short on ${VENUE_LABELS[row.arb.shortVenue]}`}>
+                      <span className="font-semibold text-app-ink">{row.arb.apr.toFixed(2)}%</span>
+                      <span className="ml-1.5 text-app-faint">
+                        L {VENUE_LABELS[row.arb.longVenue]} · S {VENUE_LABELS[row.arb.shortVenue]}
                       </span>
-                    ) : (
-                      <span className="text-app-faint">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-1.5 text-right">
-                    {row.arb && (
-                      <button
-                        type="button"
-                        onClick={() => setArbRow(row)}
-                        title="Open a long and a short together to collect the funding spread"
-                        className="mr-1.5 h-7 rounded-md border border-app-accent/50 px-2.5 text-[12px] font-semibold text-app-accent hover:bg-app-accent/10"
-                      >
-                        Arb
-                      </button>
-                    )}
+                    </span>
+                  ) : (
+                    <span className="text-app-faint">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  {row.arb && (
                     <button
                       type="button"
-                      onClick={() => open(row.symbol)}
-                      className="h-7 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card"
+                      onClick={() => setArbRow(row)}
+                      title="Open a long and a short together to collect the funding spread"
+                      className="mr-1.5 h-7 rounded-md border border-app-accent/50 px-2.5 text-[12px] font-semibold text-app-accent hover:bg-app-accent/10"
                     >
-                      Trade
+                      Arb
                     </button>
-                  </td>
-                </tr>
-              );
-            })}
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => open(row.symbol)}
+                    className="h-7 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card"
+                  >
+                    Trade
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
         {shown.length === 0 && <p className="p-6 text-center text-[12px] text-app-muted">{rows.length === 0 ? "Loading markets…" : "No market matches."}</p>}
       </div>
-      {arbRow?.arb && arbRow.hyperliquid && arbRow.lighter && (
+      {arbRow?.arb && arbRow.venues.hyperliquid && arbRow.venues.lighter && (
         <FundingArbDialog
           symbol={arbRow.symbol}
           arb={arbRow.arb}
-          markets={{ hyperliquid: arbRow.hyperliquid, lighter: arbRow.lighter }}
+          markets={{ hyperliquid: arbRow.venues.hyperliquid, lighter: arbRow.venues.lighter }}
           onClose={() => setArbRow(null)}
         />
       )}

@@ -3,7 +3,7 @@ import { MarketsTable } from "@/components/markets/markets-table";
 
 export const metadata: Metadata = {
   title: "Markets",
-  description: "Every tradable perp with funding rates on Hyperliquid, Lighter, Binance and Bybit, and the spread between venues.",
+  description: "Every perp on every venue the terminal trades: price, 24h change, volume, open interest, funding and the spread between venues.",
   alternates: { canonical: "/markets" },
 };
 
