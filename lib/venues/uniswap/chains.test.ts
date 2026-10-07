@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evmRef, evmSwapChain, isEvmRef, parseEvmRef } from "./chains";
+import { evmRef, evmSwapChain, isEvmRef, isNativeToken, parseEvmRef, wrappedNative } from "./chains";
 
 describe("EVM swap chains", () => {
   it("round-trips token refs and refuses unknown chains", () => {
@@ -13,6 +13,10 @@ describe("EVM swap chains", () => {
   });
 
   it("pays with USDC first on every chain", () => {
-    for (const id of [1, 8453, 42161]) expect(evmSwapChain(id)?.pay[0].symbol).toBe("USDC");
+    for (const id of [1, 8453, 42161]) {
+      expect(evmSwapChain(id)?.pay[0].symbol).toBe("USDC");
+      expect(evmSwapChain(id)?.pay.some((token) => isNativeToken(token.address))).toBe(true);
+      expect(wrappedNative(evmSwapChain(id)!).symbol).toBe("WETH");
+    }
   });
 });

@@ -9,7 +9,8 @@ import { marketCategory, type MarketCategory } from "@/lib/markets/category";
 import { pickQuote } from "@/lib/markets/model";
 import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import { evmRef, evmSwapChain } from "@/lib/venues/uniswap/chains";
+import { EVM_SWAP_CHAINS, evmRef, evmSwapChain } from "@/lib/venues/uniswap/chains";
+import { CoinIcon } from "./token-icon";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { perpWatchId, type WatchlistEntry } from "@/lib/watchlist";
 import { useTrading } from "./trading-provider";
@@ -141,4 +142,41 @@ export function useSpotRows(enabled: boolean, query = "", solanaTokens = false) 
       .flatMap((listing) => spotRow(listing, { anyToken: solanaTokens }) ?? []);
   }, [enabled, listings, searched, solanaTokens]);
   return { rows, searching: query.trim().length >= 2 && searched === undefined };
+}
+
+/** Logo source (site favicon through /api/favicon) and chain badge for each venue label a row can carry. */
+const VENUE_MARKS: Record<string, { domain: string; chain?: number | string }> = {
+  Hyperliquid: { domain: "hyperliquid.xyz" },
+  Lighter: { domain: "lighter.xyz" },
+  "Lighter RH": { domain: "lighter.xyz", chain: 4663 },
+  Jupiter: { domain: "jup.ag", chain: "solana" },
+  Arcus: { domain: "arcus.xyz", chain: 4663 },
+  Uniswap: { domain: "uniswap.org" },
+};
+
+/**
+ * A row's venues as logos with the chain in the corner ("Uniswap · Base" = Uniswap's logo, Base badge), the full names
+ * on hover. One venue also gets a short label (the chain for Uniswap, else the venue); labels without a logo
+ * ("Wallet", "Popular") stay text.
+ */
+export function VenueMarks({ venues }: { venues: string[] }) {
+  if (venues.length === 0) return <span className="text-app-faint">—</span>;
+  const marks = venues.map((label) => {
+    const [name, chainName] = label.split(" · ");
+    const mark = VENUE_MARKS[name];
+    const chain = chainName ? EVM_SWAP_CHAINS.find((entry) => entry.name === chainName)?.id : mark?.chain;
+    return { label, name, chainName, mark, chain };
+  });
+  if (marks.some((entry) => !entry.mark)) return <span className="truncate">{venues.join(" · ")}</span>;
+  const single = marks.length === 1 ? marks[0] : null;
+  return (
+    <span className="flex min-w-0 items-center justify-end gap-1.5" title={venues.join(", ")}>
+      <span className="flex shrink-0 items-center gap-1">
+        {marks.map((entry) => (
+          <CoinIcon key={entry.label} src={`/api/favicon?domain=${entry.mark!.domain}`} symbol={entry.name} chain={entry.chain} size={18} />
+        ))}
+      </span>
+      {single && <span className="truncate">{single.chainName ?? single.name}</span>}
+    </span>
+  );
 }

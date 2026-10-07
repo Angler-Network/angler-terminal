@@ -5,6 +5,7 @@
 import { createPublicClient, erc20Abi, http, parseEventLogs, type Chain, type EIP1193Provider } from "viem";
 import { walletMessage, walletOnChain } from "../evm-wallet";
 import { VenueError } from "../types";
+import { isNativeToken } from "./chains";
 import { callUniswap, fetchUniswapQuote } from "./client";
 import { orderOutcome, orderStatusMessage, permitPrimaryType, permitTypes, readUniswapTx, settledAmounts, type UniswapQuote } from "./quote";
 
@@ -66,15 +67,21 @@ export async function uniswapSwap(input: UniswapSwapInput): Promise<UniswapSwapR
 
 async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slippageBps, maxPriceImpactPct }: UniswapSwapInput): Promise<UniswapSwapResult> {
   const publicClient = createPublicClient({ chain, transport: http() });
-  const balance = await publicClient.readContract({ address: tokenIn.address, abi: erc20Abi, functionName: "balanceOf", args: [account] });
+  // Native ETH is sent as the transaction's value: no allowance, and the balance is the account's own.
+  const native = isNativeToken(tokenIn.address);
+  const balance = native
+    ? await publicClient.getBalance({ address: account })
+    : await publicClient.readContract({ address: tokenIn.address, abi: erc20Abi, functionName: "balanceOf", args: [account] });
   if (balance < amount) throw new VenueError(`Not enough ${tokenIn.symbol} on ${chain.name} for this swap.`);
 
-  const approval = await callUniswap<{ approval?: unknown; cancel?: unknown }>("check_approval", {
-    walletAddress: account,
-    token: tokenIn.address,
-    amount: amount.toString(),
-    chainId: chain.id,
-  });
+  const approval = native
+    ? {}
+    : await callUniswap<{ approval?: unknown; cancel?: unknown }>("check_approval", {
+        walletAddress: account,
+        token: tokenIn.address,
+        amount: amount.toString(),
+        chainId: chain.id,
+      });
   const wallet = await walletOnChain(provider, account, chain);
   // Tokens like USDT need the old allowance cleared before a new one; then the one-time Permit2 approval.
   for (const raw of [approval.cancel, approval.approval]) {

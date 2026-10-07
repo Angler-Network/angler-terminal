@@ -11,7 +11,7 @@ import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { robinhoodSources } from "@/lib/venues/robinhood-sources";
-import { isEvmRef } from "@/lib/venues/uniswap/chains";
+import { isEvmRef, isNativeToken, wrappedNative } from "@/lib/venues/uniswap/chains";
 
 /** The token /swap actually trades for the selected asset, with what the chart header shows about it. */
 export interface SpotChartToken {
@@ -51,7 +51,8 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
     if (!evm) return evm;
     return {
       network: evm.chain.pool,
-      address: evm.address,
+      // Native ETH has no pools of its own: its chart and trades are WETH's.
+      address: isNativeToken(evm.address) ? wrappedNative(evm.chain).address : evm.address,
       symbol: evm.symbol,
       name: evm.name,
       icon: evm.icon,

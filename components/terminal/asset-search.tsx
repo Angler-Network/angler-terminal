@@ -10,7 +10,7 @@ import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
-import { Change, TokenIcon, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
+import { Change, TokenIcon, VenueMarks, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 
 /** A Solana token picked to pay with (or receive) in the swap card. */
@@ -161,7 +161,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
         (!isSpot || !verifiedOnly || row.verified) &&
         matches(row) &&
-        row.mint !== pick?.exclude,
+        (!pick || row.mint !== pick.exclude),
     );
     const sorted = sortRows(filtered, sort);
     if (!pick || tab !== "all") return sorted;
@@ -233,7 +233,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     { value: "all", label: "All" },
     ...MARKET_CATEGORIES.filter((category) => counts[category.value]).map((category) => ({ value: category.value as Tab, label: category.label, count: counts[category.value] })),
   ];
-  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_96px_96px_76px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
+  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_96px_96px_104px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
 
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]" role="presentation" onMouseDown={onClose}>
@@ -366,7 +366,9 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
                   </span>
                   <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.volume24h)}</span>
                   {isSpot && <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.liquidity)}</span>}
-                  <span className="hidden truncate text-right text-[11px] text-app-muted md:block">{row.venues.join(" · ") || "—"}</span>
+                  <span className="hidden min-w-0 text-right text-[11px] text-app-muted md:block">
+                    <VenueMarks venues={row.venues} />
+                  </span>
                 </div>
               );
             })

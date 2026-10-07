@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { uniswapListingId, type SpotListing } from "@/lib/spot/listings";
-import { parseEvmRef, type EvmSwapChain } from "@/lib/venues/uniswap/chains";
+import { isNativeToken, parseEvmRef, type EvmSwapChain } from "@/lib/venues/uniswap/chains";
 import { useSpotListings } from "./use-spot-listings";
 
 /** A Uniswap token on an EVM swap chain, with its market numbers when DexScreener has them. */
@@ -29,6 +29,7 @@ const erc20Meta = [
 
 /** Decimals (and names) straight from the token contract, for search hits the Uniswap list doesn't carry. */
 async function readTokenMeta(chain: EvmSwapChain, address: `0x${string}`) {
+  if (isNativeToken(address)) return { decimals: 18, symbol: "ETH", name: "Ether" };
   const { createPublicClient, http } = await import("viem");
   const client = createPublicClient({ transport: http(chain.rpc) });
   const [decimals, symbol, name] = await Promise.all(

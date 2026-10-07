@@ -6,7 +6,7 @@ import { getMarkets } from "@/lib/markets/server";
 import { arcusFetch } from "@/lib/venues/arcus/server";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
 import { uniswapOnRobinhood } from "@/lib/venues/robinhood-sources";
-import { EVM_SWAP_CHAINS } from "@/lib/venues/uniswap/chains";
+import { EVM_SWAP_CHAINS, isNativeToken, wrappedNative } from "@/lib/venues/uniswap/chains";
 import { readUniswapServerConfig, uniswapFetch } from "@/lib/venues/uniswap/server";
 import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener";
 import {
@@ -98,8 +98,12 @@ async function uniswapListings(): Promise<SpotListing[]> {
       const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort: "volume_24h", limit: String(UNISWAP_TOP_LIMIT), chainId: String(chain.id) })}`, apiKey);
       if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}) responded ${response.status}`);
       const records = (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
-      const markets = await dexMarkets(chain.dexscreener, records.flatMap((record) => (typeof record.address === "string" ? [record.address] : [])));
-      return records.flatMap((record) => fromUniswapToken(record, markets.get(String(record.address).toLowerCase())) ?? []);
+      const weth = wrappedNative(chain).address;
+      const addresses = records.flatMap((record) => (typeof record.address === "string" && !isNativeToken(record.address) ? [record.address] : []));
+      const markets = await dexMarkets(chain.dexscreener, [...new Set([...addresses, weth])]);
+      // Native ETH has no pool of its own: it trades at WETH's price.
+      const marketOf = (address: string) => markets.get((isNativeToken(address) ? weth : address).toLowerCase());
+      return records.flatMap((record) => fromUniswapToken(record, marketOf(String(record.address))) ?? []);
     }),
   );
   for (const list of lists) if (list.status === "rejected") console.error("[spot] uniswap list failed:", list.reason);

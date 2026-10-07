@@ -308,8 +308,9 @@ dependency versions and design are free to diverge from angler-news.
     `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,
     polled through `/orders` until filled. `readUniswapTx` refuses empty calldata. Uniswap volume doesn't earn profile
     points yet; analytics records venue `uniswap`.
-  - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/WETH/USDT to pay
-    with): the spot list adds Uniswap's 60 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
+  - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/ETH/WETH/USDT to
+    pay with; native ETH is the zero address `NATIVE_TOKEN`: no approval, sent as the tx value, priced and charted as
+    WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 60 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
     side with the key) priced by DexScreener (`lib/spot/dexscreener.ts`, free, `tokens/v1` in batches of 30), and the
     search adds DexScreener's search (tokens on those chains with a Uniswap pool). Verified = on Uniswap's default list
     or ≥ $250k pool liquidity, never with a transfer tax; blocked tokens are dropped. A picked token rides in the
@@ -401,7 +402,7 @@ dependency versions and design are free to diverge from angler-news.
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
-  sortable columns, ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
 - History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid

@@ -10,7 +10,7 @@ import { uniswapListingId } from "@/lib/spot/listings";
 import { MAX_SPOT_PRICE_IMPACT_PCT } from "@/lib/trading/presets";
 import { bpsToPercent } from "@/lib/trading/slippage";
 import { fromBaseUnits, toBaseUnits } from "@/lib/venues/jupiter/amounts";
-import { sameAddress, type EvmSwapChain, type EvmSwapToken } from "@/lib/venues/uniswap/chains";
+import { isNativeToken, sameAddress, wrappedNative, type EvmSwapChain, type EvmSwapToken } from "@/lib/venues/uniswap/chains";
 import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
 import type { UniswapQuote } from "@/lib/venues/uniswap/quote";
 import type { OrderSide } from "@/lib/venues/types";
@@ -30,6 +30,8 @@ const QUOTE_REFRESH_MS = 15_000;
 const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
 const DOLLARS = new Set(["USDC", "USDT"]);
+/** ETH a "Max" keeps back for gas: mainnet gas costs more than an L2's. */
+const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n };
 
 type Side = Pick<EvmSwapToken, "address" | "symbol" | "decimals"> & { icon?: string };
 
@@ -45,7 +47,11 @@ function useBalances(chain: EvmSwapChain, owner: `0x${string}` | null, tokens: s
         const { createPublicClient, erc20Abi, http } = await import("viem");
         const client = createPublicClient({ transport: http(chain.rpc) });
         const amounts = await Promise.all(
-          tokens.map((address) => client.readContract({ address: address as `0x${string}`, abi: erc20Abi, functionName: "balanceOf", args: [owner] })),
+          tokens.map((address) =>
+            isNativeToken(address)
+              ? client.getBalance({ address: owner })
+              : client.readContract({ address: address as `0x${string}`, abi: erc20Abi, functionName: "balanceOf", args: [owner] }),
+          ),
         );
         if (active) setState({ key, amounts: Object.fromEntries(tokens.map((address, index) => [address.toLowerCase(), amounts[index]])) });
       } catch {}
@@ -150,7 +156,10 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const slippageBps = preferences.swapSlippageBps;
 
   const payToken = payOptions.find((entry) => entry.address === payAddress) ?? payOptions[0];
-  const listingOf = (address: string) => listings?.find((listing) => listing.id === uniswapListingId(chain.id, address));
+  // Native ETH is listed under the zero address; its price and logo fall back to WETH's.
+  const listingOf = (address: string) =>
+    listings?.find((listing) => listing.id === uniswapListingId(chain.id, address)) ??
+    (isNativeToken(address) ? listings?.find((listing) => listing.id === uniswapListingId(chain.id, wrappedNative(chain).address)) : undefined);
   const payPrice = DOLLARS.has(payToken.symbol) ? 1 : listingOf(payToken.address)?.price;
   const pay: Side = { ...payToken, icon: listingOf(payToken.address)?.icon };
   const asset: Side = { address: token.address, symbol: token.symbol, decimals: token.decimals, icon: token.icon };
@@ -321,7 +330,12 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
                 <button
                   key={share}
                   type="button"
-                  onClick={() => setAmount(String(fromBaseUnits((sellBalance * BigInt(share)) / 100n, sell.decimals)))}
+                  onClick={() => {
+                    // Selling ETH keeps a little back for gas.
+                    const reserve = isNativeToken(sell.address) ? (GAS_RESERVE_WEI[chain.id] ?? 0n) : 0n;
+                    const spendable = sellBalance > reserve ? sellBalance - reserve : 0n;
+                    setAmount(String(fromBaseUnits((spendable * BigInt(share)) / 100n, sell.decimals)));
+                  }}
                   className="h-6 rounded-full bg-app-chip px-2 text-[11px] font-semibold text-app-muted hover:text-app-ink"
                 >
                   {share === 100 ? "Max" : `${share}%`}
@@ -362,7 +376,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       )}
       {!token.verified && (
         <p className="rounded-xl border border-app-down/40 bg-app-down/10 p-2.5 text-[12px] text-app-ink">
-          <span className="font-semibold text-app-down">Unverified token.</span> Anyone can create a token with any name and logo. Check the address first:{" "}
+          <span className="font-semibold text-app-down">Unverified token.</span> Anyone can create a token with any name and logo. Check the
+          address first:{" "}
           <a href={`${chain.explorer}/token/${token.address}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] underline">
             {token.address.slice(0, 6)}…{token.address.slice(-4)}
           </a>
