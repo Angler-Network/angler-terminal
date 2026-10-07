@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
+import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
+import { useSolanaWallet } from "./solana-wallet-provider";
+import { useSpotQuotes, type SpotSource, type SpotSourceQuote } from "./use-spot-quotes";
 import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
@@ -36,13 +39,75 @@ import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
 import { normalizeSpotSymbol } from "@/lib/spot/listings";
 
-type SolanaSpotSource = "best" | "jupiter" | "titan";
-
 type VenueChoice =
   | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
-  // Solana spot: "best" asks Jupiter and Titan and takes the larger output; "jupiter" / "titan" use that one only.
-  | { id: SolanaSpotSource; name: string; network: string; kind: "spot"; token: SpotToken }
+  // Solana spot through the aggregators (Jupiter, and Titan when enabled); the quotes list picks the source.
+  | { id: "solana"; name: string; network: string; kind: "spot"; token: SpotToken }
   | { id: "arcus"; name: string; network: string; kind: "spot"; arcusToken: ArcusToken };
+
+const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan" };
+
+/**
+ * Quotes from each Solana source for the size, best first. With no pick the best one is used; pressing a row pins
+ * that source, pressing it again goes back to "best".
+ */
+function SpotQuotes({
+  quotes,
+  loading,
+  pick,
+  side,
+  onPick,
+}: {
+  quotes: SpotSourceQuote[];
+  loading: boolean;
+  pick: SpotSource | null;
+  side: OrderSide;
+  onPick: (source: SpotSource | null) => void;
+}) {
+  const best = quotes[0]?.outAmount ?? null;
+  const selected = pick ?? quotes.find((quote) => quote.outAmount !== null)?.source ?? null;
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between text-[11px] text-app-muted">
+        <span>Quotes {loading && <span className="text-app-faint">· updating…</span>}</span>
+        {pick ? (
+          <button type="button" onClick={() => onPick(null)} className="font-semibold text-app-accent hover:underline">
+            Use best
+          </button>
+        ) : (
+          <span className="text-app-faint">Auto: best</span>
+        )}
+      </div>
+      {quotes.length === 0 && <p className="text-[11px] text-app-faint">{loading ? "Getting quotes…" : "No quotes yet."}</p>}
+      {quotes.map((quote, index) => {
+        const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
+        const gap = quote.outAmount !== null && best !== null && best > 0n && index > 0 ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
+        const isSelected = selected === quote.source;
+        return (
+          <button
+            key={quote.source}
+            type="button"
+            disabled={quote.outAmount === null}
+            onClick={() => onPick(pick === quote.source ? null : quote.source)}
+            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] transition-colors disabled:cursor-default disabled:opacity-60 ${
+              isSelected ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"
+            }`}
+          >
+            <span className="w-14 font-semibold text-app-ink">{SOURCE_NAMES[quote.source]}</span>
+            {index === 0 && quote.outAmount !== null && (
+              <span className="rounded bg-app-up/15 px-1 py-[1px] text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
+            )}
+            <span className="ml-auto tabular-nums text-app-ink">
+              {amount !== null ? `${amount.toLocaleString("en-US", { maximumSignificantDigits: 7 })} ${quote.outputToken!.symbol}` : <span className="text-app-faint">{quote.note}</span>}
+            </span>
+            {gap > 0 && <span className="w-14 text-right tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
+            {index === 0 && quote.outAmount !== null && <span className="w-14 text-right text-[10px] text-app-faint">{side === "buy" ? "you get" : "you receive"}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const ARM_MS = 5_000;
 const PERCENTS = [25, 50, 75, 100];
@@ -238,13 +303,8 @@ function useVenueChoices(symbol: string, mint?: string) {
     );
   }
   if (preferences.venueJupiter && token) {
-    if (preferences.venueTitan && venueAvailable("titan")) {
-      choices.push(
-        { id: "best", name: "Best", network: "mainnet", kind: "spot", token },
-        { id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token },
-        { id: "titan", name: "Titan", network: "mainnet", kind: "spot", token },
-      );
-    } else choices.push({ id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token });
+    const titan = preferences.venueTitan && venueAvailable("titan");
+    choices.push({ id: "solana", name: titan ? "Jupiter · Titan" : "Jupiter", network: "mainnet", kind: "spot", token });
   }
   if (arcusToken) choices.push({ id: "arcus", name: "Arcus", network: arcusConfig.network, kind: "spot", arcusToken });
   return { choices, isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined };
@@ -261,6 +321,7 @@ export function OrderPanel() {
   const { accounts, placeOrder, openDeposit } = useTrading();
   const funding = useFunding();
   const { address } = useWallet();
+  const { address: solanaAddress } = useSolanaWallet();
   const { open: openWallets } = useWalletModal();
   const { pickedPrice } = useOrderDraft();
   const trade = useNewsTrader();
@@ -301,6 +362,15 @@ export function OrderPanel() {
   };
   // The Solana spot choice (Best, Jupiter or Titan): it needs a Solana wallet, not an EVM one.
   const solanaChoice = choice?.kind === "spot" && choice.id !== "arcus" ? choice : null;
+  // Live quotes per source, best first; null pick = follow the best one.
+  const [spotPick, setSpotPick] = useState<SpotSource | null>(null);
+  const { quotes: spotQuotes, loading: spotQuotesLoading } = useSpotQuotes({
+    token: solanaChoice?.token ?? null,
+    side,
+    sizeUsd: Number(size),
+    taker: solanaAddress,
+    titan: preferences.venueTitan && venueAvailable("titan"),
+  });
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
@@ -400,7 +470,7 @@ export function OrderPanel() {
         await trade({
           symbol,
           mint: solanaChoice ? solanaChoice.token.mint : undefined,
-          spotSource: solanaChoice?.id,
+          spotSource: solanaChoice ? (spotPick ?? "best") : undefined,
           venue: "spot",
           spotVenue: solanaChoice ? "jupiter" : "arcus",
           side,
@@ -594,6 +664,15 @@ export function OrderPanel() {
             />
             <span className="shrink-0 text-[12px] font-semibold text-app-ink">USD</span>
           </FieldBox>
+          {solanaChoice && Number(size) > 0 && (
+            <SpotQuotes
+              quotes={spotQuotes}
+              loading={spotQuotesLoading}
+              pick={spotPick}
+              side={side}
+              onPick={setSpotPick}
+            />
+          )}
           <PercentSlider
             value={percent}
             disabled={!available || available <= 0}
@@ -733,7 +812,7 @@ export function OrderPanel() {
           )}
           {solanaChoice && (
             <p className="text-[11px] text-app-faint">
-              {solanaChoice.id === "best" ? "Best compares Jupiter and Titan and swaps on the better quote. " : ""}Solana mainnet swaps with real funds.
+              {spotPick ? `Swaps on ${spotPick === "titan" ? "Titan" : "Jupiter"} (picked). ` : "Swaps on the best quote at the moment you confirm. "}Solana mainnet, real funds.
             </p>
           )}
           {choice?.id === "arcus" && (
