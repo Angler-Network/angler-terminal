@@ -26,6 +26,7 @@ import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { recordSwap } from "./swap-history-store";
 
 /** Lamports kept for fees on top of what the quote reports (ATA rent, retries). */
 const SOL_FEE_BUFFER = 2_000_000n;
@@ -170,6 +171,17 @@ export function useNewsTrader() {
         // The quote side of the swap is its USD volume (USDC at par, another token at its price).
         const paid = fromBaseUnits(bought ? result.inAmount : result.outAmount, payToken.decimals);
         const usd = payToken.mint === USDC_MINT ? paid : paid * (payToken.usdPrice ?? 0);
+        // "Your trades" and the holdings' PnL on /swap.
+        recordSwap(solanaAddress, {
+          tx: result.signature,
+          at: Date.now(),
+          chain: "solana",
+          token: token.mint,
+          symbol: token.symbol,
+          side: trade.side,
+          amount: fromBaseUnits(bought ? result.outAmount : result.inAmount, token.decimals),
+          usd,
+        });
         return { venue: viaTitan ? "titan" : "jupiter", usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({
@@ -217,6 +229,16 @@ export function useNewsTrader() {
         });
         // USDG is the dollar side of an Arcus swap.
         const usd = bought ? fromBaseUnits(result.sold.amount, result.sold.token.decimals) : fromBaseUnits(result.bought.amount, result.bought.token.decimals);
+        recordSwap(evmAddress, {
+          tx: result.txHash,
+          at: Date.now(),
+          chain: "robinhood",
+          token: token.address,
+          symbol: token.symbol,
+          side: trade.side,
+          amount: fromBaseUnits(bought ? result.bought.amount : result.sold.amount, token.decimals),
+          usd,
+        });
         return { venue: "arcus", usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({

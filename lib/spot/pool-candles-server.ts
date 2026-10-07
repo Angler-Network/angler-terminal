@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { takeDailyBudget } from "@/lib/analytics/store";
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
+import { readPoolTrades, type TokenTrade } from "./token-activity";
 import { baseCandleCount, baseMs, MAX_POOL_CANDLES, pickPool, poolTimeframe, readOhlcv, resampleCandles, type PoolInfo, type PoolNetwork } from "./pool-candles";
 
 const TIMEOUT_MS = 10_000;
@@ -60,4 +61,22 @@ export async function getPoolCandles(network: PoolNetwork, address: string, inte
   // Take whole buckets' worth of base candles from the end, then merge them.
   const recent = base.slice(-baseCandleCount(interval, count + 1));
   return { pool, candles: resampleCandles(recent, baseMs(interval), frame.factor).slice(-count) };
+}
+
+/** Recent swaps are refetched at most once a minute per pool (the free API allows about 10 calls a minute site-wide). */
+const TRADES_REVALIDATE_SECONDS = 60;
+
+const poolTrades = unstable_cache(
+  async (network: PoolNetwork, pool: string, token: string): Promise<TokenTrade[]> =>
+    readPoolTrades(await onchainJson(`/networks/${network}/pools/${pool}/trades`), network, token),
+  ["spot-trades-v1"],
+  { revalidate: TRADES_REVALIDATE_SECONDS },
+);
+
+/** The last swaps (up to 300, 24h) in the token's busiest pool, newest first; null when no indexed pool trades it. */
+export async function getPoolTrades(network: PoolNetwork, address: string) {
+  const pool = await findPool(network, address);
+  if (!pool) return null;
+  const trades = await poolTrades(network, pool.address, address);
+  return { pool: pool.address, trades: [...trades].sort((a, b) => b.at - a.at) };
 }

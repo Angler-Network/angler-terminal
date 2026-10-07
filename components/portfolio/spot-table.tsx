@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { formatPrice } from "@/lib/format";
 import type { SpotHolding } from "@/lib/venues/jupiter/holdings";
@@ -25,7 +25,18 @@ const DUST_USD = 1;
  * A Solana wallet's tokens: amount, price, value and share of the total, small balances folded away. With `onSelect`
  * (the swap view) a row picks that token to trade.
  */
-export function SpotTable({ holdings, total, onSelect }: { holdings: SpotHolding[]; total: number; onSelect?: (holding: SpotHolding) => void }) {
+export function SpotTable({
+  holdings,
+  total,
+  onSelect,
+  extra,
+}: {
+  holdings: SpotHolding[];
+  total: number;
+  onSelect?: (holding: SpotHolding) => void;
+  /** One more column after Value (the swap view's PnL). */
+  extra?: { label: string; cell: (holding: SpotHolding) => ReactNode };
+}) {
   const [showDust, setShowDust] = useState(false);
   if (holdings.length === 0) return <p className="px-3 py-6 text-center text-[13px] text-app-muted">No tokens in this wallet.</p>;
   const dust = holdings.filter((holding) => (holding.usd ?? 0) < DUST_USD).length;
@@ -39,6 +50,7 @@ export function SpotTable({ holdings, total, onSelect }: { holdings: SpotHolding
           <th className={`${th} text-right`}>Amount</th>
           <th className={`${th} text-right`}>Price</th>
           <th className={`${th} text-right`}>Value</th>
+          {extra && <th className={`${th} text-right`}>{extra.label}</th>}
           <th className={`${th} w-40`}>Share</th>
         </tr>
       </thead>
@@ -67,6 +79,7 @@ export function SpotTable({ holdings, total, onSelect }: { holdings: SpotHolding
               <td className={`${td} text-right`}>{holding.amount.toLocaleString("en-US", { maximumSignificantDigits: 6 })}</td>
               <td className={`${td} text-right text-app-muted`}>{holding.usdPrice === null ? "—" : formatPrice(holding.usdPrice)}</td>
               <td className={`${td} text-right`}>{holding.usd === null ? "—" : usd.format(holding.usd)}</td>
+              {extra && <td className={`${td} text-right`}>{extra.cell(holding)}</td>}
               <td className={td}>
                 <span className="flex items-center gap-2">
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-app-chip">

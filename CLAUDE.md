@@ -236,8 +236,19 @@ dependency versions and design are free to diverge from angler-news.
     (USDC, SOL, USDT, then the wallet's other priced tokens); `quoteMint` rides on the trade and quotes
     (`jupiterVenue.quoteToken(mint)`, USD size = amount × the token's price; "Max" keeps 0.01 SOL for fees). Profile
     points count a swap's USDC change, so non-USDC swaps don't earn points yet.
-    On /swap the panel under the chart is Holdings (`swap-holdings.tsx`: the Solana wallet's tokens through
-    `components/portfolio/spot-table.tsx`, shared with the portfolio page; a row picks that token), not perp positions.
+    On /swap the panel under the chart is the traded token's activity (`swap-holdings.tsx`), not perp positions, from
+    free sources only (a paid indexer such as Birdeye would add per-holder bought/sold and full wallet PnL):
+    Swaps = its busiest pool's last 300 trades (`GET /api/spot/trades`, GeckoTerminal/CoinGecko on-chain
+    `pools/{pool}/trades`, cached 60s, `readPoolTrades` reads the side from the token's view; min-size filter);
+    Holders = Jupiter's holder count + top-10 share and the largest wallets (`GET /api/spot/holders`: Solana RPC
+    `getTokenLargestAccounts` + owners; public RPCs rate limit it, so a failure isn't cached and the list needs a real
+    `SOLANA_RPC_URL`; Robinhood tokens link to Blockscout, whose API answers servers with a Cloudflare challenge);
+    Your trades = swaps made here (`lib/spot/swap-history.ts`, recorded per wallet in localStorage by
+    `use-news-trader.ts` through `swap-history-store.ts`) plus the wallet's trades among the pool's recent ones;
+    My holdings = the Solana wallet's tokens (`components/portfolio/spot-table.tsx`, shared with the portfolio page; a
+    row picks that token) with PnL against the average cost of what was bought here (`costBasis`, `unrealizedPnl`;
+    "—" for tokens bought elsewhere, "*" when only part of the holding has a known cost). The free GeckoTerminal API
+    allows about 10 calls a minute site-wide: set `COINGECKO_API_KEY` before traffic grows.
     Cross-chain buys (Arcus mainnet only): the Sell pill is a "Pay with" picker (USDG · Robinhood, USDC · Arbitrum /
     Base / Hyperliquid). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
     with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →
