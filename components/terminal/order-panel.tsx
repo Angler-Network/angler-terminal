@@ -62,7 +62,7 @@ function Segmented<T extends string>({
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={`h-7 flex-1 whitespace-nowrap rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
-            value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+            value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
           }`}
         >
           {option.label}
@@ -81,7 +81,7 @@ function Summary({ label, children, title }: { label: string; children: React.Re
   );
 }
 
-const fieldInput = "h-full min-w-0 flex-1 bg-transparent text-right text-[13px] tabular-nums text-app-ink outline-none placeholder:text-app-faint";
+const fieldInput = "h-full min-w-0 flex-1 bg-transparent text-right text-[13px] tabular-nums text-app-ink outline-hidden placeholder:text-app-faint";
 
 /** An input row with its label inside, like the venues' own order forms. */
 function FieldBox({ label, children }: { label: string; children: React.ReactNode }) {

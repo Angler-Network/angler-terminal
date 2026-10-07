@@ -29,7 +29,7 @@ function Section({ title, badge, children }: { title: string; badge?: string; ch
     <section className="flex flex-col gap-2 border-b border-app-hairline p-3 last:border-b-0">
       <header className="flex items-center gap-2">
         <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-app-muted">{title}</h3>
-        {badge && <span className="ml-auto rounded bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{badge}</span>}
+        {badge && <span className="ml-auto rounded-sm bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{badge}</span>}
       </header>
       {children}
     </section>

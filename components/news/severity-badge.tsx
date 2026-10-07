@@ -15,7 +15,7 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
 
   return (
     <span
-      className={`rounded px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] ${className}`}
+      className={`rounded-sm px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] ${className}`}
     >
       {t(label)}
     </span>

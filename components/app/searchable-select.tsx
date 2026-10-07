@@ -166,7 +166,7 @@ export function SearchableSelect<T>({
             setActiveIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-medium text-app-ink outline-none placeholder:font-normal placeholder:text-app-faint"
+          className="h-full min-w-0 flex-1 bg-transparent text-[14px] font-medium text-app-ink outline-hidden placeholder:font-normal placeholder:text-app-faint"
         />
         <ChevronDown
           className={`size-4 shrink-0 text-app-muted transition-transform ${isOpen ? "rotate-180" : ""}`}

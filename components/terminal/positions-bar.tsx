@@ -52,7 +52,7 @@ export function VenueBadge({ venue }: { venue: PerpVenueId }) {
   return (
     <span
       title={PERP_VENUE_NAMES[venue]}
-      className="ml-1.5 rounded bg-app-chip px-1 py-[2px] align-middle text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted"
+      className="ml-1.5 rounded-sm bg-app-chip px-1 py-[2px] align-middle text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted"
     >
       {venue === "hyperliquid" ? "HL" : "Lighter"}
     </span>
@@ -122,7 +122,7 @@ function TpslEditor({ position, mark, onDone }: { position: VenuePosition; mark?
     const pnl = pnlAt(side, position.entryPx, level, Math.abs(position.size));
     return <span className={pnl >= 0 ? "text-app-up" : "text-app-down"}>{signed(pnl)}</span>;
   };
-  const input = "h-7 w-28 rounded-md border border-app-field-border bg-app-field px-2 text-[12px] tabular-nums text-app-ink outline-none focus:border-app-ink";
+  const input = "h-7 w-28 rounded-md border border-app-field-border bg-app-field px-2 text-[12px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
   return (
     <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-[12px] text-app-muted">
       <span className="font-semibold text-app-ink">TP/SL for {position.symbol}</span>
@@ -466,7 +466,7 @@ export function PositionsBar() {
                 onClick={() => updatePreference("positionsLayout", value)}
                 title={value === "grouped" ? "A section per venue" : "One list, venue badge on each row"}
                 className={`h-6 rounded-md px-2 text-[11px] font-semibold ${
-                  preferences.positionsLayout === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+                  preferences.positionsLayout === value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
                 }`}
               >
                 {value === "grouped" ? "By venue" : "List"}

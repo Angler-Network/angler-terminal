@@ -34,7 +34,7 @@ export function FitLabel({ children, maxSize, minSize, className = "" }: FitLabe
   }, [children, maxSize, minSize]);
 
   return (
-    <span ref={ref} className={`w-full text-balance text-center leading-tight [word-break:keep-all] ${className}`}>
+    <span ref={ref} className={`w-full text-balance text-center leading-tight break-keep ${className}`}>
       {children}
     </span>
   );

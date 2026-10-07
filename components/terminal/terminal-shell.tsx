@@ -87,7 +87,7 @@ export function TerminalShell() {
   }, [panels.news, panels.positions, showSide, positionsHeight]);
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
-  const placed = "min-h-0 lg:[grid-column:var(--col)] lg:[grid-row:var(--row)] lg:h-auto";
+  const placed = "min-h-0 lg:col-(--col) lg:row-(--row) lg:h-auto";
   // Phones and tablets show one view at a time (bottom tab bar), every panel available whatever the desktop layout.
   const mobileView = (name: MobileView) => `max-lg:h-full ${view === name ? "" : "max-lg:hidden"}`;
   const shown = isMobile ? allPanels : panels;
@@ -98,7 +98,7 @@ export function TerminalShell() {
       <div
         ref={gridRef}
         style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
-        className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:[grid-template-columns:var(--cols)] lg:[grid-template-rows:var(--rows)]"
+        className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:grid-cols-(--cols) lg:grid-rows-(--rows)"
       >
         <div data-mobile-view="chart" style={place(layout.chart)} className={`${placed} ${mobileView("chart")}`}>
           <ChartPanel items={chartItems} />

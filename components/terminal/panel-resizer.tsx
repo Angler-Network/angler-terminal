@@ -66,7 +66,7 @@ export function PanelResizer({
         event.preventDefault();
         onCommit(clamp(height + delta, max()));
       }}
-      className="group absolute inset-x-0 -top-2 z-10 flex h-2 cursor-row-resize touch-none items-center justify-center outline-none max-lg:hidden"
+      className="group absolute inset-x-0 -top-2 z-10 flex h-2 cursor-row-resize touch-none items-center justify-center outline-hidden max-lg:hidden"
     >
       <span className="h-1 w-12 rounded-full bg-app-ink/25 transition-colors group-hover:bg-app-accent group-focus-visible:bg-app-accent group-active:bg-app-accent" />
     </div>

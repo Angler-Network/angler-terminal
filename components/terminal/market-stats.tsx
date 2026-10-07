@@ -44,7 +44,7 @@ export function MarketStats({
   if (!market) return null;
   const rate8h = funding?.[market.symbol]?.[market.venue];
   return (
-    <div className={`scrollbar-none flex min-w-0 flex-1 overflow-x-auto pr-4 [mask-image:linear-gradient(90deg,#000_calc(100%-24px),transparent)] ${className}`}>
+    <div className={`scrollbar-none flex min-w-0 flex-1 overflow-x-auto pr-4 mask-[linear-gradient(90deg,#000_calc(100%-24px),transparent)] ${className}`}>
       {/* Sized to its content so the chart header can measure what the stats need. */}
       <div ref={contentRef} className="flex w-max items-center gap-3">
       <Stat label="Mark" title={`${PERP_VENUE_NAMES[market.venue]} mark price`}>

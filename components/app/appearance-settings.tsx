@@ -118,7 +118,7 @@ function CustomCssEditor() {
         rows={8}
         aria-label={t("look.css")}
         placeholder={":root {\n  --app-accent: 74 134 232;\n}"}
-        className="scrollbar-subtle mt-3 w-full resize-y rounded-xl border border-app-field-border bg-app-card p-3 font-mono text-[13px] leading-relaxed text-app-ink outline-none placeholder:text-app-faint focus:border-app-focus focus:ring-4 focus:ring-app-ring/40"
+        className="scrollbar-subtle mt-3 w-full resize-y rounded-xl border border-app-field-border bg-app-card p-3 font-mono text-[13px] leading-relaxed text-app-ink outline-hidden placeholder:text-app-faint focus:border-app-focus focus:ring-4 focus:ring-app-ring/40"
       />
     </div>
   );

@@ -147,7 +147,7 @@ function MoveFunds() {
 }
 
 const inputClass =
-  "h-10 w-full rounded-lg border border-app-field-border bg-app-field px-3 text-[14px] tabular-nums text-app-ink outline-none focus:border-app-ink";
+  "h-10 w-full rounded-lg border border-app-field-border bg-app-field px-3 text-[14px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
 
 function Tabs<T extends string>({ value, options, onChange }: { value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
   return (
@@ -158,7 +158,7 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-8 flex-1 rounded-md text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"}`}
+          className={`h-8 flex-1 rounded-md text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"}`}
         >
           {option.label}
         </button>
@@ -259,7 +259,7 @@ export function DepositDialog() {
           <h2 id="deposit-title" className="flex-1 text-[16px] font-semibold text-app-ink">
             Funds
           </h2>
-          <span className="rounded bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{venueNetwork}</span>
+          <span className="rounded-sm bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{venueNetwork}</span>
           <button type="button" onClick={closeDeposit} aria-label="Close" className="text-app-faint hover:text-app-ink">
             <X className="size-4" />
           </button>

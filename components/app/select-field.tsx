@@ -150,7 +150,7 @@ export function SelectField({ label, value, options, onChange, className = "w-[1
         aria-activedescendant={isOpen ? `${listId}-${activeIndex}` : undefined}
         onClick={() => (isOpen ? close(false) : open())}
         onKeyDown={handleKeyDown}
-        className={`flex h-10 ${className} items-center gap-2 rounded-xl border pl-4 pr-3 text-left text-[14px] text-app-ink outline-none transition-colors focus-visible:ring-4 focus-visible:ring-app-ring/60 ${
+        className={`flex h-10 ${className} items-center gap-2 rounded-xl border pl-4 pr-3 text-left text-[14px] text-app-ink outline-hidden transition-colors focus-visible:ring-4 focus-visible:ring-app-ring/60 ${
           isOpen ? "border-app-focus bg-app-field-hover" : "border-app-field-border bg-app-field hover:bg-app-field-hover"
         }`}
       >

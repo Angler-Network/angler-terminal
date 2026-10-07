@@ -25,7 +25,7 @@ export function Toggle({ label, checked, onChange, disabled = false, title }: To
       title={title}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-app-ring/60 disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-app-ring/60 disabled:cursor-not-allowed disabled:opacity-50 ${
         checked ? "bg-app-accent" : "bg-app-toggle-off"
       }`}
     >
@@ -80,7 +80,7 @@ export function SegmentedControl<T extends string>({ label, value, options, onCh
           onClick={() => onChange(option.value)}
           className={`h-8 rounded-lg px-3.5 text-[14px] transition-colors ${
             option.value === value
-              ? "bg-app-dialog font-semibold text-app-ink shadow-sm"
+              ? "bg-app-dialog font-semibold text-app-ink shadow-xs"
               : "text-app-muted hover:text-app-ink"
           }`}
         >
@@ -129,7 +129,7 @@ export function NumberStepper({ label, value, min, max, step = 1, className = ""
         onChange={(event) => onChange(event.target.value)}
         onBlur={(event) => onCommit?.(event.target.value)}
         onKeyDown={(event) => event.key === "Enter" && onCommit?.(event.currentTarget.value)}
-        className="h-full min-w-0 flex-1 bg-transparent pl-4 text-[14px] tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-full min-w-0 flex-1 bg-transparent pl-4 text-[14px] tabular-nums outline-hidden [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <div className="flex h-full w-8 shrink-0 flex-col border-l border-app-field-border">
         <button

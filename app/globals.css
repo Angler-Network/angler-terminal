@@ -1,6 +1,49 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sora), system-ui, sans-serif;
+
+  --color-app-accent: rgb(var(--app-accent));
+  --color-app-card: rgb(var(--app-card));
+  --color-app-chip: rgb(var(--app-chip));
+  --color-app-danger: rgb(var(--app-danger));
+  --color-app-dialog: rgb(var(--app-dialog));
+  --color-app-down: rgb(var(--app-down));
+  --color-app-faint: rgb(var(--app-faint));
+  --color-app-field: rgb(var(--app-field));
+  --color-app-field-border: rgb(var(--app-field-border));
+  --color-app-field-hover: rgb(var(--app-field-hover));
+  --color-app-focus: rgb(var(--app-focus));
+  --color-app-hairline: rgb(var(--app-hairline));
+  --color-app-hairline-strong: rgb(var(--app-hairline-strong));
+  --color-app-ink: rgb(var(--app-ink));
+  --color-app-line: rgb(var(--app-line));
+  --color-app-muted: rgb(var(--app-muted));
+  --color-app-on-accent: rgb(var(--app-on-accent));
+  --color-app-panel: rgb(var(--app-panel));
+  --color-app-ring: rgb(var(--app-ring));
+  --color-app-selected: rgb(var(--app-selected));
+  --color-app-shell-bottom: rgb(var(--app-shell-bottom));
+  --color-app-shell-top: rgb(var(--app-shell-top));
+  --color-app-toggle-off: rgb(var(--app-toggle-off));
+  --color-app-up: rgb(var(--app-up));
+}
+
+/* Tailwind 3 defaults the UI was built on: gray borders and the pointer cursor on buttons. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 :root {
   --app-shell-top: 219 229 242;

@@ -6,14 +6,16 @@ import { usePreferences } from "./preferences-provider";
 
 /** Sidebar and top bar hide/reveal buttons, from angler-news (always available here, no setting gate). */
 
+// No display utility here: each button sets its own (`hidden lg:inline-flex`), since two display classes on one
+// element resolve by stylesheet order, which changed in Tailwind 4.
 const iconButton =
-  "inline-flex size-9 items-center justify-center rounded-xl text-app-muted transition-colors hover:bg-app-card/70 hover:text-app-ink";
+  "size-9 items-center justify-center rounded-xl text-app-muted transition-colors hover:bg-app-card/70 hover:text-app-ink";
 
 const IDLE_DELAY_MS = 5000;
 
 // Solid, high-contrast tabs: they're the only way back to a hidden sidebar or top bar, so they must stand out.
 const revealButton =
-  "absolute z-30 inline-flex items-center justify-center bg-app-accent text-app-on-accent shadow-[0_2px_12px_rgba(0,0,0,0.45)] transition-[opacity,filter] duration-300 hover:opacity-100 hover:brightness-110 focus-visible:opacity-100";
+  "absolute z-30 items-center justify-center bg-app-accent text-app-on-accent shadow-[0_2px_12px_rgba(0,0,0,0.45)] transition-[opacity,filter] duration-300 hover:opacity-100 hover:brightness-110 focus-visible:opacity-100";
 
 function useIdle(enabled: boolean) {
   const [isIdle, setIsIdle] = useState(false);
@@ -88,7 +90,7 @@ export function LayoutRevealButtons() {
           onClick={() => updatePreference("showTopBar", true)}
           aria-label="Show top bar"
           title="Show top bar"
-          className={`${revealButton} ${visibility} left-1/2 top-0 h-6 w-16 -translate-x-1/2 rounded-b-lg max-lg:hidden`}
+          className={`${revealButton} ${visibility} left-1/2 top-0 inline-flex h-6 w-16 -translate-x-1/2 rounded-b-lg max-lg:hidden`}
         >
           <ChevronDown className="size-4" strokeWidth={2.5} aria-hidden />
         </button>

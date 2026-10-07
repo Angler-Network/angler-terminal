@@ -59,7 +59,7 @@ export function IntervalPicker({ maxQuick }: { maxQuick?: number } = {}) {
             title={intervalLabel(value)}
             onClick={() => select(value)}
             className={`h-7 rounded-md px-2 text-[12px] font-semibold transition-colors ${
-              interval === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+              interval === value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
             }`}
           >
             {intervalShortLabel(value)}

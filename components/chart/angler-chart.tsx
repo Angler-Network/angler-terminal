@@ -335,7 +335,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
           value={preferences.chartSource}
           onChange={(event) => updatePreference("chartSource", event.target.value as ChartSource)}
           title="Where the candles come from. Auto follows the venue in the order panel."
-          className="cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-[11px] text-app-faint outline-none hover:bg-app-chip hover:text-app-ink focus-visible:ring-2 focus-visible:ring-app-ring"
+          className="cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-[11px] text-app-faint outline-hidden hover:bg-app-chip hover:text-app-ink focus-visible:ring-2 focus-visible:ring-app-ring"
         >
           {(["auto", "hyperliquid", "lighter", "binance"] as const).map((source) => (
             <option key={source} value={source} className="bg-app-dialog text-app-ink">

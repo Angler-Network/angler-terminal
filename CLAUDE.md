@@ -23,8 +23,11 @@ dependency versions and design are free to diverge from angler-news.
 
 ## Architecture
 
-- Theme: `app/globals.css` CSS variables + `app.*` tokens, Sora font in `app/layout.tsx`. Default look is the `oled`
-  theme with the `liquid` surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once).
+- Theme: Tailwind CSS 4, configured in CSS (no `tailwind.config`): `app/globals.css` holds the `--app-*` channel
+  variables per theme and the `@theme` tokens (`--color-app-*` → `bg-app-card/55` etc.), Sora font in `app/layout.tsx`.
+  Never put two display utilities on one element (`inline-flex hidden lg:inline-flex`): Tailwind 4's stylesheet order
+  differs from 3's, so set the display per breakpoint instead. Default look is the `oled` theme with the `liquid`
+  surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once).
 - Code that began as copies of angler-news (`components/news/*`, `components/chart/*`, `components/app/ticker-*`,
   `market-icon`, `preferences-provider`, `searchable-select`, `lib/markets/*`, `lib/chart/candles.ts`,
   `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`) is owned here now: change it freely, nothing is ported

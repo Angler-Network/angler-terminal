@@ -17,7 +17,7 @@ function NavLabel({ children }: { children: React.ReactNode }) {
     <FitLabel
       maxSize={11}
       minSize={10}
-      className="[@media(max-height:600px)]:sr-only [html:not([data-frame=off])_&]:[@media(max-height:660px)]:sr-only"
+      className="[@media(max-height:600px)]:sr-only [@media(max-height:660px)]:[html:not([data-frame=off])_&]:sr-only"
     >
       {children}
     </FitLabel>

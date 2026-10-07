@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <TradingProvider>
                   <WalletModalProvider>
                   <TradeTicketProvider>
-                    <div className="app-shell relative flex h-full overflow-hidden bg-gradient-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
+                    <div className="app-shell relative flex h-full overflow-hidden bg-linear-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <LayoutRevealButtons />
                       <Sidebar />
                       <AppFrame tape={<ServerTape />}>{children}</AppFrame>

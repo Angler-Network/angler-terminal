@@ -105,7 +105,7 @@ function LookStep() {
               onClick={() => updatePreference("framedLayout", option.framed)}
               className={`flex items-center gap-3 rounded-xl border p-2 text-left transition-colors ${active ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"}`}
             >
-              <span className={`flex h-10 w-14 shrink-0 bg-app-chip ${option.framed ? "rounded-lg p-1" : "rounded-sm"}`}>
+              <span className={`flex h-10 w-14 shrink-0 bg-app-chip ${option.framed ? "rounded-lg p-1" : "rounded-xs"}`}>
                 <span className={`flex-1 border border-app-hairline-strong bg-app-card ${option.framed ? "rounded-md" : ""}`} />
               </span>
               <span>
@@ -138,8 +138,8 @@ function LookStep() {
               className={`flex items-center gap-3 rounded-xl border p-2 text-left transition-colors ${active ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"}`}
             >
               <span className={`flex h-10 w-14 shrink-0 gap-0.5 overflow-hidden rounded-md bg-app-chip p-0.5 ${option.mode === "top" ? "flex-col" : ""}`}>
-                <span className={`rounded-sm bg-app-hairline-strong ${option.mode === "top" ? "h-1.5" : "w-2"}`} />
-                <span className="flex-1 rounded-sm border border-app-hairline-strong bg-app-card" />
+                <span className={`rounded-xs bg-app-hairline-strong ${option.mode === "top" ? "h-1.5" : "w-2"}`} />
+                <span className="flex-1 rounded-xs border border-app-hairline-strong bg-app-card" />
               </span>
               <span>
                 <span className="block text-[13px] font-semibold text-app-ink">{option.label}</span>
@@ -166,7 +166,7 @@ function LookStep() {
               aria-checked={preferences.tapePosition === option.value}
               onClick={() => updatePreference("tapePosition", option.value)}
               className={`h-7 flex-1 rounded-md text-[12px] font-semibold ${
-                preferences.tapePosition === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+                preferences.tapePosition === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
               }`}
             >
               {option.label}

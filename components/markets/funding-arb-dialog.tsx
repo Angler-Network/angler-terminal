@@ -19,7 +19,7 @@ import { useModalEnter } from "@/components/app/use-motion";
 const ARM_MS = 5_000;
 
 const inputClass =
-  "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-none focus:border-app-ink";
+  "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
 
 /**
  * Opens a delta-neutral funding position in one go: a market long on the low-funding venue and a market short on the

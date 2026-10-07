@@ -130,7 +130,7 @@ export function MarketsTable() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search, e.g. BTC"
             aria-label="Search markets"
-            className="w-40 bg-transparent text-[13px] text-app-ink outline-none placeholder:text-app-faint"
+            className="w-40 bg-transparent text-[13px] text-app-ink outline-hidden placeholder:text-app-faint"
           />
         </label>
         <label className="flex items-center gap-2 text-[12px] text-app-muted">
@@ -180,8 +180,8 @@ export function MarketsTable() {
                       <MarketIcon symbol={row.symbol} kind={row.kind} size={20} />
                       {row.symbol}
                       <span className="flex gap-1">
-                        {row.hyperliquid && <span className="rounded bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">HL</span>}
-                        {row.lighter && <span className="rounded bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">Lighter</span>}
+                        {row.hyperliquid && <span className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">HL</span>}
+                        {row.lighter && <span className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">Lighter</span>}
                       </span>
                     </button>
                   </td>

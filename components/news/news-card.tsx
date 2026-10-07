@@ -83,7 +83,7 @@ function SentimentMeter({ sentiment }: { sentiment: number }) {
         aria-valuemin={-1}
         aria-valuemax={1}
         aria-valuenow={Number(value.toFixed(2))}
-        className="relative h-1.5 w-16 rounded-full bg-gradient-to-r from-app-down/50 via-app-chip to-app-up/50"
+        className="relative h-1.5 w-16 rounded-full bg-linear-to-r from-app-down/50 via-app-chip to-app-up/50"
       >
         <span aria-hidden className="absolute left-1/2 top-1/2 h-2.5 w-px -translate-x-1/2 -translate-y-1/2 bg-app-hairline-strong" />
         <span
@@ -111,7 +111,7 @@ function SentimentPill({ sentiment }: { sentiment: number }) {
   return (
     <span
       title={`Sentiment ${sentiment.toFixed(2)} (model output)`}
-      className={`rounded px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.06em] ${tone.className}`}
+      className={`rounded-sm px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.06em] ${tone.className}`}
     >
       {tone.label}
     </span>
@@ -161,7 +161,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
       onClick={onSelect}
       aria-current={isSelected || undefined}
       className={`group relative -mx-3 flex cursor-default border-b border-app-hairline px-3 transition-colors ${
-        compact ? "gap-2.5 py-[min(var(--news-padding),10px)]" : "gap-3 py-[var(--news-padding)]"
+        compact ? "gap-2.5 py-[min(var(--news-padding),10px)]" : "gap-3 py-(--news-padding)"
       } last:border-b-0 hover:bg-app-chip/25 ${
         isSelected ? "bg-app-chip/45" : ""
       } ${isFlashing ? "news-flash" : ""}`}
@@ -179,7 +179,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
           {item.enriched ? (
             <SeverityBadge severity={item.severity} />
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-app-muted">
+            <span className="inline-flex items-center gap-1.5 rounded-sm bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-app-muted">
               <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />
               Raw
             </span>
@@ -194,7 +194,7 @@ export function NewsCard({ item, onSelectAsset, selectedSymbol, renderTrade, isS
           {item.originalHeadline && (
             <span
               title={item.originalHeadline}
-              className="shrink-0 rounded bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-[0.06em] text-app-faint"
+              className="shrink-0 rounded-sm bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase leading-none tracking-[0.06em] text-app-faint"
             >
               {item.lang ? `${item.lang.split("-")[0]} → EN` : "Translated"}
             </span>

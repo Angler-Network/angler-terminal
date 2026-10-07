@@ -25,7 +25,7 @@ const ARM_MS = 5_000;
 const PRO = "#f5c97b";
 
 const field =
-  "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-none focus:border-app-ink";
+  "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
 
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; label: string }) {
   return (
@@ -36,7 +36,7 @@ function Tabs<T extends string>({ value, options, onChange, label }: { value: T;
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 flex-1 rounded-md px-2 text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"}`}
+          className={`h-7 flex-1 rounded-md px-2 text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"}`}
         >
           {option.label}
         </button>
@@ -247,7 +247,7 @@ export function ProOrderDialog() {
           <div className="min-w-0 flex-1">
             <h2 id="pro-order-title" className="flex items-center gap-2 text-[16px] font-semibold text-app-ink">
               Pro order
-              <span className="rounded px-1.5 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-black" style={{ background: PRO }}>
+              <span className="rounded-sm px-1.5 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-black" style={{ background: PRO }}>
                 Pro
               </span>
             </h2>

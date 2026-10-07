@@ -183,7 +183,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
       className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55"
     >
       {/* A size container so the controls can compact themselves when the column is narrow instead of overflowing. */}
-      <header className="flex shrink-0 items-center gap-1.5 border-b border-app-hairline px-3 py-2 [container-type:inline-size]">
+      <header className="flex shrink-0 items-center gap-1.5 border-b border-app-hairline px-3 py-2 @container">
         <h2 className="text-[13px] font-semibold text-app-ink">News</h2>
         <FeedStatusBadge status={status} error={liveError} />
         {items.length > 0 && <span className="text-[11px] tabular-nums text-app-faint [@container(max-width:360px)]:hidden">{shown.length}</span>}
@@ -196,7 +196,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
               onClick={() => updatePreference("newsFilters", { ...filters, minImpact: value })}
               title={value === 0 ? "All news" : `Importance ${value}+`}
               className={`h-6 rounded-md px-1.5 text-[11px] [@container(max-width:320px)]:px-1 font-semibold tabular-nums transition-colors ${
-                minImportance === value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"
+                minImportance === value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
               }`}
             >
               {value === 0 ? "All" : `${value}+`}
@@ -286,9 +286,9 @@ export function NewsFeed({ feed }: NewsFeedProps) {
               <div key={index} className="flex gap-3">
                 <span className="size-8 shrink-0 animate-pulse rounded-lg bg-app-chip" />
                 <span className="flex flex-1 flex-col gap-1.5">
-                  <span className="h-2.5 w-1/3 animate-pulse rounded bg-app-chip" />
-                  <span className="h-3 w-full animate-pulse rounded bg-app-chip" />
-                  <span className="h-3 w-2/3 animate-pulse rounded bg-app-chip" />
+                  <span className="h-2.5 w-1/3 animate-pulse rounded-sm bg-app-chip" />
+                  <span className="h-3 w-full animate-pulse rounded-sm bg-app-chip" />
+                  <span className="h-3 w-2/3 animate-pulse rounded-sm bg-app-chip" />
                 </span>
               </div>
             ))}
@@ -340,5 +340,5 @@ export function NewsFeed({ feed }: NewsFeedProps) {
 }
 
 function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="rounded border border-app-hairline-strong bg-app-chip px-1 font-sans font-semibold text-app-muted">{children}</kbd>;
+  return <kbd className="rounded-sm border border-app-hairline-strong bg-app-chip px-1 font-sans font-semibold text-app-muted">{children}</kbd>;
 }

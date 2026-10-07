@@ -117,7 +117,7 @@ function ImpactStepper({ label, value, onChange }: { label: string; value: numbe
 }
 
 const ruleInput =
-  "h-10 rounded-xl border border-app-field-border bg-app-field px-3 text-[14px] text-app-ink outline-none focus:border-app-ink";
+  "h-10 rounded-xl border border-app-field-border bg-app-field px-3 text-[14px] text-app-ink outline-hidden focus:border-app-ink";
 
 /** "When news like this arrives, do that": rules run by `news-rules-runner.tsx` while the terminal is open. */
 function NewsRulesSettings() {
@@ -539,7 +539,7 @@ function VenueRow({ name, description, badge, children }: { name: string; descri
       <div className="min-w-0 flex-1 basis-[180px]">
         <p className="flex items-center gap-2 text-[15px] font-semibold text-app-ink">
           {name}
-          {badge && <span className="rounded bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{badge}</span>}
+          {badge && <span className="rounded-sm bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{badge}</span>}
         </p>
         <p className="mt-1 text-[13px] leading-relaxed text-app-muted">{description}</p>
       </div>

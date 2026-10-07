@@ -19,7 +19,7 @@ function CheckRow({ label, checked, onToggle }: { label: string; checked: boolea
       onClick={onToggle}
       className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-app-ink hover:bg-app-chip"
     >
-      <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-app-accent bg-app-accent text-app-on-accent" : "border-app-hairline-strong"}`}>
+      <span className={`grid size-4 shrink-0 place-items-center rounded-sm border ${checked ? "border-app-accent bg-app-accent text-app-on-accent" : "border-app-hairline-strong"}`}>
         {checked && <Check className="size-3" />}
       </span>
       {label}
@@ -37,7 +37,7 @@ function Choice<T extends string>({ value, options, onChange }: { value: T; opti
           role="radio"
           aria-checked={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 flex-1 rounded-md text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"}`}
+          className={`h-7 flex-1 rounded-md text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"}`}
         >
           {option.label}
         </button>

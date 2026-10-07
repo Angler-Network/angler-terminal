@@ -193,7 +193,7 @@ export function OrderBook() {
         isLoading ? (
           <div role="status" aria-label="Loading order book" className="flex flex-1 flex-col gap-1 p-3">
             {Array.from({ length: 12 }, (_, index) => (
-              <span key={index} aria-hidden className="h-3.5 shrink-0 animate-pulse rounded bg-app-chip/50" />
+              <span key={index} aria-hidden className="h-3.5 shrink-0 animate-pulse rounded-sm bg-app-chip/50" />
             ))}
           </div>
         ) : (
@@ -205,7 +205,7 @@ export function OrderBook() {
             <div className="flex shrink-0 items-center gap-3 px-2 pb-1 text-[10px] text-app-muted">
               {[market.venue, other.venue].map((venue) => (
                 <span key={venue} className="flex items-center gap-1">
-                  <span className="size-2 rounded-sm" style={{ background: VENUE_COLORS[venue] }} />
+                  <span className="size-2 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />
                   {VENUE_SHORT[venue]}
                 </span>
               ))}

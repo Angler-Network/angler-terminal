@@ -117,8 +117,8 @@ export function TickerTape({ initial, initialMarkets }: TickerTapeProps) {
   return (
     <div
       ref={viewportRef}
-      className={`ticker-tape min-w-0 flex-1 [mask-image:linear-gradient(90deg,transparent,#000_24px,#000_calc(100%-24px),transparent)] ${
-        isMoving ? "overflow-hidden" : "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className={`ticker-tape min-w-0 flex-1 mask-[linear-gradient(90deg,transparent,#000_24px,#000_calc(100%-24px),transparent)] ${
+        isMoving ? "overflow-hidden" : "overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden"
       }`}
     >
       <div

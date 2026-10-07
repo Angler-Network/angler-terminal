@@ -257,7 +257,7 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 rounded-md px-2.5 text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-sm" : "text-app-muted hover:text-app-ink"}`}
+          className={`h-7 rounded-md px-2.5 text-[12px] font-semibold ${value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"}`}
         >
           {option.label}
         </button>
@@ -306,7 +306,7 @@ function SpotTable({ holdings, total }: { holdings: SpotHolding[]; total: number
                   <span className="font-semibold">{holding.symbol}</span>
                   <span className="max-w-[160px] truncate text-app-faint">{holding.name}</span>
                   {!holding.verified && (
-                    <span title="Not verified by Jupiter" className="rounded bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted">
+                    <span title="Not verified by Jupiter" className="rounded-sm bg-app-chip px-1 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted">
                       Unverified
                     </span>
                   )}
@@ -533,7 +533,7 @@ export function PortfolioView() {
   // Children keep their height ([&>*]:shrink-0) and the page scrolls; otherwise flex squeezes the cards with
   // overflow-hidden (positions, trades) to nothing when the window is shorter than the page.
   return (
-    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto [&>*]:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
+    <section className="surface-panel scrollbar-subtle flex h-full min-h-0 flex-col gap-4 overflow-auto *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
       <header className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-[18px] font-semibold text-app-ink">Portfolio</h1>
