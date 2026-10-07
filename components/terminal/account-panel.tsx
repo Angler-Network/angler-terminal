@@ -205,6 +205,23 @@ function LighterSection({ venue }: { venue: LighterVenueId }) {
   );
 }
 
+function PerpSection({ venue }: { venue: PerpVenueId }) {
+  return venue === "hyperliquid" ? <HyperliquidSection /> : <LighterSection venue={venue} />;
+}
+
+/**
+ * Perp account of the venue the order panel trades on (funds, trading key) and no other: more venues mustn't mean
+ * more Deposit buttons. Before the panel has picked one, the preferred perp venue stands in.
+ */
+function PerpAccount() {
+  const { preferences } = usePreferences();
+  const { tradeVenue } = useSelectedAsset();
+  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh };
+  const venue = [tradeVenue, preferences.preferredPerpVenue, ...(Object.keys(enabled) as PerpVenueId[])].find((entry): entry is PerpVenueId => Boolean(entry && enabled[entry]));
+  if (!venue) return null;
+  return venue === "hyperliquid" ? <HyperliquidSection /> : <LighterSection venue={venue} />;
+}
+
 function JupiterSection() {
   const { address } = useSolanaWallet();
   const { symbol, mint } = useSelectedAsset();
@@ -322,7 +339,7 @@ export function useHasWallet() {
 
 /**
  * The trading card: the order panel on top, then balances and trading keys for the venues of the current view
- * (perp accounts on /perp, Solana and Arcus balances on /spot), only once a wallet is connected; wallets themselves
+ * (the traded perp venue's account on /perp, Solana and Arcus balances on /spot), only once a wallet is connected; wallets themselves
  * are managed from the Connect button. Each part follows its panel setting. With the order book below it (`grow`
  * off) the card keeps its natural height and scrolls once the book needs the room.
  */
@@ -341,9 +358,7 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
             <OrderPanel />
           </div>
         )}
-        {showAccount && kind === "perp" && evmAddress && preferences.venueHyperliquid && <HyperliquidSection />}
-        {showAccount && kind === "perp" && evmAddress && preferences.venueLighter && <LighterSection venue="lighter" />}
-        {showAccount && kind === "perp" && evmAddress && preferences.venueLighterRh && <LighterSection venue="lighterRh" />}
+        {showAccount && kind === "perp" && evmAddress && <PerpAccount />}
         {showAccount && kind === "spot" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
         {showAccount && kind === "spot" && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>

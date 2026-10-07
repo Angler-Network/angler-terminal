@@ -333,7 +333,9 @@ dependency versions and design are free to diverge from angler-news.
   (`venueHyperliquid`, `venueLighter`, `venueJupiter`); each perp venue's network can be overridden per browser
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
-  bar; close/cancel route by `venue`); the account panel and setup dialog have a section per perp venue.
+  bar; close/cancel route by `venue`); the setup dialog has a section per perp venue; the account
+  panel shows only the venue the order panel trades on (`tradeVenue`, else `preferredPerpVenue`), so more venues
+  don't add Deposit buttons.
 - Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "Make it yours" (theme,
   accent, framed or full screen, sidebar or top navigation, tape position; applied live) → "What do you want on your
   screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
