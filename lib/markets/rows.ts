@@ -1,5 +1,6 @@
 import type { MarketsByVenue } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
+import { assets } from "@/lib/data";
 import { marketCategory, type MarketCategory } from "./category";
 
 /**
@@ -54,7 +55,8 @@ export function sortAssetRows(rows: AssetRow[], sort: AssetSort): AssetRow[] {
   return movers.sort((a, b) => direction * (a.change24hPct! - b.change24hPct!));
 }
 
+/** By ticker, or by name for the assets the terminal knows one for ("bitc" finds BTC). */
 export function matchesQuery(row: AssetRow, query: string) {
   const wanted = query.trim().toUpperCase();
-  return !wanted || row.symbol.includes(wanted);
+  return !wanted || row.symbol.includes(wanted) || Boolean(assets[row.symbol]?.name.toUpperCase().includes(wanted));
 }

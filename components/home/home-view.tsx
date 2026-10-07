@@ -79,10 +79,10 @@ function MoverCard({ title, icon: Icon, tone, rows, loaded, onOpen }: { title: s
 function LatestNews() {
   const t = useT();
   const { items, status } = useNewsFeed({ minImportance: 0 });
-  const latest = items.slice(0, 7);
+  const latest = items.slice(0, 5);
 
   return (
-    <section className={`${panel} flex flex-col`}>
+    <section className={`${panel} flex flex-col lg:h-0 lg:min-h-full`}>
       <header className="flex items-center justify-between px-4 pb-1.5 pt-3.5">
         <h2 className="text-[13px] font-semibold text-app-ink">Latest news</h2>
         {status === "live" && (
@@ -92,11 +92,11 @@ function LatestNews() {
           </span>
         )}
       </header>
-      <ul className="flex-1">
+      <ul className="min-h-0 flex-1 overflow-hidden">
         {latest.map((item) => {
           const body = (
             <>
-              <span className="line-clamp-2 text-[13px] leading-snug text-app-ink">{item.headline}</span>
+              <span className="truncate text-[13px] leading-snug text-app-ink" title={item.headline}>{item.headline}</span>
               <span className="mt-1 flex items-center gap-2 text-[11px] text-app-faint">
                 {item.symbol && <span className="font-semibold text-app-muted">{item.symbol}</span>}
                 {formatRelativeTime(item.minutesAgo, t)}
@@ -106,11 +106,11 @@ function LatestNews() {
           return (
             <li key={item.id}>
               {item.url ? (
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col px-4 py-2 hover:bg-app-chip/40">
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-col px-4 py-2 hover:bg-app-chip/40">
                   {body}
                 </a>
               ) : (
-                <div className="flex flex-col px-4 py-2">{body}</div>
+                <div className="flex min-w-0 flex-col px-4 py-2">{body}</div>
               )}
             </li>
           );
@@ -175,8 +175,8 @@ export function HomeView() {
   return (
     <div className="scrollbar-subtle h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-6 lg:px-8 lg:py-10">
-        <section className={`${panel} relative p-5 sm:p-7`}>
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
+        <section className="surface-panel relative z-10 rounded-2xl border border-app-card/80 bg-app-card/55 p-5 sm:p-7">
+          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
           <div className="relative">
             <div className="flex flex-col gap-4">
               <div>
@@ -235,7 +235,7 @@ export function HomeView() {
 
         <ReferralBanner />
 
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_340px] md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_340px] md:grid-cols-2">
           {movers.map((mover) => (
             <MoverCard key={mover.sort} title={mover.title} icon={mover.icon} tone={mover.tone} rows={mover.rows} loaded={loaded} onOpen={open} />
           ))}
