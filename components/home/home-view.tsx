@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Flame, Search, TrendingDown, TrendingUp, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Flame, Gift, Search, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -11,53 +11,23 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { formatPrice, formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
-import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { assetRows, matchesQuery, sortAssetRows, type AssetRow, type AssetSort } from "@/lib/markets/rows";
-import { PERP_VENUE_NAMES, PERP_VENUE_SHORT } from "@/lib/venues/routing";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 
 const NEWS_SITE = "https://news.angler.network";
-const SHOWN_ROWS = 25;
+const MOVER_ROWS = 6;
+const SEARCH_ROWS = 12;
 
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 
-const TABS: Array<{ value: AssetSort; label: string; icon: LucideIcon }> = [
-  { value: "volume", label: "Trending", icon: Flame },
-  { value: "gainers", label: "Top gainers", icon: TrendingUp },
-  { value: "losers", label: "Top losers", icon: TrendingDown },
-  { value: "openInterest", label: "Open interest", icon: Wallet },
+const MOVERS: Array<{ sort: AssetSort; title: string; icon: LucideIcon; tone: string }> = [
+  { sort: "volume", title: "Most traded", icon: Flame, tone: "text-[#f5c97b]" },
+  { sort: "gainers", title: "Gainers", icon: TrendingUp, tone: "text-app-up" },
+  { sort: "losers", title: "Losers", icon: TrendingDown, tone: "text-app-down" },
 ];
 
-const CATEGORY_LABEL = Object.fromEntries(MARKET_CATEGORIES.map((category) => [category.value, category.label])) as Record<MarketCategory, string>;
-
-/** The referral program, in the cream-and-ink look of the home page's one promo. */
-function ReferralCard() {
-  return (
-    <Link
-      href="/profile#referrals"
-      className="group relative flex min-h-[176px] flex-col justify-between overflow-hidden rounded-2xl bg-linear-to-br from-[#f3ead3] via-[#ece0c0] to-[#d8c79e] p-6 text-[#18261d] shadow-[0_12px_40px_rgba(0,0,0,0.25)]"
-    >
-      <svg aria-hidden viewBox="0 0 200 160" className="pointer-events-none absolute -right-6 -top-4 h-[190px] w-[240px] opacity-90 transition-transform duration-500 group-hover:-translate-y-1 group-hover:translate-x-1">
-        <path d="M30 120 L190 18 L120 150 L98 104 Z" fill="#fbf6e7" />
-        <path d="M98 104 L190 18 L120 150 Z" fill="#e7dbb9" />
-        <path d="M30 120 L98 104 L190 18 Z" fill="#fffdf4" />
-        <path d="M2 156 Q 40 150 62 128" fill="none" stroke="#18261d" strokeWidth="4" strokeLinecap="round" strokeDasharray="0.1 11" />
-      </svg>
-      <div className="relative">
-        <p className="font-serif text-[34px] leading-[1.05] tracking-tight sm:text-[40px]">
-          Invite traders.
-          <sup className="ml-1 align-super font-sans text-[10px] font-semibold tracking-[0.12em]">BETA</sup>
-          <br />
-          <span className="rounded-md bg-[#18261d] px-1.5 text-[#f3ead3]">Earn</span> for life.
-        </p>
-      </div>
-      <p className="relative mt-4 flex items-center gap-2 text-[13px] font-medium text-[#18261d]/80">
-        Get 10% of the points of every trader you refer. Forever.
-        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </p>
-    </Link>
-  );
-}
+const panel = "surface-panel overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55";
 
 function Change({ value }: { value: number | undefined }) {
   if (value === undefined) return <span className="text-app-faint">—</span>;
@@ -69,36 +39,71 @@ function Change({ value }: { value: number | undefined }) {
   );
 }
 
-function VenueBadges({ row, venueIds }: { row: AssetRow; venueIds: PerpVenueId[] }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <span className="flex flex-wrap justify-end gap-1">
-      {venueIds.map(
-        (id) =>
-          row.venues[id] && (
-            <span key={id} title={PERP_VENUE_NAMES[id]} className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">
-              {PERP_VENUE_SHORT[id]}
-            </span>
-          ),
-      )}
-    </span>
+    <div className="flex flex-col gap-1 rounded-xl border border-app-hairline bg-app-card/40 px-4 py-3">
+      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">{label}</span>
+      <span className="text-[20px] font-semibold tabular-nums text-app-ink">{value}</span>
+    </div>
+  );
+}
+
+function AssetLine({ row, onOpen }: { row: AssetRow; onOpen: (symbol: string) => void }) {
+  return (
+    <li>
+      <button type="button" onClick={() => onOpen(row.symbol)} className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] tabular-nums hover:bg-app-chip/40">
+        <MarketIcon symbol={row.symbol} kind={row.kind} size={22} />
+        <span className="min-w-0 flex-1 truncate font-semibold text-app-ink">{row.symbol}</span>
+        <span className="text-app-muted">{row.price ? formatPrice(row.price) : "—"}</span>
+        <span className="w-[68px] text-right">
+          <Change value={row.change24hPct} />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function MoverCard({ title, icon: Icon, tone, rows, loaded, onOpen }: { title: string; icon: LucideIcon; tone: string; rows: AssetRow[]; loaded: boolean; onOpen: (symbol: string) => void }) {
+  return (
+    <section className={`${panel} flex flex-col`}>
+      <h2 className="flex items-center gap-2 px-4 pb-1.5 pt-3.5 text-[13px] font-semibold text-app-ink">
+        <Icon className={`size-4 ${tone}`} aria-hidden />
+        {title}
+      </h2>
+      <ul className="pb-2">
+        {rows.map((row) => (
+          <AssetLine key={row.symbol} row={row} onOpen={onOpen} />
+        ))}
+        {rows.length === 0 && loaded && <li className="px-4 py-4 text-[12px] text-app-muted">Nothing here today.</li>}
+        {rows.length === 0 && !loaded && (
+          <li aria-hidden className="flex flex-col gap-2 px-4 py-2">
+            {Array.from({ length: MOVER_ROWS }, (_, index) => (
+              <span key={index} className="h-6 animate-pulse rounded-md bg-app-chip/50" />
+            ))}
+          </li>
+        )}
+      </ul>
+    </section>
   );
 }
 
 function LatestNews() {
   const t = useT();
   const { items, status } = useNewsFeed({ minImportance: 0 });
-  const latest = items.slice(0, 8);
+  const latest = items.slice(0, 7);
 
   return (
-    <section className="surface-panel flex flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
-      <header className="flex items-center justify-between border-b border-app-hairline px-4 py-3">
-        <h2 className="text-[14px] font-semibold text-app-ink">Latest</h2>
-        <span className="flex items-center gap-1.5 text-[11px] text-app-faint">
-          {status === "live" && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-up" />}
-          Angler News
-        </span>
+    <section className={`${panel} flex flex-col`}>
+      <header className="flex items-center justify-between px-4 pb-1.5 pt-3.5">
+        <h2 className="text-[13px] font-semibold text-app-ink">Latest news</h2>
+        {status === "live" && (
+          <span className="flex items-center gap-1.5 text-[11px] text-app-faint">
+            <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-up" />
+            Live
+          </span>
+        )}
       </header>
-      <ul className="divide-y divide-app-hairline">
+      <ul className="flex-1">
         {latest.map((item) => {
           const body = (
             <>
@@ -112,11 +117,11 @@ function LatestNews() {
           return (
             <li key={item.id}>
               {item.url ? (
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col px-4 py-2.5 hover:bg-app-chip/40">
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col px-4 py-2 hover:bg-app-chip/40">
                   {body}
                 </a>
               ) : (
-                <div className="flex flex-col px-4 py-2.5">{body}</div>
+                <div className="flex flex-col px-4 py-2">{body}</div>
               )}
             </li>
           );
@@ -129,156 +134,140 @@ function LatestNews() {
         href={NEWS_SITE}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-auto flex items-center justify-between border-t border-app-hairline px-4 py-3 text-[12px] font-semibold text-app-ink hover:bg-app-chip/40"
+        className="flex items-center justify-between border-t border-app-hairline px-4 py-3 text-[12px] font-semibold text-app-ink hover:bg-app-chip/40"
       >
-        Read everything on Angler News
+        More on Angler News
         <ArrowUpRight className="size-4" aria-hidden />
       </a>
     </section>
   );
 }
 
-/** The landing page: search and discover markets across every venue, the referral program and the latest news. */
+/** A slim banner for the referral program, sitting between the hero and the markets. */
+function ReferralBanner() {
+  return (
+    <Link
+      href="/profile#referrals"
+      className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#f5c97b]/30 bg-[#f5c97b]/[0.07] px-4 py-3 transition-colors hover:bg-[#f5c97b]/[0.12]"
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#f5c97b]/15 text-[#f5c97b]">
+        <Gift className="size-[18px]" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-semibold text-app-ink">Bring your crew, keep 10% of their points</span>
+        <span className="block text-[12px] text-app-muted">Share your link from your profile. Every trader who joins with it earns you points on every trade, for good.</span>
+      </span>
+      <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#f5c97b] px-3 text-[12px] font-semibold text-black">
+        Get your link
+        <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </span>
+    </Link>
+  );
+}
+
+/** The landing page: live totals across every venue, a market search, today's movers, the referral program and news. */
 export function HomeView() {
   const router = useRouter();
   const { selectAsset } = useSelectedAsset();
   const { marketsByVenue } = useTrading();
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<AssetSort>("volume");
-  const [category, setCategory] = useState<MarketCategory | "all">("all");
 
   const rows = useMemo(() => assetRows(marketsByVenue), [marketsByVenue]);
   const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
-  const categories = useMemo(() => MARKET_CATEGORIES.filter((option) => rows.some((row) => row.category === option.value)), [rows]);
-  const shown = useMemo(
-    () => sortAssetRows(rows.filter((row) => matchesQuery(row, query) && (category === "all" || row.category === category)), tab).slice(0, SHOWN_ROWS),
-    [rows, query, category, tab],
+  const totals = useMemo(
+    () => rows.reduce((sum, row) => ({ volume: sum.volume + row.volume, openInterest: sum.openInterest + row.openInterest }), { volume: 0, openInterest: 0 }),
+    [rows],
   );
+  const movers = useMemo(() => MOVERS.map((mover) => ({ ...mover, rows: sortAssetRows(rows, mover.sort).slice(0, MOVER_ROWS) })), [rows]);
+  const results = useMemo(() => (query.trim() ? sortAssetRows(rows.filter((row) => matchesQuery(row, query)), "volume").slice(0, SEARCH_ROWS) : []), [rows, query]);
 
   const open = (symbol: string) => {
     selectAsset(symbol);
     router.push("/perp");
   };
+  const loaded = rows.length > 0;
 
   return (
     <div className="scrollbar-subtle h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[1320px] flex-col gap-6 px-4 py-6 lg:px-8 lg:py-10">
-        <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
-          <div className="flex flex-col justify-between gap-5">
-            <div>
-              <h1 className="font-serif text-[36px] leading-tight tracking-tight text-app-ink sm:text-[44px]">Discover Markets</h1>
-              <p className="mt-1 text-[13px] text-app-muted">
-                {rows.length > 0 ? `${rows.length} markets` : "Markets"} across {venueIds.length > 0 ? venueIds.map((id) => PERP_VENUE_NAMES[id]).join(", ") : "every venue"}, plus swaps and prediction markets.
-              </p>
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-6 lg:px-8 lg:py-10">
+        <section className={`${panel} relative p-5 sm:p-7`}>
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
+          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:items-end">
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#f5c97b]">Angler Terminal</p>
+                <h1 className="mt-2 text-[30px] font-semibold leading-[1.1] tracking-tight text-app-ink sm:text-[38px]">
+                  Every perp DEX, one screen.
+                </h1>
+                <p className="mt-2 max-w-[520px] text-[14px] text-app-muted">
+                  Best execution across {venueIds.length > 0 ? venueIds.map((id) => PERP_VENUE_NAMES[id]).join(", ") : "every venue"}, swaps on Solana and
+                  Robinhood Chain, and AI-scored news you can trade in two taps.
+                </p>
+              </div>
+              <div className="relative max-w-[560px]">
+                <label className="flex h-11 items-center gap-2.5 rounded-xl border border-app-field-border bg-app-field px-3.5">
+                  <Search className="size-[18px] text-app-faint" aria-hidden />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && results[0]) open(results[0].symbol);
+                      if (event.key === "Escape") setQuery("");
+                    }}
+                    placeholder="Find a market: BTC, NVDA, GOLD…"
+                    aria-label="Find a market"
+                    className="min-w-0 flex-1 bg-transparent text-[14px] text-app-ink outline-hidden placeholder:text-app-faint"
+                  />
+                </label>
+                {query.trim() && (
+                  <ul className="absolute inset-x-0 top-full z-20 mt-1.5 max-h-[360px] overflow-y-auto rounded-xl border border-app-hairline-strong bg-app-card py-1 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
+                    {results.map((row) => (
+                      <AssetLine key={row.symbol} row={row} onOpen={open} />
+                    ))}
+                    {results.length === 0 && <li className="px-4 py-3 text-[12px] text-app-muted">{loaded ? "No market matches." : "Loading markets…"}</li>}
+                  </ul>
+                )}
+              </div>
             </div>
-            <label className="flex h-12 items-center gap-3 rounded-2xl border border-app-field-border bg-app-field px-4">
-              <Search className="size-5 text-app-faint" aria-hidden />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && shown[0]) open(shown[0].symbol);
-                }}
-                placeholder="Search any market by name or ticker"
-                aria-label="Search markets"
-                className="min-w-0 flex-1 bg-transparent text-[14px] text-app-ink outline-hidden placeholder:text-app-faint"
-              />
-            </label>
-            <nav aria-label="Trade" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {marketNav.map(({ href, label, title, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  title={title}
-                  className="group flex items-center gap-2.5 rounded-xl border border-app-hairline bg-app-card/55 px-3 py-2.5 transition-colors hover:border-app-hairline-strong hover:bg-app-card"
-                >
-                  <Icon className="size-4 shrink-0 text-app-muted group-hover:text-app-ink" strokeWidth={1.75} aria-hidden />
-                  <span className="truncate text-[13px] font-semibold text-app-ink">{label}</span>
-                  <ArrowRight className="ml-auto size-3.5 shrink-0 text-app-faint transition-transform group-hover:translate-x-0.5" aria-hidden />
-                </Link>
-              ))}
-            </nav>
+            <div className="grid grid-cols-2 gap-2">
+              <Stat label="Markets" value={loaded ? String(rows.length) : "—"} />
+              <Stat label="Venues" value={loaded ? String(venueIds.length) : "—"} />
+              <Stat label="24h volume" value={totals.volume > 0 ? compactUsd.format(totals.volume) : "—"} />
+              <Stat label="Open interest" value={totals.openInterest > 0 ? compactUsd.format(totals.openInterest) : "—"} />
+            </div>
           </div>
-          <ReferralCard />
-        </div>
+        </section>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="surface-panel min-w-0 overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
-            <div className="scrollbar-none flex items-center gap-1 overflow-x-auto border-b border-app-hairline px-3 pt-2">
-              {TABS.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={tab === value}
-                  onClick={() => setTab(value)}
-                  className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-2.5 pt-1.5 text-[13px] font-semibold transition-colors ${
-                    tab === value ? "border-app-ink text-app-ink" : "border-transparent text-app-muted hover:text-app-ink"
-                  }`}
-                >
-                  <Icon className="size-3.5" aria-hidden />
+        <nav aria-label="Trade" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {marketNav.map(({ href, label, title, icon: Icon }) => (
+            <Link key={href} href={href} className={`${panel} group flex items-start gap-3 p-4 transition-colors hover:border-app-hairline-strong`}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink">
+                <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 text-[14px] font-semibold text-app-ink">
                   {label}
-                </button>
-              ))}
-              <Link href="/markets" className="ml-auto inline-flex shrink-0 items-center gap-1 px-2 pb-2.5 pt-1.5 text-[12px] font-semibold text-app-muted hover:text-app-ink">
-                All markets
-                <ArrowRight className="size-3.5" aria-hidden />
-              </Link>
-            </div>
-            <div role="group" aria-label="Category" className="scrollbar-none flex gap-1.5 overflow-x-auto px-3 py-2.5">
-              {[{ value: "all" as const, label: "All" }, ...categories].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={category === option.value}
-                  onClick={() => setCategory(option.value)}
-                  className={`h-7 shrink-0 rounded-lg border px-2.5 text-[12px] font-semibold transition-colors ${
-                    category === option.value ? "border-app-ink/70 text-app-ink" : "border-app-hairline text-app-muted hover:text-app-ink"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <table className="w-full text-[13px] tabular-nums">
-              <thead>
-                <tr className="border-y border-app-hairline text-[11px] font-medium text-app-faint">
-                  <th className="px-4 py-2 text-left font-medium">Name</th>
-                  <th className="px-3 py-2 text-right font-medium">Price</th>
-                  <th className="px-3 py-2 text-right font-medium">24h change</th>
-                  <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">24h volume</th>
-                  <th className="hidden px-3 py-2 text-right font-medium md:table-cell">Open interest</th>
-                  <th className="hidden px-4 py-2 text-right font-medium md:table-cell">Venues</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((row) => (
-                  <tr key={row.symbol} onClick={() => open(row.symbol)} className="cursor-pointer border-b border-app-hairline last:border-b-0 hover:bg-app-chip/40">
-                    <td className="px-4 py-2.5">
-                      <button type="button" onClick={(event) => (event.stopPropagation(), open(row.symbol))} className="flex items-center gap-2.5 text-left">
-                        <MarketIcon symbol={row.symbol} kind={row.kind} size={28} />
-                        <span className="flex flex-col">
-                          <span className="font-semibold text-app-ink">{row.symbol}</span>
-                          <span className="text-[11px] text-app-faint">{CATEGORY_LABEL[row.category]}</span>
-                        </span>
-                      </button>
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-app-ink">{row.price ? formatPrice(row.price) : "—"}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Change value={row.change24hPct} />
-                    </td>
-                    <td className="hidden px-3 py-2.5 text-right text-app-ink sm:table-cell">{row.volume > 0 ? compactUsd.format(row.volume) : "—"}</td>
-                    <td className="hidden px-3 py-2.5 text-right text-app-muted md:table-cell">{row.openInterest > 0 ? compactUsd.format(row.openInterest) : "—"}</td>
-                    <td className="hidden px-4 py-2.5 md:table-cell">
-                      <VenueBadges row={row} venueIds={venueIds} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {shown.length === 0 && <p className="p-8 text-center text-[13px] text-app-muted">{rows.length === 0 ? "Loading markets…" : "No market matches."}</p>}
-          </section>
+                  <ArrowRight className="size-3.5 text-app-faint transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </span>
+                <span className="mt-0.5 line-clamp-2 block text-[12px] text-app-muted">{title}</span>
+              </span>
+            </Link>
+          ))}
+        </nav>
+
+        <ReferralBanner />
+
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_340px] md:grid-cols-2">
+          {movers.map((mover) => (
+            <MoverCard key={mover.sort} title={mover.title} icon={mover.icon} tone={mover.tone} rows={mover.rows} loaded={loaded} onOpen={open} />
+          ))}
           <LatestNews />
         </div>
+
+        <Link href="/markets" className="mx-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-app-muted hover:text-app-ink">
+          Every market, with funding and spreads
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
       </div>
     </div>
   );

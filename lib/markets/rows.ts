@@ -44,13 +44,13 @@ export function assetRows(marketsByVenue: MarketsByVenue): AssetRow[] {
   return [...bySymbol.values()];
 }
 
-/** Sorted copy; gainers and losers leave out assets without a 24h change, and markets with almost no volume. */
+/** Sorted copy; gainers (losers) keep only assets up (down) on the day, leaving out markets with almost no volume. */
 export function sortAssetRows(rows: AssetRow[], sort: AssetSort): AssetRow[] {
   if (sort === "symbol") return [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol));
   if (sort === "volume") return [...rows].sort((a, b) => b.volume - a.volume);
   if (sort === "openInterest") return [...rows].sort((a, b) => b.openInterest - a.openInterest);
-  const movers = rows.filter((row) => row.change24hPct !== undefined && row.volume >= 100_000);
   const direction = sort === "gainers" ? -1 : 1;
+  const movers = rows.filter((row) => row.change24hPct !== undefined && -direction * row.change24hPct > 0 && row.volume >= 100_000);
   return movers.sort((a, b) => direction * (a.change24hPct! - b.change24hPct!));
 }
 

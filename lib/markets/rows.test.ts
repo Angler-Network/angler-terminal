@@ -26,7 +26,7 @@ describe("assetRows", () => {
 
   it("sorts by volume, and ranks movers with real volume", () => {
     expect(sortAssetRows(rows, "volume").map((row) => row.symbol)).toEqual(["ETH", "NVDA", "BTC"]);
-    expect(sortAssetRows(rows, "gainers").map((row) => row.symbol)).toEqual(["ETH", "NVDA"]);
-    expect(sortAssetRows(rows, "losers").map((row) => row.symbol)).toEqual(["NVDA", "ETH"]);
+    expect(sortAssetRows(rows, "gainers").map((row) => row.symbol)).toEqual(["ETH"]);
+    expect(sortAssetRows(rows, "losers").map((row) => row.symbol)).toEqual(["NVDA"]);
   });
 });
