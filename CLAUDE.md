@@ -315,9 +315,12 @@ dependency versions and design are free to diverge from angler-news.
     pay with; native ETH is the zero address `NATIVE_TOKEN`: no approval, sent as the tx value, priced and charted as
     WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 150 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
     side with the key; not Robinhood, `listTop: false`), priced by DefiLlama (`lib/spot/llama.ts`: `coins.llama.fi`
-    prices + 24h change, free, batches of 60) with volume/liquidity from DexScreener when it answers
-    (`lib/spot/dexscreener.ts`; it returns empty results to rate-limited IPs instead of a 429, which silently left
-    every token unpriced). The search adds Relay's token search (`lib/spot/relay-currencies.ts`, `POST
+    prices + 24h change, free, batches of 60). Volume, liquidity and market cap come from DexScreener
+    (`lib/spot/dexscreener.ts`; it returns empty results to rate-limited IPs instead of a 429, which once silently left
+    every token unpriced), else GeckoTerminal's `tokens/multi` for what it left bare (`lib/spot/gecko-tokens.ts`,
+    `getOnchainTokenStats`: same key/plan/daily budget as the pool charts, 30 per call, at most 2 calls per chain per
+    refresh), else the last good numbers (`lib/spot/market-memory.ts`: Redis hash `angler:spot:evm-stats:v1`, memory
+    without Redis, used up to 6 hours). Prices fall back the same way (DefiLlama → pool sources). The search adds Relay's token search (`lib/spot/relay-currencies.ts`, `POST
     /currencies/v2`) plus DexScreener's, priced by DefiLlama; hits outside the list are unverified. Verified = on
     Uniswap's default list, or ≥ $250k pool liquidity, or (no liquidity figure) DefiLlama confidence ≥ 0.95; never with a
     transfer tax; blocked tokens are dropped. A picked token rides in the

@@ -10,6 +10,11 @@ import { EVM_SWAP_CHAINS, isNativeToken, wrappedNative } from "@/lib/venues/unis
 import { readUniswapServerConfig, uniswapFetch } from "@/lib/venues/uniswap/server";
 import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener";
 import { LLAMA_BATCH, llamaKey, readLlamaMarkets } from "./llama";
+import { GECKO_TOKENS_BATCH } from "./gecko-tokens";
+import { decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-memory";
+import { getOnchainTokenStats } from "./pool-candles-server";
+import type { PoolNetwork } from "./pool-candles";
+import { redisConfig, redisPipeline } from "@/lib/redis";
 import { readRelayCurrencies, relayCurrenciesBody } from "./relay-currencies";
 import { readRelayServerConfig, relayFetch } from "@/lib/venues/relay-server";
 import {
@@ -93,6 +98,63 @@ async function dexMarkets(chain: string, addresses: string[]) {
   return markets;
 }
 
+/** GeckoTerminal calls per chain per refresh at most (free: ~10 a minute site-wide, shared with the pool charts). */
+const GECKO_MAX_TOKENS_PER_CHAIN = GECKO_TOKENS_BATCH * 2;
+const STATS_KEY = "angler:spot:evm-stats:v1";
+const STATS_EXPIRE_SECONDS = 24 * 60 * 60;
+const memoryStats = new Map<string, string>();
+
+/** GeckoTerminal stats for tokens nothing else covered; a failed batch (429 included) only leaves those bare. */
+async function geckoStats(network: PoolNetwork, addresses: string[]) {
+  const markets = new Map<string, TokenMarket>();
+  for (let index = 0; index < addresses.length; index += GECKO_TOKENS_BATCH) {
+    try {
+      for (const [address, market] of await getOnchainTokenStats(network, addresses.slice(index, index + GECKO_TOKENS_BATCH))) markets.set(address, market);
+    } catch (error) {
+      console.error("[spot] geckoterminal token stats failed:", error);
+      break;
+    }
+  }
+  return markets;
+}
+
+const statsField = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
+
+/** The last good volume / liquidity per token (Redis, memory without it), younger than `MARKET_MEMORY_TTL_MS`. */
+async function recallStats(chainId: number, addresses: string[]) {
+  const fields = addresses.map((address) => statsField(chainId, address));
+  let values: unknown[] = fields.map((field) => memoryStats.get(field));
+  if (redisConfig() && fields.length) {
+    try {
+      const [result] = await redisPipeline([["HMGET", STATS_KEY, ...fields]]);
+      if (Array.isArray(result)) values = result;
+    } catch (error) {
+      console.error("[spot] stats memory read failed:", error);
+    }
+  }
+  const recalled = new Map<string, TokenMarket>();
+  addresses.forEach((address, index) => {
+    const market = decodeMarket(values[index]);
+    if (market) recalled.set(address.toLowerCase(), market);
+  });
+  return recalled;
+}
+
+async function rememberStats(chainId: number, markets: Map<string, TokenMarket>) {
+  const entries = [...markets].flatMap(([address, market]) => {
+    const encoded = encodeMarket(market);
+    return encoded ? [[statsField(chainId, address), encoded] as const] : [];
+  });
+  if (entries.length === 0) return;
+  for (const [field, value] of entries) memoryStats.set(field, value);
+  if (!redisConfig()) return;
+  try {
+    await redisPipeline([["HSET", STATS_KEY, ...entries.flat()], ["EXPIRE", STATS_KEY, STATS_EXPIRE_SECONDS]]);
+  } catch (error) {
+    console.error("[spot] stats memory write failed:", error);
+  }
+}
+
 /** DefiLlama prices and 24h changes for a chain's tokens, in batches; a failed batch only leaves those tokens bare. */
 async function llamaMarkets(chain: string, addresses: string[]) {
   const markets = new Map<string, TokenMarket>();
@@ -118,8 +180,9 @@ async function llamaMarkets(chain: string, addresses: string[]) {
 }
 
 /**
- * Uniswap's most traded tokens on each EVM swap chain (Trading API `/tokens`): prices and 24h change from DefiLlama,
- * volume and liquidity from DexScreener when it answers.
+ * Uniswap's most traded tokens on each EVM swap chain (Trading API `/tokens`). Prices and 24h change: DefiLlama, else
+ * the pool sources. Volume, liquidity and market cap: DexScreener, else GeckoTerminal for what it left bare, else the
+ * last good numbers (up to 6 hours old), so a rate-limited refresh doesn't blank them.
  */
 async function uniswapListings(): Promise<SpotListing[]> {
   const { apiKey } = readUniswapServerConfig(process.env);
@@ -132,13 +195,16 @@ async function uniswapListings(): Promise<SpotListing[]> {
       const weth = wrappedNative(chain).address;
       const addresses = records.flatMap((record) => (typeof record.address === "string" && !isNativeToken(record.address) ? [record.address] : []));
       const wanted = [...new Set([...addresses, weth])];
-      const [prices, pools] = await Promise.all([llamaMarkets(chain.llama, wanted), dexMarkets(chain.dexscreener, wanted)]);
-      // Native ETH has no pool of its own: it trades at WETH's price.
+      const [prices, pools, remembered] = await Promise.all([llamaMarkets(chain.llama, wanted), dexMarkets(chain.dexscreener, wanted), recallStats(chain.id, wanted)]);
+      // GeckoTerminal fills what DexScreener left bare and nothing recent remembers, a few calls at most per refresh.
+      const lacking = wanted.filter((address) => needsStats(pools.get(address.toLowerCase())) && needsStats(remembered.get(address.toLowerCase())));
+      const gecko = await geckoStats(chain.pool, lacking.slice(0, GECKO_MAX_TOKENS_PER_CHAIN));
+      const fresh = new Map(wanted.map((address) => [address.toLowerCase(), fillMarket(pools.get(address.toLowerCase()), gecko.get(address.toLowerCase()))]));
+      await rememberStats(chain.id, fresh);
+      // Native ETH has no pool of its own: it trades at WETH's price. DefiLlama's price first, then the pool sources'.
       const marketOf = (address: string): TokenMarket => {
-        const key = isNativeToken(address) ? weth : address;
-        const pool = pools.get(key.toLowerCase());
-        const price = prices.get(llamaKey(chain.llama, key));
-        return { ...pool, ...Object.fromEntries(Object.entries(price ?? {}).filter(([, value]) => value !== undefined)) };
+        const key = (isNativeToken(address) ? weth : address).toLowerCase();
+        return fillMarket(prices.get(llamaKey(chain.llama, key)), fresh.get(key), remembered.get(key));
       };
       return records.flatMap((record) => fromUniswapToken(record, marketOf(String(record.address))) ?? []);
     }),

@@ -1,4 +1,5 @@
 import "server-only";
+import { readGeckoTokens } from "./gecko-tokens";
 import { unstable_cache } from "next/cache";
 import { takeDailyBudget } from "@/lib/analytics/store";
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
@@ -79,4 +80,12 @@ export async function getPoolTrades(network: PoolNetwork, address: string) {
   if (!pool) return null;
   const trades = await poolTrades(network, pool.address, address);
   return { pool: pool.address, trades: [...trades].sort((a, b) => b.at - a.at) };
+}
+
+/**
+ * Price, 24h volume, liquidity and market cap for up to `GECKO_TOKENS_BATCH` tokens per call (`tokens/multi`), the
+ * fallback when DexScreener leaves EVM tokens bare. Same key, plan and daily budget as the pool charts.
+ */
+export async function getOnchainTokenStats(network: PoolNetwork, addresses: string[]) {
+  return readGeckoTokens(await onchainJson(`/networks/${network}/tokens/multi/${addresses.join(",")}`));
 }

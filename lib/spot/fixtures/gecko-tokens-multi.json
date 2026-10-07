@@ -1,0 +1,36 @@
+{
+ "data": [
+  {
+   "id": "base_0x4200000000000000000000000000000000000006",
+   "type": "token",
+   "attributes": {
+    "address": "0x4200000000000000000000000000000000000006",
+    "name": "Wrapped Ether",
+    "symbol": "WETH",
+    "decimals": 18,
+    "image_url": "https://coin-images.coingecko.com/coins/images/2518/large/weth.png",
+    "price_usd": "2572.18",
+    "fdv_usd": "719794273.114009",
+    "total_reserve_in_usd": "345156142.471126407869197474522076422613999",
+    "volume_usd": { "h24": "451205381.535516" },
+    "market_cap_usd": "723197101.032377"
+   }
+  },
+  {
+   "id": "base_0x532f27101965dd16442e59d40670faf5ebb142e4",
+   "type": "token",
+   "attributes": {
+    "address": "0x532f27101965dd16442e59d40670faf5ebb142e4",
+    "name": "Brett",
+    "symbol": "BRETT",
+    "decimals": 18,
+    "image_url": "missing.png",
+    "price_usd": "0.005340707483",
+    "fdv_usd": "52924303.6098274",
+    "total_reserve_in_usd": "1196789.904218631364684377729219858029158695",
+    "volume_usd": { "h24": "348447.201356956" },
+    "market_cap_usd": null
+   }
+  }
+ ]
+}
