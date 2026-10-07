@@ -15,15 +15,20 @@ import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/ty
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
+import dynamic from "next/dynamic";
 
-type Tab = "positions" | "orders" | "venues";
+// History loads its venue code on demand (the Hyperliquid SDK, Lighter's signer for the auth token).
+const OrderHistoryTable = dynamic(() => import("./history-tables").then((module) => module.OrderHistoryTable), { ssr: false });
+const PositionHistoryTable = dynamic(() => import("./history-tables").then((module) => module.PositionHistoryTable), { ssr: false });
+
+type Tab = "positions" | "orders" | "orderHistory" | "positionHistory" | "venues";
 
 const ARM_MS = 5_000;
 
 // One line per cell: a narrow panel scrolls sideways instead of wrapping headers and pushing rows out of view.
-const th = "whitespace-nowrap px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint";
+export const th = "whitespace-nowrap px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint";
 const tdBase = "whitespace-nowrap px-3 py-1.5 tabular-nums";
-const td = `${tdBase} text-app-ink`;
+export const td = `${tdBase} text-app-ink`;
 
 export function signed(value: number) {
   return `${value >= 0 ? "+" : "-"}${formatPrice(Math.abs(value))}`;
@@ -428,12 +433,15 @@ export function PositionsBar() {
   const orders = account?.orders ?? [];
   const rowsOnScreen: Array<{ venue: PerpVenueId }> = tab === "positions" ? positions : tab === "orders" ? orders : [];
   const multiVenue = new Set(rowsOnScreen.map((row) => row.venue)).size > 1;
-  const tabs: { id: Tab; label: string; count: number }[] = [
+  const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "positions", label: "Positions", count: positions.length },
     { id: "orders", label: "Open orders", count: orders.length },
+    { id: "orderHistory", label: "Order history" },
+    { id: "positionHistory", label: "Position history" },
     { id: "venues", label: "Venues", count: summaries.length },
   ];
-  const rows = tab === "positions" ? positions.length : tab === "orders" ? orders.length : summaries.length;
+  const isHistory = tab === "orderHistory" || tab === "positionHistory";
+  const rows = tab === "positions" ? positions.length : tab === "orders" ? orders.length : isHistory ? 1 : summaries.length;
 
   return (
     <section
@@ -453,7 +461,7 @@ export function PositionsBar() {
             }`}
           >
             {label}
-            <span className="ml-1.5 tabular-nums text-app-faint">{count}</span>
+            {count !== undefined && <span className="ml-1.5 tabular-nums text-app-faint">{count}</span>}
           </button>
         ))}
         {multiVenue && (
@@ -508,6 +516,10 @@ export function PositionsBar() {
           <PositionsTable positions={positions} />
         ) : tab === "orders" ? (
           <OrdersTable orders={orders} />
+        ) : tab === "orderHistory" ? (
+          <OrderHistoryTable />
+        ) : tab === "positionHistory" ? (
+          <PositionHistoryTable />
         ) : (
           <VenuesTable rows={summaries} positions={positions} />
         )}

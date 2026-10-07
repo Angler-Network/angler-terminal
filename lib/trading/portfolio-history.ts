@@ -26,6 +26,8 @@ export interface HistoryFill {
   realizedPnl: number | null;
   /** "Open Long", "Close Short"... when the venue reports it. */
   direction: string | null;
+  /** Signed position size just before this fill, when the venue reports it (Hyperliquid). */
+  startPosition?: number;
 }
 
 export interface FundingPayment {
@@ -105,6 +107,8 @@ export interface HlFill {
   closedPnl: string;
   fee: string;
   tid: number;
+  /** Signed position size before the fill. */
+  startPosition?: string;
 }
 
 /** Hyperliquid fill → history row. `symbolOf` turns a coin ("BTC", "xyz:NVDA") into its display symbol. */
@@ -125,6 +129,7 @@ export function fromHlFill(fill: HlFill, symbolOf: (coin: string) => string): Hi
     // Opening fills report 0; only closes realize PnL.
     realizedPnl: fill.dir.startsWith("Close") || realized !== 0 ? realized : null,
     direction: fill.dir || null,
+    ...(fill.startPosition !== undefined && { startPosition: toNumber(fill.startPosition) }),
   };
 }
 

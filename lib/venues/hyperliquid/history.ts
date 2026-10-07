@@ -1,3 +1,4 @@
+import type { HlHistoricalOrder } from "@/lib/trading/order-history";
 import { hlPnlSeries, type HlFill, type HlFundingEntry, type PnlPoint } from "@/lib/trading/portfolio-history";
 import { infoClient } from "./clients";
 
@@ -33,4 +34,11 @@ export async function hlHistory(user: `0x${string}`, since: number): Promise<HlH
     truncated: fills.length >= MAX_FILLS,
     funding: funding as HlFundingEntry[],
   };
+}
+
+/** The user's latest orders with their final status (Hyperliquid keeps the last 2000), perps only. */
+export async function hlOrderHistory(user: `0x${string}`): Promise<HlHistoricalOrder[]> {
+  const info = await infoClient();
+  const orders = (await info.historicalOrders({ user })) as unknown as HlHistoricalOrder[];
+  return orders.filter((entry) => isPerpCoin(entry.order.coin));
 }

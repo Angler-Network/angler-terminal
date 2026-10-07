@@ -57,3 +57,17 @@ export async function lighterHistory(accountIndex: number, since: number): Promi
   const entries = Array.isArray(pnl.pnl) ? (pnl.pnl as Array<{ timestamp: number; trade_pnl: number }>) : [];
   return { pnl: lighterPnlSeries(entries, since - DAY_MS), ...trades };
 }
+
+const ORDERS_PAGE = 100;
+
+/**
+ * The account's latest finished orders (filled, canceled), newest first. They need an auth token, so only a browser
+ * holding this account's trading key can read them: null otherwise.
+ */
+export async function lighterOrderHistory(l1Address: string): Promise<Array<Record<string, unknown>> | null> {
+  const { authToken, loadSession } = await import("./session");
+  const session = await loadSession(l1Address).catch(() => null);
+  if (!session) return null;
+  const body = await lighterGet("accountInactiveOrders", { account_index: session.accountIndex, limit: ORDERS_PAGE }, await authToken(session));
+  return Array.isArray(body.orders) ? (body.orders as Array<Record<string, unknown>>) : [];
+}
