@@ -48,8 +48,8 @@ type VenueChoice =
 const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan" };
 
 /**
- * Quotes from each Solana source for the size, best first. With no pick the best one is used; pressing a row pins
- * that source, pressing it again goes back to "best".
+ * Quotes from each Solana source for the size, best first, as one compact list. With no pick the best one is used;
+ * pressing a row pins that source, pressing it again goes back to the best.
  */
 function SpotQuotes({
   quotes,
@@ -66,45 +66,58 @@ function SpotQuotes({
 }) {
   const best = quotes[0]?.outAmount ?? null;
   const selected = pick ?? quotes.find((quote) => quote.outAmount !== null)?.source ?? null;
+  const unit = quotes.find((quote) => quote.outputToken)?.outputToken?.symbol;
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-[11px] text-app-muted">
-        <span>Quotes {loading && <span className="text-app-faint">· updating…</span>}</span>
-        {pick ? (
-          <button type="button" onClick={() => onPick(null)} className="font-semibold text-app-accent hover:underline">
-            Use best
-          </button>
-        ) : (
-          <span className="text-app-faint">Auto: best</span>
-        )}
+    <div className="overflow-hidden rounded-lg border border-app-hairline">
+      <div className="flex items-center gap-2 border-b border-app-hairline bg-app-chip/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">
+        <span>Route</span>
+        {loading && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />}
+        <span className="ml-auto normal-case tracking-normal">
+          {side === "buy" ? "You get" : "You receive"}
+          {unit ? ` · ${unit}` : ""}
+        </span>
       </div>
-      {quotes.length === 0 && <p className="text-[11px] text-app-faint">{loading ? "Getting quotes…" : "No quotes yet."}</p>}
-      {quotes.map((quote, index) => {
-        const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
-        const gap = quote.outAmount !== null && best !== null && best > 0n && index > 0 ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
-        const isSelected = selected === quote.source;
-        return (
-          <button
-            key={quote.source}
-            type="button"
-            disabled={quote.outAmount === null}
-            onClick={() => onPick(pick === quote.source ? null : quote.source)}
-            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] transition-colors disabled:cursor-default disabled:opacity-60 ${
-              isSelected ? "border-app-accent bg-app-accent/10" : "border-app-hairline hover:bg-app-chip"
-            }`}
-          >
-            <span className="w-14 font-semibold text-app-ink">{SOURCE_NAMES[quote.source]}</span>
-            {index === 0 && quote.outAmount !== null && (
-              <span className="rounded bg-app-up/15 px-1 py-[1px] text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
-            )}
-            <span className="ml-auto tabular-nums text-app-ink">
-              {amount !== null ? `${amount.toLocaleString("en-US", { maximumSignificantDigits: 7 })} ${quote.outputToken!.symbol}` : <span className="text-app-faint">{quote.note}</span>}
-            </span>
-            {gap > 0 && <span className="w-14 text-right tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
-            {index === 0 && quote.outAmount !== null && <span className="w-14 text-right text-[10px] text-app-faint">{side === "buy" ? "you get" : "you receive"}</span>}
-          </button>
-        );
-      })}
+      {quotes.length === 0 ? (
+        <p className="px-2.5 py-2 text-[11px] text-app-faint">{loading ? "Getting quotes…" : "No quotes yet."}</p>
+      ) : (
+        quotes.map((quote, index) => {
+          const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
+          const gap = quote.outAmount !== null && best !== null && best > 0n && index > 0 ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
+          const isSelected = selected === quote.source;
+          return (
+            <button
+              key={quote.source}
+              type="button"
+              disabled={quote.outAmount === null}
+              onClick={() => onPick(pick === quote.source ? null : quote.source)}
+              title={quote.note ?? (pick === quote.source ? "Pinned: press again to follow the best quote" : "Swap on this route")}
+              className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 disabled:cursor-default ${
+                isSelected ? "bg-app-accent/10" : "hover:bg-app-chip/60"
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`grid size-3 shrink-0 place-items-center rounded-full border ${isSelected ? "border-app-accent" : "border-app-hairline-strong"}`}
+              >
+                {isSelected && <span className="size-1.5 rounded-full bg-app-accent" />}
+              </span>
+              <span className={`font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
+              {index === 0 && quote.outAmount !== null && (
+                <span className="rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
+              )}
+              {pick === quote.source && <span className="text-[10px] text-app-faint">pinned</span>}
+              <span className="ml-auto min-w-0 truncate text-right tabular-nums">
+                {amount !== null ? (
+                  <span className="text-app-ink">{amount.toLocaleString("en-US", { maximumSignificantDigits: 6 })}</span>
+                ) : (
+                  <span className="text-[11px] text-app-faint">{quote.note}</span>
+                )}
+              </span>
+              {gap > 0 && <span className="shrink-0 text-[11px] tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
+            </button>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -826,11 +839,6 @@ export function OrderPanel() {
                 </label>
               )}
             </div>
-          )}
-          {solanaChoice && (
-            <p className="text-[11px] text-app-faint">
-              {spotPick ? `Swaps on ${spotPick === "titan" ? "Titan" : "Jupiter"} (picked). ` : "Swaps on the best quote at the moment you confirm. "}Solana mainnet, real funds.
-            </p>
           )}
           {choice?.id === "arcus" && (
             <p className="text-[11px] text-app-faint">

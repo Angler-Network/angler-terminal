@@ -55,7 +55,8 @@ export function useSpotQuotes({
         const amount = usdToInputAmount(sizeUsd, side, usdc, token);
         const input = { inputToken, outputToken, amount, taker: taker ?? undefined };
         const [jupiter, titanQuote] = await Promise.all([
-          jupiterVenue.getQuote(input).catch((error: unknown) => (error instanceof Error ? error : new Error(String(error)))),
+          // Price-only for Jupiter (no taker): the list compares routes; balances are checked when the swap is placed.
+          jupiterVenue.getQuote({ ...input, taker: undefined }).catch((error: unknown) => (error instanceof Error ? error : new Error(String(error)))),
           titan && taker ? getTitanQuote(input).catch(() => null) : Promise.resolve(null),
         ]);
         if (!active) return;
@@ -67,7 +68,7 @@ export function useSpotQuotes({
         if (titan) {
           rows.push(
             !taker
-              ? { source: "titan", outAmount: null, outputToken, note: "Connect a Solana wallet to quote" }
+              ? { source: "titan", outAmount: null, outputToken, note: "Connect a Solana wallet" }
               : titanQuote
                 ? { source: "titan", outAmount: titanQuote.outAmount, outputToken, note: null }
                 : { source: "titan", outAmount: null, outputToken, note: "No route" },
