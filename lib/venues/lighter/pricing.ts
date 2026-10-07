@@ -65,12 +65,26 @@ export function leverageFromPercent(value: string | number | undefined) {
 }
 
 /**
- * Client order index: unique across markets and at most 2^48 - 1. Milliseconds since epoch times 64 plus a
- * sequence stays below that until the year 2109 and keeps increasing across page loads.
+ * The last four digits of every client order index this terminal sends. Lighter trades are public and list each
+ * side's client order index, so profile points (`lib/profile/volume.ts`) recognise the terminal's fills by it.
+ */
+export const ANGLER_CLIENT_TAG = 7311;
+const TAG_SPAN = 10_000;
+const PER_SECOND = 10;
+
+/**
+ * Client order index: unique across markets and at most 2^48 - 1. Seconds since epoch × 100,000, then a sequence
+ * digit (10 a second; more borrow the next second) and the Angler tag. Stays below the limit until 2059 and keeps
+ * increasing across page loads (and above the older milliseconds × 64 scheme).
  */
 export function nextClientOrderIndex(now: number, previous: number) {
-  const candidate = Math.floor(now) * 64;
-  const next = candidate > previous ? candidate : previous + 1;
+  const candidate = Math.floor(now / 1000) * TAG_SPAN * PER_SECOND + ANGLER_CLIENT_TAG;
+  const next = candidate > previous ? candidate : previous - (previous % TAG_SPAN) + TAG_SPAN + ANGLER_CLIENT_TAG;
   if (next > MAX_CLIENT_ORDER_INDEX) throw new RangeError("Client order index overflow");
   return next;
+}
+
+/** Whether a client order index came from this terminal. */
+export function isAnglerClientIndex(index: number) {
+  return Number.isSafeInteger(index) && index > 0 && index % TAG_SPAN === ANGLER_CLIENT_TAG;
 }

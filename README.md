@@ -92,8 +92,9 @@ Angler Terminal never holds your funds or your keys, and the code that signs you
   - Automatic news rules are off by default and limited to one trade per rule every five minutes.
   - Spot swaps are re-quoted right before signing and refused above 3% price impact.
   - Wallets never connect on page load unless you connected them in this app before.
-- **Nothing about you is stored.** There is no login and no database. Preferences live in your browser.
-  Analytics count trades per venue and side only, with no wallet addresses or amounts.
+- **Little about you is stored.** There is no login. Preferences live in your browser. Your profile (points, level,
+  an optional username) is keyed by your wallet address and built only from the venues' public records of trades
+  placed through Angler. Analytics count trades per venue and side only, with no wallet addresses.
 
 Found a vulnerability? Report it privately to the maintainers rather than in a public issue.
 

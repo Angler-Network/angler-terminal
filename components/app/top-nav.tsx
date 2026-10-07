@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, Wallet } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
@@ -8,7 +8,6 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
-import { usePreferences } from "./preferences-provider";
 
 function itemClass(active: boolean) {
   return `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium transition-colors ${
@@ -21,7 +20,7 @@ const label = "hidden xl:inline";
 /** The sidebar's navigation laid out in the top bar (`navMode: "top"`); shown by CSS when html[data-nav=top]. */
 export function TopNav() {
   const pathname = usePathname();
-  const { isSettingsOpen, openSettings } = usePreferences();
+  const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
   const { openDeposit, openProOrder } = useTrading();
@@ -39,7 +38,7 @@ export function TopNav() {
         <BarChart3 className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Markets</span>
       </Link>
-      <Link href="/portfolio" title="Portfolio" aria-current={pathname === "/portfolio" ? "page" : undefined} className={itemClass(pathname === "/portfolio")}>
+      <Link href="/profile/portfolio" title="Portfolio" aria-current={pathname === "/profile/portfolio" ? "page" : undefined} className={itemClass(pathname === "/profile/portfolio")}>
         <ChartPie className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Portfolio</span>
       </Link>
@@ -61,14 +60,10 @@ export function TopNav() {
         <ArrowLeftRight className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Bridge</span>
       </button>
-      <button type="button" title="Wallets" onClick={wallets.open} className={itemClass(wallets.isOpen)}>
-        <Wallet className="size-[18px]" strokeWidth={1.75} aria-hidden />
-        <span className={label}>Wallets</span>
-      </button>
-      <button type="button" title="Settings" onClick={() => openSettings()} className={itemClass(isSettingsOpen)}>
+      <Link href="/settings" title="Settings" aria-current={isSettingsOpen ? "page" : undefined} className={itemClass(isSettingsOpen)}>
         <Settings className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Settings</span>
-      </button>
+      </Link>
     </nav>
   );
 }

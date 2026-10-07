@@ -5,6 +5,7 @@ import {
   leverageFraction,
   leverageFromPercent,
   minimumSize,
+  isAnglerClientIndex,
   nextClientOrderIndex,
   sizeForNotional,
   toUnits,
@@ -75,8 +76,21 @@ describe("client order index", () => {
     const now = Date.parse("2026-10-05T12:00:00Z");
     const first = nextClientOrderIndex(now, 0);
     const second = nextClientOrderIndex(now, first);
-    expect(second).toBe(first + 1);
-    expect(nextClientOrderIndex(now + 1, second)).toBeGreaterThan(second);
+    expect(second).toBeGreaterThan(first);
+    expect(nextClientOrderIndex(now + 1000, second)).toBeGreaterThan(second);
+    // Older pages used milliseconds × 64; the new indexes stay above them.
+    expect(first).toBeGreaterThan(now * 64);
+    for (const index of [first, second, nextClientOrderIndex(now, 5e13 + 3)]) expect(isAnglerClientIndex(index)).toBe(true);
+    expect(isAnglerClientIndex(now * 64)).toBe(false);
+    expect(isAnglerClientIndex(0)).toBe(false);
+    // Eleven orders in one second stay unique and tagged.
+    let last = 0;
+    for (let count = 0; count < 11; count++) {
+      const next = nextClientOrderIndex(now, last);
+      expect(next).toBeGreaterThan(last);
+      expect(isAnglerClientIndex(next)).toBe(true);
+      last = next;
+    }
     expect(first).toBeLessThanOrEqual(MAX_CLIENT_ORDER_INDEX);
     expect(() => nextClientOrderIndex(Date.parse("2120-01-01T00:00:00Z"), 0)).toThrow();
   });

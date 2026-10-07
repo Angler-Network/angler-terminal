@@ -35,7 +35,11 @@ const nextConfig = {
   compress: true,
   // The terminal lives at /perp and /spot; the old root keeps working for bookmarks and shared links.
   async redirects() {
-    return [{ source: "/", destination: "/perp", permanent: false }];
+    return [
+      { source: "/", destination: "/perp", permanent: false },
+      // The portfolio moved into the profile.
+      { source: "/portfolio", destination: "/profile/portfolio", permanent: true },
+    ];
   },
   // Self-hosted fonts carry a content hash in their name.
   async headers() {

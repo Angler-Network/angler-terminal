@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,7 +11,6 @@ import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
-import { usePreferences } from "./preferences-provider";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -40,11 +39,12 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
   );
 }
 
-/** The rail: market views (perp, spot, prediction), markets, portfolio, the news site, wallets and settings. */
+/** The rail: market views (perp, spot, prediction), markets, portfolio, the news site and settings (wallets and the
+ * profile sit in the top bar). */
 export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
-  const { isSettingsOpen, openSettings } = usePreferences();
+  const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
   const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
@@ -71,7 +71,7 @@ export function Sidebar() {
           <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Markets</NavLabel>
         </Link>
-        <Link href="/portfolio" title="Portfolio" aria-current={pathname === "/portfolio" ? "page" : undefined} className={navItemClass(pathname === "/portfolio")}>
+        <Link href="/profile/portfolio" title="Portfolio" aria-current={pathname === "/profile/portfolio" ? "page" : undefined} className={navItemClass(pathname === "/profile/portfolio")}>
           <ChartPie className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Portfolio</NavLabel>
         </Link>
@@ -96,8 +96,10 @@ export function Sidebar() {
           <NavLabel>Pro order</NavLabel>
         </button>
         <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
-        <NavButton label="Wallets" icon={Wallet} active={wallets.isOpen} onClick={wallets.open} />
-        <NavButton label={t("nav.settings")} icon={Settings} active={isSettingsOpen} onClick={() => openSettings()} />
+        <Link href="/settings" title={t("nav.settings")} aria-current={isSettingsOpen ? "page" : undefined} className={navItemClass(isSettingsOpen)}>
+          <Settings className="size-5" strokeWidth={1.75} aria-hidden />
+          <NavLabel>{t("nav.settings")}</NavLabel>
+        </Link>
       </nav>
     </aside>
   );

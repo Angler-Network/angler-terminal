@@ -2,17 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { allowEvent, analyticsBackend, readStats, readTopNews, recordTrade } from "@/lib/analytics/store";
 import { readTradeEvent, sumTotals } from "@/lib/analytics/trades";
-
-/** Only this site's pages may post (browsers always send Origin on POST); other sites can't inflate the totals. */
-function sameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-  try {
-    return new URL(origin).host === request.headers.get("host");
-  } catch {
-    return false;
-  }
-}
+import { clientIp, sameOrigin } from "@/lib/same-origin";
 
 /** Records a trade (venue, side, USD volume, source news id) into daily totals. Accepts sendBeacon's text bodies. */
 export async function POST(request: NextRequest) {
@@ -25,8 +15,7 @@ export async function POST(request: NextRequest) {
   }
   const event = readTradeEvent(body);
   if (!event) return NextResponse.json({ error: "Invalid event" }, { status: 400 });
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!(await allowEvent(ip))) return NextResponse.json({ error: "Too many events" }, { status: 429 });
+  if (!(await allowEvent(clientIp(request)))) return NextResponse.json({ error: "Too many events" }, { status: 429 });
   await recordTrade(event);
   return new NextResponse(null, { status: 204 });
 }

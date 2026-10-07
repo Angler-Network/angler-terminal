@@ -1,6 +1,6 @@
 "use client";
 
-import { SolanaSignTransaction, type SolanaSignTransactionFeature } from "@solana/wallet-standard-features";
+import { SolanaSignMessage, SolanaSignTransaction, type SolanaSignMessageFeature, type SolanaSignTransactionFeature } from "@solana/wallet-standard-features";
 import { getWallets } from "@wallet-standard/app";
 import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import {
@@ -25,6 +25,8 @@ interface SolanaWalletContextValue {
   disconnect: () => Promise<void>;
   /** Signs a base64 transaction with the connected account (partial signing: other signers may be added later). */
   signTransaction: TransactionSigner | null;
+  /** Signs a text message (profile changes); null when the wallet can't sign messages. Returns the raw signature. */
+  signMessage: ((message: string) => Promise<Uint8Array>) | null;
 }
 
 const SolanaWalletContext = createContext<SolanaWalletContextValue | null>(null);
@@ -131,9 +133,19 @@ export function SolanaWalletProvider({ children }: { children: React.ReactNode }
     };
   }, [wallet, account]);
 
+  const signMessage = useMemo(() => {
+    if (!wallet || !account || !(SolanaSignMessage in wallet.features)) return null;
+    const feature = (wallet.features as SolanaSignMessageFeature)[SolanaSignMessage];
+    return async (message: string) => {
+      const [output] = await feature.signMessage({ account, message: new TextEncoder().encode(message) });
+      if (!output) throw new Error("The wallet returned no signature.");
+      return output.signature;
+    };
+  }, [wallet, account]);
+
   const value = useMemo(
-    () => ({ wallets, wallet, address: account?.address ?? null, connect, disconnect, signTransaction }),
-    [wallets, wallet, account, connect, disconnect, signTransaction],
+    () => ({ wallets, wallet, address: account?.address ?? null, connect, disconnect, signTransaction, signMessage }),
+    [wallets, wallet, account, connect, disconnect, signTransaction, signMessage],
   );
   return <SolanaWalletContext.Provider value={value}>{children}</SolanaWalletContext.Provider>;
 }

@@ -1,11 +1,13 @@
 "use client";
 
 import { ExternalLink, Play, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
 import { deployment, otherDeploymentUrl, venueAvailable, type VenueKey } from "@/lib/deployment";
 import { useT } from "@/lib/i18n/client";
 import { alertSounds, navModeChange, panelNames, toastPositions, type AlertSound, type TerminalPanels } from "@/lib/preferences";
+import { settingsHref, settingsSections, type SettingsSectionId } from "@/lib/settings-sections";
 import { shortCommitSha } from "@/lib/site";
 import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
@@ -20,7 +22,6 @@ import type { Severity } from "@/lib/types";
 import { openWelcomeTour } from "./alpha-notice";
 import { AppearanceSettings } from "./appearance-settings";
 import { MarketIcon } from "./market-icon";
-import { riseIn, useEnter } from "./use-motion";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
 import { usePreferences } from "./preferences-provider";
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
@@ -29,19 +30,6 @@ import { RangeSlider } from "./range-slider";
 
 const DISCLAIMER = "Not financial advice. Scores are model outputs.";
 
-const sections = [
-  { id: "general", label: "General" },
-  { id: "appearance", label: "Appearance" },
-  { id: "layout", label: "Layout" },
-  { id: "filters", label: "News filters" },
-  { id: "rules", label: "News rules" },
-  { id: "trading", label: "Trading" },
-  { id: "venues", label: "Venues & networks" },
-  { id: "notifications", label: "Notifications" },
-  { id: "about", label: "About" },
-] as const;
-
-type SectionId = (typeof sections)[number]["id"];
 
 const getZoneId = (zone: TimeZoneOption) => zone.id;
 const getZoneSearchText = (zone: TimeZoneOption) => zone.searchText;
@@ -814,7 +802,7 @@ function AboutSettings() {
   );
 }
 
-function SectionContent({ section }: { section: SectionId }) {
+function SectionContent({ section }: { section: SettingsSectionId }) {
   if (section === "general") return <GeneralSettings />;
   if (section === "appearance") return <AppearanceSettings />;
   if (section === "layout") return <LayoutSettings />;
@@ -826,23 +814,21 @@ function SectionContent({ section }: { section: SectionId }) {
   return <AboutSettings />;
 }
 
-function SettingsPanel({ onClose, initialSection }: { onClose: () => void; initialSection: string | null }) {
+/** The settings page: sections on the left (a scrolling strip on phones), each at its own URL. */
+export function SettingsView({ section }: { section: SettingsSectionId }) {
   const t = useT();
-  const [activeSection, setActiveSection] = useState<SectionId>(
-    sections.find((section) => section.id === initialSection)?.id ?? "general",
-  );
-  const activeLabel = sections.find((section) => section.id === activeSection)?.label;
+  const { closeSettings } = usePreferences();
+  const activeLabel = settingsSections.find((entry) => entry.id === section)?.label;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center justify-between border-b border-app-line px-6 py-4">
-        <h2 id="settings-title" className="text-[18px] font-semibold">
-          {t("nav.settings")}
-        </h2>
+    <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
+      <header className="flex shrink-0 items-center justify-between border-b border-app-line px-5 py-3.5">
+        <h1 className="text-[18px] font-semibold">{t("nav.settings")}</h1>
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeSettings}
           aria-label={t("settings.close")}
+          title="Back"
           className="inline-flex size-9 items-center justify-center rounded-xl text-app-muted transition-colors hover:bg-app-selected/70 hover:text-app-ink"
         >
           <X className="size-[18px]" />
@@ -851,55 +837,30 @@ function SettingsPanel({ onClose, initialSection }: { onClose: () => void; initi
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav
           aria-label={t("settings.sections")}
-          className="scrollbar-subtle flex shrink-0 gap-1 overflow-x-auto border-b border-app-line p-3 sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r"
+          className="scrollbar-subtle flex shrink-0 gap-1 overflow-x-auto border-b border-app-line p-3 sm:w-56 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r"
         >
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              aria-current={section.id === activeSection ? "page" : undefined}
-              onClick={() => setActiveSection(section.id)}
+          {settingsSections.map((entry) => (
+            <Link
+              key={entry.id}
+              href={settingsHref(entry.id)}
+              replace
+              scroll={false}
+              aria-current={entry.id === section ? "page" : undefined}
               className={`shrink-0 rounded-xl px-4 py-2.5 text-left text-[15px] transition-colors ${
-                section.id === activeSection ? "bg-app-selected font-semibold text-app-ink" : "text-app-muted hover:bg-app-selected/70 hover:text-app-ink"
+                entry.id === section ? "bg-app-selected font-semibold text-app-ink" : "text-app-muted hover:bg-app-selected/70 hover:text-app-ink"
               }`}
             >
-              {section.label}
-            </button>
+              {entry.label}
+            </Link>
           ))}
         </nav>
-        <section className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <h3 className="text-[18px] font-medium text-app-ink">{activeLabel}</h3>
-          <SectionContent section={activeSection} />
+        <section className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8">
+          <div className="max-w-3xl">
+            <h2 className="text-[18px] font-medium text-app-ink">{activeLabel}</h2>
+            <SectionContent section={section} />
+          </div>
         </section>
       </div>
     </div>
-  );
-}
-
-/** Same dialog shell as angler-news, with the terminal's sections. */
-export function SettingsDialog() {
-  const { isSettingsOpen, settingsSection, closeSettings } = usePreferences();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (isSettingsOpen && !dialog.open) dialog.showModal();
-    if (!isSettingsOpen && dialog.open) dialog.close();
-  }, [isSettingsOpen]);
-  useEnter(dialogRef, riseIn, isSettingsOpen);
-
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="settings-title"
-      onClose={closeSettings}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) closeSettings();
-      }}
-      className="surface-menu m-auto h-[min(600px,calc(100dvh-2rem))] w-[min(880px,calc(100vw-2rem))] max-w-none overflow-hidden rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/55 backdrop:backdrop-blur-[2px] max-sm:h-[calc(100dvh-2rem)]"
-    >
-      {isSettingsOpen && <SettingsPanel onClose={closeSettings} initialSection={settingsSection} />}
-    </dialog>
   );
 }

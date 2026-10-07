@@ -1,0 +1,345 @@
+"use client";
+
+import { Check, Link2, Pencil, Trophy, Wallet, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { PortfolioView } from "@/components/portfolio/portfolio-view";
+import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { LEVELS } from "@/lib/profile/levels";
+import { shortAddress, usernameError } from "@/lib/profile/identity";
+import type { LeaderboardEntry, ProfileVenue } from "@/lib/profile/store";
+import { ProfileAvatar } from "./profile-avatar";
+import { useProfile } from "./profile-provider";
+
+export type ProfileTab = "overview" | "portfolio" | "leaderboard";
+
+const tabs: Array<{ id: ProfileTab; label: string; href: string }> = [
+  { id: "overview", label: "Overview", href: "/profile" },
+  { id: "portfolio", label: "Portfolio", href: "/profile/portfolio" },
+  { id: "leaderboard", label: "Leaderboard", href: "/profile/leaderboard" },
+];
+
+const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
+  { id: "hyperliquid", name: "Hyperliquid", kind: "Perps" },
+  { id: "lighter", name: "Lighter", kind: "Perps" },
+  { id: "jupiter", name: "Jupiter", kind: "Spot" },
+  { id: "titan", name: "Titan", kind: "Spot" },
+];
+
+const card = "rounded-2xl border border-app-hairline bg-app-card/60";
+const number = new Intl.NumberFormat("en-US");
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
+
+function UsernameEditor({ current, onDone }: { current: string | null; onDone: () => void }) {
+  const { saveUsername } = useProfile();
+  const [draft, setDraft] = useState(current ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const invalid = draft ? usernameError(draft) : null;
+
+  const submit = async () => {
+    if (!draft || invalid) return setError(invalid ?? "Pick a username.");
+    setSaving(true);
+    const failure = await saveUsername(draft);
+    setSaving(false);
+    if (failure) setError(failure);
+    else onDone();
+  };
+
+  return (
+    <form
+      className="flex flex-col gap-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <div className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          value={draft}
+          maxLength={20}
+          onChange={(event) => {
+            setDraft(event.target.value.trim());
+            setError(null);
+          }}
+          onKeyDown={(event) => event.key === "Escape" && onDone()}
+          placeholder="username"
+          aria-label="Username"
+          className="h-9 w-[200px] rounded-xl border border-app-field-border bg-app-field px-3 text-[15px] font-semibold text-app-ink outline-hidden focus:border-app-focus"
+        />
+        <button type="submit" disabled={saving} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-app-accent px-3 text-[13px] font-semibold text-app-on-accent disabled:opacity-60">
+          <Check className="size-4" aria-hidden />
+          {saving ? "Sign in wallet…" : "Sign & save"}
+        </button>
+        <button type="button" onClick={onDone} aria-label="Cancel" className="inline-flex size-9 items-center justify-center rounded-xl text-app-muted hover:bg-app-selected/70 hover:text-app-ink">
+          <X className="size-4" aria-hidden />
+        </button>
+      </div>
+      <p className={`text-[11px] ${error || invalid ? "text-app-down" : "text-app-faint"}`}>
+        {error ?? invalid ?? "3-20 letters, digits or _. Your wallet signs the change: free, no transaction."}
+      </p>
+    </form>
+  );
+}
+
+function ProfileHeader({ tab }: { tab: ProfileTab }) {
+  const { id, profile } = useProfile();
+  const [editing, setEditing] = useState(false);
+  const shownId = profile?.id ?? id;
+
+  return (
+    <header className={`surface-panel shrink-0 ${card} bg-app-card/55 px-4 pt-4 sm:px-5`}>
+      <div className="flex flex-wrap items-center gap-4 pb-4">
+        {shownId ? <ProfileAvatar id={shownId} size={56} /> : <span className="inline-flex size-14 items-center justify-center rounded-full bg-app-chip"><Wallet className="size-6 text-app-muted" aria-hidden /></span>}
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <UsernameEditor current={profile?.username ?? null} onDone={() => setEditing(false)} />
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-[20px] font-semibold text-app-ink">{profile?.username ?? (shownId ? shortAddress(shownId) : "Profile")}</h1>
+              {profile && (
+                <button type="button" onClick={() => setEditing(true)} title={profile.username ? "Change username" : "Set a username"} className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] text-app-muted hover:bg-app-selected/70 hover:text-app-ink">
+                  <Pencil className="size-3.5" aria-hidden />
+                  {profile.username ? "" : "Set username"}
+                </button>
+              )}
+            </div>
+          )}
+          {!editing && (
+            <p className="mt-0.5 truncate text-[12px] text-app-muted">
+              {shownId ? shortAddress(shownId) : "Connect a wallet to start earning points"}
+              {profile && ` · ${profile.level.name}`}
+            </p>
+          )}
+        </div>
+        {profile && (
+          <dl className="flex gap-6 text-right">
+            <div>
+              <dt className="text-[11px] text-app-muted">Points</dt>
+              <dd className="text-[18px] font-semibold tabular-nums text-app-ink">{number.format(profile.points)}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-app-muted">Level</dt>
+              <dd className="text-[18px] font-semibold tabular-nums text-app-ink">{profile.level.level}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-app-muted">Rank</dt>
+              <dd className="text-[18px] font-semibold tabular-nums text-app-ink">{profile.rank ? `#${number.format(profile.rank)}` : "—"}</dd>
+            </div>
+          </dl>
+        )}
+      </div>
+      <nav aria-label="Profile" className="-mb-px flex gap-5">
+        {tabs.map((entry) => (
+          <Link
+            key={entry.id}
+            href={entry.href}
+            aria-current={entry.id === tab ? "page" : undefined}
+            className={`border-b-2 pb-2.5 text-[13px] font-semibold transition-colors ${entry.id === tab ? "border-app-accent text-app-ink" : "border-transparent text-app-muted hover:text-app-ink"}`}
+          >
+            {entry.label}
+          </Link>
+        ))}
+      </nav>
+    </header>
+  );
+}
+
+function LevelCard() {
+  const { profile } = useProfile();
+  if (!profile) return null;
+  const { level } = profile;
+  return (
+    <section className={`${card} p-4`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-[15px] font-semibold text-app-ink">
+          Level {level.level} · {level.name}
+        </h2>
+        <p className="text-[12px] tabular-nums text-app-muted">
+          {level.next === null
+            ? "Top level reached"
+            : `${number.format(level.next - profile.points)} points to ${level.nextName}`}
+        </p>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}>
+        <div className="h-full rounded-full bg-app-accent transition-[width]" style={{ width: `${Math.max(2, level.progress * 100)}%` }} />
+      </div>
+      <ol className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[10px] sm:grid-cols-10">
+        {LEVELS.map((entry, index) => {
+          const reached = index + 1 <= level.level;
+          return (
+            <li key={entry.name} title={`${number.format(entry.points)} points`} className={`rounded-lg px-1 py-1.5 ${index + 1 === level.level ? "bg-app-accent/15 text-app-ink" : reached ? "text-app-ink" : "text-app-faint"}`}>
+              <span className="block font-semibold">{index + 1}</span>
+              <span className="block truncate">{entry.name}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function Overview() {
+  const { id, profile, loading, error, linkSolana } = useProfile();
+  const wallets = useWalletModal();
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+
+  if (!id) {
+    return (
+      <section className={`${card} flex flex-col items-center gap-3 p-8 text-center`}>
+        <Trophy className="size-8 text-app-muted" strokeWidth={1.5} aria-hidden />
+        <h2 className="text-[16px] font-semibold text-app-ink">Earn points as you trade</h2>
+        <p className="max-w-sm text-[13px] text-app-muted">One point per dollar you trade through Angler. Level up from Minnow to Whale and climb the leaderboard.</p>
+        <button type="button" onClick={wallets.open} className="mt-1 h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent">
+          Connect wallet
+        </button>
+      </section>
+    );
+  }
+  if (!profile) return <p className="py-12 text-center text-[13px] text-app-muted">{error ?? (loading ? "Loading your profile…" : "")}</p>;
+
+  return (
+    <>
+      <LevelCard />
+      <section className={`${card} p-4`}>
+        <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {VENUES.map((venue) => (
+            <div key={venue.id} className="rounded-xl bg-app-chip/60 px-3 py-2.5">
+              <p className="text-[11px] text-app-muted">
+                {venue.name} · {venue.kind}
+              </p>
+              <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.volume[venue.id] >= 100_000 ? compactUsd.format(profile.volume[venue.id]) : usd.format(profile.volume[venue.id])}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
+        <section className={`${card} p-4`}>
+          <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>
+          <p className="mt-1 text-[12px] text-app-muted">Swaps from a linked Solana wallet count toward this profile.</p>
+          {profile.linkedWallets.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {profile.linkedWallets.map((wallet) => (
+                <li key={wallet} className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip px-2 py-1 text-[12px] tabular-nums text-app-ink">
+                  <Link2 className="size-3.5 text-app-muted" aria-hidden />
+                  {shortAddress(wallet)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {linkSolana && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={linking}
+                onClick={async () => {
+                  setLinking(true);
+                  setLinkError(await linkSolana());
+                  setLinking(false);
+                }}
+                className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70 disabled:opacity-60"
+              >
+                {linking ? "Sign in your Solana wallet…" : "Link connected Solana wallet"}
+              </button>
+              {linkError && <span className="text-[12px] text-app-down">{linkError}</span>}
+            </div>
+          )}
+        </section>
+      )}
+      <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
+        <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>One point per dollar traded through Angler, on every venue the terminal routes to.</li>
+          <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
+          <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
+        </ul>
+      </section>
+    </>
+  );
+}
+
+function Leaderboard() {
+  const { profile } = useProfile();
+  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/leaderboard")
+      .then(async (response) => {
+        const body = (await response.json()) as { entries?: LeaderboardEntry[]; error?: string };
+        if (!response.ok) throw new Error(body.error ?? `Leaderboard failed (${response.status}).`);
+        if (!cancelled) setEntries(body.entries ?? []);
+      })
+      .catch((failure) => !cancelled && setError(failure instanceof Error ? failure.message : String(failure)));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) return <p className="py-12 text-center text-[13px] text-app-down">{error}</p>;
+  if (!entries) return <p className="py-12 text-center text-[13px] text-app-muted">Loading the leaderboard…</p>;
+  if (entries.length === 0) return <p className="py-12 text-center text-[13px] text-app-muted">No points yet. The first trade through Angler takes the top spot.</p>;
+
+  const th = "px-3 py-2 text-left text-[11px] font-medium text-app-muted";
+  const td = "px-3 py-2 tabular-nums";
+  return (
+    <section className={`${card} overflow-hidden`}>
+      <div className="scrollbar-subtle overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="border-b border-app-hairline">
+              <th className={`${th} w-14`}>#</th>
+              <th className={th}>Trader</th>
+              <th className={th}>Level</th>
+              <th className={`${th} text-right`}>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => {
+              const mine = entry.id === profile?.id;
+              return (
+                <tr key={entry.id} className={`border-t border-app-hairline first:border-t-0 ${mine ? "bg-app-accent/10" : ""}`}>
+                  <td className={`${td} font-semibold ${entry.rank <= 3 ? "text-[#f5c97b]" : "text-app-muted"}`}>{entry.rank}</td>
+                  <td className={td}>
+                    <span className="flex items-center gap-2 text-app-ink">
+                      <ProfileAvatar id={entry.id} size={20} />
+                      <span className="truncate font-medium">{entry.username ?? shortAddress(entry.id)}</span>
+                      {mine && <span className="text-[11px] text-app-muted">you</span>}
+                    </span>
+                  </td>
+                  <td className={`${td} text-app-muted`}>
+                    {entry.level} · {entry.levelName}
+                  </td>
+                  <td className={`${td} text-right font-semibold text-app-ink`}>{number.format(entry.points)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/** The profile page: who you are on Angler (username, points, level), your portfolio and the leaderboard. */
+export function ProfileView({ tab }: { tab: ProfileTab }) {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <ProfileHeader tab={tab} />
+      {tab === "portfolio" ? (
+        <div className="min-h-0 flex-1">
+          <PortfolioView />
+        </div>
+      ) : (
+        <section className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col gap-4 overflow-auto *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
+          {tab === "leaderboard" ? <Leaderboard /> : <Overview />}
+        </section>
+      )}
+    </div>
+  );
+}

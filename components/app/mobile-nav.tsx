@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Wallet, X, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Trophy, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -27,14 +27,13 @@ const tabClass = (active: boolean) =>
 const sheetItem = "flex h-12 items-center gap-3 rounded-xl px-3 text-[15px] text-app-ink hover:bg-app-chip";
 
 /**
- * Bottom tab bar on phones and tablets: the terminal's four views, plus a menu with Markets, Wallets, Settings and
- * the news site (the rail's items). Hidden from `lg` up, where the rail and the full grid take over.
+ * Bottom tab bar on phones and tablets: the terminal's four views, plus a menu with Markets, the profile, Settings
+ * and the news site (the rail's items; wallets are the top bar's Connect button). Hidden from `lg` up, where the rail and the full grid take over.
  */
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { view, setView } = useMobileView();
-  const { openSettings } = usePreferences();
   const wallets = useWalletModal();
   const { address } = useWallet();
   const { openDeposit, openProOrder } = useTrading();
@@ -114,7 +113,11 @@ export function MobileNav() {
               <BarChart3 className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Markets & funding
             </Link>
-            <Link href="/portfolio" className={`${sheetItem} ${pathname === "/portfolio" ? "bg-app-chip" : ""}`}>
+            <Link href="/profile" className={`${sheetItem} ${pathname === "/profile" ? "bg-app-chip" : ""}`}>
+              <Trophy className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              Profile & points
+            </Link>
+            <Link href="/profile/portfolio" className={`${sheetItem} ${pathname === "/profile/portfolio" ? "bg-app-chip" : ""}`}>
               <ChartPie className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Full portfolio
             </Link>
@@ -141,28 +144,10 @@ export function MobileNav() {
               <ArrowLeftRight className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Bridge
             </button>
-            <button
-              type="button"
-              className={`${sheetItem} w-full`}
-              onClick={() => {
-                setMenuOpen(false);
-                wallets.open();
-              }}
-            >
-              <Wallet className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
-              Wallets
-            </button>
-            <button
-              type="button"
-              className={`${sheetItem} w-full`}
-              onClick={() => {
-                setMenuOpen(false);
-                openSettings();
-              }}
-            >
+            <Link href="/settings" className={`${sheetItem} ${pathname.startsWith("/settings") ? "bg-app-chip" : ""}`}>
               <Settings className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Settings
-            </button>
+            </Link>
             <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" className={sheetItem}>
               <Newspaper className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
               Angler News

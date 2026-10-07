@@ -12,6 +12,7 @@ import { ToastProvider } from "@/components/app/toast-provider";
 import { UpdateNotice } from "@/components/app/update-notice";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
+import { ProfileProvider } from "@/components/profile/profile-provider";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
 import { WalletModalProvider } from "@/components/terminal/wallet-modal";
@@ -71,6 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <TradingProvider>
                   <WalletModalProvider>
                   <TradeTicketProvider>
+                  <ProfileProvider>
                     <div className="app-shell relative flex h-full overflow-hidden bg-linear-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <LayoutRevealButtons />
                       <Sidebar />
@@ -80,6 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <AlphaNotice />
                     <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
                     <UpdateNotice />
+                  </ProfileProvider>
                   </TradeTicketProvider>
                   </WalletModalProvider>
                   </TradingProvider>

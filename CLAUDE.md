@@ -263,10 +263,12 @@ dependency versions and design are free to diverge from angler-news.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
-- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Spot, Prediction, Markets, Portfolio, News link, Wallets, Settings)
-  and `components/app/settings-dialog.tsx` (General, Appearance, News filters, Trading, Venues & networks,
-  Notifications, About; `openSettings(section)` opens a given section),
-  built from the copied angler-news `form-controls`, `select-field`, `appearance-settings`. Venues can be turned off
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Spot, Prediction, Markets, Portfolio,
+  Layout, News link, Pro order, Bridge, Settings; wallets are only the top bar's Connect button) and the settings
+  page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
+  URL each: `/settings`, `/settings/rules`…; `openSettings(section)` navigates there, `closeSettings` returns to the
+  page the user came from, the terminal when they landed on it), built from the copied angler-news `form-controls`,
+  `select-field`, `appearance-settings`. Venues can be turned off
   (`venueHyperliquid`, `venueLighter`, `venueJupiter`); each perp venue's network can be overridden per browser
   (`HL_NETWORK_OVERRIDE_KEY`, `LIGHTER_NETWORK_OVERRIDE_KEY`, applied after a reload; the markets routes follow
   `?network=`). The trading provider merges both perp venues' positions and orders (venue badge in the positions
@@ -303,7 +305,8 @@ dependency versions and design are free to diverge from angler-news.
   news-driven and one-click counts) in Redis (`KV_REST_API_URL`/`TOKEN`, Upstash REST; memory without it). Perp
   volume is the fill (`filledUsd`, our fee from `OrderResult.partnerFeeBps`), spot volume the USDC/USDG side; spot
   fees are estimated from server config (Jupiter net of its 20%). Never store wallet addresses, IPs or per-trade
-  records; the rate limit hashes the IP into a key that expires after a minute. POST checks Origin and allows 30
+  records in analytics (profiles, below, are the one exception for wallet addresses); the rate limit hashes the IP
+  into a key that expires after a minute (`lib/redis.ts` is shared with profiles). POST checks Origin and allows 30
   events a minute per client. The totals are private: only `GET /api/analytics/trade` (`ANALYTICS_TOKEN`) reads
   them (all-time, 7/30-day sums, per day, top news); there is no public stats page.
 - The disclaimer "Not financial advice. Scores are model outputs." lives in the onboarding alpha step and in Settings
@@ -331,6 +334,21 @@ dependency versions and design are free to diverge from angler-news.
   crawlers off `/api/`, `app/sitemap.ts` lists the terminal and Markets. The link preview is the brand banner
   (`app/opengraph-image.jpg` + `twitter-image.jpg`, angler-landing's `assets/og-banner.jpg`, used unchanged). Vercel
   marks preview deployments `noindex` itself.
+- Profile (`/profile`, `/profile/portfolio`, `/profile/leaderboard`; `components/profile/*`, `lib/profile/*`): the
+  top bar's avatar button (`profile-button.tsx`, once a wallet connects) leads to it. A profile is keyed by the wallet
+  (EVM address lowercase, else the Solana address; `identity.ts`). Usernames (3-20 `[A-Za-z0-9_]`, unique ignoring
+  case) are set by signing a plain-text message (`profileMessage`, EVM `personal_sign` or Solana `signMessage`,
+  accepted for 10 minutes; no gas, no login). Points: one per dollar traded through Angler (`levels.ts`, ten fishing
+  levels Minnow → Whale), only from the venues' own records (`volume.ts`, `server.ts`): Hyperliquid fills whose
+  `builderFee` matches our builder rate (`userFillsByTime`, the last 10,000 fills on first sync), Lighter trades whose
+  own side's client order index ends in `ANGLER_CLIENT_TAG` (`lighter/pricing.ts`; counted from 2026-10-07, earlier
+  orders weren't tagged), Solana swaps whose transaction pays our Jupiter referral token account (PDA
+  `referral_ata` + account + mint) or Titan fee USDC account, volume = the signer's USDC change, each transaction
+  once. Perp volume syncs when the profile loads (`GET /api/profile/{id}?sync=1`, at most once a minute per profile,
+  cursors per venue); swaps are claimed after they confirm (`claimSwapPoints` → `POST /api/profile/swap`). A Solana
+  wallet can be linked to an EVM profile (signed by the Solana wallet): its volume moves over and later swaps count
+  there. Stored in Redis per deployment (`store.ts`, memory without Redis): the one place wallet addresses are kept.
+  Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
 - First load stays light: the Hyperliquid SDK (`hyperliquid/clients.ts`), viem's wallet client (`getWalletClient`),

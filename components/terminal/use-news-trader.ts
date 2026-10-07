@@ -19,6 +19,7 @@ import { pickBestSpotQuote } from "@/lib/trading/best-quote";
 import { executeTitanQuote, getTitanQuote } from "@/lib/venues/titan/venue";
 import { resolveArcusToken } from "@/lib/venues/arcus/catalog";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
+import { claimSwapPoints } from "@/lib/profile/client";
 import type { OrderSide, PerpVenueId, SpotQuote, SpotToken, SpotVenueId } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
@@ -157,6 +158,8 @@ export function useNewsTrader() {
           message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, usdc)} · min. received was ${amountText(quote.minOutAmount, outputToken)} · via ${viaTitan ? "Titan" : "Jupiter"}`,
           link: { href: result.explorerUrl, label: "View on Solscan" },
         });
+        // Profile points: the server checks the transaction paid our fee before counting it.
+        claimSwapPoints(result.signature);
         // The USDC side of the swap is its USD volume.
         const usd = fromBaseUnits(bought ? result.inAmount : result.outAmount, usdc.decimals);
         return { venue: viaTitan ? "titan" : "jupiter", usd, feeBps: null } satisfies Placed;

@@ -1,49 +1,17 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
 import { dayKey, estimateFeeUsd, lastDays, readServerFeeRates, readTotals, tradeIncrements, type StatsTotals, type TradeEvent } from "./trades";
 
 /**
- * Daily trade totals in Redis (Upstash REST: Vercel's Upstash integration sets KV_REST_API_URL/TOKEN), so they
- * survive serverless restarts and are shared by every instance. Without Redis (local dev) they live in memory.
- * Only aggregates are stored: no per-trade rows, no wallet, no IP.
+ * Daily trade totals in Redis (`lib/redis.ts`), so they survive serverless restarts and are shared by every
+ * instance. Without Redis (local dev) they live in memory. Only aggregates are stored: no per-trade rows, no wallet,
+ * no IP. (Profiles, `lib/profile/store.ts`, are the one place a wallet address is kept: the user opts in by trading.)
  */
 const PREFIX = `angler:stats:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 const NEWS_DAYS_KEPT = 90;
 /** Events accepted per client per minute; the client key is a hash that expires with the window. */
 const RATE_LIMIT_PER_MINUTE = 30;
-
-function redisConfig() {
-  const url = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL)?.trim();
-  const token = (process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN)?.trim();
-  return url && token ? { url: url.replace(/\/+$/, ""), token } : null;
-}
-
-type Command = Array<string | number>;
-
-async function redisPipeline(commands: Command[]): Promise<unknown[]> {
-  const config = redisConfig();
-  if (!config) throw new Error("Redis is not configured.");
-  const response = await fetch(`${config.url}/pipeline`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${config.token}`, "content-type": "application/json" },
-    body: JSON.stringify(commands),
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`Redis answered ${response.status}.`);
-  const body = (await response.json()) as Array<{ result?: unknown; error?: string }>;
-  return body.map((entry) => {
-    if (entry.error) throw new Error(entry.error);
-    return entry.result;
-  });
-}
-
-/** HGETALL comes back as a flat [field, value, ...] list over REST. */
-function toHash(result: unknown): Record<string, string> {
-  if (!Array.isArray(result)) return {};
-  const hash: Record<string, string> = {};
-  for (let index = 0; index + 1 < result.length; index += 2) hash[String(result[index])] = String(result[index + 1]);
-  return hash;
-}
 
 const memory = (globalThis as unknown as { __anglerStats?: Map<string, Record<string, number>> }).__anglerStats ??= new Map();
 
@@ -78,7 +46,7 @@ export async function recordTrade(event: TradeEvent, now = new Date()) {
     memoryIncrement(`${PREFIX}:total`, fields);
     return;
   }
-  const commands: Command[] = [];
+  const commands: RedisCommand[] = [];
   for (const key of [`${PREFIX}:day:${day}`, `${PREFIX}:total`]) {
     // Always the float variant: HINCRBY fails on a field that already holds a decimal.
     for (const [field, amount] of fields) commands.push(["HINCRBYFLOAT", key, field, amount]);
