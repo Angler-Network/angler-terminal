@@ -22,7 +22,7 @@ import { useTrading } from "./trading-provider";
 import { usePathname } from "next/navigation";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { columnTrack, COLUMN_RULES, maxColumnWidth, MIN_ORDERBOOK_HEIGHT, type ColumnPanel, type PanelSizes } from "@/lib/layout/panel-sizes";
-import { dropOnto, type ArrangeTarget, type ColumnId, type StackPanel } from "@/lib/layout/arrangement";
+import { dropOnto, positionsSpanRail, type ArrangeTarget, type ColumnId, type StackPanel } from "@/lib/layout/arrangement";
 
 type Slot = { column: string; row: string };
 
@@ -31,9 +31,13 @@ const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions
 const MIN_POSITIONS_HEIGHT = 80;
 /** The chart keeps at least this much when the positions panel is dragged up (plus the 8px grid gap). */
 const MIN_CHART_HEIGHT = 200;
-/** Scrolling page mode (`fitToScreen` off): the chart row and the least the positions row gets. */
+/**
+ * Scrolling page mode (`fitToScreen` off): the grid is always this tall (chart 620px over positions 360px by default),
+ * so dragging the positions edge moves the line between them instead of stretching the side columns.
+ */
 const SCROLL_CHART_HEIGHT = 620;
-const SCROLL_MIN_POSITIONS = 360;
+const SCROLL_POSITIONS_HEIGHT = 360;
+const SCROLL_GRID_HEIGHT = SCROLL_CHART_HEIGHT + 8 + SCROLL_POSITIONS_HEIGHT;
 /** The order panel and account card keep at least this much above a dragged order book (also in its max-h class). */
 const MIN_TRADING_HEIGHT = 200;
 const GAP = 8;
@@ -41,8 +45,9 @@ const GAP = 8;
 /**
  * Modular desktop layout; every panel but the chart can be turned off (`panels` preference) and the chart takes
  * the free space. Default arrangement (`arrangement` preference, rearranged by dragging the handles):
- *   [ watchlist ][ chart              ][ order entry + account ][ order book ]
- *   [           ][ positions / orders ][ news                  ][            ]
+ *   [ watchlist ][ chart                   ][ order book ][ order entry + account ]
+ *   [           ][ positions / orders                    ][ news                  ]
+ * The positions run under the order book whenever it has the column next to the chart (`positionsSpanRail`).
  * Columns swap places by dragging one onto another; the order book and news swap between the stack under the order
  * panel and the rail. The watchlist is optional (off by default).
  * Below `lg` the panels become full-screen views picked from the bottom tab bar (`mobile-nav.tsx`).
@@ -63,6 +68,7 @@ export function TerminalShell() {
   // While dragging the live height lives here; it's saved (positionsHeight preference) on release.
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const positionsHeight = dragHeight ?? preferences.positionsHeight ?? autoPositionsHeight;
+  const scrollPositionsHeight = Math.min(dragHeight ?? preferences.positionsHeight ?? SCROLL_POSITIONS_HEIGHT, SCROLL_GRID_HEIGHT - MIN_CHART_HEIGHT - 8);
   const gridRef = useRef<HTMLDivElement>(null);
   // Column widths and the order book height: live while dragging, saved (panelSizes preference) on release.
   const [dragSizes, setDragSizes] = useState<Partial<PanelSizes>>({});
@@ -133,12 +139,13 @@ export function TerminalShell() {
       rail: columnTrack("news", sizes.news),
     };
     const position = (id: ColumnId) => visible.indexOf(id) + 1;
+    const span = panels.positions && !isMobile && positionsSpanRail(arrangement, visible);
     // min() keeps a saved height from squeezing the chart away on a shorter window.
     const rows = panels.positions ? `minmax(0,1fr) min(${positionsHeight}px, calc(100% - ${MIN_CHART_HEIGHT + 8}px))` : "minmax(0,1fr)";
     const allRows = panels.positions ? "1 / 3" : "1 / 2";
     const slot = (column: number | string, row: string): Slot => ({ column: String(column), row });
     // Scrolling page: a roomy chart and at least a comfortable positions panel, whatever the window height.
-    const scrollRows = panels.positions ? `${SCROLL_CHART_HEIGHT}px ${Math.max(positionsHeight, SCROLL_MIN_POSITIONS)}px` : `${SCROLL_CHART_HEIGHT}px`;
+    const scrollRows = panels.positions ? `${SCROLL_GRID_HEIGHT - 8 - scrollPositionsHeight}px ${scrollPositionsHeight}px` : `${SCROLL_CHART_HEIGHT}px`;
     return {
       columns: visible.map((id) => track[id]).join(" "),
       rows,
@@ -147,11 +154,11 @@ export function TerminalShell() {
       edge: (id: ColumnId): ResizeEdge => (position(id) < position("main") ? "right" : "left"),
       watchlist: slot(position("watchlist"), allRows),
       chart: slot(position("main"), "1"),
-      positions: slot(position("main"), "2"),
+      positions: slot(span ? `${Math.min(position("main"), position("rail"))} / span 2` : position("main"), "2"),
       side: slot(position("trade"), allRows),
-      news: slot(position("rail"), allRows),
+      news: slot(position("rail"), span ? "1" : allRows),
     };
-  }, [arrangement.columns, panels.watchlist, panels.positions, isMobile, showSide, showRail, positionsHeight, sizes.watchlist, sizes.side, sizes.news]);
+  }, [arrangement, panels.watchlist, panels.positions, isMobile, showSide, showRail, positionsHeight, scrollPositionsHeight, sizes.watchlist, sizes.side, sizes.news]);
 
   const place = (slot: Slot) => ({ "--col": slot.column, "--row": slot.row }) as React.CSSProperties;
   const placed = "min-h-0 lg:col-(--col) lg:row-(--row) lg:h-auto";
@@ -282,7 +289,7 @@ export function TerminalShell() {
             {!isMobile && (
               <PanelResizer
                 label="Resize positions panel"
-                size={() => positionsHeight}
+                size={() => (preferences.fitToScreen ? positionsHeight : scrollPositionsHeight)}
                 min={MIN_POSITIONS_HEIGHT}
                 max={() => (gridRef.current?.clientHeight ?? 800) - MIN_CHART_HEIGHT - 8}
                 onResize={setDragHeight}

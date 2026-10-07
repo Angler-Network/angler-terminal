@@ -13,18 +13,36 @@ export interface Arrangement {
   columns: ColumnId[];
   /** The panel under the order panel and account card; the other one fills the rail column. */
   stack: StackPanel;
+  /** Set once read under the current default, so a layout the user keeps on purpose isn't migrated again. */
+  version?: number;
 }
 
-export const defaultArrangement: Arrangement = { columns: ["watchlist", "main", "trade", "rail"], stack: "news" };
+const ARRANGEMENT_VERSION = 2;
+
+/** Chart, then the order book (with the positions running under both), then the order panel with news under it. */
+export const defaultArrangement: Arrangement = { columns: ["watchlist", "main", "rail", "trade"], stack: "news", version: ARRANGEMENT_VERSION };
+
+/** The default before the order book moved next to the chart; saved copies of it move to the new default once. */
+const PREVIOUS_DEFAULT = "watchlist,main,trade,rail:news";
 
 export function readArrangement(value: unknown): Arrangement {
-  const stored = (value ?? {}) as Partial<Arrangement>;
+  const stored = (value ?? {}) as Partial<Arrangement> & { version?: number };
   const columns = Array.isArray(stored.columns) ? stored.columns : [];
   const valid = columns.length === COLUMN_IDS.length && COLUMN_IDS.every((id) => columns.includes(id));
-  return {
+  const arrangement: Arrangement = {
     columns: valid ? [...columns] : [...defaultArrangement.columns],
     stack: stored.stack === "orderbook" || stored.stack === "news" ? stored.stack : defaultArrangement.stack,
   };
+  const untouched = stored.version !== ARRANGEMENT_VERSION && `${arrangement.columns.join(",")}:${arrangement.stack}` === PREVIOUS_DEFAULT;
+  return untouched ? { ...defaultArrangement, columns: [...defaultArrangement.columns] } : { ...arrangement, version: ARRANGEMENT_VERSION };
+}
+
+/**
+ * Whether the positions panel runs under the order book too: when the order book has the rail column to itself and
+ * that column sits right next to the chart, it keeps the chart's height and the positions get its width.
+ */
+export function positionsSpanRail(arrangement: Arrangement, visible: ColumnId[]) {
+  return arrangement.stack === "news" && visible.includes("rail") && Math.abs(visible.indexOf("rail") - visible.indexOf("main")) === 1;
 }
 
 export function swapColumns(arrangement: Arrangement, a: ColumnId, b: ColumnId): Arrangement {

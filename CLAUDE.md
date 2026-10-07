@@ -171,8 +171,9 @@ dependency versions and design are free to diverge from angler-news.
 - Multi-venue trading UI (the product is now a multi perp DEX terminal, news is the differentiator):
   - Layout (`terminal-shell.tsx`): every panel but the chart can be hidden (`panels` preference: orderbook,
     orderEntry, positions, news, account; edited from Layout in the sidebar (`layout-menu.tsx`: presets, panels,
-    sidebar/top bar) and Settings → Layout). Columns: chart (rest of the width, positions under it) | trading column
-    (order panel + account card on top, order book under it, filling the height) | news; side widths use
+    sidebar/top bar) and Settings → Layout). Default columns: chart (rest of the width) | order book | trading column
+    (order panel + account card on top, news under it, full height), with the positions running under both the chart
+    and the order book (`positionsSpanRail`: whenever the order book has the column next to the chart); side widths use
     `clamp(…vw)` so the chart keeps room on laptops. The sidebar and top bar hide like angler-news
     (`layout-toggles.tsx`, always available here). Every panel edge facing the chart has a drag handle
     (`panel-resizer.tsx`, desktop only; double-click or Home resets): positions height (`positionsHeight`), watchlist,
@@ -188,12 +189,13 @@ dependency versions and design are free to diverge from angler-news.
   - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
     hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
   - Arrangement (`arrangement` preference, `lib/layout/arrangement.ts`): column order (watchlist, main = chart +
-  positions, trade, rail) and which of the order book / news sits under the order panel (default: news there, order
-  book in the rail). Hover a panel, drag the grip at its top onto another to swap (`ArrangeHandle`, HTML5 drag and
+  positions, rail, trade) and which of the order book / news sits under the order panel (default: news there, order
+  book in the rail next to the chart; a saved copy of the old default, rail last, moves to it once via `version`). Hover a panel, drag the grip at its top onto another to swap (`ArrangeHandle`, HTML5 drag and
   drop in `terminal-shell.tsx`); Layout menu → Reset arrangement. Phones keep the order book under the order panel.
 - Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
-  desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll` (620px chart,
-  positions at least 360px); list pages (`.app-main` without `.terminal-grid`) stay one screen tall. Fit screen is
+  desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll`: a fixed 988px
+  grid (620px chart over 360px positions by default), so dragging the positions edge moves the line between them
+  instead of stretching the side columns; list pages (`.app-main` without `.terminal-grid`) stay one screen tall. Fit screen is
   the old one-screen layout. CSS in `globals.css` ("Desktop page mode").
 - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
     navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
