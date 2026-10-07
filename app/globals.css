@@ -606,7 +606,7 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
-/* Full-page messages (prediction teaser, 404): content rises in once. */
+/* The 404 message rises in once. */
 @keyframes status-in {
   from {
     opacity: 0;

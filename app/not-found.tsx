@@ -9,9 +9,9 @@ export default function NotFound() {
     <StatusScreen
       mark="404"
       title="Page not found"
-      description="This page doesn't exist or has moved. Pick up where the markets are."
-      primary={{ href: "/perp", label: "Open the terminal" }}
-      secondary={{ href: "/markets", label: "Browse markets" }}
+      description="This page doesn't exist or has moved."
+      primary={{ href: "/perp", label: "Trade perp" }}
+      secondary={{ href: "/spot", label: "Trade spot" }}
     />
   );
 }
