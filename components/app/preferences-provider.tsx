@@ -28,8 +28,12 @@ export function usePreferences() {
   return context;
 }
 
-export function PreferencesProvider({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState(defaultPreferences);
+/**
+ * `initial` comes from the server's cookies (the chart's asset and price source), so the server render and the first
+ * client render agree before the saved preferences load from localStorage.
+ */
+export function PreferencesProvider({ children, initial }: { children: React.ReactNode; initial?: Partial<Preferences> }) {
+  const [preferences, setPreferences] = useState(() => (initial ? { ...defaultPreferences, ...initial } : defaultPreferences));
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<string | null>(null);

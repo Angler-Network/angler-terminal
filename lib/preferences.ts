@@ -7,11 +7,13 @@ import {
 } from "./appearance";
 import type { PerpVenueId } from "./venues/types";
 import {
+  CHART_COOKIE,
   DEFAULT_TAPE_MARKET,
   DEFAULT_TAPE_SOURCE,
   isMarketSource,
   isMarketType,
   readTapeSymbols,
+  serializeChartCookie,
   serializeTapeCookie,
   TAPE_COOKIE,
   tapeMotions,
@@ -399,21 +401,28 @@ export function parsePreferences(raw: string | null): Preferences {
 
 const TAPE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-function syncTapeCookie(preferences: Preferences) {
-  const value = serializeTapeCookie({
-    market: preferences.tapeMarket,
-    source: preferences.tapeSource,
-    symbols: preferences.tapeSymbols,
-  });
-  const current = document.cookie.split("; ").find((entry) => entry.startsWith(`${TAPE_COOKIE}=`));
-  if (current !== `${TAPE_COOKIE}=${value}`) {
-    document.cookie = `${TAPE_COOKIE}=${value}; path=/; max-age=${TAPE_COOKIE_MAX_AGE}; samesite=lax`;
+function syncCookie(name: string, value: string) {
+  const current = document.cookie.split("; ").find((entry) => entry.startsWith(`${name}=`));
+  if (current !== `${name}=${value}`) {
+    document.cookie = `${name}=${value}; path=/; max-age=${TAPE_COOKIE_MAX_AGE}; samesite=lax`;
   }
+}
+
+/** The server renders the tape and the chart's asset and price from these cookies (it can't read localStorage). */
+function syncServerCookies(preferences: Preferences) {
+  syncCookie(
+    TAPE_COOKIE,
+    serializeTapeCookie({ market: preferences.tapeMarket, source: preferences.tapeSource, symbols: preferences.tapeSymbols }),
+  );
+  syncCookie(
+    CHART_COOKIE,
+    serializeChartCookie({ symbol: preferences.chartSymbol, market: preferences.chartMarket, source: preferences.tapeSource }),
+  );
 }
 
 export function applyPreferencesToDocument(preferences: Preferences) {
   applyAppearance(preferences, document.documentElement, CUSTOM_CSS_ELEMENT_ID);
-  syncTapeCookie(preferences);
+  syncServerCookies(preferences);
   const { dataset } = document.documentElement;
   if (preferences.showScrollbars) delete dataset.scrollbars;
   else dataset.scrollbars = "hidden";

@@ -279,6 +279,12 @@ dependency versions and design are free to diverge from angler-news.
   the Arcus SDK (`arcus/venue.ts`; lookups in `arcus/catalog.ts`) and the settings/setup dialogs (`lazy-dialogs.tsx`)
   load on demand. Don't import them statically from components on the first screen. The ticker bar streams its
   server-fetched prices through Suspense so the page shell never waits on market APIs.
+- Server-rendered chart price (the mobile LCP element): preferences mirror the chart's asset, market type and price
+  source into the `angler_chart` cookie (`CHART_COOKIE`, next to the tape's `angler_tape`). `app/layout.tsx` seeds
+  `PreferencesProvider` with it so the server and the first client render show the same asset, and `app/page.tsx`
+  streams that one quote (`chartQuote`, from the cached `getMarkets`, never the whole list) through
+  `InitialQuoteProvider`. The header's `QuoteSlot` renders the browser's live quote and the streamed one through the
+  same element: replacing the element would register a later LCP. Measured on a throttled phone: LCP 5.5s → 1.7s.
 - Motion (`lib/motion.ts`, hooks in `components/app/use-motion.ts`): GSAP loads on the first press or key, or once the
   page has settled (`useMotionPreload` in `lazy-dialogs.tsx`); never import `gsap` statically. `motion()` is null until
   then and under `prefers-reduced-motion`, so content never waits on an animation. Entrances clear their inline styles

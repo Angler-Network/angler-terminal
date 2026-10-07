@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { SearchableSelect } from "@/components/app/searchable-select";
@@ -11,12 +11,13 @@ import { MarketStats } from "@/components/terminal/market-stats";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useT } from "@/lib/i18n/client";
 import { formatPercent, formatPrice } from "@/lib/format";
-import { pickQuote, type Market } from "@/lib/markets/model";
+import { pickQuote, type Market, type Quote } from "@/lib/markets/model";
 import type { ChartInterval } from "@/lib/chart/candles";
 import { tradingViewInterval, tradingViewSymbol } from "@/lib/chart/tradingview";
 import type { NewsItem } from "@/lib/types";
 
 import { fittingIntervalCount } from "@/lib/chart/interval-fit";
+import { QuoteSlot, useInitialQuote } from "./initial-quote";
 import { IntervalPicker } from "./interval-picker";
 
 const AnglerChart = dynamic(() => import("./angler-chart").then((module) => module.AnglerChart), { ssr: false });
@@ -145,6 +146,18 @@ function TradingViewChart({ symbol, isStock, interval }: { symbol: string; isSto
   return <div ref={containerRef} role="region" aria-label={t("chart.title")} className="tradingview-widget-container min-h-0 w-full flex-1" />;
 }
 
+function PriceBlock({ quote }: { quote: Quote }) {
+  return (
+    <div className="flex shrink-0 flex-col gap-0.5 tabular-nums">
+      <span className="text-[16px] font-semibold leading-none text-app-ink">{formatPrice(quote.price)}</span>
+      <span className={`text-[11px] font-medium leading-none ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
+        {quote.changePct >= 0 ? "+" : "-"}
+        {formatPercent(quote.changePct)}
+      </span>
+    </div>
+  );
+}
+
 const panelClass =
   "surface-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55 shadow-[0_1px_2px_rgba(19,35,58,0.05)]";
 
@@ -170,6 +183,8 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   }, [markets, symbol, isStock]);
   const selected = markets?.find((market) => market.symbol === symbol);
   const quote = selected ? pickQuote(selected, preferences.tapeSource)?.quote : undefined;
+  // Until the browser's market list arrives, the price the server streamed in for this asset.
+  const initialQuote = useInitialQuote();
   const fit = useQuickIntervalCount(Boolean(venueMarket));
 
   return (
@@ -200,15 +215,11 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
             searchPlaceholder={t("settings.tapeSearch")}
             emptyMessage={t("settings.tapeNoMatch")}
           />
-          {quote && (
-            <div className="flex shrink-0 flex-col gap-0.5 tabular-nums">
-              <span className="text-[16px] font-semibold leading-none text-app-ink">{formatPrice(quote.price)}</span>
-              <span className={`text-[11px] font-medium leading-none ${quote.changePct >= 0 ? "text-app-up" : "text-app-down"}`}>
-                {quote.changePct >= 0 ? "+" : "-"}
-                {formatPercent(quote.changePct)}
-              </span>
-            </div>
-          )}
+          <Suspense fallback={null}>
+            <QuoteSlot live={quote} initial={markets ? null : initialQuote} symbol={symbol}>
+              {(shown) => <PriceBlock quote={shown} />}
+            </QuoteSlot>
+          </Suspense>
         </div>
         <MarketStats market={venueMarket} contentRef={fit.statsRef} className="max-lg:order-last max-lg:basis-full" />
         {!isTradingView && <IntervalPicker maxQuick={fit.count} />}

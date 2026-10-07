@@ -73,6 +73,44 @@ export function parseTapeCookie(value: string | undefined): TapeSettings {
   };
 }
 
+/** The chart's asset, market type and price source, mirrored into a cookie so the server renders the same asset. */
+export interface ChartSettings {
+  symbol: string;
+  market: MarketType;
+  source: MarketSource;
+}
+
+export const CHART_COOKIE = "angler_chart";
+
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { symbol: "BTC", market: "perp", source: DEFAULT_TAPE_SOURCE };
+
+const CHART_SYMBOL = /^[A-Za-z0-9]{1,20}$/;
+
+export function serializeChartCookie(settings: ChartSettings) {
+  return encodeURIComponent([settings.symbol, settings.market, settings.source].join("|"));
+}
+
+/** null when the cookie is missing or malformed: the server then renders the defaults, like a first visit. */
+export function parseChartCookie(value: string | undefined): ChartSettings | null {
+  if (!value) return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+  const [symbol, market, source] = decoded.split("|");
+  if (!symbol || !CHART_SYMBOL.test(symbol) || !isMarketType(market) || !isMarketSource(source)) return null;
+  return { symbol, market, source };
+}
+
+/** The one quote the server streams into the chart header (never the whole market list). */
+export function chartQuote(markets: Market[], settings: ChartSettings): ({ symbol: string } & Quote) | null {
+  const market = markets.find((entry) => entry.symbol === settings.symbol);
+  const picked = market ? pickQuote(market, settings.source) : null;
+  return picked ? { symbol: settings.symbol, price: picked.quote.price, changePct: picked.quote.changePct } : null;
+}
+
 export function pickQuote(market: Market, source: MarketSource) {
   const order: MarketSource[] = [source, ...marketSources.filter((candidate) => candidate !== source), "lighter"];
   const found = order.find((candidate) => market.quotes[candidate]);

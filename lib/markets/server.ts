@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import type { Market, MarketSource, MarketType, Quote } from "./model";
 
 const HYPERLIQUID_INFO = "https://api.hyperliquid.xyz/info";
@@ -177,4 +178,8 @@ async function loadMarkets(type: MarketType): Promise<Market[]> {
   return markets;
 }
 
-export const getMarkets = unstable_cache(loadMarkets, ["markets-v3"], { revalidate: REVALIDATE_SECONDS });
+/**
+ * Cached across requests; `cache` also shares one call within a render, so the tape and the chart price don't both
+ * load the list when the cross-request cache is cold.
+ */
+export const getMarkets = cache(unstable_cache(loadMarkets, ["markets-v3"], { revalidate: REVALIDATE_SECONDS }));
