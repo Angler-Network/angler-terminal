@@ -507,6 +507,46 @@ html[data-scrollbars="hidden"] .scrollbar-subtle::-webkit-scrollbar {
   display: none;
 }
 
+/* The page's own scrollbar (scrolling page mode) matches the panels' subtle one. */
+html::-webkit-scrollbar {
+  width: 12px;
+}
+
+html::-webkit-scrollbar-track,
+html::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-button {
+  display: none;
+}
+
+html::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  background-color: rgb(var(--app-ink) / 0.18);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--app-ink) / 0.32);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--app-ink) / 0.22) transparent;
+  }
+}
+
+html[data-scrollbars="hidden"] {
+  scrollbar-width: none;
+}
+
+html[data-scrollbars="hidden"]::-webkit-scrollbar {
+  display: none;
+}
+
 .scrollbar-list::-webkit-scrollbar {
   width: 14px;
 }
