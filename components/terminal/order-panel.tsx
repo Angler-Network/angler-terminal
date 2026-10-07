@@ -556,6 +556,22 @@ export function OrderPanel() {
               ? `No enabled ${activeKind} venue lists ${symbol}.`
               : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}
           </p>
+          {/* A browser that saved Jupiter as off (often from before it was live) would never see spot otherwise. */}
+          {activeKind === "spot" && venueAvailable("jupiter") && !preferences.venueJupiter && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-[#f5c97b]/10 px-2.5 py-2 text-[12px] text-app-ink">
+              <span>Jupiter spot is turned off in this browser.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  updatePreference("venueJupiter", true);
+                  if (venueAvailable("titan")) updatePreference("venueTitan", true);
+                }}
+                className="h-7 shrink-0 rounded-md bg-[#f5c97b] px-2.5 text-[12px] font-semibold text-black hover:opacity-90"
+              >
+                Turn on
+              </button>
+            </div>
+          )}
           {hasKind(otherKind) && (
             <Link
               href={TERMINAL_PATHS[otherKind]}
