@@ -316,6 +316,17 @@ function LayoutSettings() {
           onChange={(value) => updatePreference("tapePosition", value)}
         />
       </SettingRow>
+      <SettingRow title="Page" description="Scroll: the page scrolls and panels stay roomy. Fit screen: everything squeezed into one screen.">
+        <SegmentedControl
+          label="Page"
+          value={preferences.fitToScreen ? "fit" : "scroll"}
+          options={[
+            { value: "scroll", label: "Scroll" },
+            { value: "fit", label: "Fit screen" },
+          ]}
+          onChange={(value) => updatePreference("fitToScreen", value === "fit")}
+        />
+      </SettingRow>
       <SettingRow title="Notifications" description="Where order results and errors pop up.">
         <SegmentedControl label="Notifications" value={preferences.toastPosition} options={toastPositions} onChange={(value) => updatePreference("toastPosition", value)} />
       </SettingRow>

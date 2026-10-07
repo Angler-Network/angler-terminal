@@ -55,7 +55,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
           <TopBarToggle />
         </div>
       </header>
-      <main className="min-h-0 flex-1 p-1.5 lg:p-2">{children}</main>
+      <main className="app-main min-h-0 flex-1 p-1.5 lg:p-2">{children}</main>
       {position === "bottom" && (
         <footer className="surface-chrome flex h-10 shrink-0 items-center border-t border-app-hairline px-3 sm:px-4">
           <div className="flex min-w-0 flex-1">{tape}</div>

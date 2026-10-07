@@ -173,7 +173,11 @@ dependency versions and design are free to diverge from angler-news.
     switch to the Chart view on phones.
   - Chart header: asset, price, then `market-stats.tsx` (mark, 24h volume, open interest from the venue market list,
     hourly funding + countdown to the top of the hour; `lib/trading/market-stats.ts`) and the interval picker.
-  - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
+  - Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
+  desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll` (620px chart,
+  positions at least 360px); list pages (`.app-main` without `.terminal-grid`) stay one screen tall. Fit screen is
+  the old one-screen layout. CSS in `globals.css` ("Desktop page mode").
+- Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
     navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
     rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in onboarding,

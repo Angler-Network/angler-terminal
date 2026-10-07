@@ -134,6 +134,8 @@ export interface Preferences extends Appearance {
   navMode: NavMode;
   /** Where the price tape sits, or off. */
   tapePosition: TapePosition;
+  /** Desktop: squeeze the terminal into one screen (true) or let the page scroll with roomier panels (false). */
+  fitToScreen: boolean;
   /** Where toasts (order results, errors) appear: top center by default so they're seen. */
   toastPosition: ToastPosition;
   showTopBar: boolean;
@@ -225,6 +227,7 @@ export const defaultPreferences: Preferences = {
   showSidebar: true,
   navMode: "sidebar",
   tapePosition: "top",
+  fitToScreen: false,
   toastPosition: "top",
   showTopBar: true,
   sidebarHiding: false,
@@ -350,6 +353,7 @@ export function parsePreferences(raw: string | null): Preferences {
       showSidebar: readBoolean(stored.showSidebar, true),
       navMode: stored.navMode === "top" ? "top" : "sidebar",
       tapePosition: stored.tapePosition === "bottom" || stored.tapePosition === "off" ? stored.tapePosition : "top",
+      fitToScreen: readBoolean(stored.fitToScreen, defaultPreferences.fitToScreen),
       toastPosition: stored.toastPosition === "top-right" || stored.toastPosition === "bottom-right" ? stored.toastPosition : "top",
       showTopBar: readBoolean(stored.showTopBar, true),
       sidebarHiding: readBoolean(stored.sidebarHiding, defaultPreferences.sidebarHiding),
@@ -449,10 +453,12 @@ export function applyPreferencesToDocument(preferences: Preferences) {
   else delete dataset.nav;
   if (preferences.tapePosition === "top") delete dataset.tape;
   else dataset.tape = preferences.tapePosition;
+  if (preferences.fitToScreen) dataset.viewport = "fit";
+  else delete dataset.viewport;
 }
 
 export const preferencesScript = `try{var p=JSON.parse(localStorage.getItem(${JSON.stringify(
   PREFERENCES_STORAGE_KEY,
-)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.showSidebar===false)d.sidebar="hidden";if(p.showTopBar===false)d.topbar="hidden";if(p.navMode==="top")d.nav="top";if(p.tapePosition==="bottom"||p.tapePosition==="off")d.tape=p.tapePosition;(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
+)})||"{}"),d=document.documentElement.dataset;if(p.appearanceVersion!==${APPEARANCE_VERSION}){delete p.theme;delete p.surfaceStyle}if(p.showScrollbars===false)d.scrollbars="hidden";if(p.framedLayout===false)d.frame="off";if(p.showSidebar===false)d.sidebar="hidden";if(p.showTopBar===false)d.topbar="hidden";if(p.navMode==="top")d.nav="top";if(p.tapePosition==="bottom"||p.tapePosition==="off")d.tape=p.tapePosition;if(p.fitToScreen===true)d.viewport="fit";(${applyAppearance.toString()})(p,document.documentElement,${JSON.stringify(
   CUSTOM_CSS_ELEMENT_ID,
 )})}catch(e){}`;

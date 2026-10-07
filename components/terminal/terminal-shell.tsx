@@ -29,6 +29,9 @@ const allPanels: TerminalPanels = { orderbook: true, orderEntry: true, positions
 const MIN_POSITIONS_HEIGHT = 80;
 /** The chart keeps at least this much when the positions panel is dragged up (plus the 8px grid gap). */
 const MIN_CHART_HEIGHT = 200;
+/** Scrolling page mode (`fitToScreen` off): the chart row and the least the positions row gets. */
+const SCROLL_CHART_HEIGHT = 620;
+const SCROLL_MIN_POSITIONS = 360;
 /** The order panel and account card keep at least this much above a dragged order book (also in its max-h class). */
 const MIN_TRADING_HEIGHT = 200;
 const GAP = 8;
@@ -119,9 +122,12 @@ export function TerminalShell() {
     const rows = panels.positions ? `minmax(0,1fr) min(${positionsHeight}px, calc(100% - ${MIN_CHART_HEIGHT + 8}px))` : "minmax(0,1fr)";
     const allRows = panels.positions ? "1 / 3" : "1 / 2";
     const slot = (column: number | string, row: string): Slot => ({ column: String(column), row });
+    // Scrolling page: a roomy chart and at least a comfortable positions panel, whatever the window height.
+    const scrollRows = panels.positions ? `${SCROLL_CHART_HEIGHT}px ${Math.max(positionsHeight, SCROLL_MIN_POSITIONS)}px` : `${SCROLL_CHART_HEIGHT}px`;
     return {
       columns: columns.join(" "),
       rows,
+      scrollRows,
       watchlist: slot(1, allRows),
       chart: slot(main, "1"),
       positions: slot(main, "2"),
@@ -144,8 +150,8 @@ export function TerminalShell() {
       <NewsRulesRunner items={feed.items} />
       <div
         ref={gridRef}
-        style={{ "--cols": layout.columns, "--rows": layout.rows } as React.CSSProperties}
-        className="h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:grid-cols-(--cols) lg:grid-rows-(--rows)"
+        style={{ "--cols": layout.columns, "--rows": layout.rows, "--rows-scroll": layout.scrollRows } as React.CSSProperties}
+        className="terminal-grid h-full min-h-0 lg:grid lg:gap-2 lg:overflow-hidden lg:grid-cols-(--cols) lg:grid-rows-(--rows)"
       >
         {panels.watchlist && !isMobile && (
           <div ref={columnRefs.watchlist} style={place(layout.watchlist)} className={`relative ${placed} max-lg:hidden`}>

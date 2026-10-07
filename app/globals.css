@@ -405,6 +405,60 @@ html[data-frame="off"] .app-frame {
   padding: 0;
 }
 
+/* Desktop page mode. Default: the page scrolls and panels keep roomy heights, with the top bar and rail pinned.
+   html[data-viewport="fit"] (set before hydration) keeps everything on one screen instead. */
+@media (min-width: 1024px) {
+  html:not([data-viewport="fit"]) body.app-frame {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  html:not([data-viewport="fit"]) .app-shell {
+    height: auto;
+    min-height: calc(100dvh - 2rem);
+    overflow: visible;
+  }
+
+  html[data-frame="off"]:not([data-viewport="fit"]) .app-shell {
+    min-height: 100dvh;
+  }
+
+  html:not([data-viewport="fit"]) .app-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    /* The framed shell sits inside 1rem of padding and a 1px border. */
+    height: calc(100dvh - 2rem - 2px);
+  }
+
+  html[data-frame="off"]:not([data-viewport="fit"]) .app-sidebar {
+    height: 100dvh;
+  }
+
+  html:not([data-viewport="fit"]) .app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  html:not([data-viewport="fit"]) .terminal-grid {
+    height: auto;
+    grid-template-rows: var(--rows-scroll);
+  }
+
+  /* Only the terminal grows with the page; list pages (markets, profile, settings) stay one screen tall and scroll
+     inside, so their table headers stay pinned. */
+  html:not([data-viewport="fit"]) .app-main:not(:has(.terminal-grid)) {
+    flex: none;
+    height: calc(100dvh - 5.5rem - 2px);
+  }
+
+  html[data-frame="off"]:not([data-viewport="fit"]) .app-main:not(:has(.terminal-grid)) {
+    height: calc(100dvh - 3.5rem);
+  }
+}
+
 html[data-frame="off"] .app-shell {
   border: 0;
   border-radius: 0;

@@ -177,6 +177,15 @@ export function LayoutMenu({
               ]}
               onChange={(value: TapePosition) => updatePreference("tapePosition", value)}
             />
+            <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint">Page</p>
+            <Choice
+              value={preferences.fitToScreen ? "fit" : "scroll"}
+              options={[
+                { value: "scroll", label: "Scroll" },
+                { value: "fit", label: "Fit screen" },
+              ]}
+              onChange={(value: "scroll" | "fit") => updatePreference("fitToScreen", value === "fit")}
+            />
             <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint">Notifications</p>
             <Choice value={preferences.toastPosition} options={toastPositions} onChange={(value: ToastPosition) => updatePreference("toastPosition", value)} />
           </div>
