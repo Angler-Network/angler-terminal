@@ -147,6 +147,7 @@ and it stays off or uses public defaults. `.env.example` documents every variabl
 | `NEXT_PUBLIC_ARCUS_NETWORK`, `NEXT_PUBLIC_ARCUS_RPC_URL` | public | Arcus network and optional RPC |
 | `ARCUS_API_KEY`, `ARCUS_BUILDER_FEE_BPS` | server | Optional Arcus partner key and fee |
 | `NEXT_PUBLIC_SPOT_SIZE_PRESETS`, `NEXT_PUBLIC_PERP_SIZE_PRESETS` | public | Optional USD size presets |
+| `COINGECKO_API_KEY`, `COINGECKO_API_PLAN` | server | Optional: spot token charts from CoinGecko's on-chain API (free GeckoTerminal without it) |
 | `ANALYTICS_TOKEN` | server | Bearer token for `GET /api/analytics/trade` |
 
 ### Testnet funds

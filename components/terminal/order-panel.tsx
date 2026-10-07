@@ -422,6 +422,8 @@ export function OrderPanel() {
   };
 
   const verb = sideLabel(isPerp ? "perp" : "spot", side);
+  // A spot swap names the token it actually buys (cbBTC), not the asset.
+  const tradedSymbol = choice?.kind === "spot" && choice.id === "jupiter" ? choice.token.symbol : symbol;
   const buttonText = !address && choice?.id !== "jupiter"
     ? "Connect wallet"
     : isPlacing
@@ -430,7 +432,7 @@ export function OrderPanel() {
         ? `Confirm ${verb.toLowerCase()}`
         : splitActive
           ? `${verb} $${sizeUsd} ${symbol} on ${split!.legs.length} venues`
-          : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
+          : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${tradedSymbol}`}`;
   const venueQuote = market ? quotes.find((quote) => quote.venue === market.venue) : undefined;
   // A split fills at the blended price of its legs.
   const splitBase = splitActive && split ? split.legs.reduce((sum, leg) => sum + leg.base, 0) : 0;
@@ -525,7 +527,7 @@ export function OrderPanel() {
           {choice?.kind === "spot" && choice.id === "jupiter" && normalizeSpotSymbol(choice.token.symbol) !== normalizeSpotSymbol(symbol) && (
             // The asset has no token of its own name on Solana: say which token the swap actually buys or sells.
             <p className="-mt-1 text-[11px] leading-snug text-app-faint">
-              Trades <span className="font-semibold text-app-muted">{choice.token.symbol}</span> ({choice.token.name}), the most liquid {symbol} on
+              Trades <span className="font-semibold text-app-muted">{choice.token.symbol}</span> ({choice.token.name}), the most traded {symbol} on
               Solana right now.
             </p>
           )}

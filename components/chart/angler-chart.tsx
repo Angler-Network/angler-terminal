@@ -18,6 +18,7 @@ import { useLang, useT } from "@/lib/i18n/client";
 import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
 import { mergeCandles } from "@/lib/chart/merge-candles";
+import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import type { ChartDataSource, ChartSource } from "@/lib/preferences";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
@@ -37,21 +38,42 @@ interface AnglerChartProps {
   items: NewsItem[];
   /** When the asset trades on Hyperliquid, candles come from the configured Hyperliquid network. */
   venueMarket?: VenueMarket | null;
+  /** On /spot: the traded token, charted from its own busiest DEX pool (cbBTC, not "BTC") when "Auto". */
+  spotToken?: { network: PoolNetwork | null; address: string; symbol: string } | null;
 }
 
 const CANDLE_COUNT = 1000;
 
-type CandleSource = "binance" | PerpVenueId;
+type CandleSource = "binance" | PerpVenueId | "pool";
 
-/** Candles from a perp venue (its configured network) or from the public feeds (Binance, Hyperliquid mainnet). */
+/**
+ * Candles from a perp venue (its configured network), from the public feeds (Binance, Hyperliquid mainnet) or, on
+ * /spot, from the traded token's own DEX pool.
+ */
 interface CandleData {
   key: string;
-  origin: "venue" | "feed";
+  origin: "venue" | "feed" | "pool";
   source: CandleSource;
   candles: Candle[];
+  /** "cbBTC / USDC · orca" for pool candles. */
+  poolName?: string;
 }
 
-const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter" };
+const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", pool: "DEX pool" };
+
+/** A spot token's own candles (`/api/spot/candles`); null when no indexed pool trades it or the source is down. */
+async function loadPoolCandles(network: PoolNetwork, address: string, interval: ChartInterval, count: number) {
+  try {
+    const response = await fetch(`/api/spot/candles?network=${network}&address=${address}&interval=${interval}&count=${count}`);
+    if (!response.ok) return null;
+    const body = (await response.json()) as { pool: { name: string; dex: string }; candles: Candle[] };
+    return body.candles.length > 0
+      ? { origin: "pool" as const, source: "pool" as const, candles: body.candles, poolName: `${body.pool.name} · ${body.pool.dex}` }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Candles straight from a perp venue for its market; null when it can't serve this asset or interval. `since` (ms)
@@ -111,7 +133,7 @@ function tooltipLeft(x: number, width: number) {
 
 const toTime =(milliseconds: number) => Math.floor(milliseconds / 1000) as UTCTimestamp;
 
-export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: AnglerChartProps) {
+export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spotToken }: AnglerChartProps) {
   const t = useT();
   const locale = langTags[useLang()];
   const { preferences, updatePreference } = usePreferences();
@@ -142,7 +164,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
   // Only the first venue decides the candles: a fallback venue whose market list arrives later (Lighter's, a moment
   // after Hyperliquid's) must not clear the chart and download the same candles again.
   const venueKey = venues[0] ? `${venues[0]}:${venueMarkets[venues[0]]!.coin}` : "";
-  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey].join("|");
+  // On /spot with "Auto", the token's own pool comes first.
+  const pool = preferences.chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
+  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? ""].join("|");
   const candles = data?.key === key ? data.candles : null;
   const newsByTime = useMemo(() => {
     const groups = new Map<number, NewsItem[]>();
@@ -243,8 +267,12 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
         const result = await loadCandles(symbol, interval, { ...options, sources: feeds });
         return result && { origin: "feed" as const, ...result };
       };
-      // "Binance" asks Binance first; every other choice asks the venues first, then the public feeds.
-      const result = preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds()));
+      // "Binance" asks Binance first; every other choice asks the venues first, then the public feeds. A spot token's
+      // own pool goes before all of them, and the asset's market chart stands in when no pool can be read.
+      const fromPool = async () => (pool ? await loadPoolCandles(pool.network, pool.address, interval, CANDLE_COUNT) : null);
+      const result =
+        (await fromPool()) ??
+        (preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds())));
       if (!isActive) return;
       if (result) setData({ key, ...result });
       else setFailed(true);
@@ -256,11 +284,15 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
       const since = current.candles[current.candles.length - 2].time;
       const market = venuesRef.current.venueMarkets[current.source as PerpVenueId];
       const tail =
-        current.origin === "venue"
-          ? market
-            ? await loadVenueCandles(current.source as PerpVenueId, market, interval, since)
+        current.origin === "pool"
+          ? pool
+            ? await loadPoolCandles(pool.network, pool.address, interval, 3)
             : null
-          : await loadCandles(symbol, interval, { ...options, sources: [current.source as ChartDataSource], since });
+          : current.origin === "venue"
+            ? market
+              ? await loadVenueCandles(current.source as PerpVenueId, market, interval, since)
+              : null
+            : await loadCandles(symbol, interval, { ...options, sources: [current.source as ChartDataSource], since });
       if (!isActive || !tail || dataRef.current !== current) return;
       setData({ ...current, candles: mergeCandles(current.candles, tail.candles, CANDLE_COUNT) });
     };
@@ -341,7 +373,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
             value: source,
             label:
               source === "auto"
-                ? `Auto${data && candles ? ` · ${SOURCE_NAMES[data.source]}` : ""}`
+                ? `Auto${data && candles ? ` · ${data.poolName ?? SOURCE_NAMES[data.source]}` : ""}`
                 : // A pick the chart couldn't serve shows what it fell back to.
                   `${SOURCE_NAMES[source]}${data && candles && preferences.chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
           }))}

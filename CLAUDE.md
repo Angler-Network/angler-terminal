@@ -237,6 +237,12 @@ dependency versions and design are free to diverge from angler-news.
   — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; the watchlist highlights that token. Unverified tokens never win: Jupiter's
   search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
   `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.
+- Spot charts: on /spot the chart header and candles are the traded token's (`use-spot-chart-token.ts`: cbBTC with its
+  logo, price, liquidity, volume, market cap), not the asset's. Candles come from the token's busiest DEX pool via
+  `GET /api/spot/candles` (`lib/spot/pool-candles*.ts`: GeckoTerminal; CoinGecko's on-chain API with
+  `COINGECKO_API_KEY`). The free API allows ~10 calls a minute for the whole site, so pools are cached an hour,
+  candles a minute, refreshes ask for 3 candles, and any failure falls back to the asset's market chart. Intervals
+  GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
   sortable columns, ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
