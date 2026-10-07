@@ -501,7 +501,7 @@ export function OrderPanel() {
               href={TERMINAL_PATHS[otherKind]}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
-              {otherKind === "perp" ? `Trade ${symbol} on Dex Perp` : `Swap ${symbol}`}
+              {otherKind === "perp" ? `Trade ${symbol} on Perp Dex` : `Swap ${symbol}`}
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}
@@ -510,7 +510,7 @@ export function OrderPanel() {
               href={TERMINAL_PATHS.book}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
-              Trade {symbol} on Dex Spot
+              Trade {symbol} on Spot Dex
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}

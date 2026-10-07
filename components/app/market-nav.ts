@@ -13,8 +13,8 @@ export interface MarketNavItem {
 
 /** The market views at the top of every navigation (sidebar, top bar, phone menu). */
 export const marketNav: MarketNavItem[] = [
-  { href: "/perp", label: "Dex Perp", title: "Perpetual futures on Hyperliquid and Lighter", icon: CandlestickChart, isActive: (pathname) => terminalKindOf(pathname) === "perp" },
+  { href: "/perp", label: "Perp Dex", title: "Perpetual futures on Hyperliquid and Lighter", icon: CandlestickChart, isActive: (pathname) => terminalKindOf(pathname) === "perp" },
   { href: "/swap", label: "Swap", title: "Swap tokens and tokenized stocks", icon: Coins, isActive: (pathname) => terminalKindOf(pathname) === "spot" },
-  { href: "/spot", label: "Dex Spot", title: "Spot on Hyperliquid and Lighter order books, and Arcus stock tokens", icon: BookOpen, isActive: (pathname) => terminalKindOf(pathname) === "book" },
+  { href: "/spot", label: "Spot Dex", title: "Spot on Hyperliquid and Lighter order books, and Arcus stock tokens", icon: BookOpen, isActive: (pathname) => terminalKindOf(pathname) === "book" },
   { href: "/prediction", label: "Prediction", title: "Prediction markets: Polymarket and Hyperliquid", icon: Target, isActive: (pathname) => pathname === "/prediction" },
 ];
