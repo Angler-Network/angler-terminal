@@ -19,8 +19,6 @@ const NEWS_SITE = "https://news.angler.network";
 const MOVER_ROWS = 6;
 const SEARCH_ROWS = 12;
 
-const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
-
 const MOVERS: Array<{ sort: AssetSort; title: string; icon: LucideIcon; tone: string }> = [
   { sort: "volume", title: "Most traded", icon: Flame, tone: "text-[#f5c97b]" },
   { sort: "gainers", title: "Gainers", icon: TrendingUp, tone: "text-app-up" },
@@ -39,12 +37,30 @@ function Change({ value }: { value: number | undefined }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** Featured on the hero: the busiest assets, big and tappable. */
+const FEATURED = ["BTC", "ETH", "SOL", "HYPE"];
+
+function AssetTile({ row, onOpen }: { row: AssetRow | undefined; onOpen: (symbol: string) => void }) {
+  if (!row) return <span aria-hidden className="h-[104px] animate-pulse rounded-xl border border-app-hairline bg-app-card/40" />;
+  const up = (row.change24hPct ?? 0) >= 0;
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-app-hairline bg-app-card/40 px-4 py-3">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">{label}</span>
-      <span className="text-[20px] font-semibold tabular-nums text-app-ink">{value}</span>
-    </div>
+    <button
+      type="button"
+      onClick={() => onOpen(row.symbol)}
+      className="group flex flex-col gap-2.5 rounded-xl border border-app-hairline bg-app-card/40 p-3.5 text-left transition-colors hover:border-app-hairline-strong hover:bg-app-card/70"
+    >
+      <span className="flex items-center gap-2">
+        <MarketIcon symbol={row.symbol} kind={row.kind} size={26} />
+        <span className="text-[14px] font-semibold text-app-ink">{row.symbol}</span>
+        {row.change24hPct !== undefined && (
+          <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${up ? "bg-app-up/12 text-app-up" : "bg-app-down/12 text-app-down"}`}>
+            {up ? "+" : ""}
+            {row.change24hPct.toFixed(2)}%
+          </span>
+        )}
+      </span>
+      <span className="text-[20px] font-semibold tabular-nums tracking-tight text-app-ink">{row.price ? formatPrice(row.price) : "—"}</span>
+    </button>
   );
 }
 
@@ -165,7 +181,7 @@ function ReferralBanner() {
   );
 }
 
-/** The landing page: live totals across every venue, a market search, today's movers, the referral program and news. */
+/** The landing page: the majors at a glance, a market search, today's movers, the referral program and news. */
 export function HomeView() {
   const router = useRouter();
   const { selectAsset } = useSelectedAsset();
@@ -174,10 +190,13 @@ export function HomeView() {
 
   const rows = useMemo(() => assetRows(marketsByVenue), [marketsByVenue]);
   const venueIds = useMemo(() => (Object.keys(PERP_VENUE_NAMES) as PerpVenueId[]).filter((id) => rows.some((row) => row.venues[id])), [rows]);
-  const totals = useMemo(
-    () => rows.reduce((sum, row) => ({ volume: sum.volume + row.volume, openInterest: sum.openInterest + row.openInterest }), { volume: 0, openInterest: 0 }),
-    [rows],
-  );
+  const bySymbol = useMemo(() => new Map(rows.map((row) => [row.symbol, row])), [rows]);
+  // The usual majors, topped up with the busiest assets when a venue doesn't list one of them.
+  const featured = useMemo(() => {
+    const listed = FEATURED.filter((symbol) => rows.length === 0 || bySymbol.has(symbol));
+    const extra = sortAssetRows(rows, "volume").map((row) => row.symbol).filter((symbol) => !listed.includes(symbol));
+    return [...listed, ...extra].slice(0, FEATURED.length);
+  }, [rows, bySymbol]);
   const movers = useMemo(() => MOVERS.map((mover) => ({ ...mover, rows: sortAssetRows(rows, mover.sort).slice(0, MOVER_ROWS) })), [rows]);
   const results = useMemo(() => (query.trim() ? sortAssetRows(rows.filter((row) => matchesQuery(row, query)), "volume").slice(0, SEARCH_ROWS) : []), [rows, query]);
 
@@ -195,8 +214,7 @@ export function HomeView() {
           <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:items-end">
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#f5c97b]">Angler Terminal</p>
-                <h1 className="mt-2 text-[30px] font-semibold leading-[1.1] tracking-tight text-app-ink sm:text-[38px]">
+                <h1 className="text-[30px] font-semibold leading-[1.1] tracking-tight text-app-ink sm:text-[38px]">
                   Every perp DEX, one screen.
                 </h1>
                 <p className="mt-2 max-w-[520px] text-[14px] text-app-muted">
@@ -230,10 +248,9 @@ export function HomeView() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Stat label="Markets" value={loaded ? String(rows.length) : "—"} />
-              <Stat label="Venues" value={loaded ? String(venueIds.length) : "—"} />
-              <Stat label="24h volume" value={totals.volume > 0 ? compactUsd.format(totals.volume) : "—"} />
-              <Stat label="Open interest" value={totals.openInterest > 0 ? compactUsd.format(totals.openInterest) : "—"} />
+              {featured.map((symbol) => (
+                <AssetTile key={symbol} row={bySymbol.get(symbol)} onOpen={open} />
+              ))}
             </div>
           </div>
         </section>
