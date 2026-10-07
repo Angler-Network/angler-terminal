@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { InitialQuoteProvider } from "@/components/chart/initial-quote";
 import { TerminalShell } from "@/components/terminal/terminal-shell";
 import { CHART_COOKIE, chartQuote, DEFAULT_CHART_SETTINGS, parseChartCookie } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function TerminalPage() {
   const chart = parseChartCookie((await cookies()).get(CHART_COOKIE)?.value) ?? DEFAULT_CHART_SETTINGS;

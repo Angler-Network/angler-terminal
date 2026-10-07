@@ -20,17 +20,23 @@ import { I18nProvider } from "@/lib/i18n/client";
 import { CHART_COOKIE, parseChartCookie } from "@/lib/markets/model";
 import { onboardingScript, openOnboardingScript } from "@/lib/onboarding";
 import { preferencesScript } from "@/lib/preferences";
+import { isIndexable, siteUrl } from "@/lib/site";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import "./globals.css";
 
 const title = "Angler Terminal";
-const description = "News-driven trading terminal: live Angler news next to the chart and the order ticket.";
+const description =
+  "Trade Hyperliquid and Lighter perps, Solana tokens and tokenized stocks from one screen, with AI-scored crypto news you can trade in two taps.";
 
 export const metadata: Metadata = {
-  title: { template: "%s · Angler", default: title },
+  metadataBase: new URL(siteUrl()),
+  title: { template: "%s · Angler Terminal", default: title },
   description,
   applicationName: title,
-  robots: { index: false, follow: false },
+  // Both sites are indexed (`isIndexable`), each with its own canonical origin; dev builds stay out of search results.
+  robots: isIndexable() ? { index: true, follow: true } : { index: false, follow: false },
+  openGraph: { type: "website", siteName: title, title, description },
+  twitter: { card: "summary_large_image", title, description },
   icons: { icon: "/logo.png", shortcut: "/logo.png", apple: "/logo.png" },
 };
 
