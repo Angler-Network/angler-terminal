@@ -461,9 +461,14 @@ dependency versions and design are free to diverge from angler-news.
   `openOnboardingScript` (right after it in `layout.tsx`) calls `showModal()` at once. Opening it from React later
   would move it into the top layer after its first paint (a new, later LCP). The welcome logo is a CSS background
   (`.welcome-logo`) so it only downloads when the dialog is open.
-- Wallets: one Connect button opens `wallet-modal.tsx`: a grid of colored venue tiles (logo, name, kind; built to take
-  more venues), connected wallets listed once per chain below. Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
-  Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
+- Wallets: one Connect button opens `wallet-modal.tsx`, a single screen with no venue step. Left: "Connect once. Trade
+  everywhere." over an orbit (EVM venues on the inner ring, Solana venues on the outer, around the Angler mark;
+  slow counter-rotation, off under reduced motion, hidden on phones) whose ring lights up once its chain has a
+  wallet, plus EVM/Solana cards with the connected addresses. Right: every detected wallet (EVM via EIP-6963,
+  Solana via Wallet Standard) merged by name, so a wallet with both (Phantom, Backpack) is one row with EVM/SOL
+  chips and one press connects both chains; the modal closes once no other wallet could add a missing chain.
+  Install links when none is found. One wallet per chain serves every venue on that chain. No embedded-wallet SDK
+  (Privy was tried and dropped: it would load for everyone; if added later it must load only on demand). The account panel (`account-panel.tsx`: balances, trading key) and
   its grid column only appear once a wallet is connected. Perp leverage for news trades lives in settings.
 - News reaction (`components/news/news-reaction.tsx`, on tradable cards): how the lead asset moved 1h/4h/24h after
   its past news in the same impact bucket (`reactionBucket`: 40/60/80). `/api/news/reaction` (`lib/news/reaction-server.ts`,
