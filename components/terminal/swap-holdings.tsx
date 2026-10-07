@@ -6,10 +6,12 @@ import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import { SpotTable, STABLECOINS } from "@/components/portfolio/spot-table";
 import { useSpotChartToken, type SpotChartToken } from "@/components/chart/use-spot-chart-token";
 import { formatPrice } from "@/lib/format";
+import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { assetSymbolOf, normalizeSpotSymbol } from "@/lib/spot/listings";
 import { costBasis, unrealizedPnl } from "@/lib/spot/swap-history";
 import { ago, shortAddress, type TokenHolder, type TokenTrade } from "@/lib/spot/token-activity";
 import { holdingsValue, type SpotHolding } from "@/lib/venues/jupiter/holdings";
+import { EVM_SWAP_CHAINS } from "@/lib/venues/uniswap/chains";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useSwapHistory } from "./swap-history-store";
@@ -27,13 +29,18 @@ const MIN_SIZES = [0, 100, 1000];
 
 type Tab = "swaps" | "holders" | "trades" | "holdings";
 
-const EXPLORERS = {
-  solana: { address: (value: string) => `https://solscan.io/account/${value}`, tx: (value: string) => `https://solscan.io/tx/${value}` },
-  robinhood: {
-    address: (value: string) => `https://robinhoodchain.blockscout.com/address/${value}`,
-    tx: (value: string) => `https://robinhoodchain.blockscout.com/tx/${value}`,
-  },
-} as const;
+const evmExplorer = (url: string, name: string) => ({
+  name,
+  address: (value: string) => `${url}/address/${value}`,
+  tx: (value: string) => `${url}/tx/${value}`,
+  holders: (token: string) => `${url}/token/${token}${url.includes("blockscout") ? "?tab=holders" : "#balances"}`,
+});
+
+const EXPLORERS: Record<PoolNetwork, { name: string; address: (value: string) => string; tx: (value: string) => string; holders?: (token: string) => string }> = {
+  solana: { name: "Solana", address: (value) => `https://solscan.io/account/${value}`, tx: (value) => `https://solscan.io/tx/${value}` },
+  robinhood: evmExplorer("https://robinhoodchain.blockscout.com", "Robinhood Chain"),
+  ...Object.fromEntries(EVM_SWAP_CHAINS.map((chain) => [chain.pool, evmExplorer(chain.explorer, chain.name)])),
+} as Record<PoolNetwork, { name: string; address: (value: string) => string; tx: (value: string) => string; holders?: (token: string) => string }>;
 
 /** Recent swaps of the token's busiest pool, refreshed while the tab is visible. */
 function usePoolTrades(token: SpotChartToken | null | undefined, active: boolean) {
@@ -242,9 +249,9 @@ export function SwapHoldings() {
           (token?.network !== "solana" ? (
             token ? (
               <Empty>
-                Holders of {token.symbol} on Robinhood Chain are on the explorer.
+                Holders of {token.symbol} on {token.network ? EXPLORERS[token.network].name : "this chain"} are on the explorer.
                 <a
-                  href={`https://robinhoodchain.blockscout.com/token/${token.address}?tab=holders`}
+                  href={token.network ? (EXPLORERS[token.network].holders?.(token.address) ?? "#") : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-semibold text-app-ink hover:underline"

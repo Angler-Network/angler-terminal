@@ -4,11 +4,15 @@
  * caller.
  */
 
+export const SWAP_CHAINS = ["solana", "robinhood", "ethereum", "base", "arbitrum"] as const;
+export type SwapChain = (typeof SWAP_CHAINS)[number];
+
 export interface SwapRecord {
   tx: string;
   /** Unix ms. */
   at: number;
-  chain: "solana" | "robinhood";
+  /** Solana, Robinhood Chain, or an EVM swap chain (`EvmSwapChainKey`). */
+  chain: SwapChain;
   /** Mint or token address of the traded token (not the stablecoin side). */
   token: string;
   symbol: string;
@@ -31,7 +35,7 @@ function isRecord(value: unknown): value is SwapRecord {
     !!record &&
     typeof record.tx === "string" &&
     typeof record.at === "number" &&
-    (record.chain === "solana" || record.chain === "robinhood") &&
+    SWAP_CHAINS.includes(record.chain as SwapChain) &&
     typeof record.token === "string" &&
     typeof record.symbol === "string" &&
     (record.side === "buy" || record.side === "sell") &&

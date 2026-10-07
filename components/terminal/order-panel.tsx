@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
+import { EvmSwapCard } from "./evm-swap-card";
 import { SwapCard, type SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
@@ -28,6 +29,7 @@ import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { ROBINHOOD_SOURCE_NAMES, robinhoodSources } from "@/lib/venues/robinhood-sources";
+import { isEvmRef } from "@/lib/venues/uniswap/chains";
 import { useArcusToken } from "./use-arcus-token";
 import { takerFeeFor, useBestExecution } from "./use-best-execution";
 import { useFunding } from "./use-funding";
@@ -447,7 +449,10 @@ export function OrderPanel() {
 
   return (
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
-      {choices.length === 0 && isLoading ? (
+      {activeKind === "spot" && isEvmRef(mint) ? (
+        // A Uniswap token on Base, Arbitrum or Ethereum picked in the search.
+        <EvmSwapCard tokenRef={mint!} />
+      ) : choices.length === 0 && isLoading ? (
         // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
         <div role="status" aria-label="Loading markets" className="flex h-[451px] flex-col gap-2.5">
           {["h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (

@@ -308,6 +308,17 @@ dependency versions and design are free to diverge from angler-news.
     `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,
     polled through `/orders` until filled. `readUniswapTx` refuses empty calldata. Uniswap volume doesn't earn profile
     points yet; analytics records venue `uniswap`.
+  - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/WETH/USDT to pay
+    with): the spot list adds Uniswap's 60 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
+    side with the key) priced by DexScreener (`lib/spot/dexscreener.ts`, free, `tokens/v1` in batches of 30), and the
+    search adds DexScreener's search (tokens on those chains with a Uniswap pool). Verified = on Uniswap's default list
+    or ≥ $250k pool liquidity, never with a transfer tax; blocked tokens are dropped. A picked token rides in the
+    selected asset's `mint` slot as `evm:<chainId>:<address>` (`evmRef`/`parseEvmRef`; Jupiter lookups skip it, the
+    watchlist accepts it), and /swap then shows `EvmSwapCard` (`evm-swap-card.tsx`: exact-input sell/buy boxes,
+    balances over each chain's public RPC, a debounced Uniswap quote, `uniswapSwap` with the viem chain) instead of the
+    Solana/Robinhood card. `useEvmToken` reads the list, else the search by address plus the contract's decimals. The
+    chart and the activity panel use GeckoTerminal networks `eth`/`base`/`arbitrum`. Swaps are recorded per wallet
+    (`SwapRecord.chain`), counted in analytics as `uniswap`, not in profile points yet.
   - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
     Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
     The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the

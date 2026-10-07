@@ -1,0 +1,78 @@
+[
+ {
+  "chainId": "base",
+  "dexId": "uniswap",
+  "pairAddress": "0xb4CB800910B228ED3d0834cF79D697127BBB00e5",
+  "baseToken": {
+   "address": "0x4200000000000000000000000000000000000006",
+   "name": "Wrapped Ether",
+   "symbol": "WETH"
+  },
+  "quoteToken": {
+   "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+   "name": "USD Coin",
+   "symbol": "USDC"
+  },
+  "priceUsd": "2561.19",
+  "volume": {
+   "h24": 12458122.04,
+   "h6": 3667617.39,
+   "h1": 353852.71,
+   "m5": 7607.02
+  },
+  "priceChange": {
+   "m5": -0.02,
+   "h1": 0.09,
+   "h6": 0.06,
+   "h24": -4.68
+  },
+  "liquidity": {
+   "usd": 698446.41,
+   "base": 197.5282,
+   "quote": 192537
+  },
+  "marketCap": 722962251,
+  "fdv": 725476197,
+  "info": {
+   "imageUrl": "https://cdn.dexscreener.com/cms/images/e7ad3f643e8706e541538413f2afad46f18cafb430606caae3c70c0f7425c16e?width=800&height=800&quality=95&format=auto"
+  }
+ },
+ {
+  "chainId": "base",
+  "dexId": "aerodrome",
+  "pairAddress": "0x4e829F8A5213c42535AB84AA40BD4aDCCE9cBa02",
+  "baseToken": {
+   "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+   "name": "Brett",
+   "symbol": "BRETT"
+  },
+  "quoteToken": {
+   "address": "0x4200000000000000000000000000000000000006",
+   "name": "Wrapped Ether",
+   "symbol": "WETH"
+  },
+  "priceUsd": "0.005289",
+  "volume": {
+   "h24": 284663.23,
+   "h6": 98765.56,
+   "h1": 15035.01,
+   "m5": 115.36
+  },
+  "priceChange": {
+   "m5": 0.03,
+   "h1": 1.6,
+   "h6": -0.9,
+   "h24": -12.09
+  },
+  "liquidity": {
+   "usd": 883424.01,
+   "base": 86714524,
+   "quote": 165.9714
+  },
+  "marketCap": 52418555,
+  "fdv": 52418555,
+  "info": {
+   "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+  }
+ }
+]

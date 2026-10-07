@@ -4,8 +4,8 @@
  */
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
 
-/** GeckoTerminal networks for the spot venues' chains: Jupiter on Solana, Arcus on Robinhood Chain. */
-export type PoolNetwork = "solana" | "robinhood";
+/** GeckoTerminal networks for the spot venues' chains: Jupiter on Solana, Arcus on Robinhood Chain, Uniswap on EVM. */
+export type PoolNetwork = "solana" | "robinhood" | "eth" | "base" | "arbitrum";
 
 export interface PoolInfo {
   address: string;
@@ -120,10 +120,13 @@ export function pickPool(body: unknown): PoolInfo | null {
 const ADDRESS: Record<PoolNetwork, RegExp> = {
   solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/,
   robinhood: /^0x[0-9a-fA-F]{40}$/,
+  eth: /^0x[0-9a-fA-F]{40}$/,
+  base: /^0x[0-9a-fA-F]{40}$/,
+  arbitrum: /^0x[0-9a-fA-F]{40}$/,
 };
 
 export function isPoolNetwork(value: unknown): value is PoolNetwork {
-  return value === "solana" || value === "robinhood";
+  return typeof value === "string" && Object.hasOwn(ADDRESS, value);
 }
 
 export function isTokenAddress(network: PoolNetwork, address: string) {

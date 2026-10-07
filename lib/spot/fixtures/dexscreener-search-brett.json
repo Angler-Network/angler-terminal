@@ -1,0 +1,433 @@
+{
+ "pairs": [
+  {
+   "chainId": "robinhood",
+   "dexId": "uniswap",
+   "pairAddress": "0x6D6548c035Fd8C86880E10624d451D24E3059349",
+   "baseToken": {
+    "address": "0x105CcA066775368454bf243D3dD4c623C7E6150c",
+    "name": "Brett on Hood",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+    "name": "WETH",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.000006805",
+   "volume": {
+    "h24": 85.85,
+    "h6": 28.79,
+    "h1": 5.86,
+    "m5": 0.07
+   },
+   "priceChange": {
+    "m5": -0.06,
+    "h1": 0.12,
+    "h6": -0.04,
+    "h24": -3.82
+   },
+   "liquidity": {
+    "usd": 6300.05,
+    "base": 720965630,
+    "quote": 0.5442
+   },
+   "marketCap": 6639,
+   "fdv": 6639,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/V6ucYGFj9Q7GME9O?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "base",
+   "dexId": "aerodrome",
+   "pairAddress": "0x4e829F8A5213c42535AB84AA40BD4aDCCE9cBa02",
+   "baseToken": {
+    "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x4200000000000000000000000000000000000006",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.005289",
+   "volume": {
+    "h24": 284663.23,
+    "h6": 98765.56,
+    "h1": 15035.01,
+    "m5": 115.36
+   },
+   "priceChange": {
+    "m5": 0.03,
+    "h1": 1.6,
+    "h6": -0.9,
+    "h24": -12.09
+   },
+   "liquidity": {
+    "usd": 883424.01,
+    "base": 86714524,
+    "quote": 165.9714
+   },
+   "marketCap": 52418555,
+   "fdv": 52418555,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "base",
+   "dexId": "uniswap",
+   "pairAddress": "0xBA3F945812a83471d709BCe9C3CA699A19FB46f7",
+   "baseToken": {
+    "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x4200000000000000000000000000000000000006",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.005247",
+   "volume": {
+    "h24": 27247.42,
+    "h6": 9389.37,
+    "h1": 28.62,
+    "m5": 0
+   },
+   "priceChange": {
+    "h1": -0.01,
+    "h6": -2.74,
+    "h24": -12.97
+   },
+   "liquidity": {
+    "usd": 1228118.21,
+    "base": 87011855,
+    "quote": 301.7065
+   },
+   "marketCap": 51997833,
+   "fdv": 51997833,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "base",
+   "dexId": "pancakeswap",
+   "pairAddress": "0x75CC10fdcEa4b7D13c115ABB08240ac9c9Be6f2f",
+   "baseToken": {
+    "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x4200000000000000000000000000000000000006",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.005275",
+   "volume": {
+    "h24": 2.2,
+    "h6": 0.73,
+    "h1": 0,
+    "m5": 0
+   },
+   "priceChange": {
+    "h6": -4.16,
+    "h24": -11.1
+   },
+   "liquidity": {
+    "usd": 191489.08,
+    "base": 29368557,
+    "quote": 14.2788
+   },
+   "marketCap": 52279014,
+   "fdv": 52279014,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "solana",
+   "dexId": "raydium",
+   "pairAddress": "AyjpwPZVkEqN6r4R9MyzkqcdzW1LwsBppuV8Ns55Mqvb",
+   "baseToken": {
+    "address": "DxtssVdyYe4wWE5f5zEgx2NqtDFbVL3ABGY62WCycHWg",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "So11111111111111111111111111111111111111112",
+    "name": "Wrapped SOL",
+    "symbol": "SOL"
+   },
+   "priceUsd": "0.0001085",
+   "volume": {
+    "h24": 402.81,
+    "h6": 400.96,
+    "h1": 9.97,
+    "m5": 0
+   },
+   "priceChange": {
+    "h1": 0.03,
+    "h6": -1.55,
+    "h24": -3.28
+   },
+   "liquidity": {
+    "usd": 64321.38,
+    "base": 296007225,
+    "quote": 277.09511
+   },
+   "marketCap": 108516,
+   "fdv": 108516,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/0f11519492820982e822b2a69bc5c9900da3a1eb713e1e9e9db52d0900917f32?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "base",
+   "dexId": "aerodrome",
+   "pairAddress": "0x43BBb129b56A998732767725A183b7a566843dBA",
+   "baseToken": {
+    "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+    "name": "Aerodrome",
+    "symbol": "AERO"
+   },
+   "priceUsd": "0.005304",
+   "volume": {
+    "h24": 2302.99,
+    "h6": 764.04,
+    "h1": 110.38,
+    "m5": 0
+   },
+   "priceChange": {
+    "h1": 1.69,
+    "h6": -0.86,
+    "h24": -11.75
+   },
+   "liquidity": {
+    "usd": 33110.07,
+    "base": 3120685,
+    "quote": 20865
+   },
+   "marketCap": 52569803,
+   "fdv": 52569803,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "bsc",
+   "dexId": "pancakeswap",
+   "pairAddress": "0x3A08AE820cf1483ED3Ac9c33CC100913299D0e12",
+   "baseToken": {
+    "address": "0xA7440029ecA41dEaBd8775Ef1D6086b37d4dF8D6",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x55d398326f99059fF775485246999027B3197955",
+    "name": "Tether USD",
+    "symbol": "USDT"
+   },
+   "priceUsd": "0.005294",
+   "volume": {
+    "h24": 78506.47,
+    "h6": 24273.09,
+    "h1": 3368.54,
+    "m5": 167.15
+   },
+   "priceChange": {
+    "m5": 0.02,
+    "h1": 1.63,
+    "h6": -0.5,
+    "h24": -11.06
+   },
+   "liquidity": {
+    "usd": 355577.53,
+    "base": 33241646,
+    "quote": 179568
+   },
+   "marketCap": 215918,
+   "fdv": 215918
+  },
+  {
+   "chainId": "ethereum",
+   "dexId": "uniswap",
+   "pairAddress": "0x16aC64ddFaCca437bE7FE0dA0c45Bcd97227588a",
+   "baseToken": {
+    "address": "0x240D6FAF8c3B1A7394e371792A3bf9D28DD65515",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.007537",
+   "volume": {
+    "h24": 3653.49,
+    "h6": 250.84,
+    "h1": 167.17,
+    "m5": 0
+   },
+   "priceChange": {
+    "h1": 0.23,
+    "h6": 0.09,
+    "h24": 2.15
+   },
+   "liquidity": {
+    "usd": 107820.57,
+    "base": 7151838,
+    "quote": 21.07819
+   },
+   "marketCap": 523285,
+   "fdv": 517275,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/e7b6b8f9f7277beeb7f9e08ea9407967cff38906ed532cb5ff70995b3bcfe4c7?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "ethereum",
+   "dexId": "uniswap",
+   "pairAddress": "0x6DF064f04ddfb2Bb53Da21aF9d56701726700145",
+   "baseToken": {
+    "address": "0x66bFf695f3B16a824869a8018a3A6e3685241269",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.0000001831",
+   "volume": {
+    "h24": 59.88,
+    "h6": 0,
+    "h1": 0,
+    "m5": 0
+   },
+   "priceChange": {},
+   "liquidity": {
+    "usd": 83191.8,
+    "base": 227094779102,
+    "quote": 15.9077
+   },
+   "marketCap": 183165,
+   "fdv": 183153,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/3c57b02dbbbfff6472e8f872ac6dd225f7c9fdbb927aa024d992552203b674cb?width=800&height=800&quality=95&format=auto"
+   }
+  },
+  {
+   "chainId": "robinhood",
+   "dexId": "uniswap",
+   "pairAddress": "0xc83Ef59D4A2AFfD75c3C0941C6ed75feA93BDb35",
+   "baseToken": {
+    "address": "0xe19931a7906f4aCBf9bA46C4D329E47BAb5A4E53",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+    "name": "WETH",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.007542",
+   "volume": {
+    "h24": 0.03,
+    "h6": 0.03,
+    "h1": 0,
+    "m5": 0
+   },
+   "priceChange": {
+    "h6": 0.07,
+    "h24": 0.07
+   },
+   "liquidity": {
+    "usd": 37710158.68,
+    "base": 4999998602,
+    "quote": 0.0005003
+   },
+   "marketCap": 75420317,
+   "fdv": 75420317
+  },
+  {
+   "chainId": "ethereum",
+   "dexId": "uniswap",
+   "pairAddress": "0xfCBa90A5c7a66bcb81827F9597667FF363088755",
+   "baseToken": {
+    "address": "0x8b414ec173f9F97cF02F4Af8303165049244Ba59",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.01047",
+   "volume": {
+    "h24": 0.01,
+    "h6": 0,
+    "h1": 0,
+    "m5": 0
+   },
+   "priceChange": {},
+   "liquidity": {
+    "usd": 52392640.46,
+    "base": 4999999780,
+    "quote": 0.0008833
+   },
+   "marketCap": 104785281,
+   "fdv": 104785281
+  },
+  {
+   "chainId": "base",
+   "dexId": "uniswap",
+   "pairAddress": "0x76Bf0abD20f1e0155Ce40A62615a90A709a6C3D8",
+   "baseToken": {
+    "address": "0x532f27101965dd16442E59d40670FaF5eBB142E4",
+    "name": "Brett",
+    "symbol": "BRETT"
+   },
+   "quoteToken": {
+    "address": "0x4200000000000000000000000000000000000006",
+    "name": "Wrapped Ether",
+    "symbol": "WETH"
+   },
+   "priceUsd": "0.005286",
+   "volume": {
+    "h24": 61755.68,
+    "h6": 26002.11,
+    "h1": 3977.09,
+    "m5": 9.11
+   },
+   "priceChange": {
+    "m5": -0.14,
+    "h1": 1.51,
+    "h6": -1.14,
+    "h24": -12.23
+   },
+   "liquidity": {
+    "usd": 115232.9,
+    "base": 15184602,
+    "quote": 13.6614
+   },
+   "marketCap": 52386398,
+   "fdv": 52386398,
+   "info": {
+    "imageUrl": "https://cdn.dexscreener.com/cms/images/86b556a0cb4ed7f3b6b6fecd16161f487dccebb89ed7d302b834fb1c0ce197b8?width=800&height=800&quality=95&format=auto"
+   }
+  }
+ ]
+}

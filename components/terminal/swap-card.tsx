@@ -228,9 +228,9 @@ function SpotRoutes({ quotes, loading, pick, onPick }: { quotes: SpotSourceQuote
 }
 
 /** Long amounts shrink so the token pill keeps its place in the narrow trading column. */
-const amountSize = (text: string) => (text.length > 9 ? "text-[16px]" : text.length > 6 ? "text-[19px]" : "text-[22px]");
+export const amountSize = (text: string) => (text.length > 9 ? "text-[16px]" : text.length > 6 ? "text-[19px]" : "text-[22px]");
 /** Max slippage: Auto (each venue's own estimate) or a fixed percentage, saved as the `swapSlippageBps` preference. */
-function SlippageSettings() {
+export function SlippageSettings() {
   const { preferences, updatePreference } = usePreferences();
   const current = preferences.swapSlippageBps;
   const [custom, setCustom] = useState(current !== null && !SLIPPAGE_PRESETS_BPS.includes(current) ? String(current / 100) : "");
@@ -274,7 +274,7 @@ function SlippageSettings() {
   );
 }
 
-function DetailRow({ label, children, tone }: { label: string; children: React.ReactNode; tone?: "warn" | "muted" }) {
+export function DetailRow({ label, children, tone }: { label: string; children: React.ReactNode; tone?: "warn" | "muted" }) {
   return (
     <div className="flex items-center justify-between gap-2 text-[12px]">
       <span className="text-app-muted">{label}</span>
@@ -283,8 +283,8 @@ function DetailRow({ label, children, tone }: { label: string; children: React.R
   );
 }
 
-const amountText = (value: number) => value.toLocaleString("en-US", { maximumSignificantDigits: value < 1 ? 4 : 6 });
-const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-app-chip pl-1.5 pr-2.5 text-[14px] font-semibold text-app-ink";
+export const amountText = (value: number) => value.toLocaleString("en-US", { maximumSignificantDigits: value < 1 ? 4 : 6 });
+export const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-app-chip pl-1.5 pr-2.5 text-[14px] font-semibold text-app-ink";
 
 /**
  * Spot is a swap: "Sell [amount] [token] → Buy [token]" like the venues' own swap screens. The asset side lists every

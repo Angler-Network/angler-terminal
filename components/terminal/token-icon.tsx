@@ -6,6 +6,7 @@ import { MarketIcon } from "@/components/app/market-icon";
 /** Self-hosted logos (`public/tokens`, `public/chains`) of the stablecoins and chains the terminal moves between. */
 const STABLE_LOGOS: Record<string, string> = { USDC: "/tokens/usdc.png", USDG: "/tokens/usdg.png", mUSDG: "/tokens/usdg.png" };
 const CHAIN_LOGOS: Record<string, string> = {
+  1: "/chains/ethereum.svg",
   42161: "/chains/arbitrum.svg",
   8453: "/chains/base.svg",
   4663: "/chains/robinhood.svg",

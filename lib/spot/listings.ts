@@ -4,7 +4,7 @@
  * an asset (BTC → cbBTC or WBTC) is decided by live trading volume every time the list is read. Pure, unit-tested.
  */
 
-export type SpotVenueKey = "jupiter" | "arcus";
+export type SpotVenueKey = "jupiter" | "arcus" | "uniswap";
 
 export type SpotCategory = "crypto" | "stock" | "index" | "commodity";
 
@@ -14,6 +14,10 @@ export interface SpotListing {
   venue: SpotVenueKey;
   /** Solana mint or EVM token address. */
   address: string;
+  /** EVM chain of a Uniswap token (Ethereum, Base, Arbitrum). */
+  chainId?: number;
+  /** Known for Uniswap list tokens; search results read it on chain when picked. */
+  decimals?: number;
   symbol: string;
   name: string;
   icon?: string;
@@ -160,4 +164,67 @@ export function mergeListings(...sources: SpotListing[][]): SpotListing[] {
     byId.set(listing.id, existing ? { ...listing, ...Object.fromEntries(Object.entries(existing).filter(([, value]) => value !== undefined)) } : listing);
   }
   return [...byId.values()].sort(byMarketThenStable((listing) => listing.volume24h ?? -1));
+}
+
+/** A token from the Uniswap Trading API's `/tokens` list (token-list shape). */
+export interface UniswapTokenRecord {
+  name?: string;
+  address?: string;
+  chainId?: number;
+  symbol?: string;
+  decimals?: number;
+  logoURI?: string | null;
+  extensions?: { safetyInfo?: { safetyLevel?: string; buyFee?: number; sellFee?: number } };
+}
+
+/** Live market numbers for a token (DexScreener). */
+export interface TokenMarket {
+  price?: number;
+  change24h?: number;
+  volume24h?: number;
+  liquidity?: number;
+  marketCap?: number;
+  icon?: string;
+}
+
+/** Pool liquidity that makes a Uniswap-listed token count as verified when it isn't on Uniswap's default list. */
+export const UNISWAP_VERIFIED_LIQUIDITY_USD = 250_000;
+
+const DOLLAR_SYMBOL = /^(USDC|USDT|USDT0|USD₮0|DAI|USDS|USDE|SUSDE|PYUSD|FDUSD|USDG|GHO|LUSD|CRVUSD|USDBC|FRAX|RLUSD|USD0|USDX|EURC)$/i;
+
+export function uniswapListingId(chainId: number, address: string) {
+  return `uniswap:${chainId}:${address.toLowerCase()}`;
+}
+
+/**
+ * A Uniswap-listed EVM token with its market numbers. Tokens Uniswap's compliance check blocks are dropped; tokens
+ * with a transfer tax are listed unverified; the rest count as verified when they are on Uniswap's default token list
+ * or their pools hold real liquidity (top-volume lists can carry wash-traded tokens).
+ */
+export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket = {}): SpotListing | null {
+  const { address, chainId, symbol, decimals } = record;
+  if (typeof address !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(address) || typeof chainId !== "number") return null;
+  if (typeof symbol !== "string" || !symbol || typeof decimals !== "number") return null;
+  const safety = record.extensions?.safetyInfo;
+  if (safety?.safetyLevel === "blocked") return null;
+  const taxed = (safety?.buyFee ?? 0) > 0 || (safety?.sellFee ?? 0) > 0;
+  const verified = !taxed && (safety?.safetyLevel === "verified" || (market.liquidity ?? 0) >= UNISWAP_VERIFIED_LIQUIDITY_USD);
+  return {
+    id: uniswapListingId(chainId, address),
+    venue: "uniswap",
+    address,
+    chainId,
+    decimals,
+    symbol,
+    name: record.name || symbol,
+    icon: (typeof record.logoURI === "string" && record.logoURI) || market.icon,
+    category: "crypto",
+    verified,
+    price: market.price,
+    change24h: market.change24h,
+    volume24h: market.volume24h,
+    liquidity: market.liquidity,
+    marketCap: market.marketCap,
+    ...(DOLLAR_SYMBOL.test(symbol) && { stable: true }),
+  };
 }

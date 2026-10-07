@@ -6,10 +6,26 @@ import { getMarkets } from "@/lib/markets/server";
 import { arcusFetch } from "@/lib/venues/arcus/server";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
 import { uniswapOnRobinhood } from "@/lib/venues/robinhood-sources";
-import { fromArcusToken, fromJupRecord, mergeListings, type JupListingRecord, type SpotListing } from "./listings";
+import { EVM_SWAP_CHAINS } from "@/lib/venues/uniswap/chains";
+import { readUniswapServerConfig, uniswapFetch } from "@/lib/venues/uniswap/server";
+import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener";
+import {
+  fromArcusToken,
+  fromJupRecord,
+  fromUniswapToken,
+  mergeListings,
+  type JupListingRecord,
+  type SpotListing,
+  type TokenMarket,
+  type UniswapTokenRecord,
+} from "./listings";
 
 const REVALIDATE_SECONDS = 120;
 const TOP_LIMIT = 100;
+/** Most traded Uniswap tokens listed per EVM chain. */
+const UNISWAP_TOP_LIMIT = 60;
+const DEXSCREENER_URL = "https://api.dexscreener.com";
+const DEXSCREENER_TIMEOUT_MS = 10_000;
 
 async function jupList(path: string): Promise<SpotListing[]> {
   const response = await jupFetch(path);
@@ -52,17 +68,65 @@ async function arcusListings(): Promise<SpotListing[]> {
   });
 }
 
+const uniswapOn = () => venueAvailable("uniswap") && Boolean(readUniswapServerConfig(process.env).apiKey);
+
+async function dexscreener(path: string): Promise<unknown> {
+  const response = await fetch(`${DEXSCREENER_URL}${path}`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(DEXSCREENER_TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`DexScreener ${path} responded ${response.status}`);
+  return response.json();
+}
+
+/** DexScreener numbers for a chain's tokens, 30 addresses per call; a failed batch only leaves those tokens bare. */
+async function dexMarkets(chain: string, addresses: string[]) {
+  const markets = new Map<string, TokenMarket>();
+  const batches = [];
+  for (let index = 0; index < addresses.length; index += DEXSCREENER_BATCH) batches.push(addresses.slice(index, index + DEXSCREENER_BATCH));
+  const results = await Promise.allSettled(batches.map((batch) => dexscreener(`/tokens/v1/${chain}/${batch.join(",")}`)));
+  for (const result of results) {
+    if (result.status === "fulfilled") for (const [address, market] of readDexMarkets(result.value)) markets.set(address, market);
+    else console.error("[spot] dexscreener prices failed:", result.reason);
+  }
+  return markets;
+}
+
+/** Uniswap's most traded tokens on each EVM swap chain (Trading API `/tokens`), priced from DexScreener. */
+async function uniswapListings(): Promise<SpotListing[]> {
+  const { apiKey } = readUniswapServerConfig(process.env);
+  if (!venueAvailable("uniswap") || !apiKey) return [];
+  const lists = await Promise.allSettled(
+    EVM_SWAP_CHAINS.map(async (chain) => {
+      const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort: "volume_24h", limit: String(UNISWAP_TOP_LIMIT), chainId: String(chain.id) })}`, apiKey);
+      if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}) responded ${response.status}`);
+      const records = (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
+      const markets = await dexMarkets(chain.dexscreener, records.flatMap((record) => (typeof record.address === "string" ? [record.address] : [])));
+      return records.flatMap((record) => fromUniswapToken(record, markets.get(String(record.address).toLowerCase())) ?? []);
+    }),
+  );
+  for (const list of lists) if (list.status === "rejected") console.error("[spot] uniswap list failed:", list.reason);
+  return lists.flatMap((list) => (list.status === "fulfilled" ? list.value : []));
+}
+
+/** Tokens on the EVM swap chains for any query (DexScreener search), when Uniswap is on. */
+export async function searchUniswapListings(query: string): Promise<SpotListing[]> {
+  if (!uniswapOn()) return [];
+  return readDexSearch(await dexscreener(`/latest/dex/search?q=${encodeURIComponent(query)}`));
+}
+
 async function loadSpotListings(): Promise<SpotListing[]> {
-  const [jupiter, arcus] = await Promise.allSettled([jupiterListings(), arcusListings()]);
+  const [jupiter, arcus, uniswap] = await Promise.allSettled([jupiterListings(), arcusListings(), uniswapListings()]);
   if (arcus.status === "rejected") console.error("[spot] arcus listings failed:", arcus.reason);
-  const listings = mergeListings(jupiter.status === "fulfilled" ? jupiter.value : [], arcus.status === "fulfilled" ? arcus.value : []);
+  const listings = mergeListings(
+    jupiter.status === "fulfilled" ? jupiter.value : [],
+    arcus.status === "fulfilled" ? arcus.value : [],
+    uniswap.status === "fulfilled" ? uniswap.value : [],
+  );
   // An all-empty load is an outage: throwing keeps the cache's last good list.
-  if (listings.length === 0 && (venueAvailable("jupiter") || venueAvailable("arcus") || uniswapOnRobinhood())) throw new Error("No spot venue answered");
+  if (listings.length === 0 && (venueAvailable("jupiter") || venueAvailable("arcus") || uniswapOnRobinhood() || uniswapOn())) throw new Error("No spot venue answered");
   return listings;
 }
 
 /** Every spot pair the integrated venues offer right now (cached across requests). */
-export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v2"], { revalidate: REVALIDATE_SECONDS });
+export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v3"], { revalidate: REVALIDATE_SECONDS });
 
 /** Jupiter search (any token, verified or not) for queries outside the cached lists. */
 export async function searchJupiterListings(query: string): Promise<SpotListing[]> {

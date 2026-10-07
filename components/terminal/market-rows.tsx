@@ -9,6 +9,7 @@ import { marketCategory, type MarketCategory } from "@/lib/markets/category";
 import { pickQuote } from "@/lib/markets/model";
 import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import { evmRef, evmSwapChain } from "@/lib/venues/uniswap/chains";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { perpWatchId, type WatchlistEntry } from "@/lib/watchlist";
 import { useTrading } from "./trading-provider";
@@ -37,7 +38,7 @@ export interface MarketRow {
 }
 
 const SPOT_CATEGORY: Record<SpotCategory, MarketCategory> = { crypto: "crypto", stock: "stocks", index: "indices", commodity: "commodities" };
-const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus" } as const;
+const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus", uniswap: "Uniswap" } as const;
 
 /** Every perp market an enabled perp venue lists, priced from the shared market list (Binance, then Hyperliquid). */
 export function usePerpRows(enabled: boolean): MarketRow[] | null {
@@ -84,7 +85,9 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
   // Tokens that stand for no terminal asset (stablecoins…) are skipped, unless picking a token to pay with.
   const asset = assetSymbolOf(listing) ?? (options.anyToken ? listing.symbol : null);
   if (!asset) return null;
-  const mint = listing.venue === "jupiter" ? listing.address : undefined;
+  // Uniswap tokens ride in the mint slot as "evm:<chain>:<address>" (`chains.ts`).
+  const evmChain = listing.venue === "uniswap" ? evmSwapChain(listing.chainId) : null;
+  const mint = listing.venue === "jupiter" ? listing.address : evmChain ? evmRef(evmChain.id, listing.address) : undefined;
   return {
     id: listing.id,
     symbol: listing.symbol,
@@ -98,7 +101,7 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     change24h: listing.change24h,
     volume24h: listing.volume24h,
     liquidity: listing.liquidity,
-    venues: [SPOT_VENUE_NAMES[listing.venue]],
+    venues: [evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
     stable: listing.stable,
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },

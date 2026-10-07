@@ -4,12 +4,14 @@ import { usePathname } from "next/navigation";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useArcusToken } from "@/components/terminal/use-arcus-token";
+import { useEvmToken } from "@/components/terminal/use-evm-token";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
 import { useSpotToken } from "@/components/terminal/use-spot-token";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { robinhoodSources } from "@/lib/venues/robinhood-sources";
+import { isEvmRef } from "@/lib/venues/uniswap/chains";
 
 /** The token /swap actually trades for the selected asset, with what the chart header shows about it. */
 export interface SpotChartToken {
@@ -19,7 +21,8 @@ export interface SpotChartToken {
   symbol: string;
   name: string;
   icon?: string;
-  venue: "Jupiter" | "Arcus";
+  /** "Jupiter", "Arcus", "Uniswap · Base". */
+  venue: string;
   price?: number;
   change24h?: number;
   liquidity?: number;
@@ -40,8 +43,26 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
   const needArcus = isSpot && robinhoodSources(preferences).length > 0 && jupiter === null && !mint;
   const arcus = useArcusToken(symbol, needArcus);
   const listings = useSpotListings(isSpot);
+  // A Uniswap token picked in the search (Base, Arbitrum, Ethereum).
+  const evm = useEvmToken(isSpot ? mint : undefined);
 
   if (!isSpot) return null;
+  if (isEvmRef(mint)) {
+    if (!evm) return evm;
+    return {
+      network: evm.chain.pool,
+      address: evm.address,
+      symbol: evm.symbol,
+      name: evm.name,
+      icon: evm.icon,
+      venue: `Uniswap · ${evm.chain.name}`,
+      price: evm.price,
+      change24h: evm.change24h,
+      liquidity: evm.liquidity,
+      volume24h: evm.volume24h,
+      marketCap: evm.marketCap,
+    };
+  }
   if (jupiter === undefined) return undefined;
   if (jupiter) {
     const listing = listings?.find((entry) => entry.id === `jupiter:${jupiter.mint}`);

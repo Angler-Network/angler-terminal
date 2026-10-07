@@ -13,7 +13,7 @@ export interface WatchlistEntry {
   name?: string;
   /** Spot token logo (https only). */
   icon?: string;
-  /** Jupiter mint, so the order panel trades this exact token. */
+  /** Jupiter mint (or EVM token ref), so the order panel trades this exact token. */
   mint?: string;
 }
 
@@ -21,7 +21,8 @@ export const MAX_WATCHLIST = 50;
 
 const ASSET = /^[A-Z0-9]{1,20}$/;
 const SYMBOL = /^[\p{L}\p{N}$._-]{1,24}$/u;
-const MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+/** A Solana mint, or an EVM token ref "evm:<chainId>:<address>" (`lib/venues/uniswap/chains.ts`). */
+const MINT = /^([1-9A-HJ-NP-Za-km-z]{32,44}|evm:\d{1,7}:0x[0-9a-fA-F]{40})$/;
 
 function readEntry(value: unknown): WatchlistEntry | null {
   if (!value || typeof value !== "object") return null;
