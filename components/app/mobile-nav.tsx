@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Trophy, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -36,7 +36,7 @@ export function MobileNav() {
   const { view, setView } = useMobileView();
   const wallets = useWalletModal();
   const { address } = useWallet();
-  const { openProOrder } = useTrading();
+  const { openDeposit, openProOrder } = useTrading();
   const [menuOpen, setMenuOpen] = useState(false);
   const onTerminal = terminalKindOf(pathname) !== null;
 
@@ -131,6 +131,18 @@ export function MobileNav() {
             >
               <Layers className="size-5" strokeWidth={1.75} aria-hidden />
               Pro order
+            </button>
+            <button
+              type="button"
+              className={`${sheetItem} w-full`}
+              onClick={() => {
+                setMenuOpen(false);
+                if (address) openDeposit("lighter", "move");
+                else wallets.open();
+              }}
+            >
+              <ArrowLeftRight className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              Bridge
             </button>
             <Link href="/settings" className={`${sheetItem} ${pathname.startsWith("/settings") ? "bg-app-chip" : ""}`}>
               <Settings className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />

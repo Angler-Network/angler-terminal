@@ -94,7 +94,7 @@ async function uniswapListings(): Promise<SpotListing[]> {
   const { apiKey } = readUniswapServerConfig(process.env);
   if (!venueAvailable("uniswap") || !apiKey) return [];
   const lists = await Promise.allSettled(
-    EVM_SWAP_CHAINS.map(async (chain) => {
+    EVM_SWAP_CHAINS.filter((chain) => chain.listTop !== false).map(async (chain) => {
       const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort: "volume_24h", limit: String(UNISWAP_TOP_LIMIT), chainId: String(chain.id) })}`, apiKey);
       if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}) responded ${response.status}`);
       const records = (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);

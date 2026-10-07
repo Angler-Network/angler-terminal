@@ -1,9 +1,11 @@
 "use client";
 
-import { BarChart3, ChartPie, Layers, Newspaper, Settings } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
+import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
 
@@ -19,7 +21,9 @@ const label = "hidden xl:inline";
 export function TopNav() {
   const pathname = usePathname();
   const isSettingsOpen = pathname.startsWith("/settings");
-  const { openProOrder } = useTrading();
+  const wallets = useWalletModal();
+  const { address } = useWallet();
+  const { openDeposit, openProOrder } = useTrading();
   return (
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
       {marketNav.map(({ href, label: text, title, icon: Icon, soon, isActive }) => (
@@ -51,6 +55,10 @@ export function TopNav() {
       >
         <Layers className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Pro order</span>
+      </button>
+      <button type="button" title="Bridge" onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} className={itemClass(false)}>
+        <ArrowLeftRight className="size-[18px]" strokeWidth={1.75} aria-hidden />
+        <span className={label}>Bridge</span>
       </button>
       <Link href="/settings" title="Settings" aria-current={isSettingsOpen ? "page" : undefined} className={itemClass(isSettingsOpen)}>
         <Settings className="size-[18px]" strokeWidth={1.75} aria-hidden />

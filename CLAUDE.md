@@ -328,12 +328,10 @@ dependency versions and design are free to diverge from angler-news.
     keeps the bridge path below. Buying runs `fundsRoute(… → wallet on the token's chain)`
     through `useFundsRun` (`waitForWithdrawal` makes a lone HL withdrawal wait for the USDC too), then asks for one
     more press to swap the USDC that landed (`bridged`); selling swaps to the chain's USDC, then bridges what it
-    delivered. Dollar to dollar is only the bridge. There is no separate Bridge in the navigation (it opened the same
-    page as Swap); `openBridge` (`bridge-shortcut.ts`) opens /swap on the destination's USDC with the source chain's
-    dollar as the other side (an event when the terminal is mounted, `?bridge=from-to` from other pages, applied once
-    the saved preferences load). The funds window is Deposit /
-    Withdraw / Between venues; a wallet-to-wallet pair there hands over to Swap. Ethereum is a funds wallet chain too
-    (`ETHEREUM` in `deposits.ts`).
+    delivered. Bridge stays its own window (the sidebar/top bar/phone "Bridge" opens the funds window on its Bridge
+    tab, as before; tried and dropped: Bridge as a swap-page tab or a /bridge page, since a chart is no use there).
+    Ethereum is a funds wallet chain too (`ETHEREUM` in `deposits.ts`). Robinhood Chain is an EVM swap chain as well
+    (USDG first, `listTop: false`: Arcus lists its stock tokens, so it only shows through search).
   - Relay (`lib/venues/relay*.ts`, `bridge-leg.ts`, `app/api/relay/[...path]`): every bridge leg (`FundsStep` "across":
     funds window, both swap cards) quotes Across and Relay together (`quoteBridgeLeg`) and runs the larger output,
     Across on a tie; waits follow `BridgeLegRef` (Across deposit id or Relay request id). Relay's `/quote` lists the

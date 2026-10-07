@@ -1,10 +1,12 @@
 "use client";
 
-import { BarChart3, ChartPie, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
+import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
@@ -43,7 +45,9 @@ export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
   const isSettingsOpen = pathname.startsWith("/settings");
-  const { openProOrder, isProOrderOpen } = useTrading();
+  const wallets = useWalletModal();
+  const { address } = useWallet();
+  const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
 
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
@@ -91,6 +95,7 @@ export function Sidebar() {
           <Layers className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Pro order</NavLabel>
         </button>
+        <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
         <Link href="/settings" title={t("nav.settings")} aria-current={isSettingsOpen ? "page" : undefined} className={navItemClass(isSettingsOpen)}>
           <Settings className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>{t("nav.settings")}</NavLabel>

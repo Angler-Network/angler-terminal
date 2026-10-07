@@ -1,10 +1,10 @@
 /**
- * EVM chains the swap card trades any token on through Uniswap (Ethereum, Base, Arbitrum). Robinhood Chain stock
- * tokens keep their own path (Arcus vs Uniswap, `robinhood-sources.ts`). Pure: no viem here, so lists and refs stay
+ * EVM chains the swap card trades any token on through Uniswap (Ethereum, Base, Arbitrum, Robinhood Chain). Robinhood
+ * Chain stock tokens keep their own path (Arcus vs Uniswap, `robinhood-sources.ts`). Pure: no viem here, so lists and refs stay
  * light on the first screen.
  */
 
-export type EvmSwapChainKey = "ethereum" | "base" | "arbitrum";
+export type EvmSwapChainKey = "ethereum" | "base" | "arbitrum" | "robinhood";
 
 export interface EvmSwapToken {
   address: `0x${string}`;
@@ -17,12 +17,14 @@ export interface EvmSwapChain {
   id: number;
   name: string;
   /** GeckoTerminal network id (pool candles, trades). */
-  pool: "eth" | "base" | "arbitrum";
+  pool: "eth" | "base" | "arbitrum" | "robinhood";
+  /** False keeps the chain out of the top-token list (Robinhood: Arcus lists its stock tokens already). */
+  listTop?: boolean;
   /** DexScreener chain id (prices, search). */
   dexscreener: string;
   explorer: string;
   rpc: string;
-  /** What a token is bought with (or sold into): USDC first, then native ETH. */
+  /** What a token is bought with (or sold into): the chain's dollar first (USDC, USDG on Robinhood), then native ETH. */
   pay: EvmSwapToken[];
 }
 
@@ -80,6 +82,21 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
       eth,
       { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", symbol: "WETH", decimals: 18 },
       { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", decimals: 6 },
+    ],
+  },
+  {
+    key: "robinhood",
+    id: 4663,
+    name: "Robinhood Chain",
+    pool: "robinhood",
+    dexscreener: "robinhood",
+    explorer: "https://robinhoodchain.blockscout.com",
+    rpc: "https://rpc.mainnet.chain.robinhood.com",
+    listTop: false,
+    pay: [
+      { address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", symbol: "USDG", decimals: 6 },
+      eth,
+      { address: "0x0bd7d308f8e1639fab988df18a8011f41eacad73", symbol: "WETH", decimals: 18 },
     ],
   },
 ];

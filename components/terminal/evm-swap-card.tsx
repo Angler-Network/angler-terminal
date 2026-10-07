@@ -10,7 +10,7 @@ import { formatPrice } from "@/lib/format";
 import { uniswapListingId } from "@/lib/spot/listings";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
 import { WALLET_CHAINS, fundsRoute, stepsError, walletChainSource, type FundsStep, type WalletChain } from "@/lib/venues/bridge-routes";
-import { HL_WITHDRAW_FEE_USDC, ROBINHOOD, sourceChainById, usdcUnits } from "@/lib/venues/deposits";
+import { HL_WITHDRAW_FEE_USDC, sourceChainById, usdcUnits } from "@/lib/venues/deposits";
 import { MAX_SPOT_PRICE_IMPACT_PCT } from "@/lib/trading/presets";
 import { bpsToPercent } from "@/lib/trading/slippage";
 import { fromBaseUnits, toBaseUnits } from "@/lib/venues/jupiter/amounts";
@@ -20,7 +20,6 @@ import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
 import type { UniswapQuote } from "@/lib/venues/uniswap/quote";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { bridgeFromFor } from "./bridge-shortcut";
 import { DetailRow, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
@@ -38,7 +37,7 @@ const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
 const DOLLARS = new Set(["USDC", "USDT", "USDG"]);
 /** ETH a "Max" keeps back for gas: mainnet gas costs more than an L2's. */
-const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n };
+const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n, 4663: 300_000_000_000_000n };
 
 type Side = Pick<EvmSwapToken, "address" | "symbol" | "decimals"> & { icon?: string };
 
@@ -196,6 +195,10 @@ function inputUnits(text: string, decimals: number, balance: bigint | undefined)
 }
 
 async function viemChain(chain: EvmSwapChain) {
+  if (chain.key === "robinhood") {
+    const { robinhoodChain } = await import("@/lib/venues/arcus/config");
+    return robinhoodChain("mainnet");
+  }
   const { arbitrum, base, mainnet } = await import("viem/chains");
   const known = [mainnet, base, arbitrum].find((entry) => entry.id === chain.id)!;
   return { ...known, rpcUrls: { default: { http: [chain.rpc] } } };
@@ -241,10 +244,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     const source = walletChainSource(from);
     return tokenCounter(source.chainId, { address: source.usdc, symbol: source.symbol, decimals: 6 }, stableLogo(source.symbol));
   };
-  // A dollar token (the Bridge shortcut opens USDC) starts on another chain's dollar: the bridge.
+  // A dollar token starts on another chain's dollar (a bridge); anything else on this chain's first pay token.
   const [counter, setCounter] = useState<Counter>(() => {
-    const bridgeFrom = bridgeFromFor(evmRef(chain.id, token.address));
-    if (bridgeFrom && bridgeFrom !== chain.key) return remoteDollar(bridgeFrom);
     return DOLLARS.has(token.symbol) ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
   const [side, setSide] = useState<OrderSide>("buy");
@@ -643,7 +644,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const pinnedCounters: TokenChoice[] = [
     ...EVM_SWAP_CHAINS.flatMap((entry) =>
       entry.pay
-        .filter((payToken) => payToken.symbol === "USDC" || isNativeToken(payToken.address))
+        .filter((payToken, index) => index === 0 || isNativeToken(payToken.address))
         .map((payToken) => ({
           mint: evmRef(entry.id, payToken.address),
           symbol: payToken.symbol,
@@ -655,7 +656,6 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
           source: `Uniswap · ${entry.name}`,
         })),
     ),
-    { mint: evmRef(ROBINHOOD.mainnet.chainId, ROBINHOOD.mainnet.usdc), symbol: "USDG", name: "USDG on Robinhood Chain", icon: stableLogo("USDG"), chainId: ROBINHOOD.mainnet.chainId, decimals: 6, verified: true, source: "Robinhood Chain" },
     ...(side === "buy" && hlNetwork === "mainnet"
       ? [{ mint: HL_PICK, symbol: "USDC", name: "Your Hyperliquid balance (withdrawal)", icon: stableLogo("USDC"), decimals: 6, verified: true, source: "Hyperliquid" }]
       : []),

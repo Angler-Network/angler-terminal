@@ -25,11 +25,11 @@ describe("DexScreener", () => {
     const listings = readDexSearch(search);
     expect(listings.length).toBeGreaterThan(0);
     for (const listing of listings) {
-      expect([1, 8453, 42161]).toContain(listing.chainId);
+      expect([1, 8453, 42161, 4663]).toContain(listing.chainId);
       expect(listing.verified).toBe(false);
       expect(listing.venue).toBe("uniswap");
     }
-    // Solana and BSC pairs are left out; BRETT on Base has Uniswap pools.
+    // Solana and BSC pairs are left out; BRETT on Base (and on Robinhood Chain) has Uniswap pools.
     expect(listings.some((listing) => listing.chainId === 8453 && listing.symbol === "BRETT")).toBe(true);
     expect(new Set(listings.map((listing) => listing.id)).size).toBe(listings.length);
   });
