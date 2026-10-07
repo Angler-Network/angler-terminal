@@ -223,9 +223,29 @@ dependency versions and design are free to diverge from angler-news.
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
 - Routes: the terminal is `/perp` and `/spot`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
   layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/` redirects
-  to `/perp` (`next.config.mjs`). `/prediction` is a "coming soon" page and `app/not-found.tsx` the 404, both
-  `StatusScreen` (`components/app/status-screen.tsx`). Perp / Spot / Prediction lead every navigation from one list
-  (`components/app/market-nav.ts`: sidebar, top bar, phone menu).
+  to `/perp` (`next.config.mjs`). `/prediction` is a placeholder on the brand banner (`public/brand/angler-banner.jpg`,
+  angler-landing's og-banner) and `app/not-found.tsx` the 404 (`StatusScreen`). Perp / Spot / Prediction lead every
+  navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /spot hides the order book
+  (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
+- Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
+  live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
+  Arcus stock/index/commodity tokens priced from the same asset's perp quote. An asset without a token of its own
+  ticker (BTC on Solana) trades as the most liquid verified token that represents it (`representsAsset`: same
+  ticker, a wrapper named "wrapped"/"bridged" or after the asset, a tokenized stock; staked/leveraged versions never)
+  — `/api/jup/token` falls back to it, so BTC → WBTC or cbBTC by live liquidity. Unverified tokens never win: Jupiter's
+  search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
+  `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.
+- Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
+  markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
+  ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
+  preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
+- History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid
+  `historicalOrders` (open ones dropped, they have their own tab) + Lighter `accountInactiveOrders` (auth token:
+  only a browser holding the account's trading key can read it), mapped in `lib/trading/order-history.ts`. Position
+  history is rebuilt from the 30-day fills (`lib/trading/position-history.ts`): flat → flat per venue and asset,
+  seeded from Hyperliquid's `startPosition` (exact even when the venue caps fills at 2000; checked against a live
+  market maker: closed + still-open PnL equals the venue's total to the cent) or current size minus the window.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
