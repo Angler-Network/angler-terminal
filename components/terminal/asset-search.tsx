@@ -321,7 +321,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
 }
 
 /**
- * The market picker for the terminal (/perp, /spot): perp markets of the enabled perp venues, or every spot pair the
+ * The market picker for the terminal (/perp, /swap): perp markets of the enabled perp venues, or every spot pair the
  * spot venues' pools offer (plus a live Jupiter search), with categories, favorites and keyboard control. Ctrl/⌘+K
  * opens it from anywhere in the terminal; the chart header's symbol button too.
  */

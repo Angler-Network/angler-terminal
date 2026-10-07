@@ -11,7 +11,7 @@ export default function NotFound() {
       title="Page not found"
       description="This page doesn't exist or has moved."
       primary={{ href: "/perp", label: "Trade perp" }}
-      secondary={{ href: "/spot", label: "Trade spot" }}
+      secondary={{ href: "/swap", label: "Swap tokens" }}
     />
   );
 }

@@ -11,6 +11,7 @@ const CHAIN_LOGOS: Record<string, string> = {
   4663: "/chains/robinhood.svg",
   46630: "/chains/robinhood.svg",
   solana: "/chains/solana.svg",
+  hyperliquid: "/chains/hyperliquid.svg",
 };
 
 export function stableLogo(symbol: string) {
@@ -31,7 +32,7 @@ export function CoinIcon({
   src?: string;
   symbol: string;
   kind?: "crypto" | "stock";
-  /** A chain id, or "solana". */
+  /** A chain id, or "solana" / "hyperliquid". */
   chain?: number | string;
   size?: number;
 }) {

@@ -34,10 +34,12 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
-  // The terminal lives at /perp and /spot; the old root keeps working for bookmarks and shared links.
+  // The terminal lives at /perp and /swap; the old root and /spot keep working for bookmarks and shared links.
   async redirects() {
     return [
       { source: "/", destination: "/perp", permanent: false },
+      // Spot became Swap.
+      { source: "/spot", destination: "/swap", permanent: true },
       // The portfolio moved into the profile.
       { source: "/portfolio", destination: "/profile/portfolio", permanent: true },
     ];

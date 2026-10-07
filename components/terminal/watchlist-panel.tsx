@@ -21,7 +21,7 @@ type Sort = "volume" | "change";
 const panelClass =
   "surface-panel flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55 shadow-[0_1px_2px_rgba(19,35,58,0.05)]";
 
-/** What "Yours" lists: perp positions on /perp, the Solana wallet's tokens on /spot. */
+/** What "Yours" lists: perp positions on /perp, the Solana wallet's tokens on /swap. */
 function useYourRows(isSpot: boolean, rows: MarketRow[]): { rows: MarketRow[]; empty: string } {
   const { account } = useTrading();
   const spot = useSpotHoldings();
@@ -70,7 +70,7 @@ export function WatchlistPanel() {
   const isSpot = terminalKindOf(usePathname()) === "spot";
   const { preferences, updatePreference } = usePreferences();
   const { symbol, mint, selectAsset } = useSelectedAsset();
-  // On /spot the highlighted row is the token actually traded (BTC → the busiest BTC token), not every BTC wrapper.
+  // On /swap the highlighted row is the token actually traded (BTC → the busiest BTC token), not every BTC wrapper.
   const tradedToken = useSpotToken(symbol, mint, isSpot);
   const tradedMint = mint ?? tradedToken?.mint;
   const [tab, setTab] = useState<Tab>("starred");

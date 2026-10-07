@@ -339,7 +339,7 @@ export function useHasWallet() {
 
 /**
  * The trading card: the order panel on top, then balances and trading keys for the venues of the current view
- * (the traded perp venue's account on /perp, Solana and Arcus balances on /spot), only once a wallet is connected; wallets themselves
+ * (the traded perp venue's account on /perp, Solana and Arcus balances on /swap), only once a wallet is connected; wallets themselves
  * are managed from the Connect button. Each part follows its panel setting. With the order book below it (`grow`
  * off) the card keeps its natural height and scrolls once the book needs the room.
  */

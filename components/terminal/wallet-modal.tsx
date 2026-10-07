@@ -59,10 +59,10 @@ interface VenueOption {
 
 const VENUES: VenueOption[] = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#11806a", live: true },
-  { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
+  { id: "jupiter", name: "Jupiter", kind: "Swap", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
   { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#3a3f4b", live: true },
   { id: "lighterRh", name: "Lighter RH", kind: "Stock perps", chain: "evm", domain: "robinhood.com", color: "#2f6b2a", live: true },
-  { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: true },
+  { id: "titan", name: "Titan", kind: "Swap", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: true },
   { id: "arcus", name: "Arcus", kind: "Stocks", chain: "evm", domain: "arcus.xyz", color: "#2f8f4e", live: true },
 ];
 

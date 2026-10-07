@@ -5,7 +5,7 @@ import { CHART_COOKIE, chartQuote, DEFAULT_CHART_SETTINGS, parseChartCookie } fr
 import { getMarkets } from "@/lib/markets/server";
 
 /**
- * Shared by /perp and /spot (`lib/terminal-kind.ts`): the shell lives in the layout, so switching views keeps the
+ * Shared by /perp and /swap (`lib/terminal-kind.ts`): the shell lives in the layout, so switching views keeps the
  * chart, books and news feed mounted. The pages only add their title.
  */
 export default async function TerminalLayout({ children }: { children: React.ReactNode }) {

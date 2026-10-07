@@ -193,7 +193,7 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   const quote = selected ? pickQuote(selected, preferences.tapeSource)?.quote : undefined;
   // Until the browser's market list arrives, the price the server streamed in for this asset.
   const initialQuote = useInitialQuote();
-  // On /spot the header and the candles are the traded token's (cbBTC, not "BTC"); null on /perp.
+  // On /swap the header and the candles are the traded token's (cbBTC, not "BTC"); null on /perp.
   const spotToken = useSpotChartToken();
   const liveQuote = spotToken ? (spotToken.price !== undefined ? { price: spotToken.price, changePct: spotToken.change24h ?? Number.NaN } : undefined) : quote;
   const fit = useQuickIntervalCount(Boolean(venueMarket || spotToken));

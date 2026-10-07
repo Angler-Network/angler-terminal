@@ -65,7 +65,7 @@ export function MarketStats({
   );
 }
 
-/** /spot's header stats for the traded token: what its market looks like, instead of perp funding and open interest. */
+/** /swap's header stats for the traded token: what its market looks like, instead of perp funding and open interest. */
 export function SpotStats({
   token,
   contentRef,

@@ -207,7 +207,7 @@ dependency versions and design are free to diverge from angler-news.
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
     (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Two-press confirm unless
     one-click.
-  - Swap card (`swap-card.tsx`, the order panel on /spot; math in `lib/trading/swap.ts`): spot is a swap like the
+  - Swap card (`swap-card.tsx`, the order panel on /swap; math in `lib/trading/swap.ts`): spot is a swap like the
     venues' own screens: Sell box (amount of the sold token, wallet balance, 25/50/75/Max) over Buy box (Jupiter/Titan
     best quote, else the price estimate), a flip arrow, the rate line and, with Titan on, the route list (pin a
     source). The asset pill lists every spot venue with the chart's asset (Solana token via Jupiter/Titan, Arcus stock
@@ -215,6 +215,11 @@ dependency versions and design are free to diverge from angler-news.
     venue's (USDC on Solana, USDG on Robinhood). Execution is unchanged: `use-news-trader.ts`, sized in USD (sells:
     amount × price). Shared pieces: `inline-picker.tsx` (portaled dropdown), `token-icon.tsx` (`CoinIcon`: token or
     asset logo + chain badge, falls back to `MarketIcon` when an image fails).
+    Cross-chain buys (Arcus mainnet only): the Sell pill is a "Pay with" picker (USDG · Robinhood, USDC · Arbitrum /
+    Base / Hyperliquid). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
+    with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →
+    USDG to the wallet), with the Across quote previewed in the Buy box; when the USDG lands (`onDone`) the card asks
+    for one more press to swap it on Arcus (rounded down to the cent). The card says plainly that USDC becomes USDG.
   - TP/SL (`lib/trading/tpsl.ts` validates the side): reduce-only market-when-triggered orders. Hyperliquid: entry +
     triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,
     expiry -1 (28 days), grouped with the entry via `SignCreateGroupedOrders` (OTO, or OTOCO for both) and as an
@@ -266,7 +271,7 @@ dependency versions and design are free to diverge from angler-news.
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
     coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm
     press; partial results are reported. "Bridge" next to it opens the funds window on the HL → Lighter move.
-    The market type comes from the route (`/perp`, `/spot`, `lib/terminal-kind.ts`), not a switch in the panel: an
+    The market type comes from the route (`/perp`, `/swap`, `lib/terminal-kind.ts`), not a switch in the panel: an
     asset without a venue of that kind shows a link to the other view.
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
     (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
@@ -276,11 +281,12 @@ dependency versions and design are free to diverge from angler-news.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
-- Routes: the terminal is `/perp` and `/spot`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
+- Routes: the terminal is `/perp` and `/swap`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
   layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/` redirects
-  to `/perp` (`next.config.mjs`). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
-  (`StatusScreen`). Perp / Spot / Prediction lead every
-  navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /spot hides the order book
+  to `/perp` and the old `/spot` to `/swap` (`next.config.mjs`). The spot view is named Swap everywhere the user sees
+  it (nav, titles, wallet tiles); inside the code the market kind stays `"spot"` (`TerminalKind`, `lib/spot/*`). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
+  (`StatusScreen`). Perp / Swap / Prediction lead every
+  navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /swap hides the order book
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
 - Prediction (`/prediction`, `components/prediction/*`, `lib/prediction/*`): Polymarket and Hyperliquid HIP-4
   outcome markets in one shape (`types.ts`: event → binary markets → two outcomes with price = probability and the
@@ -323,7 +329,7 @@ dependency versions and design are free to diverge from angler-news.
   — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; the watchlist highlights that token. Unverified tokens never win: Jupiter's
   search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
   `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.
-- Spot charts: on /spot the chart header and candles are the traded token's (`use-spot-chart-token.ts`: cbBTC with its
+- Spot charts: on /swap the chart header and candles are the traded token's (`use-spot-chart-token.ts`: cbBTC with its
   logo, price, liquidity, volume, market cap), not the asset's. Candles come from the token's busiest DEX pool via
   `GET /api/spot/candles` (`lib/spot/pool-candles*.ts`: GeckoTerminal; CoinGecko's on-chain API with
   `COINGECKO_API_KEY`, `COINGECKO_API_PLAN=pro` for paid plans). Calls are scarce (free: ~10/min site-wide; keyed:
@@ -346,7 +352,7 @@ dependency versions and design are free to diverge from angler-news.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
-- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Spot, Prediction, Markets, Portfolio,
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Prediction, Markets, Portfolio,
   Layout, News link, Pro order, Bridge, Settings; wallets are only the top bar's Connect button) and the settings
   page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
   URL each: `/settings`, `/settings/rules`…; `openSettings(section)` navigates there, `closeSettings` returns to the

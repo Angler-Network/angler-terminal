@@ -241,7 +241,7 @@ function useVenueChoices(symbol: string, mint?: string) {
 
 /**
  * Order entry for the chart's asset on any venue that lists it: market or limit perps (leverage, margin mode,
- * reduce-only) on /perp, the swap card on /spot. A press arms the order; the second press places it (one-click skips
+ * reduce-only) on /perp, the swap card on /swap. A press arms the order; the second press places it (one-click skips
  * that).
  */
 export function OrderPanel() {
@@ -257,7 +257,7 @@ export function OrderPanel() {
   const { choices, isLoading } = useVenueChoices(symbol, mint);
 
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
-  // Perp or spot comes from the sidebar (/perp, /spot), then a venue of that kind.
+  // Perp or spot comes from the sidebar (/perp, /swap), then a venue of that kind.
   const activeKind = terminalKindOf(usePathname()) ?? "perp";
   const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
@@ -453,17 +453,17 @@ export function OrderPanel() {
       ) : kindChoices.length === 0 ? (
         <>
           <h3 className="text-[12px] font-semibold text-app-ink">
-            Trade {symbol} {activeKind === "perp" ? "perps" : "spot"}
+            {activeKind === "perp" ? `Trade ${symbol} perps` : `Swap ${symbol}`}
           </h3>
           <p className="text-[12px] text-app-faint">
             {hasKind(otherKind)
-              ? `No enabled ${activeKind} venue lists ${symbol}.`
+              ? `No enabled ${activeKind === "perp" ? "perp" : "swap"} venue lists ${symbol}.`
               : `No enabled venue lists ${symbol}. Pick another asset on the chart.`}
           </p>
           {/* A browser that saved Jupiter as off (often from before it was live) would never see spot otherwise. */}
           {activeKind === "spot" && venueAvailable("jupiter") && !preferences.venueJupiter && (
             <div className="flex items-center justify-between gap-2 rounded-lg bg-[#f5c97b]/10 px-2.5 py-2 text-[12px] text-app-ink">
-              <span>Jupiter spot is turned off in this browser.</span>
+              <span>Jupiter swaps are turned off in this browser.</span>
               <button
                 type="button"
                 onClick={() => {
@@ -481,7 +481,7 @@ export function OrderPanel() {
               href={TERMINAL_PATHS[otherKind]}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"
             >
-              Trade {symbol} on {otherKind === "perp" ? "Perp" : "Spot"}
+              {otherKind === "perp" ? `Trade ${symbol} on Perp` : `Swap ${symbol}`}
               <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           )}

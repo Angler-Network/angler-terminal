@@ -10,7 +10,7 @@ import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 
-/** The token /spot actually trades for the selected asset, with what the chart header shows about it. */
+/** The token /swap actually trades for the selected asset, with what the chart header shows about it. */
 export interface SpotChartToken {
   /** Chain its pools live on; null when the on-chain data has no index for it (Arcus testnet). */
   network: PoolNetwork | null;
@@ -27,8 +27,8 @@ export interface SpotChartToken {
 }
 
 /**
- * On /spot: the traded token (Jupiter's, which the order panel resolves the same way: BTC → the most traded BTC token;
- * else Arcus's stock token), live numbers from the spot pairs list. null outside /spot or when no spot venue lists the
+ * On /swap: the traded token (Jupiter's, which the order panel resolves the same way: BTC → the most traded BTC token;
+ * else Arcus's stock token), live numbers from the spot pairs list. null outside /swap or when no spot venue lists the
  * asset; undefined while resolving.
  */
 export function useSpotChartToken(): SpotChartToken | null | undefined {

@@ -23,8 +23,8 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps" },
   { id: "lighter", name: "Lighter", kind: "Perps" },
   { id: "lighterRh", name: "Lighter RH", kind: "Stock perps" },
-  { id: "jupiter", name: "Jupiter", kind: "Spot" },
-  { id: "titan", name: "Titan", kind: "Spot" },
+  { id: "jupiter", name: "Jupiter", kind: "Swap" },
+  { id: "titan", name: "Titan", kind: "Swap" },
 ];
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";

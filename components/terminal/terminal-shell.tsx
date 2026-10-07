@@ -117,7 +117,7 @@ export function TerminalShell() {
     [feed.items, symbol],
   );
 
-  // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /spot shows the trading card alone.
+  // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /swap shows the trading card alone.
   const isSpot = terminalKindOf(usePathname()) === "spot";
   // Phones keep the classic split: the order book under the order panel, news as its own view.
   const arrangement = isMobile ? { ...preferences.arrangement, stack: "orderbook" as const } : preferences.arrangement;

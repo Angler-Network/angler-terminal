@@ -38,7 +38,7 @@ interface AnglerChartProps {
   items: NewsItem[];
   /** When the asset trades on Hyperliquid, candles come from the configured Hyperliquid network. */
   venueMarket?: VenueMarket | null;
-  /** On /spot: the traded token, charted from its own busiest DEX pool (cbBTC, not "BTC") when "Auto". */
+  /** On /swap: the traded token, charted from its own busiest DEX pool (cbBTC, not "BTC") when "Auto". */
   spotToken?: { network: PoolNetwork | null; address: string; symbol: string; price?: number } | null;
 }
 
@@ -48,7 +48,7 @@ type CandleSource = "binance" | PerpVenueId | "pool";
 
 /**
  * Candles from a perp venue (its configured network), from the public feeds (Binance, Hyperliquid mainnet) or, on
- * /spot, from the traded token's own DEX pool.
+ * /swap, from the traded token's own DEX pool.
  */
 interface CandleData {
   key: string;
@@ -170,7 +170,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   // Only the first venue decides the candles: a fallback venue whose market list arrives later (Lighter's, a moment
   // after Hyperliquid's) must not clear the chart and download the same candles again.
   const venueKey = venues[0] ? `${venues[0]}:${venueMarkets[venues[0]]!.coin}` : "";
-  // On /spot with "Auto", the token's own pool comes first.
+  // On /swap with "Auto", the token's own pool comes first.
   const pool = preferences.chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
   const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? ""].join("|");
   // Pool candles are refetched every few minutes (they cost API credits); the token's live price moves the last one.

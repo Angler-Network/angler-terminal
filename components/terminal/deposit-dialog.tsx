@@ -4,17 +4,15 @@ import { ArrowLeftRight, ExternalLink, Wallet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { Picker, type PickerOption } from "./inline-picker";
-import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
-import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
+import { lighterIntentAddress, readUsdcBalance } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { usePreferences } from "@/components/app/preferences-provider";
-import { ARBITRUM, HL_BRIDGE, HL_WITHDRAW_FEE_USDC, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
+import { HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
 import { summarizeAcrossQuote, type AcrossQuoteSummary } from "@/lib/venues/across";
 import {
   BRIDGE_VENUES,
   WALLET_CHAINS,
-  acrossRecipientMinimum,
   walletChainSource,
   WALLET_CHAIN_NAMES,
   bridgeVenueDomain,
@@ -35,30 +33,11 @@ import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
 import { useModalEnter } from "@/components/app/use-motion";
 
-const ARRIVAL_POLL_MS = 10_000;
-const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
-const FILL_POLL_MS = 4_000;
-const FILL_TIMEOUT_MS = 15 * 60_000;
 const QUOTE_DEBOUNCE_MS = 600;
 
-/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or Across's relayer filling. */
-type Wait =
-  | { kind: "arrival"; before: bigint; expected: bigint; since: number }
-  | { kind: "fill"; depositId: bigint; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
-
-/** A route being carried out: `carry` is what the next step moves (the previous step's output). */
-interface Run {
-  steps: FundsStep[];
-  index: number;
-  phase: "ready" | "busy" | "waiting" | "done";
-  carry: bigint;
-  wait?: Wait;
-  explorerUrl?: string;
-}
-
-const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 
 const TOKEN_ABOUT: Record<string, string> = { USDC: "Circle's dollar", USDG: "Paxos's Global Dollar, the dollar Robinhood Chain venues use" };
 
@@ -119,26 +98,6 @@ function Tabs<T extends string>({ value, options, onChange, disabled }: { value:
 const primaryButton = "h-10 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50";
 const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withdraw", move: "Bridge" };
 
-function errorMessage(caught: unknown) {
-  const message = caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
-  return /reject|denied/i.test(message) ? "You rejected the request in your wallet." : message;
-}
-
-/** One line per step, for the checklist and the continue button. */
-function stepLabel(step: FundsStep) {
-  if (step.kind === "hlWithdraw") return "Withdraw from Hyperliquid (signature, no gas, 1 USDC fee), lands on Arbitrum in 3-4 min";
-  if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
-  const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
-  const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
-  return `Bridge with Across to ${into} (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
-}
-
-function continueLabel(step: FundsStep, carry: bigint) {
-  const amount = units6(carry).toFixed(2);
-  if (step.kind === "transfer") return `Deposit ${amount} ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]}`;
-  if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
-  return "Withdraw from Hyperliquid";
-}
 
 /**
  * Funds: "Move [amount] [token] from [endpoint] to [endpoint]" in one sentence, where an endpoint is a venue or the
@@ -148,10 +107,9 @@ function continueLabel(step: FundsStep, carry: bigint) {
  * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
  */
 export function DepositDialog() {
-  const toast = useToast();
-  const { depositVenue, depositMode, closeDeposit, openDeposit, network, accounts, withdrawHyperliquid } = useTrading();
+  const { depositVenue, depositMode, closeDeposit, openDeposit, network, accounts } = useTrading();
   const { preferences } = usePreferences();
-  const { address, wallet } = useWallet();
+  const { address } = useWallet();
   const { open: openWallets } = useWalletModal();
   const [from, setFrom] = useState<FundsEndpoint>("wallet");
   const [to, setTo] = useState<FundsEndpoint>("hyperliquid");
@@ -159,7 +117,10 @@ export function DepositDialog() {
   const [amount, setAmount] = useState("");
   const [balance, setBalance] = useState<bigint | null>(null);
   const [quote, setQuote] = useState<{ key: string; summary?: AcrossQuoteSummary; error?: string } | null>(null);
-  const [run, setRun] = useState<Run | null>(null);
+  const { run, setRun, execute } = useFundsRun({
+    resume: () => openDeposit(depositVenue ?? (isPerpEndpoint(to) ? to : "lighter"), "move"),
+    onWithdrawOnly: closeDeposit,
+  });
 
   const networkOf = (venue: PerpVenueId) => (isLighterVenue(venue) ? lighterConfigs[venue].network : network);
   const route = fundsRoute(from, to, chains, networkOf);
@@ -255,112 +216,6 @@ export function DepositDialog() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
   }, [quoteKey, locked]);
-
-  /** Moves to the step after `current` with `carry`, or finishes. */
-  const advance = (current: Run, carry: bigint, explorerUrl?: string) => {
-    const next = current.index + 1;
-    if (next >= current.steps.length) {
-      setRun({ ...current, phase: "done", carry, wait: undefined, explorerUrl: explorerUrl ?? current.explorerUrl });
-      const last = current.steps[current.steps.length - 1];
-      const where = last.kind === "transfer" ? PERP_VENUE_NAMES[last.venue] : last.kind === "across" && last.recipient !== "wallet" ? PERP_VENUE_NAMES[last.recipient] : "your wallet";
-      toast({ tone: "success", title: "Funds moved", message: `${units6(carry).toFixed(2)} sent to ${where}.`, ...(explorerUrl && { link: { href: explorerUrl, label: "View transaction" } }) });
-      return;
-    }
-    setRun({ ...current, index: next, phase: "ready", carry, wait: undefined, explorerUrl: explorerUrl ?? current.explorerUrl });
-  };
-
-  const execute = async (current: Run) => {
-    if (!address || !wallet) return openWallets();
-    const step = current.steps[current.index];
-    setRun({ ...current, phase: "busy" });
-    try {
-      if (step.kind === "hlWithdraw") {
-        const before = await readUsdcBalance(ARBITRUM, address);
-        const expected = usdcUnits(String(Math.floor((units6(current.carry) - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;
-        if (!(await withdrawHyperliquid(String(units6(current.carry))))) return setRun(current.index === 0 ? null : { ...current, phase: "ready" });
-        // A withdrawal straight to the wallet ends here (Hyperliquid pays out by itself and the provider says so).
-        if (current.steps.length === 1) {
-          setRun(null);
-          return closeDeposit();
-        }
-        setRun({ ...current, phase: "waiting", wait: { kind: "arrival", before, expected, since: Date.now() } });
-        return;
-      }
-      if (step.kind === "transfer") {
-        const target = step.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(lighterConfigs[isLighterVenue(step.venue) ? step.venue : "lighter"], step.source, address);
-        const result = await sendUsdc(wallet.provider, address, step.source, target, current.carry);
-        return advance(current, current.carry, result.explorerUrl);
-      }
-      const recipient = step.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[step.recipient], step.to, address);
-      const { fetchAcrossQuote, executeAcross } = await import("@/lib/venues/across-client");
-      // Always a fresh quote right before signing: its transaction carries the amounts and a deadline.
-      const fresh = await fetchAcrossQuote({ from: step.from, to: step.to, units: current.carry, depositor: address, recipient });
-      const summary = summarizeAcrossQuote(fresh);
-      if (!summary.executable) throw new Error("Across has no route for this amount right now.");
-      if (summary.shortBalance) throw new Error(`Not enough ${step.from.symbol} in your wallet on ${step.from.name}.`);
-      const minimum = acrossRecipientMinimum(step.recipient);
-      if (summary.minOut < BigInt(minimum) * 10n ** BigInt(USDC_DECIMALS)) throw new Error(`${PERP_VENUE_NAMES[step.recipient as PerpVenueId]} needs at least ${minimum} ${step.to.symbol} after fees.`);
-      const before = step.recipient === "wallet" ? await readUsdcBalance(step.to, address).catch(() => null) : null;
-      const sent = await executeAcross(wallet.provider, address, step.from, step.to, fresh);
-      setRun({
-        ...current,
-        phase: "waiting",
-        explorerUrl: sent.explorerUrl,
-        wait: { kind: "fill", depositId: sent.depositId, origin: step.from, to: step.to, before, expected: summary.expectedOut, since: Date.now() },
-      });
-    } catch (caught) {
-      toast({ tone: "error", title: "Transfer not sent", message: errorMessage(caught) });
-      setRun(current.index === 0 ? null : { ...current, phase: "ready" });
-    }
-  };
-
-  // Waits keep polling with the window closed and say when the next step is ready.
-  const waiting = run?.phase === "waiting" ? run : null;
-  useEffect(() => {
-    if (!waiting?.wait || !address) return;
-    const current = waiting;
-    const wait = waiting.wait;
-    const resume = () => openDeposit(depositVenue ?? (isPerpEndpoint(to) ? to : "lighter"), "move");
-    const timer = window.setInterval(
-      async () => {
-        if (wait.kind === "arrival") {
-          const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
-          if (now !== null && withdrawalArrived(wait.before, now, wait.expected)) {
-            advance(current, wait.expected);
-            toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
-          } else if (Date.now() - wait.since > ARRIVAL_TIMEOUT_MS) {
-            toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then continue from Funds." });
-            setRun(null);
-          }
-          return;
-        }
-        const { acrossFilled } = await import("@/lib/venues/across-client");
-        const state = await acrossFilled(wait.depositId, wait.origin.chainId).catch(() => "pending" as const);
-        if (state === "filled") {
-          let carry = wait.expected;
-          if (wait.before !== null) {
-            const now = await readUsdcBalance(wait.to, address).catch(() => null);
-            // What actually arrived, never more than the quote (other funds landing at the same time stay put).
-            if (now !== null && now > wait.before) carry = now - wait.before < wait.expected ? now - wait.before : wait.expected;
-          }
-          const last = current.index + 1 >= current.steps.length;
-          advance(current, carry);
-          if (!last) toast({ tone: "info", title: `Arrived on ${wait.to.name}`, message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
-        } else if (state === "failed" || Date.now() - wait.since > FILL_TIMEOUT_MS) {
-          toast({
-            tone: "error",
-            title: state === "failed" ? "Bridge refunded" : "Bridge is taking longer than usual",
-            message: state === "failed" ? `Across returned the funds to your wallet on ${wait.origin.name}.` : "Check the transaction; Across refunds on the origin chain if it can't fill.",
-            ...(current.explorerUrl && { link: { href: current.explorerUrl, label: "View transaction" } }),
-          });
-          setRun(null);
-        }
-      },
-      wait.kind === "arrival" ? ARRIVAL_POLL_MS : FILL_POLL_MS,
-    );
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one poller per wait
-  }, [waiting?.wait, address]);
 
   const backdropRef = useModalEnter(depositVenue !== null);
 
