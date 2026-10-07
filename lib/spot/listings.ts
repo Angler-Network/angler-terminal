@@ -114,6 +114,20 @@ export function representsAsset(listing: Pick<SpotListing, "symbol" | "name" | "
 }
 
 /**
+ * The terminal asset a spot token trades as (WBTC → BTC, NVDAx → NVDA, WIF → WIF), so picking it moves the chart,
+ * news and order panel to that asset. Null when its ticker can't be a terminal symbol.
+ */
+export function assetSymbolOf(listing: Pick<SpotListing, "symbol" | "name" | "category">): string | null {
+  const symbol = normalizeSpotSymbol(listing.symbol);
+  if (listing.category === "stock" && symbol.endsWith("X") && representsAsset(listing, symbol.slice(0, -1))) return symbol.slice(0, -1);
+  for (const prefix of WRAPPER_PREFIXES) {
+    const base = symbol.slice(prefix.length);
+    if (symbol.startsWith(prefix) && base.length >= 2 && representsAsset(listing, base)) return base;
+  }
+  return /^[A-Z0-9]{1,20}$/.test(symbol) ? symbol : null;
+}
+
+/**
  * The listing to trade `base` with: verified listings that represent it, the most liquid first (listings without a
  * liquidity figure, like Arcus tokens, come after those with one). Null when no venue lists it.
  */

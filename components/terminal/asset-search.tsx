@@ -1,0 +1,418 @@
+"use client";
+
+import { Search, Star, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { MarketIcon } from "@/components/app/market-icon";
+import { usePreferences } from "@/components/app/preferences-provider";
+import { useMarketList } from "@/components/app/use-market-list";
+import { useModalEnter } from "@/components/app/use-motion";
+import { formatPercent, formatPrice } from "@/lib/format";
+import { MARKET_CATEGORIES, marketCategory, type MarketCategory } from "@/lib/markets/category";
+import { pickQuote } from "@/lib/markets/model";
+import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
+import { terminalKindOf, type TerminalKind } from "@/lib/terminal-kind";
+import { formatUsdCompact } from "@/lib/trading/market-stats";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import type { PerpVenueId } from "@/lib/venues/types";
+import { isWatched, perpWatchId, toggleWatch, type WatchlistEntry } from "@/lib/watchlist";
+import { useSelectedAsset } from "./selected-asset";
+import { useTrading } from "./trading-provider";
+import { useSpotListings, useSpotSearch } from "./use-spot-listings";
+
+interface AssetSearchValue {
+  open: () => void;
+}
+
+const AssetSearchContext = createContext<AssetSearchValue | null>(null);
+
+export function useAssetSearch() {
+  const context = useContext(AssetSearchContext);
+  if (!context) throw new Error("useAssetSearch must be used within AssetSearchProvider");
+  return context;
+}
+
+/** One row of the search, perp or spot. */
+interface Row {
+  id: string;
+  symbol: string;
+  name: string;
+  /** The terminal asset picking the row selects (WBTC → BTC). */
+  asset: string;
+  mint?: string;
+  icon?: string;
+  kind: "crypto" | "stock";
+  category: MarketCategory;
+  price?: number;
+  change24h?: number;
+  volume24h?: number;
+  liquidity?: number;
+  venues: string[];
+  verified: boolean;
+  watch: WatchlistEntry;
+}
+
+const SPOT_CATEGORY: Record<SpotCategory, MarketCategory> = { crypto: "crypto", stock: "stocks", index: "indices", commodity: "commodities" };
+const SPOT_VENUE_NAMES = { jupiter: "Jupiter", arcus: "Arcus" } as const;
+
+/** Every perp market an enabled perp venue lists, priced from the shared market list (Binance, then Hyperliquid). */
+function usePerpRows(enabled: boolean): Row[] | null {
+  const { marketsByVenue, perpOrder } = useTrading();
+  const { preferences } = usePreferences();
+  const quotes = useMarketList("perp");
+  return useMemo(() => {
+    if (!enabled) return null;
+    const lists = perpOrder.map((venue) => [venue, marketsByVenue[venue]] as const);
+    if (lists.every(([, list]) => list === undefined)) return null;
+    const bySymbol = new Map((quotes ?? []).map((market) => [market.symbol, market]));
+    const rows = new Map<string, Row>();
+    for (const [venue, list] of lists) {
+      for (const market of list ?? []) {
+        const existing = rows.get(market.symbol);
+        if (existing) {
+          existing.venues.push(PERP_VENUE_NAMES[venue as PerpVenueId]);
+          existing.volume24h = (existing.volume24h ?? 0) + (market.volume24hUsd ?? 0);
+          continue;
+        }
+        const quote = bySymbol.get(market.symbol);
+        const picked = quote ? pickQuote(quote, preferences.tapeSource)?.quote : undefined;
+        rows.set(market.symbol, {
+          id: perpWatchId(market.symbol),
+          symbol: market.symbol,
+          name: market.kind === "stock" ? "Stock perp" : "Perpetual",
+          asset: market.symbol,
+          kind: market.kind,
+          category: marketCategory(market.symbol, market.kind),
+          price: picked?.price ?? market.markPx ?? market.midPx,
+          change24h: picked?.changePct,
+          volume24h: market.volume24hUsd,
+          venues: [PERP_VENUE_NAMES[venue as PerpVenueId]],
+          verified: true,
+          watch: { id: perpWatchId(market.symbol), kind: "perp", symbol: market.symbol, asset: market.symbol },
+        });
+      }
+    }
+    return [...rows.values()].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0));
+  }, [enabled, marketsByVenue, perpOrder, quotes, preferences.tapeSource]);
+}
+
+function spotRow(listing: SpotListing): Row | null {
+  const asset = assetSymbolOf(listing);
+  if (!asset) return null;
+  const mint = listing.venue === "jupiter" ? listing.address : undefined;
+  return {
+    id: listing.id,
+    symbol: listing.symbol,
+    name: listing.name,
+    asset,
+    mint,
+    icon: listing.icon,
+    kind: listing.category === "crypto" ? "crypto" : "stock",
+    category: SPOT_CATEGORY[listing.category],
+    price: listing.price,
+    change24h: listing.change24h,
+    volume24h: listing.volume24h,
+    liquidity: listing.liquidity,
+    venues: [SPOT_VENUE_NAMES[listing.venue]],
+    verified: listing.verified,
+    watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
+  };
+}
+
+function TokenIcon({ row }: { row: Row }) {
+  const [failed, setFailed] = useState(false);
+  if (row.icon && !failed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={row.icon} alt="" width={24} height={24} loading="lazy" onError={() => setFailed(true)} className="size-6 shrink-0 rounded-full object-cover" />;
+  }
+  return <MarketIcon symbol={row.asset} kind={row.kind} size={24} />;
+}
+
+function Change({ value }: { value?: number }) {
+  if (value === undefined) return <span className="text-app-faint">—</span>;
+  return (
+    <span className={value >= 0 ? "text-app-up" : "text-app-down"}>
+      {value >= 0 ? "+" : "-"}
+      {formatPercent(value)}
+    </span>
+  );
+}
+
+type Tab = "favorites" | "all" | MarketCategory;
+
+function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () => void }) {
+  const { preferences, updatePreference } = usePreferences();
+  const { selectAsset } = useSelectedAsset();
+  const backdropRef = useModalEnter(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
+  const [verifiedOnly, setVerifiedOnly] = useState(true);
+  const [active, setActive] = useState(0);
+  const isSpot = kind === "spot";
+
+  const perpRows = usePerpRows(!isSpot);
+  const listings = useSpotListings(isSpot);
+  const searched = useSpotSearch(isSpot ? query : "");
+  const spotRows = useMemo(() => {
+    if (!isSpot) return null;
+    if (!listings) return null;
+    return mergeListings(listings, searched ?? []).flatMap((listing) => spotRow(listing) ?? []);
+  }, [isSpot, listings, searched]);
+
+  const watchlist = preferences.watchlist;
+  const rows = useMemo(() => {
+    const source = (isSpot ? spotRows : perpRows) ?? [];
+    const wanted = query.trim().toUpperCase();
+    const watched = new Set(watchlist.map((entry) => entry.id));
+    // Favorites the current list doesn't carry (found by a search once) still show, without live numbers.
+    const extra: Row[] =
+      tab === "favorites"
+        ? watchlist
+            .filter((entry) => entry.kind === kind && !source.some((row) => row.id === entry.id))
+            .map((entry) => ({
+              id: entry.id,
+              symbol: entry.symbol,
+              name: entry.name ?? (entry.kind === "perp" ? "Perpetual" : entry.symbol),
+              asset: entry.asset,
+              mint: entry.mint,
+              icon: entry.icon,
+              kind: "crypto",
+              category: "crypto",
+              venues: [],
+              verified: true,
+              watch: entry,
+            }))
+        : [];
+    return [...source, ...extra].filter(
+      (row) =>
+        (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
+        (!isSpot || !verifiedOnly || row.verified) &&
+        (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim()),
+    );
+  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind]);
+
+  const counts = useMemo(() => {
+    const byCategory: Partial<Record<MarketCategory, number>> = {};
+    for (const row of (isSpot ? spotRows : perpRows) ?? []) byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
+    return byCategory;
+  }, [isSpot, spotRows, perpRows]);
+
+  useEffect(() => setActive(0), [query, tab, verifiedOnly]);
+  useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => {
+    listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
+  const choose = (row: Row | undefined) => {
+    if (!row) return;
+    selectAsset(row.asset, row.mint);
+    onClose();
+  };
+  const toggleFavorite = (row: Row | undefined) => row && updatePreference("watchlist", toggleWatch(watchlist, row.watch));
+
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((index) => Math.min(rows.length - 1, index + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((index) => Math.max(0, index - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      choose(rows[active]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      toggleFavorite(rows[active]);
+    }
+  };
+
+  const loading = (isSpot ? spotRows : perpRows) === null;
+  const tabs: Array<{ value: Tab; label: string; count?: number }> = [
+    { value: "all", label: "All" },
+    ...MARKET_CATEGORIES.filter((category) => counts[category.value]).map((category) => ({ value: category.value as Tab, label: category.label, count: counts[category.value] })),
+  ];
+  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_96px_96px_76px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
+
+  return (
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]" role="presentation" onMouseDown={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isSpot ? "Search spot markets" : "Search perp markets"}
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={onKeyDown}
+        className="surface-menu flex h-[min(680px,84vh)] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl border border-app-hairline-strong bg-app-dialog text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.7)]"
+      >
+        <div className="flex items-center gap-3 border-b border-app-hairline px-4 py-3">
+          <Search className="size-[18px] shrink-0 text-app-muted" aria-hidden />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"}
+            aria-label="Search"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="asset-search-list"
+            aria-activedescendant={rows[active] ? `asset-search-${active}` : undefined}
+            className="min-w-0 flex-1 bg-transparent text-[15px] outline-hidden placeholder:text-app-faint"
+          />
+          {isSpot && (
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] font-semibold text-app-muted">
+              <input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} className="size-3.5 accent-[rgb(var(--app-accent))]" />
+              Verified only
+            </label>
+          )}
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-app-faint hover:text-app-ink">
+            <X className="size-[18px]" />
+          </button>
+        </div>
+
+        <div role="tablist" aria-label="Category" className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-app-hairline px-4 py-2.5">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "favorites"}
+            aria-label="Favorites"
+            title="Favorites"
+            onClick={() => setTab("favorites")}
+            className={`grid size-8 shrink-0 place-items-center rounded-lg transition-colors ${tab === "favorites" ? "bg-app-chip text-[#f5c97b]" : "text-app-muted hover:text-app-ink"}`}
+          >
+            <Star className="size-4" fill={tab === "favorites" ? "currentColor" : "none"} />
+          </button>
+          {tabs.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="tab"
+              aria-selected={tab === option.value}
+              onClick={() => setTab(option.value)}
+              className={`h-8 shrink-0 rounded-lg px-3 text-[12px] font-semibold transition-colors ${
+                tab === option.value ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"
+              }`}
+            >
+              {option.label}
+              {option.count !== undefined && <span className="ml-1.5 text-app-faint">{option.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        <div className={`grid shrink-0 ${columns} gap-3 border-b border-app-hairline px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint`}>
+          <span>Name</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">24h</span>
+          <span className="hidden text-right md:block">24h vol.</span>
+          {isSpot && <span className="hidden text-right md:block">Liquidity</span>}
+          <span className="hidden text-right md:block">{isSpot ? "Venue" : "Venues"}</span>
+        </div>
+
+        <div ref={listRef} id="asset-search-list" role="listbox" aria-label="Markets" className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto py-1">
+          {loading ? (
+            <p className="py-12 text-center text-[13px] text-app-muted">Loading markets…</p>
+          ) : rows.length === 0 ? (
+            <p className="py-12 text-center text-[13px] text-app-muted">
+              {tab === "favorites" ? "No favorites yet. Star a market to keep it here." : isSpot && query.trim().length >= 2 && searched === undefined ? "Searching…" : "No market matches."}
+            </p>
+          ) : (
+            rows.map((row, index) => {
+              const watched = isWatched(watchlist, row.id);
+              return (
+                <div
+                  key={row.id}
+                  id={`asset-search-${index}`}
+                  data-index={index}
+                  role="option"
+                  aria-selected={index === active}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => choose(row)}
+                  className={`grid cursor-pointer ${columns} items-center gap-3 px-4 py-2 text-[13px] tabular-nums ${index === active ? "bg-app-chip" : ""}`}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <button
+                      type="button"
+                      aria-label={watched ? `Remove ${row.symbol} from favorites` : `Add ${row.symbol} to favorites`}
+                      aria-pressed={watched}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleFavorite(row);
+                      }}
+                      className={`shrink-0 ${watched ? "text-[#f5c97b]" : "text-app-faint hover:text-app-ink"}`}
+                    >
+                      <Star className="size-3.5" fill={watched ? "currentColor" : "none"} />
+                    </button>
+                    <TokenIcon row={row} />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate font-semibold">{row.symbol}</span>
+                        {isSpot && !row.verified && <span className="rounded bg-[#f5c97b]/15 px-1 text-[9px] font-semibold uppercase text-[#f5c97b]">Unverified</span>}
+                      </span>
+                      <span className="block truncate text-[11px] text-app-muted">{row.name}</span>
+                    </span>
+                  </span>
+                  <span className="text-right">{row.price !== undefined ? formatPrice(row.price) : "—"}</span>
+                  <span className="text-right">
+                    <Change value={row.change24h} />
+                  </span>
+                  <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.volume24h)}</span>
+                  {isSpot && <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.liquidity)}</span>}
+                  <span className="hidden truncate text-right text-[11px] text-app-muted md:block">{row.venues.join(" · ") || "—"}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-app-hairline px-4 py-2 text-[11px] text-app-faint sm:flex">
+          {[
+            ["Ctrl K", "Open / close"],
+            ["↑ ↓", "Move"],
+            ["Enter", "Select"],
+            ["Ctrl S", "Favorite"],
+            ["Esc", "Close"],
+          ].map(([key, label]) => (
+            <span key={key} className="flex items-center gap-1.5">
+              <kbd className="rounded border border-app-hairline-strong bg-app-chip px-1.5 font-sans font-semibold text-app-muted">{key}</kbd>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The market picker for the terminal (/perp, /spot): perp markets of the enabled perp venues, or every spot pair the
+ * spot venues' pools offer (plus a live Jupiter search), with categories, favorites and keyboard control. Ctrl/⌘+K
+ * opens it from anywhere in the terminal; the chart header's symbol button too.
+ */
+export function AssetSearchProvider({ children }: { children: React.ReactNode }) {
+  const kind = terminalKindOf(usePathname()) ?? "perp";
+  const [isOpen, setIsOpen] = useState(false);
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsOpen((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const value = useMemo(() => ({ open }), [open]);
+  return (
+    <AssetSearchContext.Provider value={value}>
+      {children}
+      {isOpen && <AssetSearchDialog kind={kind} onClose={close} />}
+    </AssetSearchContext.Provider>
+  );
+}

@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
-import { SearchableSelect } from "@/components/app/searchable-select";
 import { useMarketList } from "@/components/app/use-market-list";
+import { useAssetSearch } from "@/components/terminal/asset-search";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { MarketStats } from "@/components/terminal/market-stats";
 import { useTrading } from "@/components/terminal/trading-provider";
@@ -22,8 +23,6 @@ import { IntervalPicker } from "./interval-picker";
 
 const AnglerChart = dynamic(() => import("./angler-chart").then((module) => module.AnglerChart), { ssr: false });
 
-const getSymbol = (market: Market) => market.symbol;
-const getSearchText = (market: Market) => `${market.symbol} ${market.kind}`;
 
 function useIsStock(symbol: string) {
   const [kinds, setKinds] = useState<Record<string, boolean>>({});
@@ -168,19 +167,14 @@ export function ChartPanel({ items }: { items: NewsItem[] }) {
 function AnglerChartPanel({ items }: { items: NewsItem[] }) {
   const t = useT();
   const { preferences } = usePreferences();
-  const { symbol, selectAsset } = useSelectedAsset();
+  const { symbol } = useSelectedAsset();
+  const search = useAssetSearch();
   const { market: venueMarket } = useTrading();
   const interval = preferences.chartInterval;
   // The TradingView widget has its own interval bar and doesn't mark news, so it skips ours.
   const isTradingView = preferences.chart === "tradingview";
   const isStock = useIsStock(symbol);
   const markets = useMarketList(preferences.chartMarket);
-  const options = useMemo(() => {
-    const list = markets ?? [];
-    return list.some((market) => market.symbol === symbol)
-      ? list
-      : [{ symbol, kind: isStock ? "stock" : "crypto", volume: 0, quotes: {} } satisfies Market, ...list];
-  }, [markets, symbol, isStock]);
   const selected = markets?.find((market) => market.symbol === symbol);
   const quote = selected ? pickQuote(selected, preferences.tapeSource)?.quote : undefined;
   // Until the browser's market list arrives, the price the server streamed in for this asset.
@@ -191,30 +185,19 @@ function AnglerChartPanel({ items }: { items: NewsItem[] }) {
     <section aria-label={t("chart.title")} className={panelClass}>
       <header ref={fit.headerRef} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-app-hairline px-3 py-2 lg:flex-nowrap">
         <div ref={fit.leadRef} className="flex shrink-0 items-center gap-3">
-          <SearchableSelect
-            compact
-            className="w-[124px] shrink-0"
-            items={options}
-            value={symbol}
-            onChange={selectAsset}
-            getKey={getSymbol}
-            getSearchText={getSearchText}
-            getDisplayValue={getSymbol}
-            renderSelectedIcon={(market) => <MarketIcon symbol={market.symbol} kind={market.kind} size={20} />}
-            renderOption={(market) => (
-              <>
-                <MarketIcon symbol={market.symbol} kind={market.kind} size={22} />
-                <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{market.symbol}</span>
-                <span className="shrink-0 text-[12px] text-app-muted">
-                  {market.kind === "stock" ? t("settings.tapeStock") : t("settings.tapeCrypto")}
-                </span>
-              </>
-            )}
-            label={t("chart.symbol")}
-            placeholder={t("chart.symbol")}
-            searchPlaceholder={t("settings.tapeSearch")}
-            emptyMessage={t("settings.tapeNoMatch")}
-          />
+          {/* Opens the market search (components/terminal/asset-search.tsx), also on Ctrl/⌘+K. */}
+          <button
+            type="button"
+            onClick={search.open}
+            aria-haspopup="dialog"
+            aria-label={`${symbol}. Search markets`}
+            title="Search markets (Ctrl K)"
+            className="flex h-9 w-[124px] shrink-0 cursor-pointer items-center gap-2 rounded-xl border border-app-hairline-strong bg-app-card px-2.5 text-left transition-colors hover:border-app-focus focus-visible:ring-4 focus-visible:ring-app-ring/40 focus-visible:outline-hidden"
+          >
+            <MarketIcon symbol={symbol} kind={isStock ? "stock" : "crypto"} size={20} />
+            <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-app-ink">{symbol}</span>
+            <ChevronDown className="size-4 shrink-0 text-app-muted" aria-hidden />
+          </button>
           <Suspense fallback={null}>
             <QuoteSlot live={quote} initial={markets ? null : initialQuote} symbol={symbol}>
               {(shown) => <PriceBlock quote={shown} />}

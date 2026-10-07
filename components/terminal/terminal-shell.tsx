@@ -9,6 +9,7 @@ import { NewsFeed } from "@/components/news/news-feed";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
 import { AccountPanel, useHasWallet } from "./account-panel";
+import { AssetSearchProvider } from "./asset-search";
 import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
@@ -97,6 +98,7 @@ export function TerminalShell() {
   const shown = { ...(isMobile ? allPanels : panels), ...(isSpot && { orderbook: false }) };
 
   return (
+    <AssetSearchProvider>
     <OrderDraftProvider>
       <NewsRulesRunner items={feed.items} />
       <div
@@ -145,5 +147,6 @@ export function TerminalShell() {
         )}
       </div>
     </OrderDraftProvider>
+    </AssetSearchProvider>
   );
 }

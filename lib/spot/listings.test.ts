@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromArcusToken, fromJupRecord, mergeListings, pickSpotListing, representsAsset, type SpotListing } from "./listings";
+import { assetSymbolOf, fromArcusToken, fromJupRecord, mergeListings, pickSpotListing, representsAsset, type SpotListing } from "./listings";
 
 const listing = (symbol: string, name: string, liquidity?: number, extra: Partial<SpotListing> = {}): SpotListing => ({
   id: `jupiter:${symbol}`,
@@ -109,5 +109,22 @@ describe("real Jupiter search for BTC", () => {
     expect(pickVerifiedToken(records, { symbol: "BTC" })).toBeNull();
     const picked = pickSpotListing(records.flatMap((record) => fromJupRecord(record) ?? []), "BTC", "jupiter");
     expect(picked).toMatchObject({ symbol: "WBTC", name: "Wrapped BTC (Portal)", verified: true });
+  });
+});
+
+describe("assetSymbolOf", () => {
+  it("maps tokens to the asset they trade as", () => {
+    expect(assetSymbolOf(listing("WBTC", "Wrapped BTC (Portal)"))).toBe("BTC");
+    expect(assetSymbolOf(listing("cbBTC", "Coinbase Wrapped BTC"))).toBe("BTC");
+    expect(assetSymbolOf(listing("WETH", "Wrapped Ether (Wormhole)"))).toBe("ETH");
+    expect(assetSymbolOf(listing("NVDAx", "NVIDIA xStock", 1, { category: "stock" }))).toBe("NVDA");
+  });
+
+  it("keeps a token's own ticker when it isn't a wrapper", () => {
+    expect(assetSymbolOf(listing("$WIF", "dogwifhat"))).toBe("WIF");
+    expect(assetSymbolOf(listing("TRUMP", "OFFICIAL TRUMP"))).toBe("TRUMP");
+    expect(assetSymbolOf(listing("SOL", "Wrapped SOL"))).toBe("SOL");
+    expect(assetSymbolOf(listing("LBTC", "Lombard Staked BTC"))).toBe("LBTC");
+    expect(assetSymbolOf(listing("🦅EAGLE", "Eagle"))).toBeNull();
   });
 });
