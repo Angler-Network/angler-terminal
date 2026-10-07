@@ -17,7 +17,10 @@ const search = unstable_cache(
   { revalidate: 300 },
 );
 
-/** Resolves ?mint= or ?symbol= to one verified Jupiter token (Tokens V2 search). */
+/**
+ * Resolves ?mint= or ?symbol= to one verified Jupiter token (Tokens V2 search). An asset Jupiter doesn't list is a
+ * normal answer (`{ token: null }`, 200): a 404 would log a console error on every page that checks a perp-only asset.
+ */
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const mint = params.get("mint");
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
     const token = pickVerifiedToken(records, mint ? { mint } : { symbol: symbol!.replace(/^\$/, "") });
     return NextResponse.json(
       { token },
-      { status: token ? 200 : 404, headers: { "cache-control": "public, max-age=60, s-maxage=300" } },
+      { headers: { "cache-control": "public, max-age=60, s-maxage=300" } },
     );
   } catch {
     return NextResponse.json({ error: "Jupiter token search is unavailable." }, { status: 502 });

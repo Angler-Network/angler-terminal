@@ -24,6 +24,7 @@ function resolveToken(query: { symbol: string; mint?: string }) {
   if (cached && Date.now() - cached.at < TOKEN_TTL_MS) return cached.promise;
   const params = new URLSearchParams(query.mint ? { mint: query.mint } : { symbol: query.symbol });
   const promise = fetch(`/api/jup/token?${params}`).then(async (response) => {
+    // Older deployments answered 404 for an unlisted asset.
     if (response.status === 404) return null;
     const body = await readJson<{ token: SpotToken | null }>(response);
     if (!response.ok) throw new VenueError(body.error ?? "Jupiter token search failed.");
