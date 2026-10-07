@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       priceImpactPct: route.priceImpactPct,
       inUsdValue: route.inUsdValue,
       outUsdValue: route.outUsdValue,
+      labels: route.labels,
       transaction: built.transaction,
       lastValidBlockHeight: built.lastValidBlockHeight,
     },

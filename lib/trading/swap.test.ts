@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateReceive, shareOf, swapSizeUsd } from "./swap";
+import { estimateReceive, routeText, shareOf, swapSizeUsd } from "./swap";
 
 describe("swap math", () => {
   it("sizes buys at par and sells at the asset price", () => {
@@ -20,5 +20,12 @@ describe("swap math", () => {
     expect(shareOf(0.123456789, 100, 9)).toBe("0.12345678");
     expect(shareOf(10, 50, 2)).toBe("5");
     expect(shareOf(0, 50)).toBe("");
+  });
+
+  it("names the DEXes a route goes through", () => {
+    expect(routeText(["BisonFi", "Raydium CLMM"])).toBe("BisonFi → Raydium CLMM");
+    expect(routeText(["Pump.fun"])).toBe("Pump.fun bonding curve");
+    expect(routeText(["ZeroFi", "Pump.fun Amm"])).toBe("ZeroFi → PumpSwap");
+    expect(routeText([])).toBeNull();
   });
 });

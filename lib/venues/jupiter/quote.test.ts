@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SpotToken } from "../types";
 import { MESSAGES } from "./errors";
-import { toSpotQuote } from "./quote";
+import { toSpotQuote, routeLabels } from "./quote";
 
 const usdc: SpotToken = { mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", symbol: "USDC", name: "USD Coin", decimals: 6, isVerified: true };
 const sol: SpotToken = { mint: "So11111111111111111111111111111111111111112", symbol: "SOL", name: "Wrapped SOL", decimals: 9, isVerified: true };
@@ -55,5 +55,18 @@ describe("toSpotQuote", () => {
     const quote = toSpotQuote({ requestId: "r3", outAmount: "1", transaction: null }, usdc, sol);
     expect(quote.transaction).toBeNull();
     expect(quote.error).toBeUndefined();
+  });
+});
+
+describe("routeLabels", () => {
+  it("reads each DEX once, in order (real Jupiter routePlan for a pump.fun token)", () => {
+    const plan = [
+      { percent: 100, swapInfo: { label: "ZeroFi" } },
+      { percent: 100, swapInfo: { label: "Pump.fun Amm" } },
+      { percent: 50, swapInfo: { label: "Pump.fun Amm" } },
+      { swapInfo: {} },
+    ];
+    expect(routeLabels(plan, (leg) => (leg.swapInfo as { label?: unknown }).label)).toEqual(["ZeroFi", "Pump.fun Amm"]);
+    expect(routeLabels(undefined, () => "x")).toEqual([]);
   });
 });

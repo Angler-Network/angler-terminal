@@ -11,6 +11,7 @@ export interface JupTokenRecord {
   liquidity?: number;
   isVerified?: boolean;
   tags?: string[];
+  launchpad?: string;
 }
 
 export function toSpotToken(record: JupTokenRecord): SpotToken | null {
@@ -24,6 +25,7 @@ export function toSpotToken(record: JupTokenRecord): SpotToken | null {
     usdPrice: typeof record.usdPrice === "number" ? record.usdPrice : undefined,
     liquidity: typeof record.liquidity === "number" ? record.liquidity : undefined,
     isVerified: record.isVerified === true || Boolean(record.tags?.includes("verified")),
+    ...(typeof record.launchpad === "string" && record.launchpad ? { launchpad: record.launchpad } : {}),
   };
 }
 
@@ -33,12 +35,14 @@ export function normalizeSymbol(symbol: string) {
 }
 
 /**
- * Picks the token to trade. A mint must match exactly and be verified. A symbol matches case-insensitively among
- * verified tokens only; when several share it, the one with the most liquidity wins.
+ * Picks the token to trade. A mint matches exactly, verified or not: an address is an explicit pick (from the market
+ * search, e.g. a fresh pump.fun token), and the swap card warns and asks before buying an unverified one. A symbol
+ * matches case-insensitively among verified tokens only; when several share it, the one with the most liquidity wins.
  */
 export function pickVerifiedToken(records: JupTokenRecord[], query: { symbol?: string; mint?: string }) {
-  const tokens = records.flatMap((record) => toSpotToken(record) ?? []).filter((token) => token.isVerified);
-  if (query.mint) return tokens.find((token) => token.mint === query.mint) ?? null;
+  const all = records.flatMap((record) => toSpotToken(record) ?? []);
+  if (query.mint) return all.find((token) => token.mint === query.mint) ?? null;
+  const tokens = all.filter((token) => token.isVerified);
   const wanted = query.symbol ? normalizeSymbol(query.symbol) : "";
   if (!wanted) return null;
   const matches = tokens.filter((token) => normalizeSymbol(token.symbol) === wanted);

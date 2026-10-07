@@ -20,6 +20,7 @@ export interface JupOrderResponse {
   inUsdValue?: number;
   outUsdValue?: number;
   router?: string;
+  routePlan?: Array<{ swapInfo?: { label?: unknown } }>;
   transaction?: string | null;
   taker?: string;
   errorCode?: number;
@@ -39,6 +40,13 @@ function takerLamports(order: JupOrderResponse) {
     [order.rentFeeLamports, order.rentFeePayer],
   ];
   return parts.reduce((sum, [lamports, payer]) => (lamports && (!payer || !order.taker || payer === order.taker) ? sum + lamports : sum), 0);
+}
+
+/** The DEX names a route goes through, in order, once each (Jupiter's routePlan, Titan's steps). */
+export function routeLabels(legs: unknown, read: (leg: Record<string, unknown>) => unknown) {
+  if (!Array.isArray(legs)) return [];
+  const labels = legs.map((leg) => read((leg ?? {}) as Record<string, unknown>)).filter((label): label is string => typeof label === "string" && label.trim() !== "");
+  return [...new Set(labels.map((label) => label.trim()))];
 }
 
 export function toSpotQuote(order: JupOrderResponse, inputToken: SpotToken, outputToken: SpotToken, now = Date.now()): SpotQuote {
@@ -64,6 +72,7 @@ export function toSpotQuote(order: JupOrderResponse, inputToken: SpotToken, outp
     inUsdValue: order.inUsdValue,
     outUsdValue: order.outUsdValue,
     router: order.router,
+    route: routeLabels(order.routePlan, (leg) => (leg.swapInfo as { label?: unknown } | undefined)?.label),
     transaction: hasTransaction ? order.transaction! : null,
     error,
     fetchedAt: now,

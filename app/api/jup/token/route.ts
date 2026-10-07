@@ -19,7 +19,8 @@ const search = unstable_cache(
 );
 
 /**
- * Resolves ?mint= or ?symbol= to one verified Jupiter token (Tokens V2 search). An asset Jupiter doesn't list is a
+ * Resolves ?symbol= to one verified Jupiter token, or ?mint= to that exact token, verified or not (an address is an
+ * explicit pick from the market search; the swap card warns before buying an unverified one) (Tokens V2 search). An asset Jupiter doesn't list is a
  * normal answer (`{ token: null }`, 200): a 404 would log a console error on every page that checks a perp-only asset.
  */
 export async function GET(request: NextRequest) {

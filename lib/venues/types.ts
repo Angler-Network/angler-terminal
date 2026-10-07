@@ -151,6 +151,8 @@ export interface SpotToken {
   usdPrice?: number;
   liquidity?: number;
   isVerified: boolean;
+  /** Where the token launched, when Jupiter knows (e.g. "pump.fun"). */
+  launchpad?: string;
 }
 
 export interface SpotQuoteInput {
@@ -182,6 +184,8 @@ export interface SpotQuote {
   inUsdValue?: number;
   outUsdValue?: number;
   router?: string;
+  /** The DEXes the route trades through, in order (Jupiter's routePlan labels, Titan's step labels). */
+  route?: string[];
   /** Base64 transaction to sign, or null when the quote can't be executed (see error). */
   transaction: string | null;
   /** Why the quote can't be executed, already readable. */

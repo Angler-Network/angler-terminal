@@ -133,8 +133,18 @@ dependency versions and design are free to diverge from angler-news.
   - Every Jupiter call goes through `app/api/jup/*`, which adds `x-api-key` (`JUP_API_KEY`) and
     `referralAccount` + `referralFee` (50-255 bps) server-side. Balances come from Solana RPC via
     `app/api/solana/balances` (`SOLANA_RPC_URL`).
-  - Tokens: `/tokens/v2/search`, verified only; on a symbol clash the most liquid verified token wins. Symbols
-    are compared without a leading `$` (the verified dogwifhat token is `$WIF`).
+  - Tokens: `/tokens/v2/search`. A symbol resolves to verified tokens only (on a clash the most liquid wins; symbols
+    are compared without a leading `$`, the verified dogwifhat token is `$WIF`). A mint resolves to that exact token,
+    verified or not: picking an address in the market search ("Verified only" off) is an explicit choice, which is how
+    fresh pump.fun launches trade; the swap card then shows a red "Unverified token" box (launchpad, Solscan link)
+    and needs "I checked this token" ticked before a buy.
+  - Raydium, Pump.fun (bonding curve and PumpSwap), Meteora etc. are reached through Jupiter's routing, never as
+    separate sources: Jupiter already compares them, and only Jupiter (referral) and Titan (fee account) pay us a
+    fee and earn profile points (Raydium's API has no partner fee; pump.fun has no official swap API; PumpPortal
+    charges its own 0.5%). Quotes carry the DEXes they route through (`SpotQuote.route` from Jupiter's `routePlan`
+    labels and Titan's step labels); the swap card shows "via BisonFi → PumpSwap" (`routeText` renames "Pump.fun" to
+    "Pump.fun bonding curve" and "Pump.fun Amm" to "PumpSwap"). Jupiter takes the fee in the swap's SOL/USDC side
+    when it can, so the referral account needs token accounts for those mints.
   - Amounts are integer base units using decimals from token data (`amounts.ts`), never assumed.
   - Wallets: Wallet Standard (`solana:signTransaction`); the transaction is signed as raw bytes. Quotes refresh every
     5s and are re-fetched right before signing.

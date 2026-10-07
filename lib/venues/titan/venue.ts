@@ -42,6 +42,7 @@ export async function getTitanQuote({ inputToken, outputToken, amount, taker }: 
       inUsdValue: typeof body.inUsdValue === "number" ? body.inUsdValue : undefined,
       outUsdValue: typeof body.outUsdValue === "number" ? body.outUsdValue : undefined,
       router: `Titan${typeof body.provider === "string" ? ` · ${body.provider}` : ""}`,
+      route: Array.isArray(body.labels) ? body.labels.filter((label): label is string => typeof label === "string") : undefined,
       transaction: body.transaction,
       fetchedAt: Date.now(),
     };

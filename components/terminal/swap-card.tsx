@@ -13,7 +13,7 @@ import { ARBITRUM, BASE, HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } fro
 import { venueAvailable } from "@/lib/deployment";
 import { formatPrice } from "@/lib/format";
 import { normalizeSpotSymbol } from "@/lib/spot/listings";
-import { estimateReceive, shareOf, swapSizeUsd } from "@/lib/trading/swap";
+import { estimateReceive, routeText, shareOf, swapSizeUsd } from "@/lib/trading/swap";
 import { arcusQuoteToken, call } from "@/lib/venues/arcus/catalog";
 import { ARCUS_MIN_NOTIONAL_USD, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
@@ -171,11 +171,12 @@ function SpotRoutes({ quotes, loading, pick, onPick }: { quotes: SpotSourceQuote
             <span aria-hidden className={`grid size-3 shrink-0 place-items-center rounded-full border ${isSelected ? "border-app-accent" : "border-app-hairline-strong"}`}>
               {isSelected && <span className="size-1.5 rounded-full bg-app-accent" />}
             </span>
-            <span className={`font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
+            <span className={`shrink-0 font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
             {index === 0 && quote.outAmount !== null && (
               <span className="rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
             )}
             {pick === quote.source && <span className="text-[10px] text-app-faint">pinned</span>}
+            {routeText(quote.route) && <span className="min-w-0 truncate text-[10px] text-app-faint" title={`via ${routeText(quote.route)}`}>via {routeText(quote.route)}</span>}
             <span className="ml-auto min-w-0 truncate text-right tabular-nums">
               {amount !== null ? (
                 <span className="text-app-ink">
@@ -220,6 +221,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  // Buying an unverified token (most fresh pump.fun launches) needs this tick, per token.
+  const [acknowledged, setAcknowledged] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
   const { network: hlNetwork, accounts } = useTrading();
@@ -309,7 +312,10 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         : !isSolana && sizeUsd < ARCUS_MIN_NOTIONAL_USD
           ? `Arcus needs at least $${ARCUS_MIN_NOTIONAL_USD} per swap.`
           : null;
-  const canSwap = Boolean(owner) && sizeUsd > 0 && !error && !isPlacing && !locked;
+  const unverified = isSolana && !choice.token.isVerified ? choice.token : null;
+  const needsAck = unverified !== null && side === "buy" && acknowledged !== unverified.mint;
+  const viaRoute = isSolana ? routeText(selected?.route) : null;
+  const canSwap = Boolean(owner) && sizeUsd > 0 && !error && !isPlacing && !locked && !needsAck;
 
   // Debounced Across quote for a cross-chain payment: what USDG lands on Robinhood for this USDC.
   useEffect(() => {
@@ -560,8 +566,41 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       {rate && (
         <p className="text-[12px] tabular-nums text-app-muted">
           1 {asset.symbol} ≈ {formatPrice(rate)} {stable.symbol}
-          <span className="text-app-faint"> · {isSolana ? "Jupiter / Titan, best route" : `Arcus on Robinhood Chain${arcusConfig.network === "mainnet" ? "" : ` ${arcusConfig.network}`}, gasless`}</span>
+          <span className="text-app-faint">
+            {" · "}
+            {isSolana
+              ? viaRoute
+                ? `via ${viaRoute}`
+                : "Jupiter / Titan, best route"
+              : `Arcus on Robinhood Chain${arcusConfig.network === "mainnet" ? "" : ` ${arcusConfig.network}`}, gasless`}
+          </span>
         </p>
+      )}
+      {unverified && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-app-down/40 bg-app-down/10 p-2.5 text-[12px] text-app-ink">
+          <p>
+            <span className="font-semibold text-app-down">Unverified token</span>
+            {unverified.launchpad && <span className="text-app-muted"> · launched on {unverified.launchpad}</span>}. Anyone can create a token with any
+            name and logo. Check the address before buying:{" "}
+            <a href={`https://solscan.io/token/${unverified.mint}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] underline">
+              {unverified.mint.slice(0, 4)}…{unverified.mint.slice(-4)}
+            </a>
+          </p>
+          {side === "buy" && (
+            <label className="flex items-center gap-2 text-app-muted">
+              <input
+                type="checkbox"
+                checked={acknowledged === unverified.mint}
+                onChange={(event) => setAcknowledged(event.target.checked ? unverified.mint : null)}
+                className="accent-[rgb(var(--app-accent))]"
+              />
+              I checked this token and want to buy it
+            </label>
+          )}
+        </div>
+      )}
+      {isSolana && !unverified && choice.token.launchpad && (
+        <p className="text-[11px] text-app-faint">Launched on {choice.token.launchpad}.</p>
       )}
       {isSolana && sizeUsd > 0 && quotes.length > 1 && <SpotRoutes quotes={quotes} loading={loading} pick={pick} onPick={setPick} />}
       {error && <p className="text-[12px] text-app-down">{error}</p>}

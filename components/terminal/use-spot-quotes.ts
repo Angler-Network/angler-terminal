@@ -14,6 +14,8 @@ export interface SpotSourceQuote {
   outAmount: bigint | null;
   outputToken: SpotToken | null;
   note: string | null;
+  /** The DEXes the route trades through (Raydium, Pump.fun, Meteora…), in order. */
+  route?: string[];
 }
 
 const DEBOUNCE_MS = 400;
@@ -63,14 +65,14 @@ export function useSpotQuotes({
         const rows: SpotSourceQuote[] = [
           jupiter instanceof Error || jupiter.error
             ? { source: "jupiter", outAmount: null, outputToken, note: (jupiter instanceof Error ? jupiter.message : jupiter.error) ?? "No quote" }
-            : { source: "jupiter", outAmount: jupiter.outAmount, outputToken, note: null },
+            : { source: "jupiter", outAmount: jupiter.outAmount, outputToken, note: null, route: jupiter.route },
         ];
         if (titan) {
           rows.push(
             !taker
               ? { source: "titan", outAmount: null, outputToken, note: "Connect a Solana wallet" }
               : titanQuote
-                ? { source: "titan", outAmount: titanQuote.outAmount, outputToken, note: null }
+                ? { source: "titan", outAmount: titanQuote.outAmount, outputToken, note: null, route: titanQuote.route }
                 : { source: "titan", outAmount: null, outputToken, note: "No route" },
           );
         }

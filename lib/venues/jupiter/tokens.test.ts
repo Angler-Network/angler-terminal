@@ -12,9 +12,10 @@ describe("pickVerifiedToken", () => {
     expect(pickVerifiedToken(records, { symbol: "WIF" })?.mint).toBe("EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm");
   });
 
-  it("matches a mint exactly and still requires verification", () => {
+  it("matches a mint exactly, verified or not (an address is an explicit pick)", () => {
     expect(pickVerifiedToken(records, { mint: "LowLiqWif11111111111111111111111111111111111" })?.name).toBe("Low");
-    expect(pickVerifiedToken(records, { mint: "FakeWif111111111111111111111111111111111111" })).toBeNull();
+    expect(pickVerifiedToken(records, { mint: "FakeWif111111111111111111111111111111111111" })).toMatchObject({ name: "Fake", isVerified: false });
+    expect(pickVerifiedToken(records, { mint: "Missing1111111111111111111111111111111111111" })).toBeNull();
   });
 
   it("matches verified symbols written with a $ (real Jupiter data: dogwifhat is \"$WIF\")", () => {

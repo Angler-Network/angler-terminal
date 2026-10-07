@@ -1,3 +1,5 @@
+import { routeLabels } from "../jupiter/quote";
+
 /**
  * Titan Portal quote handling (GET /api/v1/quote/swap). Pure, unit-tested. Docs:
  * https://titan-exchange.gitbook.io/titan/developer-doc/developers-portal/quickstart.md
@@ -26,6 +28,8 @@ export interface TitanRoute {
   lookupTables: Array<{ key: string; addresses: string[] }>;
   computeUnitsSafe: number;
   expiresAtMs?: number;
+  /** The DEXes the route trades through, in order. */
+  labels: string[];
 }
 
 function big(value: unknown) {
@@ -83,6 +87,7 @@ export function readTitanRoute(body: unknown): TitanRoute | null {
     lookupTables,
     computeUnitsSafe: Number(route.computeUnitsSafe) || Number(route.computeUnits) || 0,
     expiresAtMs: typeof route.expiresAtMs === "number" ? route.expiresAtMs : undefined,
+    labels: routeLabels(route.steps, (step) => step.label),
   };
 }
 

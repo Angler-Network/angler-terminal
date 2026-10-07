@@ -25,3 +25,11 @@ export function shareOf(balance: number, percent: number, decimals = 6) {
   const value = Math.floor(((balance * Math.min(percent, 100)) / 100) * step) / step;
   return value > 0 ? String(value) : "";
 }
+
+/** Jupiter's names for pump.fun's two venues read better spelled out. */
+const DEX_NAMES: Record<string, string> = { "Pump.fun": "Pump.fun bonding curve", "Pump.fun Amm": "PumpSwap" };
+
+/** The DEXes a route goes through, for "via …" lines: "Raydium CLMM", "BisonFi → PumpSwap". */
+export function routeText(labels: string[] | undefined) {
+  return labels?.length ? labels.map((label) => DEX_NAMES[label] ?? label).join(" → ") : null;
+}
