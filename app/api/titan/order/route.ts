@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     includeAltContents: "true",
     titanSwapVersion: "3",
     // Partner fee in USDC (TITAN_FEE_WALLET + TITAN_FEE_BPS), when configured.
-    ...titanFeeParams(readTitanFeeConfig(process.env), inputMint!, outputMint!),
+    ...titanFeeParams(await readTitanFeeConfig(process.env), inputMint!, outputMint!),
   });
   let response: Response;
   try {

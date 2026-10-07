@@ -1,19 +1,26 @@
 import "server-only";
 import {
-  AddressLookupTableAccount,
-  ComputeBudgetProgram,
-  Connection,
-  PublicKey,
-  TransactionInstruction,
-  TransactionMessage,
-  VersionedTransaction,
-} from "@solana/web3.js";
+  AccountRole,
+  address,
+  appendTransactionMessageInstructions,
+  blockhash as toBlockhash,
+  compileTransaction,
+  compressTransactionMessageUsingAddressLookupTables,
+  createSolanaRpc,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+  type Address,
+  type Instruction,
+} from "@solana/kit";
 import { jupServerConfig } from "../jupiter/server";
 import type { TitanRoute } from "./route";
 
 export const TITAN_API_URL = "https://portal.api.titan.exchange";
 const TIMEOUT_MS = 10_000;
-const U64_MAX = BigInt("18446744073709551615");
+const COMPUTE_BUDGET_PROGRAM = address("ComputeBudget111111111111111111111111111111");
 
 /** Titan is optional: without TITAN_API_KEY every spot trade goes to Jupiter alone. */
 export function readTitanServerConfig(env: Record<string, string | undefined>) {
@@ -30,8 +37,22 @@ export function titanFetch(path: string) {
   });
 }
 
-export function solanaConnection() {
-  return new Connection(jupServerConfig().rpcUrl, "confirmed");
+/** Solana RPC (`SOLANA_RPC_URL`) through @solana/kit, the maintained successor of @solana/web3.js. */
+export function solanaRpc() {
+  return createSolanaRpc(jupServerConfig().rpcUrl);
+}
+
+/** ComputeBudget SetComputeUnitLimit: instruction 2 followed by the unit count as a little-endian u32. */
+function setComputeUnitLimit(units: number): Instruction {
+  const data = new Uint8Array(5);
+  data[0] = 2;
+  new DataView(data.buffer).setUint32(1, units, true);
+  return { programAddress: COMPUTE_BUDGET_PROGRAM, accounts: [], data };
+}
+
+function accountRole(isSigner: boolean, isWritable: boolean) {
+  if (isSigner) return isWritable ? AccountRole.WRITABLE_SIGNER : AccountRole.READONLY_SIGNER;
+  return isWritable ? AccountRole.WRITABLE : AccountRole.READONLY;
 }
 
 /**
@@ -39,30 +60,30 @@ export function solanaConnection() {
  * blockhash, adding a compute limit when the route has none.
  */
 export async function buildTitanTransaction(route: TitanRoute, taker: string) {
-  const instructions = route.instructions.map(
-    (instruction) =>
-      new TransactionInstruction({
-        programId: new PublicKey(instruction.p),
-        keys: instruction.a.map((key) => ({ pubkey: new PublicKey(key.p), isSigner: key.s, isWritable: key.w })),
-        data: Buffer.from(instruction.d, "base64"),
-      }),
-  );
-  if (route.computeUnitsSafe > 0 && !instructions.some((instruction) => instruction.programId.equals(ComputeBudgetProgram.programId))) {
-    instructions.unshift(ComputeBudgetProgram.setComputeUnitLimit({ units: route.computeUnitsSafe }));
+  const { value } = await solanaRpc().getLatestBlockhash({ commitment: "confirmed" }).send();
+  return { transaction: compileTitanTransaction(route, taker, value.blockhash), lastValidBlockHeight: Number(value.lastValidBlockHeight) };
+}
+
+/** The unsigned v0 transaction as base64 (pure, so tests pin its exact bytes). */
+export function compileTitanTransaction(route: TitanRoute, taker: string, blockhash: string) {
+  const instructions: Instruction[] = route.instructions.map((instruction) => ({
+    programAddress: address(instruction.p),
+    accounts: instruction.a.map((key) => ({ address: address(key.p), role: accountRole(key.s, key.w) })),
+    data: new Uint8Array(Buffer.from(instruction.d, "base64")),
+  }));
+  if (route.computeUnitsSafe > 0 && !instructions.some((instruction) => instruction.programAddress === COMPUTE_BUDGET_PROGRAM)) {
+    instructions.unshift(setComputeUnitLimit(route.computeUnitsSafe));
   }
-  const lookupTables = route.lookupTables.map(
-    (table) =>
-      new AddressLookupTableAccount({
-        key: new PublicKey(table.key),
-        state: {
-          deactivationSlot: U64_MAX,
-          lastExtendedSlot: 0,
-          lastExtendedSlotStartIndex: 0,
-          addresses: table.addresses.map((address) => new PublicKey(address)),
-        },
-      }),
+  const lookupTables: Record<Address, Address[]> = Object.fromEntries(
+    route.lookupTables.map((table) => [address(table.key), table.addresses.map((entry) => address(entry))]),
   );
-  const { blockhash, lastValidBlockHeight } = await solanaConnection().getLatestBlockhash("confirmed");
-  const message = new TransactionMessage({ payerKey: new PublicKey(taker), recentBlockhash: blockhash, instructions }).compileToV0Message(lookupTables);
-  return { transaction: Buffer.from(new VersionedTransaction(message).serialize()).toString("base64"), lastValidBlockHeight };
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (draft) => setTransactionMessageFeePayer(address(taker), draft),
+    // Only the blockhash is compiled into the message; the height is the caller's.
+    (draft) => setTransactionMessageLifetimeUsingBlockhash({ blockhash: toBlockhash(blockhash), lastValidBlockHeight: 0n }, draft),
+    (draft) => appendTransactionMessageInstructions(instructions, draft),
+    (draft) => compressTransactionMessageUsingAddressLookupTables(draft, lookupTables),
+  );
+  return getBase64EncodedWireTransaction(compileTransaction(message));
 }

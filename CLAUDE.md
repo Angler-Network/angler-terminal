@@ -130,10 +130,11 @@ dependency versions and design are free to diverge from angler-news.
   then Arcus stock tokens (`spotVenue: "arcus"`) when nothing else lists the asset.
 - Titan (`lib/venues/titan/`): second Solana spot quote source via the REST Portal (`portal.api.titan.exchange`,
   `x-api-key: TITAN_API_KEY`, server only; the SDK is WebSocket/Enterprise-only, don't use it). `app/api/titan/order`
-  takes the `ExpectedWinner` route and builds the unsigned v0 transaction server-side with `@solana/web3.js`
-  (Titan returns instructions only); `app/api/titan/execute` sends the signed tx through `SOLANA_RPC_URL` and waits
-  for confirmation. `use-news-trader.ts` asks Jupiter and Titan in parallel and executes the larger output
-  (`lib/trading/best-quote.ts`, Jupiter wins ties). No key → 503 → Jupiter alone. Partner fee (`fees.ts`):
+  takes the `ExpectedWinner` route and builds the unsigned v0 transaction server-side (Titan returns instructions
+  only); `app/api/titan/execute` sends the signed tx through `SOLANA_RPC_URL` and waits for confirmation. Both use
+  `@solana/kit` (server only; `@solana/web3.js` 1.x pulled in vulnerable jayson deps and is gone); `server.test.ts`
+  pins the exact transaction bytes the old web3.js code produced for the fixture. `use-news-trader.ts` asks Jupiter
+  and Titan in parallel and executes the larger output (`lib/trading/best-quote.ts`, Jupiter wins ties). No key → 503 → Jupiter alone. Partner fee (`fees.ts`):
   `TITAN_FEE_WALLET` + `TITAN_FEE_BPS` add `feeAccount`/`feeBps` to the quote, always in USDC (the wallet's USDC ATA:
   `feeFromInputMint` on buys, output on sells); the ATA must already exist.
 - Arcus (`lib/venues/arcus/`): stock/index tokens on Robinhood Chain (testnet 46630, mainnet 4663;

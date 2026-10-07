@@ -1,5 +1,6 @@
+import type { Base64EncodedWireTransaction } from "@solana/kit";
 import { NextResponse, type NextRequest } from "next/server";
-import { readTitanServerConfig, solanaConnection } from "@/lib/venues/titan/server";
+import { readTitanServerConfig, solanaRpc } from "@/lib/venues/titan/server";
 
 const CONFIRM_TIMEOUT_MS = 40_000;
 
@@ -10,17 +11,22 @@ export async function POST(request: NextRequest) {
   const signed = typeof body?.signedTransaction === "string" ? body.signedTransaction : "";
   if (!/^[A-Za-z0-9+/=]{100,3000}$/.test(signed)) return NextResponse.json({ error: "Invalid transaction" }, { status: 400 });
 
-  const connection = solanaConnection();
-  let signature: string;
+  const rpc = solanaRpc();
+  let signature: Awaited<ReturnType<ReturnType<typeof rpc.sendTransaction>["send"]>>;
   try {
-    signature = await connection.sendRawTransaction(Buffer.from(signed, "base64"), { maxRetries: 3 });
+    signature = await rpc
+      .sendTransaction(signed as Base64EncodedWireTransaction, { encoding: "base64", maxRetries: 3n, preflightCommitment: "confirmed" })
+      .send();
   } catch (error) {
     const message = error instanceof Error ? error.message.split("\n")[0] : "The transaction was rejected.";
     return NextResponse.json({ status: "Failed", error: message }, { status: 400 });
   }
   const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const { value } = await connection.getSignatureStatuses([signature]).catch(() => ({ value: [null] }));
+    const { value } = await rpc
+      .getSignatureStatuses([signature])
+      .send()
+      .catch(() => ({ value: [null] }));
     const status = value[0];
     if (status?.err) return NextResponse.json({ status: "Failed", signature, error: "The swap failed on-chain." }, { status: 200 });
     if (status && (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized")) {
