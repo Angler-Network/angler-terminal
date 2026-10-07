@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -418,21 +418,34 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     ),
     { value: OTHER_TOKEN, label: "Other token…" },
   ];
-  const assetPill = (
-    <Picker
-      label="Token"
-      value={choice.id}
-      options={assetOptions}
-      onChange={(next) => (next === OTHER_TOKEN ? openSearch() : setVenueId(next as SpotChoice["id"]))}
-      buttonClassName={`${pillClass} hover:bg-app-selected`}
-    >
+  const assetFace = (
+    <>
       <CoinIcon src={asset.icon} symbol={asset.symbol} kind={asset.kind} chain={asset.chain} size={24} />
       <span className="flex flex-col items-start leading-tight">
         {asset.symbol}
         <span className="text-[10px] font-medium text-app-muted">{asset.chainName}</span>
       </span>
-    </Picker>
+    </>
   );
+  // One venue: the pill opens the token search straight away. Several (NVDA on Solana and Robinhood): a list to pick
+  // the venue, with the search at the bottom.
+  const assetPill =
+    choices.length > 1 ? (
+      <Picker
+        label="Token"
+        value={choice.id}
+        options={assetOptions}
+        onChange={(next) => (next === OTHER_TOKEN ? openSearch() : setVenueId(next as SpotChoice["id"]))}
+        buttonClassName={`${pillClass} hover:bg-app-selected`}
+      >
+        {assetFace}
+      </Picker>
+    ) : (
+      <button type="button" aria-label="Token" title="Pick another token" onClick={openSearch} className={`${pillClass} hover:bg-app-selected`}>
+        {assetFace}
+        <ChevronDown className="size-4 text-app-muted" aria-hidden />
+      </button>
+    );
   const stablePill = (
     <span className={pillClass} title={`${stable.symbol} on ${stable.chainName}, the dollar this venue trades against`}>
       <CoinIcon symbol={stable.symbol} chain={stable.chain} size={24} />
