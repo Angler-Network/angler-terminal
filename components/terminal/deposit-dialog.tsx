@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeftRight, ChevronDown, ExternalLink, Wallet, X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { ArrowLeftRight, ExternalLink, Wallet, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CoinIcon, stableLogo } from "./token-icon";
+import { Picker, type PickerOption } from "./inline-picker";
 import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
@@ -59,30 +60,11 @@ interface Run {
 
 const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 
-/** Self-hosted logos (`public/tokens`, `public/chains`) of the stablecoins and chains the window moves between. */
-const TOKEN_LOGOS: Record<string, string> = { USDC: "/tokens/usdc.png", USDG: "/tokens/usdg.png" };
-const CHAIN_LOGOS: Record<number, string> = { 42161: "/chains/arbitrum.svg", 8453: "/chains/base.svg", 4663: "/chains/robinhood.svg", 46630: "/chains/robinhood.svg" };
 const TOKEN_ABOUT: Record<string, string> = { USDC: "Circle's dollar", USDG: "Paxos's Global Dollar, the dollar Robinhood Chain venues use" };
 
-/** The token's logo with its chain's logo in the corner. */
+/** A stablecoin on its chain: the token's logo with the chain's logo in the corner. */
 function TokenIcon({ token, size = 18, showChain = true }: { token: SourceChain; size?: number; showChain?: boolean }) {
-  const chain = showChain ? CHAIN_LOGOS[token.chainId] : undefined;
-  const badge = Math.round(size * 0.5);
-  return (
-    <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      <img src={TOKEN_LOGOS[token.symbol]} alt="" width={size} height={size} className="rounded-full" style={{ width: size, height: size }} />
-      {chain && (
-        <img
-          src={chain}
-          alt=""
-          width={badge}
-          height={badge}
-          className="absolute -bottom-0.5 -right-1 rounded-full ring-2 ring-app-dialog"
-          style={{ width: badge, height: badge }}
-        />
-      )}
-    </span>
-  );
+  return <CoinIcon src={stableLogo(token.symbol)} symbol={token.symbol} chain={showChain ? token.chainId : undefined} size={size} />;
 }
 
 /** What a venue holds its margin in. */
@@ -112,90 +94,6 @@ function EndpointLogo({ endpoint, size = 18 }: { endpoint: FundsEndpoint; size?:
       className="shrink-0 rounded-md object-contain"
       style={{ width: size, height: size }}
     />
-  );
-}
-
-interface PickerOption<T> {
-  value: T;
-  label: string;
-  icon?: ReactNode;
-  disabled?: boolean;
-  note?: string;
-}
-
-/**
- * An inline dropdown that reads as a word in the sentence. The list is portaled to the body and fixed to the
- * viewport: inside the dialog its blur makes it the containing block and the scroll box clips it.
- */
-function Picker<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: Array<PickerOption<T>>; onChange: (value: T) => void; label: string; disabled?: boolean }) {
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
-  const listRef = useRef<HTMLSpanElement>(null);
-  const current = options.find((option) => option.value === value);
-  const open = anchor !== null;
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: Event) => !ref.current?.contains(event.target as Node) && !listRef.current?.contains(event.target as Node) && setAnchor(null);
-    // Only a scroll that moves the picker (the dialog, or the page under it) closes the list.
-    const follow = (event: Event) => event.target instanceof Node && ref.current && event.target.contains(ref.current) && setAnchor(null);
-    const dismiss = () => setAnchor(null);
-    document.addEventListener("mousedown", close);
-    window.addEventListener("scroll", follow, true);
-    window.addEventListener("resize", dismiss);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      window.removeEventListener("scroll", follow, true);
-      window.removeEventListener("resize", dismiss);
-    };
-  }, [open]);
-  const toggle = () => {
-    const rect = ref.current?.getBoundingClientRect();
-    setAnchor(open || !rect ? null : { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 248) });
-  };
-  return (
-    <span ref={ref} className="relative inline-block">
-      <button
-        type="button"
-        aria-label={label}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={toggle}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip py-0.5 pl-1.5 pr-2 font-semibold text-app-ink hover:bg-app-selected disabled:opacity-60 disabled:hover:bg-app-chip"
-      >
-        {current?.icon}
-        {current?.label ?? value}
-        <ChevronDown className="size-4 text-app-muted" aria-hidden />
-      </button>
-      {open &&
-        createPortal(
-          <span ref={listRef} role="listbox" style={anchor ?? undefined} className="surface-menu fixed z-50 flex w-60 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 shadow-lg">
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                disabled={option.disabled}
-                onClick={() => {
-                  onChange(option.value);
-                  setAnchor(null);
-                }}
-                className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] ${
-                  option.value === value ? "bg-app-chip text-app-ink" : "text-app-ink hover:bg-app-chip"
-                } disabled:cursor-default disabled:text-app-faint disabled:hover:bg-transparent`}
-              >
-                <span className="flex items-center gap-2">
-                  {option.icon}
-                  {option.label}
-                </span>
-                {option.note && <span className="text-[10px] font-semibold uppercase tracking-[0.06em]">{option.note}</span>}
-              </button>
-            ))}
-          </span>,
-          document.body,
-        )}
-    </span>
   );
 }
 

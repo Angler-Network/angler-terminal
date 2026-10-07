@@ -205,8 +205,16 @@ dependency versions and design are free to diverge from angler-news.
   - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue, a leverage button
     (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
-    (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Spot goes through
-    `use-news-trader.ts`. Two-press confirm unless one-click.
+    (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Two-press confirm unless
+    one-click.
+  - Swap card (`swap-card.tsx`, the order panel on /spot; math in `lib/trading/swap.ts`): spot is a swap like the
+    venues' own screens: Sell box (amount of the sold token, wallet balance, 25/50/75/Max) over Buy box (Jupiter/Titan
+    best quote, else the price estimate), a flip arrow, the rate line and, with Titan on, the route list (pin a
+    source). The asset pill lists every spot venue with the chart's asset (Solana token via Jupiter/Titan, Arcus stock
+    token on Robinhood, priced from Arcus `/v1/price`) plus "Other token…" (market search); the stablecoin side is the
+    venue's (USDC on Solana, USDG on Robinhood). Execution is unchanged: `use-news-trader.ts`, sized in USD (sells:
+    amount × price). Shared pieces: `inline-picker.tsx` (portaled dropdown), `token-icon.tsx` (`CoinIcon`: token or
+    asset logo + chain badge, falls back to `MarketIcon` when an image fails).
   - TP/SL (`lib/trading/tpsl.ts` validates the side): reduce-only market-when-triggered orders. Hyperliquid: entry +
     triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,
     expiry -1 (28 days), grouped with the entry via `SignCreateGroupedOrders` (OTO, or OTOCO for both) and as an

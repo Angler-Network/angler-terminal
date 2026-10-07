@@ -6,9 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
-import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
-import { useSolanaWallet } from "./solana-wallet-provider";
-import { useSpotQuotes, type SpotSource, type SpotSourceQuote } from "./use-spot-quotes";
+import { SwapCard, type SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
@@ -18,12 +16,11 @@ import { TERMINAL_PATHS, terminalKindOf } from "@/lib/terminal-kind";
 import { sideLabel } from "@/lib/trading/presets";
 import { optionalPrice, percentFrom, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { arcusConfig } from "@/lib/venues/arcus/config";
-import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
-import type { OrderKind, OrderSide, PerpVenueId, SpotToken, VenueMarket } from "@/lib/venues/types";
+import type { OrderKind, OrderSide, PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
@@ -38,90 +35,8 @@ import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
-import { normalizeSpotSymbol } from "@/lib/spot/listings";
 
-type VenueChoice =
-  | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
-  // Solana spot through the aggregators (Jupiter, and Titan when enabled); the quotes list picks the source.
-  | { id: "solana"; name: string; network: string; kind: "spot"; token: SpotToken }
-  | { id: "arcus"; name: string; network: string; kind: "spot"; arcusToken: ArcusToken };
-
-const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan" };
-
-/**
- * Quotes from each Solana source for the size, best first, as one compact list. With no pick the best one is used;
- * pressing a row pins that source, pressing it again goes back to the best.
- */
-function SpotQuotes({
-  quotes,
-  loading,
-  pick,
-  side,
-  onPick,
-}: {
-  quotes: SpotSourceQuote[];
-  loading: boolean;
-  pick: SpotSource | null;
-  side: OrderSide;
-  onPick: (source: SpotSource | null) => void;
-}) {
-  const best = quotes[0]?.outAmount ?? null;
-  const selected = pick ?? quotes.find((quote) => quote.outAmount !== null)?.source ?? null;
-  const unit = quotes.find((quote) => quote.outputToken)?.outputToken?.symbol;
-  return (
-    <div className="overflow-hidden rounded-lg border border-app-hairline">
-      <div className="flex items-center gap-2 border-b border-app-hairline bg-app-chip/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">
-        <span>Route</span>
-        {loading && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />}
-        <span className="ml-auto normal-case tracking-normal">
-          {side === "buy" ? "You get" : "You receive"}
-          {unit ? ` · ${unit}` : ""}
-        </span>
-      </div>
-      {quotes.length === 0 ? (
-        <p className="px-2.5 py-2 text-[11px] text-app-faint">{loading ? "Getting quotes…" : "No quotes yet."}</p>
-      ) : (
-        quotes.map((quote, index) => {
-          const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
-          const gap = quote.outAmount !== null && best !== null && best > 0n && index > 0 ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
-          const isSelected = selected === quote.source;
-          return (
-            <button
-              key={quote.source}
-              type="button"
-              disabled={quote.outAmount === null}
-              onClick={() => onPick(pick === quote.source ? null : quote.source)}
-              title={quote.note ?? (pick === quote.source ? "Pinned: press again to follow the best quote" : "Swap on this route")}
-              className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 disabled:cursor-default ${
-                isSelected ? "bg-app-accent/10" : "hover:bg-app-chip/60"
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`grid size-3 shrink-0 place-items-center rounded-full border ${isSelected ? "border-app-accent" : "border-app-hairline-strong"}`}
-              >
-                {isSelected && <span className="size-1.5 rounded-full bg-app-accent" />}
-              </span>
-              <span className={`font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
-              {index === 0 && quote.outAmount !== null && (
-                <span className="rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
-              )}
-              {pick === quote.source && <span className="text-[10px] text-app-faint">pinned</span>}
-              <span className="ml-auto min-w-0 truncate text-right tabular-nums">
-                {amount !== null ? (
-                  <span className="text-app-ink">{amount.toLocaleString("en-US", { maximumSignificantDigits: 6 })}</span>
-                ) : (
-                  <span className="text-[11px] text-app-faint">{quote.note}</span>
-                )}
-              </span>
-              {gap > 0 && <span className="shrink-0 text-[11px] tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
-            </button>
-          );
-        })
-      )}
-    </div>
-  );
-}
+type VenueChoice = { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket } | SpotChoice;
 
 const ARM_MS = 5_000;
 const PERCENTS = [25, 50, 75, 100];
@@ -326,7 +241,8 @@ function useVenueChoices(symbol: string, mint?: string) {
 
 /**
  * Order entry for the chart's asset on any venue that lists it: market or limit perps (leverage, margin mode,
- * reduce-only) and market spot swaps. A press arms the order; the second press places it (one-click skips that).
+ * reduce-only) on /perp, the swap card on /spot. A press arms the order; the second press places it (one-click skips
+ * that).
  */
 export function OrderPanel() {
   const { symbol, mint, setTradeVenue } = useSelectedAsset();
@@ -335,7 +251,6 @@ export function OrderPanel() {
   const { accounts, placeOrder, openDeposit } = useTrading();
   const funding = useFunding();
   const { address } = useWallet();
-  const { address: solanaAddress } = useSolanaWallet();
   const { open: openWallets } = useWalletModal();
   const { pickedPrice } = useOrderDraft();
   const trade = useNewsTrader();
@@ -374,17 +289,6 @@ export function OrderPanel() {
     // Picking a perp venue by hand means the user wants that venue, not the router's.
     if (preferences.autoRoute && choices.find((entry) => entry.id === id)?.kind === "perp") updatePreference("autoRoute", false);
   };
-  // The Solana spot choice (Best, Jupiter or Titan): it needs a Solana wallet, not an EVM one.
-  const solanaChoice = choice?.kind === "spot" && choice.id !== "arcus" ? choice : null;
-  // Live quotes per source, best first; null pick = follow the best one.
-  const [spotPick, setSpotPick] = useState<SpotSource | null>(null);
-  const { quotes: spotQuotes, loading: spotQuotesLoading } = useSpotQuotes({
-    token: solanaChoice?.token ?? null,
-    side,
-    sizeUsd: Number(size),
-    taker: solanaAddress,
-    titan: preferences.venueTitan && venueAvailable("titan"),
-  });
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
@@ -475,25 +379,12 @@ export function OrderPanel() {
 
   const submit = async () => {
     // "Connect wallet" must work before the form is valid (the size is still empty then).
-    if (!address && !solanaChoice) return openWallets();
-    if (!choice || !isValid || isPlacing) return;
+    if (!address) return openWallets();
+    if (!choice || choice.kind !== "perp" || !isValid || isPlacing) return;
     if (!armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
     setIsPlacing(true);
     try {
-      if (choice.kind === "spot") {
-        await trade({
-          symbol,
-          mint: solanaChoice ? solanaChoice.token.mint : undefined,
-          spotSource: solanaChoice ? (spotPick ?? "best") : undefined,
-          venue: "spot",
-          spotVenue: solanaChoice ? "jupiter" : "arcus",
-          side,
-          sizeUsd,
-          oneClick: preferences.oneClickTrading,
-        });
-        return;
-      }
       if (splitActive && split) {
         await placeSplit(split.legs);
         return;
@@ -522,9 +413,7 @@ export function OrderPanel() {
   };
 
   const verb = sideLabel(isPerp ? "perp" : "spot", side);
-  // A spot swap names the token it actually buys (cbBTC), not the asset.
-  const tradedSymbol = solanaChoice ? solanaChoice.token.symbol : symbol;
-  const buttonText = !address && !solanaChoice
+  const buttonText = !address
     ? "Connect wallet"
     : isPlacing
       ? "Placing…"
@@ -532,7 +421,7 @@ export function OrderPanel() {
         ? `Confirm ${verb.toLowerCase()}`
         : splitActive
           ? `${verb} $${sizeUsd} ${symbol} on ${split!.legs.length} venues`
-          : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${tradedSymbol}`}`;
+          : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
   const venueQuote = market ? quotes.find((quote) => quote.venue === market.venue) : undefined;
   // A split fills at the blended price of its legs.
   const splitBase = splitActive && split ? split.legs.reduce((sum, leg) => sum + leg.base, 0) : 0;
@@ -597,6 +486,8 @@ export function OrderPanel() {
             </Link>
           )}
         </>
+      ) : activeKind === "spot" ? (
+        <SwapCard choices={kindChoices as SpotChoice[]} />
       ) : (
         <>
           <div role="group" aria-label="Side" className="grid grid-cols-2 gap-0.5 rounded-lg bg-app-chip p-0.5">
@@ -640,13 +531,6 @@ export function OrderPanel() {
                 </span>
               )}
             </div>
-          )}
-          {solanaChoice && normalizeSpotSymbol(solanaChoice.token.symbol) !== normalizeSpotSymbol(symbol) && (
-            // The asset has no token of its own name on Solana: say which token the swap actually buys or sells.
-            <p className="-mt-1 text-[11px] leading-snug text-app-faint">
-              Trades <span className="font-semibold text-app-muted">{solanaChoice.token.symbol}</span> ({solanaChoice.token.name}), the most traded {symbol} on
-              Solana right now.
-            </p>
           )}
           {isPerp && (
             <div className="grid grid-cols-2 gap-2">
@@ -696,15 +580,6 @@ export function OrderPanel() {
             />
             <span className="shrink-0 text-[12px] font-semibold text-app-ink">USD</span>
           </FieldBox>
-          {solanaChoice && Number(size) > 0 && (
-            <SpotQuotes
-              quotes={spotQuotes}
-              loading={spotQuotesLoading}
-              pick={spotPick}
-              side={side}
-              onPick={setSpotPick}
-            />
-          )}
           <PercentSlider
             value={percent}
             disabled={!available || available <= 0}
@@ -842,17 +717,12 @@ export function OrderPanel() {
               )}
             </div>
           )}
-          {choice?.id === "arcus" && (
-            <p className="text-[11px] text-app-faint">
-              {choice.arcusToken.name} on Robinhood Chain {arcusConfig.network}, paid in {arcusConfig.quoteSymbol}. Minimum $5.
-            </p>
-          )}
           <button
             type="button"
-            disabled={(address || solanaChoice ? !isValid : false) || isPlacing}
+            disabled={(address ? !isValid : false) || isPlacing}
             onClick={() => void submit()}
             className={`h-10 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-50 ${
-              !address && !solanaChoice
+              !address
                 ? "bg-app-accent text-app-on-accent hover:opacity-90"
                 : isBuy(side)
                   ? "bg-app-up/90 text-black hover:bg-app-up"
