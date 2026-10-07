@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import { formatPrice } from "@/lib/format";
-import { assetSymbolOf } from "@/lib/spot/listings";
+import { assetSymbolOf, byMarketThenStable } from "@/lib/spot/listings";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { toggleWatch } from "@/lib/watchlist";
@@ -106,7 +106,9 @@ export function WatchlistPanel() {
     const wanted = query.trim().toUpperCase();
     const filtered = wanted ? source.filter((row) => row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted)) : source;
     if (tab === "starred" && sort === "volume") return filtered;
-    return [...filtered].sort((a, b) => (sort === "change" ? (b.change24h ?? -Infinity) - (a.change24h ?? -Infinity) : (b.volume24h ?? 0) - (a.volume24h ?? 0)));
+    const metric = (row: MarketRow) => (sort === "change" ? (row.change24h ?? -Infinity) : (row.volume24h ?? 0));
+    // "All" keeps dollar tokens at the bottom; "Yours" ranks every holding, stablecoins included, by value.
+    return [...filtered].sort(tab === "all" ? byMarketThenStable(metric) : (a, b) => metric(b) - metric(a));
   }, [tab, all, yours.rows, starred, query, sort]);
 
   const loading = tab === "all" && (isSpot ? spotRows : perpRows) === null;

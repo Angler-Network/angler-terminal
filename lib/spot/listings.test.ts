@@ -34,6 +34,24 @@ describe("fromJupRecord", () => {
   });
 });
 
+describe("dollar tokens", () => {
+  it("reads Jupiter's stable and yield-bearing tags", () => {
+    expect(fromJupRecord({ id: "a", symbol: "USDC", name: "USD Coin", tags: ["verified", "stable"] })?.stable).toBe(true);
+    expect(fromJupRecord({ id: "b", symbol: "jlUSDC", name: "Jupiter Lend USDC", tags: ["verified", "yb", "yield"] })?.stable).toBe(true);
+    expect(fromJupRecord({ id: "c", symbol: "JupSOL", name: "Jupiter Staked SOL", tags: ["verified", "yb", "lst"] })?.stable).toBeUndefined();
+    expect(fromJupRecord({ id: "d", symbol: "SOL", name: "Wrapped SOL", tags: ["verified"] })?.stable).toBeUndefined();
+  });
+
+  it("keeps them listed but after every other token", () => {
+    const merged = mergeListings([
+      listing("USDC", "USD Coin", 1, { volume24h: 900, stable: true }),
+      listing("SOL", "Wrapped SOL", 1, { volume24h: 500 }),
+      listing("BONK", "Bonk", 1, { volume24h: 10 }),
+    ]);
+    expect(merged.map((entry) => entry.symbol)).toEqual(["SOL", "BONK", "USDC"]);
+  });
+});
+
 describe("fromArcusToken", () => {
   it("keeps real-world assets with an indicative quote", () => {
     expect(fromArcusToken({ address: "0x1", symbol: "NVDA", name: "NVIDIA", category: "stock" }, { price: 240, changePct: 0.5 })).toMatchObject({

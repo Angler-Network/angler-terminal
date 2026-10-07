@@ -25,6 +25,8 @@ export interface SpotListing {
   volume24h?: number;
   liquidity?: number;
   marketCap?: number;
+  /** A dollar token (stablecoin, or a yield-bearing dollar like jlUSDC): listed, but after the rest. */
+  stable?: boolean;
 }
 
 /** The parts of a Jupiter Tokens V2 record the listings read. */
@@ -39,6 +41,12 @@ export interface JupListingRecord {
   isVerified?: boolean;
   tags?: string[];
   stats24h?: { priceChange?: number; buyVolume?: number; sellVolume?: number };
+}
+
+/** Jupiter tags stablecoins "stable" and yield-bearing tokens "yb"; a yield-bearing token named after USD is a dollar too. */
+function isDollarToken(record: JupListingRecord) {
+  if (record.tags?.includes("stable")) return true;
+  return Boolean(record.tags?.includes("yb")) && /usd/i.test(`${record.symbol ?? ""} ${record.name ?? ""}`);
 }
 
 const finite = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
@@ -62,6 +70,7 @@ export function fromJupRecord(record: JupListingRecord): SpotListing | null {
     volume24h: stats ? volume : undefined,
     liquidity: finite(record.liquidity),
     marketCap: finite(record.mcap),
+    ...(isDollarToken(record) && { stable: true }),
   };
 }
 
@@ -137,12 +146,17 @@ export function pickSpotListing(listings: SpotListing[], base: string, venue?: S
   return candidates[0] ?? null;
 }
 
-/** One entry per id (later sources fill gaps in earlier ones), most traded first. */
+/** Dollar tokens after the rest, then by `metric` (highest first). */
+export function byMarketThenStable<T extends { stable?: boolean }>(metric: (entry: T) => number) {
+  return (a: T, b: T) => Number(Boolean(a.stable)) - Number(Boolean(b.stable)) || metric(b) - metric(a);
+}
+
+/** One entry per id (later sources fill gaps in earlier ones), most traded first, dollar tokens last. */
 export function mergeListings(...sources: SpotListing[][]): SpotListing[] {
   const byId = new Map<string, SpotListing>();
   for (const listing of sources.flat()) {
     const existing = byId.get(listing.id);
     byId.set(listing.id, existing ? { ...listing, ...Object.fromEntries(Object.entries(existing).filter(([, value]) => value !== undefined)) } : listing);
   }
-  return [...byId.values()].sort((a, b) => (b.volume24h ?? -1) - (a.volume24h ?? -1));
+  return [...byId.values()].sort(byMarketThenStable((listing) => listing.volume24h ?? -1));
 }

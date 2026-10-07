@@ -31,6 +31,8 @@ export interface MarketRow {
   liquidity?: number;
   venues: string[];
   verified: boolean;
+  /** Dollar token: sorted after the rest in lists. */
+  stable?: boolean;
   watch: WatchlistEntry;
 }
 
@@ -97,6 +99,7 @@ export function spotRow(listing: SpotListing): MarketRow | null {
     liquidity: listing.liquidity,
     venues: [SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
+    stable: listing.stable,
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }

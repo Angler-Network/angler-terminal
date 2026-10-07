@@ -60,7 +60,7 @@ async function loadSpotListings(): Promise<SpotListing[]> {
 }
 
 /** Every spot pair the integrated venues offer right now (cached across requests). */
-export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v1"], { revalidate: REVALIDATE_SECONDS });
+export const getSpotListings = unstable_cache(loadSpotListings, ["spot-listings-v2"], { revalidate: REVALIDATE_SECONDS });
 
 /** Jupiter search (any token, verified or not) for queries outside the cached lists. */
 export async function searchJupiterListings(query: string): Promise<SpotListing[]> {
