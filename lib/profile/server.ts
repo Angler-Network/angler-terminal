@@ -6,7 +6,7 @@ import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupServerConfig } from "@/lib/venues/jupiter/server";
 import { readAccountIndex } from "@/lib/venues/lighter/account";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot } from "./store";
@@ -54,9 +54,10 @@ async function syncHyperliquid(user: string, cursor: number | null) {
 }
 
 /** Lighter trades of the wallet's account since the cursor whose own side carries the terminal tag. */
-async function syncLighter(l1Address: string, cursor: number | null) {
+/** One Lighter exchange (core or Robinhood): both list public trades with each side's client order index. */
+async function syncLighter(config: LighterConfig, l1Address: string, cursor: number | null) {
   // Lighter answers "account not found" (code 21100) with a 400 when the wallet has no account yet.
-  const response = await fetch(`${lighterConfig.apiUrl}/api/v1/accountsByL1Address?l1_address=${l1Address}`, { cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const response = await fetch(`${config.apiUrl}/api/v1/accountsByL1Address?l1_address=${l1Address}`, { cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
   const accountIndex = readAccountIndex(await response.json().catch(() => null));
   if (accountIndex === null) return null;
   const since = Math.max(cursor ?? 0, LIGHTER_TAG_SINCE);
@@ -66,7 +67,7 @@ async function syncLighter(l1Address: string, cursor: number | null) {
   for (let page = 0; page < LIGHTER_MAX_PAGES; page++) {
     const params = new URLSearchParams({ account_index: String(accountIndex), sort_by: "timestamp", limit: String(LIGHTER_PAGE) });
     if (next) params.set("cursor", next);
-    const body = await json<{ trades?: LighterTrade[]; next_cursor?: string | null }>(`${lighterConfig.apiUrl}/api/v1/trades?${params}`);
+    const body = await json<{ trades?: LighterTrade[]; next_cursor?: string | null }>(`${config.apiUrl}/api/v1/trades?${params}`);
     const list = body.trades ?? [];
     // Newest first: stop at the first trade the last sync already counted.
     const newer = list.filter((trade) => trade.timestamp > since);
@@ -79,13 +80,17 @@ async function syncLighter(l1Address: string, cursor: number | null) {
 }
 
 /**
- * Pulls new Angler volume for an EVM profile from Hyperliquid and Lighter, at most once a minute. Errors leave the
+ * Pulls new Angler volume for an EVM profile from Hyperliquid and both Lighter exchanges, at most once a minute. Errors leave the
  * cursors where they were, so the next sync retries.
  */
 export async function syncProfile(id: string) {
   if (profileIdOf(id)?.chain !== "evm" || !(await takeSyncSlot(id))) return;
   const cursors = await readCursors(id);
-  const [hl, lighter] = await Promise.allSettled([syncHyperliquid(id, cursors.hl), syncLighter(id, cursors.lighter)]);
+  const [hl, lighter, lighterRh] = await Promise.allSettled([
+    syncHyperliquid(id, cursors.hl),
+    syncLighter(lighterConfig, id, cursors.lighter),
+    syncLighter(lighterRhConfig, id, cursors.lighterRh),
+  ]);
   if (hl.status === "fulfilled" && hl.value) {
     await creditVolume(id, "hyperliquid", hl.value.usd);
     await saveCursors(id, { hl: hl.value.cursor });
@@ -94,6 +99,10 @@ export async function syncProfile(id: string) {
     await creditVolume(id, "lighter", lighter.value.usd);
     await saveCursors(id, { lighter: lighter.value.cursor });
   } else if (lighter.status === "rejected") console.warn(`[profile] Lighter sync failed: ${String(lighter.reason)}`);
+  if (lighterRh.status === "fulfilled" && lighterRh.value) {
+    await creditVolume(id, "lighterRh", lighterRh.value.usd);
+    await saveCursors(id, { lighterRh: lighterRh.value.cursor });
+  } else if (lighterRh.status === "rejected") console.warn(`[profile] Lighter RH sync failed: ${String(lighterRh.reason)}`);
 }
 
 async function referralAccounts(referral: string, mints: string[]) {

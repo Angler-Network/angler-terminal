@@ -1,5 +1,6 @@
 import { lighterPnlSeries, type LighterTrade, type PnlPoint } from "@/lib/trading/portfolio-history";
 import { lighterGet } from "./api";
+import type { LighterConfig } from "./config";
 
 const DAY_MS = 86_400_000;
 const TRADES_PAGE = 100;
@@ -14,12 +15,12 @@ export interface LighterHistory {
 }
 
 /** Account trades newest first back to `since`, following the cursor. */
-async function tradesSince(accountIndex: number, since: number) {
+async function tradesSince(config: LighterConfig, accountIndex: number, since: number) {
   const trades: LighterTrade[] = [];
   let cursor: string | undefined;
   let truncated = true;
   for (let page = 0; page < MAX_TRADE_PAGES; page += 1) {
-    const body = await lighterGet("trades", {
+    const body = await lighterGet(config, "trades", {
       account_index: accountIndex,
       market_type: "perp",
       sort_by: "timestamp",
@@ -39,11 +40,11 @@ async function tradesSince(accountIndex: number, since: number) {
 }
 
 /** Daily cumulative trade PnL and perp trades since `since` (both public for the account index). */
-export async function lighterHistory(accountIndex: number, since: number): Promise<LighterHistory> {
+export async function lighterHistory(config: LighterConfig, accountIndex: number, since: number): Promise<LighterHistory> {
   const now = Date.now();
   const days = Math.ceil((now - since) / DAY_MS) + 1;
   const [pnl, trades] = await Promise.all([
-    lighterGet("pnl", {
+    lighterGet(config, "pnl", {
       by: "index",
       value: accountIndex,
       resolution: "1d",
@@ -52,7 +53,7 @@ export async function lighterHistory(accountIndex: number, since: number): Promi
       end_timestamp: now,
       count_back: days + 1,
     }),
-    tradesSince(accountIndex, since).catch(() => ({ trades: [], truncated: false })),
+    tradesSince(config, accountIndex, since).catch(() => ({ trades: [], truncated: false })),
   ]);
   const entries = Array.isArray(pnl.pnl) ? (pnl.pnl as Array<{ timestamp: number; trade_pnl: number }>) : [];
   return { pnl: lighterPnlSeries(entries, since - DAY_MS), ...trades };
@@ -64,10 +65,10 @@ const ORDERS_PAGE = 100;
  * The account's latest finished orders (filled, canceled), newest first. They need an auth token, so only a browser
  * holding this account's trading key can read them: null otherwise.
  */
-export async function lighterOrderHistory(l1Address: string): Promise<Array<Record<string, unknown>> | null> {
+export async function lighterOrderHistory(config: LighterConfig, l1Address: string): Promise<Array<Record<string, unknown>> | null> {
   const { authToken, loadSession } = await import("./session");
-  const session = await loadSession(l1Address).catch(() => null);
+  const session = await loadSession(config, l1Address).catch(() => null);
   if (!session) return null;
-  const body = await lighterGet("accountInactiveOrders", { account_index: session.accountIndex, limit: ORDERS_PAGE }, await authToken(session));
+  const body = await lighterGet(config, "accountInactiveOrders", { account_index: session.accountIndex, limit: ORDERS_PAGE }, await authToken(session));
   return Array.isArray(body.orders) ? (body.orders as Array<Record<string, unknown>>) : [];
 }

@@ -195,6 +195,8 @@ export interface Preferences extends Appearance {
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
   venueLighter: boolean;
+  /** Lighter on Robinhood Chain, a separate Lighter exchange (USDG margin, mostly stock perps). */
+  venueLighterRh: boolean;
   venueJupiter: boolean;
   venueArcus: boolean;
   /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
@@ -271,6 +273,7 @@ export const defaultPreferences: Preferences = {
   appearanceVersion: APPEARANCE_VERSION,
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
+  venueLighterRh: venueAvailable("lighterRh"),
   venueJupiter: venueAvailable("jupiter"),
   venueArcus: venueAvailable("arcus"),
   venueTitan: venueAvailable("titan"),
@@ -406,11 +409,12 @@ export function parsePreferences(raw: string | null): Preferences {
       appearanceVersion: APPEARANCE_VERSION,
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
+      venueLighterRh: venueAvailable("lighterRh") && readBoolean(stored.venueLighterRh, defaultPreferences.venueLighterRh),
       // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
       venueJupiter: venueAvailable("jupiter") && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
-      preferredPerpVenue: stored.preferredPerpVenue === "lighter" ? "lighter" : "hyperliquid",
+      preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" ? stored.preferredPerpVenue : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(
         stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },

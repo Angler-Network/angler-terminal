@@ -18,8 +18,9 @@ function readConfiguredVenues(env) {
   const builder = env.NEXT_PUBLIC_HL_BUILDER_ADDRESS ?? "";
   const venues = {
     hyperliquid: /^0x[0-9a-fA-F]{40}$/.test(builder) && !/^0x0{40}$/.test(builder),
-    // Lighter trades without partner settings.
+    // Both Lighter exchanges (core and Robinhood Chain) trade without partner settings.
     lighter: true,
+    lighterRh: true,
     jupiter: set(env.JUP_API_KEY),
     titan: set(env.TITAN_API_KEY),
     arcus: set(env.ARCUS_API_KEY),

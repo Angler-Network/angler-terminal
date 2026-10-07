@@ -34,7 +34,8 @@ export function FundingArbDialog({
 }: {
   symbol: string;
   arb: FundingArb;
-  markets: Record<PerpVenueId, VenueMarket>;
+  /** The two venues the funding feed compares (Lighter RH isn't in it). */
+  markets: Partial<Record<PerpVenueId, VenueMarket>>;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -44,8 +45,8 @@ export function FundingArbDialog({
   const { placeOrder, isVenueReady, openSetup } = useTrading();
   const longVenue = arb.longVenue as PerpVenueId;
   const shortVenue = arb.shortVenue as PerpVenueId;
-  const long = markets[longVenue];
-  const short = markets[shortVenue];
+  const long = markets[longVenue]!;
+  const short = markets[shortVenue]!;
   const maxLeverage = Math.min(long.maxLeverage, short.maxLeverage);
   const [size, setSize] = useState("100");
   const [leverage, setLeverage] = useState(Math.min(3, maxLeverage));

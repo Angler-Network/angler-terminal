@@ -1,15 +1,19 @@
 import { findMarket } from "./hyperliquid/markets";
 import type { PerpVenueId, VenueMarket } from "./types";
 
-export const PERP_VENUES: PerpVenueId[] = ["hyperliquid", "lighter"];
+export const PERP_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh"];
 
-export const PERP_VENUE_NAMES: Record<PerpVenueId, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter" };
+/** "Lighter RH" is Lighter on Robinhood Chain: a separate exchange (own accounts, USDG margin, mostly stock perps). */
+export const PERP_VENUE_NAMES: Record<PerpVenueId, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH" };
+
+/** Short labels for badges and tight columns. */
+export const PERP_VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH" };
 
 /** Markets per perp venue: undefined while loading, [] when the venue is off or failed to load. */
 export type MarketsByVenue = Partial<Record<PerpVenueId, VenueMarket[] | undefined>>;
 
 /** Enabled perp venues, preferred first. */
-export function perpVenueOrder(preferred: PerpVenueId, enabled: Record<PerpVenueId, boolean>) {
+export function perpVenueOrder(preferred: PerpVenueId, enabled: Partial<Record<PerpVenueId, boolean>>) {
   return [preferred, ...PERP_VENUES.filter((venue) => venue !== preferred)].filter((venue) => enabled[venue]);
 }
 

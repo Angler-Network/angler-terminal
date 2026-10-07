@@ -5,6 +5,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { hlHistory, type HlHistory } from "@/lib/venues/hyperliquid/history";
 import { lighterHistory, type LighterHistory } from "@/lib/venues/lighter/history";
+import { lighterConfig } from "@/lib/venues/lighter/config";
 
 export const HISTORY_DAYS = 30;
 const REFRESH_MS = 60_000;
@@ -35,7 +36,7 @@ export function usePortfolioHistory(): PortfolioHistory {
       const since = Date.now() - HISTORY_DAYS * 86_400_000;
       const [hl, lt] = await Promise.allSettled([
         hlOn ? hlHistory(address, since) : Promise.resolve(null),
-        lighterIndex !== null ? lighterHistory(lighterIndex, since) : Promise.resolve(null),
+        lighterIndex !== null ? lighterHistory(lighterConfig, lighterIndex, since) : Promise.resolve(null),
       ]);
       if (cancelled) return;
       setHistory((previous) => ({

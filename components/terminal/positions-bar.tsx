@@ -11,6 +11,7 @@ import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@
 import { optionalPrice, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
@@ -353,7 +354,7 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
 }
 
 export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positions: VenuePosition[] }) {
-  const { network, lighterNetwork } = useTrading();
+  const { network } = useTrading();
   const closeAll = useCloseAll();
   const total = totalSummary(rows);
   return (
@@ -377,7 +378,7 @@ export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positio
               <td className={`${td} font-semibold`}>
                 {PERP_VENUE_NAMES[row.venue]}
                 <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-app-faint">
-                  {(row.venue === "hyperliquid" ? network : lighterNetwork) === "testnet" ? "Testnet" : "Mainnet"}
+                  {(row.venue === "hyperliquid" ? network : lighterConfigs[row.venue].network) === "testnet" ? "Testnet" : "Mainnet"}
                 </span>
               </td>
               <td className={td}>{formatPrice(row.accountValue)}</td>

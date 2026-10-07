@@ -13,7 +13,8 @@ import { getTimeZoneOptions, type TimeZoneOption } from "@/lib/time-zones";
 import { sizePresets } from "@/lib/trading/presets";
 import { arcusConfig } from "@/lib/venues/arcus/config";
 import { HL_NETWORK_OVERRIDE_KEY, defaultHlNetwork, hlConfig, type HlNetwork } from "@/lib/venues/hyperliquid/config";
-import { LIGHTER_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, lighterConfig } from "@/lib/venues/lighter/config";
+import { LIGHTER_NETWORK_OVERRIDE_KEY, LIGHTER_RH_NETWORK_OVERRIDE_KEY, defaultLighterNetwork, defaultLighterRhNetwork, lighterConfig, lighterRhConfig } from "@/lib/venues/lighter/config";
+import type { PerpVenueId } from "@/lib/venues/types";
 import { useMarketList } from "@/components/app/use-market-list";
 import type { Market } from "@/lib/markets/model";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters, type Sentiment } from "@/lib/news/filter";
@@ -549,7 +550,7 @@ function VenueRow({ name, description, badge, children }: { name: string; descri
   );
 }
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus" };
 
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
@@ -559,10 +560,18 @@ function VenueSettings() {
   const unavailable = (Object.keys(venueNames) as VenueKey[]).filter((venue) => !venueAvailable(venue)).map((venue) => venueNames[venue]);
   const [choice, setChoice] = useState<NetworkChoice>("default");
   const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
+  const [lighterRhChoice, setLighterRhChoice] = useState<NetworkChoice>("default");
   useEffect(() => {
     setChoice(readNetworkChoice(HL_NETWORK_OVERRIDE_KEY));
     setLighterChoice(readNetworkChoice(LIGHTER_NETWORK_OVERRIDE_KEY));
+    setLighterRhChoice(readNetworkChoice(LIGHTER_RH_NETWORK_OVERRIDE_KEY));
   }, []);
+  // Every enabled perp venue can be the preferred one.
+  const perpChoices = [
+    preferences.venueHyperliquid && { value: "hyperliquid" as const, label: "Hyperliquid" },
+    preferences.venueLighter && { value: "lighter" as const, label: "Lighter" },
+    preferences.venueLighterRh && { value: "lighterRh" as const, label: "Lighter RH" },
+  ].filter((option): option is { value: PerpVenueId; label: string } => Boolean(option));
 
   return (
     <>
@@ -634,18 +643,39 @@ function VenueSettings() {
           </SettingRow>
         </div>
       )}
-      {preferences.venueHyperliquid && preferences.venueLighter && (
+      {venueAvailable("lighterRh") && (
+        <VenueRow
+          name="Lighter RH"
+          badge="Perps · Robinhood Chain"
+          description="Lighter on Robinhood Chain: a separate Lighter exchange with USDG margin and mostly stock perps (the venue behind Robinhood Wallet's perps). Its own account (first USDG deposit on Robinhood Chain) and its own browser trading key."
+        >
+          <Toggle label="Lighter RH" checked={preferences.venueLighterRh} onChange={(checked) => updatePreference("venueLighterRh", checked)} />
+        </VenueRow>
+      )}
+      {preferences.venueLighterRh && !deployment && (
+        <div className="ml-4 border-l-2 border-app-line pl-4">
+          <SettingRow
+            title="Network"
+            description={`Currently ${lighterRhConfig.network}; changing it reloads the page. The deployment default is ${defaultLighterRhNetwork}.`}
+          >
+            <SegmentedControl
+              label="Lighter RH network"
+              value={lighterRhChoice}
+              options={networkOptions}
+              onChange={(value) => value !== lighterRhChoice && changeNetwork(LIGHTER_RH_NETWORK_OVERRIDE_KEY, value)}
+            />
+          </SettingRow>
+        </div>
+      )}
+      {perpChoices.length > 1 && (
         <SettingRow
           title="Preferred perp venue"
-          description="News perp trades go here first. When it doesn't list the asset, the other perp venue is used."
+          description="News perp trades go here first. When it doesn't list the asset, the next enabled perp venue is used."
         >
           <SegmentedControl
             label="Preferred perp venue"
-            value={preferences.preferredPerpVenue}
-            options={[
-              { value: "hyperliquid", label: "Hyperliquid" },
-              { value: "lighter", label: "Lighter" },
-            ]}
+            value={perpChoices.some((option) => option.value === preferences.preferredPerpVenue) ? preferences.preferredPerpVenue : perpChoices[0].value}
+            options={perpChoices}
             onChange={(value) => updatePreference("preferredPerpVenue", value)}
           />
         </SettingRow>

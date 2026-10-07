@@ -8,6 +8,18 @@ describe("deposit plans", () => {
     expect(lighter.kind === "transfer" && lighter.sources.map((source) => source.name)).toEqual(["Arbitrum", "Base"]);
     expect(depositPlan("hyperliquid", "testnet")).toMatchObject({ kind: "faucet", url: "https://app.hyperliquid-testnet.xyz/drip" });
   });
+
+  it("sends USDG on Robinhood Chain to Lighter RH, 1 USDG minimum", () => {
+    expect(depositPlan("lighterRh", "mainnet")).toMatchObject({
+      kind: "transfer",
+      target: "intent",
+      minimum: 1,
+      sources: [{ chainId: 4663, symbol: "USDG", usdc: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168" }],
+    });
+    expect(depositPlan("lighterRh", "testnet")).toMatchObject({ kind: "transfer", sources: [{ chainId: 46630 }] });
+    expect(depositError(usdcUnits("0.5"), null, 1, "USDG")).toBe("The minimum deposit is 1 USDG.");
+    expect(depositError(usdcUnits("2"), 1_000_000n, 1, "USDG")).toBe("Not enough USDG in your wallet on this chain.");
+  });
 });
 
 describe("amounts", () => {

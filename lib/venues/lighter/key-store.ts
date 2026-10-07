@@ -1,4 +1,3 @@
-import type { LighterNetwork } from "./config";
 
 /**
  * The Lighter API key lives only in this browser, scoped per network, L1 address and account index. The private
@@ -33,7 +32,7 @@ const PREFIX = "angler:lighter";
 const KEY_PATTERN = /^0x[0-9a-fA-F]{80}$/;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
-export function storageKey(network: LighterNetwork, l1Address: string, accountIndex: number) {
+export function storageKey(network: string, l1Address: string, accountIndex: number) {
   return `${PREFIX}:${network}:${l1Address.toLowerCase()}:${accountIndex}`;
 }
 
@@ -63,7 +62,7 @@ function isIntegrator(value: unknown): value is NonNullable<LighterRecord["integ
 
 export function readLighterRecord(
   storage: Pick<Storage, "getItem">,
-  network: LighterNetwork,
+  network: string,
   l1Address: string,
   accountIndex: number,
 ): LighterRecord {
@@ -81,7 +80,7 @@ export function readLighterRecord(
 
 export function writeLighterRecord(
   storage: Pick<Storage, "setItem" | "removeItem">,
-  network: LighterNetwork,
+  network: string,
   l1Address: string,
   accountIndex: number,
   record: LighterRecord,

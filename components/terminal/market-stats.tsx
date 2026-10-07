@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { formatUsdCompact, fundingCountdown, hourlyFundingPct, signedPercent } from "@/lib/trading/market-stats";
+import { fundingVenueOf } from "@/lib/trading/funding";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { VenueMarket } from "@/lib/venues/types";
 import { useFunding } from "./use-funding";
@@ -42,7 +43,8 @@ export function MarketStats({
   // Phones show the stats on their own row: keep it while loading so the chart doesn't move down afterwards.
   if (market === undefined) return <div aria-hidden className={`h-6 lg:hidden ${className}`} />;
   if (!market) return null;
-  const rate8h = funding?.[market.symbol]?.[market.venue];
+  const fundingVenue = fundingVenueOf(market.venue);
+  const rate8h = fundingVenue ? funding?.[market.symbol]?.[fundingVenue] : undefined;
   return (
     <div className={`scrollbar-none flex min-w-0 flex-1 overflow-x-auto pr-4 mask-[linear-gradient(90deg,#000_calc(100%-24px),transparent)] ${className}`}>
       {/* Sized to its content so the chart header can measure what the stats need. */}

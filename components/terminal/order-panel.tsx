@@ -22,11 +22,12 @@ import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
+import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import type { OrderKind, OrderSide, PerpVenueId, SpotToken, VenueMarket } from "@/lib/venues/types";
 import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
-import { fundingApr } from "@/lib/trading/funding";
+import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { useArcusToken } from "./use-arcus-token";
@@ -301,7 +302,7 @@ function LeverageControl({
 /** Venues that can trade the chart's asset: perps first (in the user's preferred order), then spot. */
 function useVenueChoices(symbol: string, mint?: string) {
   const { preferences } = usePreferences();
-  const { marketsByVenue, perpOrder, network, lighterNetwork } = useTrading();
+  const { marketsByVenue, perpOrder, network } = useTrading();
   const token = useSpotToken(symbol, mint, preferences.venueJupiter);
   const arcusToken = useArcusToken(symbol, preferences.venueArcus && !mint);
   const choices: VenueChoice[] = [];
@@ -312,7 +313,7 @@ function useVenueChoices(symbol: string, mint?: string) {
     choices.push(
       venue === "hyperliquid"
         ? { id: venue, name: "Hyperliquid", network, kind: "perp", market }
-        : { id: venue, name: "Lighter", network: lighterNetwork, kind: "perp", market },
+        : { id: venue, name: PERP_VENUE_NAMES[venue], network: lighterConfigs[venue].network, kind: "perp", market },
     );
   }
   if (preferences.venueJupiter && token) {
@@ -395,7 +396,8 @@ export function OrderPanel() {
   const mid = market ? (market.midPx ?? market.markPx) : undefined;
   const price = orderKind === "limit" ? Number(limitPx) : mid;
   const sizeUsd = sizeValue;
-  const fundingRate = market ? funding?.[market.symbol]?.[market.venue] : undefined;
+  const fundingVenue = market ? fundingVenueOf(market.venue) : null;
+  const fundingRate = market && fundingVenue ? funding?.[market.symbol]?.[fundingVenue] : undefined;
   const available = market ? accounts[market.venue]?.withdrawable : undefined;
   const crossAllowed = market ? !market.onlyIsolated : false;
   const cross = crossAllowed && isCross;
@@ -496,7 +498,7 @@ export function OrderPanel() {
         await placeSplit(split.legs);
         return;
       }
-      if (choice.market.venue === "lighter" && !reduceOnly && price && baseSize < minimumSize(choice.market, price)) {
+      if (isLighterVenue(choice.market.venue) && !reduceOnly && price && baseSize < minimumSize(choice.market, price)) {
         // placeOrder rejects it too, but this names the minimum in dollars.
         await trade({ symbol, venue: "perp", perpVenue: "lighter", side, sizeUsd, leverage: lev, oneClick: preferences.oneClickTrading });
         return;

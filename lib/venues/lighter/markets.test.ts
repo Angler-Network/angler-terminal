@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import details from "./fixtures/order-book-details.json";
-import { findLighterMarket, findLighterMarketById, marketsFromDetails, maxLeverageFor, readOrderBookDetails } from "./markets";
+import { findLighterMarket, findLighterMarketById, forInstance, marketsFromDetails, maxLeverageFor, readOrderBookDetails } from "./markets";
 
 // Live testnet orderBookDetails (2026-10-05) plus one inactive mainnet market.
 describe("orderBookDetails", () => {
@@ -52,5 +52,17 @@ describe("orderBookDetails", () => {
       ]),
     ).toEqual([]);
     expect(readOrderBookDetails({ code: 29500 })).toEqual([]);
+  });
+});
+
+describe("forInstance", () => {
+  it("stamps the venue and splits Robinhood's stocks from its crypto by symbol", () => {
+    const markets = readOrderBookDetails(details);
+    const rh = forInstance({ venue: "lighterRh", instance: "rh" }, markets);
+    expect(rh.every((market) => market.venue === "lighterRh")).toBe(true);
+    expect(rh.find((market) => market.symbol === "ETH")?.kind).toBe("crypto");
+    expect(forInstance({ venue: "lighterRh", instance: "rh" }, [{ ...markets[0], symbol: "NVDA", kind: "crypto" }])[0].kind).toBe("stock");
+    // Core keeps Lighter's own classification.
+    expect(forInstance({ venue: "lighter", instance: "core" }, markets)).toEqual(markets);
   });
 });

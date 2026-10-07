@@ -108,3 +108,18 @@ export function findLighterMarket(markets: VenueMarket[], symbol: string) {
 export function findLighterMarketById(markets: VenueMarket[], marketId: number) {
   return markets.find((market) => market.assetId === marketId) ?? null;
 }
+
+/**
+ * Lighter on Robinhood lists mostly stocks but marks every market with strategy 0, so its crypto perps are named here
+ * (checked against `orderBookDetails` on 2026-10-07); anything else there is a stock, ETF or commodity.
+ */
+const RH_CRYPTO = new Set(["BTC", "ETH", "SOL", "XRP", "SUI", "NEAR", "HYPE", "ZEC", "LIT", "VVV", "USELESS", "ANSEM", "CASHCAT", "PONS"]);
+
+/** Markets as the given instance's: its venue id, and on Robinhood the stock/crypto split by symbol. */
+export function forInstance(config: { venue: VenueMarket["venue"]; instance: "core" | "rh" }, markets: VenueMarket[]): VenueMarket[] {
+  return markets.map((market) => ({
+    ...market,
+    venue: config.venue,
+    ...(config.instance === "rh" ? { kind: RH_CRYPTO.has(market.symbol) ? ("crypto" as const) : ("stock" as const) } : {}),
+  }));
+}

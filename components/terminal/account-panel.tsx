@@ -9,7 +9,8 @@ import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
+import type { PerpVenueId } from "@/lib/venues/types";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { LighterFaucetButton } from "./lighter-faucet-button";
@@ -86,7 +87,7 @@ function TradingKeyStatus() {
   );
 }
 
-function FundsButton({ venue }: { venue: "hyperliquid" | "lighter" }) {
+function FundsButton({ venue }: { venue: PerpVenueId }) {
   const { openDeposit } = useTrading();
   return (
     <button
@@ -112,11 +113,14 @@ function HyperliquidSection() {
   );
 }
 
-function LighterKeyStatus() {
-  const { lighter, revokeLighter, openSetup } = useTrading();
+/** Setup state of one Lighter exchange (core or Robinhood): account, browser key, integrator approval. */
+function LighterKeyStatus({ venue }: { venue: LighterVenueId }) {
+  const { lighterStates, revokeLighter, openSetup, openDeposit } = useTrading();
+  const config = lighterConfigs[venue];
+  const lighter = lighterStates[venue];
   const [isRevoking, setIsRevoking] = useState(false);
-  if (!lighter) return <p className="text-[12px] text-app-faint">Checking Lighter account…</p>;
-  if (lighter.accountIndex === null && lighterConfig.network === "testnet") {
+  if (!lighter) return <p className="text-[12px] text-app-faint">Checking {config.name} account…</p>;
+  if (lighter.accountIndex === null && venue === "lighter" && config.network === "testnet") {
     return (
       <div className="flex flex-col gap-1.5">
         <p className="text-[12px] text-app-muted">No Lighter testnet account yet. The faucet opens one with test USDC.</p>
@@ -127,10 +131,23 @@ function LighterKeyStatus() {
       </div>
     );
   }
+  if (lighter.accountIndex === null && !config.appUrl) {
+    // Lighter on Robinhood has no web app: the first USDG deposit (from Robinhood Chain) opens the account.
+    return (
+      <button
+        type="button"
+        onClick={() => openDeposit(venue)}
+        className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-left text-[12px] text-app-muted hover:text-app-ink"
+      >
+        <ExternalLink className="size-3.5" aria-hidden />
+        No {config.name} account yet. Deposit {config.collateral} to open one
+      </button>
+    );
+  }
   if (lighter.accountIndex === null) {
     return (
       <a
-        href={lighterConfig.appUrl}
+        href={config.appUrl ?? undefined}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-[12px] text-app-muted hover:text-app-ink"
@@ -144,7 +161,7 @@ function LighterKeyStatus() {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-app-hairline px-2.5 py-2 text-[12px]">
         <KeyRound className="size-3.5 text-app-up" aria-hidden />
-        <span className="font-medium text-app-ink" title={`Account ${lighter.accountIndex}, key index ${lighterConfig.apiKeyIndex}`}>
+        <span className="font-medium text-app-ink" title={`Account ${lighter.accountIndex}, key index ${config.apiKeyIndex}`}>
           Trading key active
         </span>
         <button
@@ -152,7 +169,7 @@ function LighterKeyStatus() {
           disabled={isRevoking}
           onClick={async () => {
             setIsRevoking(true);
-            await revokeLighter();
+            await revokeLighter(venue);
             setIsRevoking(false);
           }}
           className="ml-auto font-semibold text-app-down hover:underline disabled:opacity-60"
@@ -165,24 +182,25 @@ function LighterKeyStatus() {
   return (
     <button
       type="button"
-      onClick={() => openSetup("lighter")}
+      onClick={() => openSetup(venue)}
       className="flex items-center gap-2 rounded-lg border border-dashed border-app-hairline-strong px-2.5 py-2 text-left text-[12px] text-app-muted hover:text-app-ink"
     >
       <KeyRound className="size-3.5" aria-hidden />
-      No Lighter trading key yet. Set up trading
+      No {config.name} trading key yet. Set up trading
     </button>
   );
 }
 
-function LighterSection() {
-  const { accounts, lighterNetwork } = useTrading();
-  const account = accounts.lighter ?? null;
+function LighterSection({ venue }: { venue: LighterVenueId }) {
+  const { accounts } = useTrading();
+  const config = lighterConfigs[venue];
+  const account = accounts[venue] ?? null;
   return (
-    <Section title="Lighter perps" badge={lighterNetwork === "testnet" ? "Testnet" : "Mainnet"}>
+    <Section title={`${config.name} perps`} badge={config.network === "testnet" ? "Testnet" : venue === "lighterRh" ? "Robinhood Chain" : "Mainnet"}>
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
-      <FundsButton venue="lighter" />
-      <LighterKeyStatus />
+      <FundsButton venue={venue} />
+      <LighterKeyStatus venue={venue} />
     </Section>
   );
 }
@@ -324,7 +342,8 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
           </div>
         )}
         {showAccount && kind === "perp" && evmAddress && preferences.venueHyperliquid && <HyperliquidSection />}
-        {showAccount && kind === "perp" && evmAddress && preferences.venueLighter && <LighterSection />}
+        {showAccount && kind === "perp" && evmAddress && preferences.venueLighter && <LighterSection venue="lighter" />}
+        {showAccount && kind === "perp" && evmAddress && preferences.venueLighterRh && <LighterSection venue="lighterRh" />}
         {showAccount && kind === "spot" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
         {showAccount && kind === "spot" && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>

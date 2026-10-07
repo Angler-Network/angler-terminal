@@ -4,6 +4,11 @@
  */
 
 export const FUNDING_VENUES = ["hyperliquid", "lighter", "binance", "bybit"] as const;
+/** The funding feed's venue for a perp venue: Lighter on Robinhood isn't in it. */
+export function fundingVenueOf(venue: string): FundingVenue | null {
+  return venue === "hyperliquid" || venue === "lighter" ? venue : null;
+}
+
 export type FundingVenue = (typeof FUNDING_VENUES)[number];
 /** Venues the terminal can trade, so arbitrage suggestions stay actionable. */
 export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter"];

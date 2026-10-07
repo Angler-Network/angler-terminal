@@ -22,6 +22,7 @@ const tabs: Array<{ id: ProfileTab; label: string; href: string }> = [
 const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps" },
   { id: "lighter", name: "Lighter", kind: "Perps" },
+  { id: "lighterRh", name: "Lighter RH", kind: "Stock perps" },
   { id: "jupiter", name: "Jupiter", kind: "Spot" },
   { id: "titan", name: "Titan", kind: "Spot" },
 ];
@@ -207,7 +208,7 @@ function Overview() {
       <LevelCard />
       <section className={`${card} p-4`}>
         <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
           {VENUES.map((venue) => (
             <div key={venue.id} className="rounded-xl bg-app-chip/60 px-3 py-2.5">
               <p className="text-[11px] text-app-muted">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HL_BASE_TAKER_FEE, compareExecution, readLighterRestBook, splitExecution, type SplitPlan, type VenueQuote } from "@/lib/trading/execution";
 import { readHlBook, type BookSide } from "@/lib/trading/orderbook";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { lighterConfigs } from "@/lib/venues/lighter/config";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import type { OrderSide, PerpVenueId, VenueMarket } from "@/lib/venues/types";
 
@@ -16,7 +16,7 @@ const REFRESH_MS = 5_000;
 /** Every fee a taker pays on the venue: base fee plus our builder (Hyperliquid) or integrator (Lighter) fee. */
 export function takerFeeFor(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_BASE_TAKER_FEE + (hlConfig.builder?.fee ?? 0) / 100_000;
-  return (market.takerFee ?? 0) + (lighterConfig.integrator?.takerFee ?? 0) / 1_000_000;
+  return (market.takerFee ?? 0) + (lighterConfigs[market.venue].integrator?.takerFee ?? 0) / 1_000_000;
 }
 
 async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
@@ -28,7 +28,8 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
     });
     return response.ok ? readHlBook(await response.json()) : null;
   }
-  const response = await fetch(`${lighterConfig.apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
+  // Each Lighter exchange (core, Robinhood) has its own books.
+  const response = await fetch(`${lighterConfigs[market.venue].apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
   return response.ok ? readLighterRestBook(await response.json()) : null;
 }
 

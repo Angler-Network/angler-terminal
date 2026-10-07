@@ -2,7 +2,7 @@
 
 import { VenueError } from "../types";
 import { getAccountIndex, lighterGet, lighterPostForm, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
-import { lighterConfig } from "./config";
+import type { LighterConfig } from "./config";
 import { toLighterVenueError } from "./errors";
 import { encryptSecret, getDeviceKey } from "./key-crypto";
 import { samePublicKey } from "./key-store";
@@ -26,40 +26,40 @@ const KEY_WAIT_MS = 30_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function integratorState(accountIndex: number, l1Address: string): LighterOnboarding["integrator"] {
-  const integrator = lighterConfig.integrator;
+function integratorState(config: LighterConfig, accountIndex: number, l1Address: string): LighterOnboarding["integrator"] {
+  const integrator = config.integrator;
   if (!integrator) return "none";
-  const approved = readRecord(l1Address, accountIndex).integrator;
+  const approved = readRecord(config, l1Address, accountIndex).integrator;
   return approved && approved.accountIndex === integrator.accountIndex && approved.expiresAt > Date.now() ? "approved" : "needed";
 }
 
 /**
- * What's left to do for this wallet. Local state is a cache: the registered public key is re-read from Lighter, so
- * a key replaced elsewhere (another app on the same index) is dropped here too.
+ * What's left to do for this wallet on one instance. Local state is a cache: the registered public key is re-read
+ * from Lighter, so a key replaced elsewhere (another app on the same index) is dropped here too.
  */
-export async function getLighterOnboarding(l1Address: string): Promise<LighterOnboarding> {
-  const accountIndex = await getAccountIndex(l1Address, { fresh: true });
-  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: lighterConfig.integrator ? "needed" : "none" };
-  const record = readRecord(l1Address, accountIndex);
+export async function getLighterOnboarding(config: LighterConfig, l1Address: string): Promise<LighterOnboarding> {
+  const accountIndex = await getAccountIndex(config, l1Address, { fresh: true });
+  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none" };
+  const record = readRecord(config, l1Address, accountIndex);
   let keyReady = false;
   if (record.key) {
-    const registered = await registeredPublicKey(accountIndex, record.key.apiKeyIndex);
+    const registered = await registeredPublicKey(config, accountIndex, record.key.apiKeyIndex);
     keyReady = samePublicKey(registered, record.key.publicKey);
     if (!keyReady) {
-      updateRecord(l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
-      forgetSessionCaches(accountIndex, record.key.apiKeyIndex);
+      updateRecord(config, l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
+      forgetSessionCaches(config, accountIndex, record.key.apiKeyIndex);
     }
   }
-  return { accountIndex, keyReady, integrator: integratorState(accountIndex, l1Address) };
+  return { accountIndex, keyReady, integrator: integratorState(config, accountIndex, l1Address) };
 }
 
-async function waitForApiKey(accountIndex: number, apiKeyIndex: number, publicKey: string) {
+async function waitForApiKey(config: LighterConfig, accountIndex: number, apiKeyIndex: number, publicKey: string) {
   const deadline = Date.now() + KEY_WAIT_MS;
   while (Date.now() < deadline) {
-    if (samePublicKey(await registeredPublicKey(accountIndex, apiKeyIndex), publicKey)) return;
+    if (samePublicKey(await registeredPublicKey(config, accountIndex, apiKeyIndex), publicKey)) return;
     await sleep(1000);
   }
-  throw new VenueError("Lighter accepted the key but hasn't registered it yet. Check again in a moment.");
+  throw new VenueError(`${config.name} accepted the key but hasn't registered it yet. Check again in a moment.`);
 }
 
 /**
@@ -67,67 +67,67 @@ async function waitForApiKey(accountIndex: number, apiKeyIndex: number, publicKe
  * ChangePubKey message once (personal_sign). Registering replaces any key at that index. With `keep: false` the new
  * key is thrown away right after, which revokes the previous one.
  */
-async function registerKey(signMessage: SignL1Message, l1Address: string, keep: boolean) {
-  const accountIndex = await getAccountIndex(l1Address, { fresh: true });
-  if (accountIndex === null) throw new VenueError("This wallet has no Lighter account yet. Deposit USDC on Lighter first.");
-  const apiKeyIndex = lighterConfig.apiKeyIndex;
+async function registerKey(config: LighterConfig, signMessage: SignL1Message, l1Address: string, keep: boolean) {
+  const accountIndex = await getAccountIndex(config, l1Address, { fresh: true });
+  if (accountIndex === null) throw new VenueError(`This wallet has no ${config.name} account yet. Deposit ${config.collateral} first.`);
+  const apiKeyIndex = config.apiKeyIndex;
   try {
     const { privateKey, publicKey } = await generateApiKey();
-    const signer = { privateKey, chainId: lighterConfig.chainId, apiKeyIndex, accountIndex };
-    const tx = await signChangePubKey(signer, publicKey, await nextNonce(accountIndex, apiKeyIndex));
+    const signer = { privateKey, chainId: config.chainId, apiKeyIndex, accountIndex };
+    const tx = await signChangePubKey(signer, publicKey, await nextNonce(config, accountIndex, apiKeyIndex));
     if (!tx.messageToSign) throw new VenueError("The Lighter signer returned no message to sign.");
     const signature = await signMessage(tx.messageToSign);
-    await sendTx(withL1Signature(tx, signature));
-    forgetSessionCaches(accountIndex, apiKeyIndex);
-    await waitForApiKey(accountIndex, apiKeyIndex, publicKey);
+    await sendTx(config, withL1Signature(tx, signature));
+    forgetSessionCaches(config, accountIndex, apiKeyIndex);
+    await waitForApiKey(config, accountIndex, apiKeyIndex, publicKey);
     if (!keep) {
-      updateRecord(l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
+      updateRecord(config, l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
       return accountIndex;
     }
     const secret = await encryptSecret(await getDeviceKey(), privateKey);
-    updateRecord(l1Address, accountIndex, (record) => ({ ...record, key: { apiKeyIndex, publicKey, secret, createdAt: Date.now() } }));
+    updateRecord(config, l1Address, accountIndex, (record) => ({ ...record, key: { apiKeyIndex, publicKey, secret, createdAt: Date.now() } }));
     return accountIndex;
   } catch (error) {
     throw toLighterVenueError(error);
   }
 }
 
-export function registerLighterKey(signMessage: SignL1Message, l1Address: string) {
-  return registerKey(signMessage, l1Address, true);
+export function registerLighterKey(config: LighterConfig, signMessage: SignL1Message, l1Address: string) {
+  return registerKey(config, signMessage, l1Address, true);
 }
 
 /** Lighter has no "delete key": registering a throwaway key at the same index invalidates the stored one. */
-export async function revokeLighterKey(signMessage: SignL1Message, l1Address: string) {
-  await registerKey(signMessage, l1Address, false);
+export async function revokeLighterKey(config: LighterConfig, signMessage: SignL1Message, l1Address: string) {
+  await registerKey(config, signMessage, l1Address, false);
 }
 
 /** Drops the local key without an on-chain call. */
-export async function forgetLighterKey(l1Address: string) {
-  const accountIndex = await getAccountIndex(l1Address);
+export async function forgetLighterKey(config: LighterConfig, l1Address: string) {
+  const accountIndex = await getAccountIndex(config, l1Address);
   if (accountIndex === null) return;
-  updateRecord(l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
-  forgetSessionCaches(accountIndex, lighterConfig.apiKeyIndex);
+  updateRecord(config, l1Address, accountIndex, ({ key: _dropped, ...rest }) => rest);
+  forgetSessionCaches(config, accountIndex, config.apiKeyIndex);
 }
 
-async function ownerOf(accountIndex: number) {
-  const body = await lighterGet("account", { by: "index", value: accountIndex });
+async function ownerOf(config: LighterConfig, accountIndex: number) {
+  const body = await lighterGet(config, "account", { by: "index", value: accountIndex });
   const accounts = Array.isArray(body.accounts) ? (body.accounts as Array<{ l1_address?: string }>) : [];
   return accounts[0]?.l1_address?.toLowerCase() ?? "";
 }
 
 /**
- * Approves the configured integrator for partner attribution. Non-zero fees only work on Plus/Premium accounts,
+ * Approves the instance's integrator for partner attribution. Non-zero fees only work on Plus/Premium accounts,
  * so Standard accounts approve zero fees (attribution only). The wallet signs only when the fee is above zero and
  * the integrator account has another owner.
  */
-export async function approveLighterIntegrator(signMessage: SignL1Message, l1Address: string) {
-  const integrator = lighterConfig.integrator;
+export async function approveLighterIntegrator(config: LighterConfig, signMessage: SignL1Message, l1Address: string) {
+  const integrator = config.integrator;
   if (!integrator) return;
   try {
-    const session = await requireSession(l1Address);
-    const tier = await userTier(session.accountIndex, await authToken(session));
+    const session = await requireSession(config, l1Address);
+    const tier = await userTier(config, session.accountIndex, await authToken(session));
     const maxTakerFee = tier === "std" ? 0 : integrator.maxTakerFee;
-    const sameOwner = maxTakerFee === 0 || (await ownerOf(integrator.accountIndex)) === l1Address.toLowerCase();
+    const sameOwner = maxTakerFee === 0 || (await ownerOf(config, integrator.accountIndex)) === l1Address.toLowerCase();
     const expiresAt = Date.now() + INTEGRATOR_APPROVAL_DAYS * 24 * 3600 * 1000;
     const hash = await signAndSend(session, async (nonce) => {
       const tx = await signApproveIntegrator(session.signer, integrator.accountIndex, maxTakerFee, expiresAt, nonce);
@@ -135,8 +135,8 @@ export async function approveLighterIntegrator(signMessage: SignL1Message, l1Add
       if (!tx.messageToSign) throw new VenueError("The Lighter signer returned no message to sign.");
       return withL1Signature(tx, await signMessage(tx.messageToSign));
     });
-    await waitForTx(hash);
-    updateRecord(l1Address, session.accountIndex, (record) => ({
+    await waitForTx(config, hash);
+    updateRecord(config, l1Address, session.accountIndex, (record) => ({
       ...record,
       integrator: { accountIndex: integrator.accountIndex, maxTakerFee, expiresAt },
     }));
@@ -146,16 +146,17 @@ export async function approveLighterIntegrator(signMessage: SignL1Message, l1Add
 }
 
 /**
- * Sets our referral code (NEXT_PUBLIC_LIGHTER_REFERRAL_CODE) on the account with the browser key's auth token: no
- * wallet signature. Lighter replaces any code the account used before, so setup only does it when the user opts in.
+ * Sets the instance's referral code (NEXT_PUBLIC_LIGHTER_REFERRAL_CODE, or _RH_ for Robinhood) on the account with
+ * the browser key's auth token: no wallet signature. Lighter replaces any code the account used before, so setup
+ * only does it when the user opts in.
  */
-export async function applyLighterReferral(l1Address: string) {
-  const code = lighterConfig.referralCode;
+export async function applyLighterReferral(config: LighterConfig, l1Address: string) {
+  const code = config.referralCode;
   if (!code) return;
   try {
-    const session = await requireSession(l1Address);
-    await lighterPostForm("referral/use", { l1_address: l1Address, referral_code: code }, await authToken(session));
-    updateRecord(l1Address, session.accountIndex, (record) => ({ ...record, referral: code }));
+    const session = await requireSession(config, l1Address);
+    await lighterPostForm(config, "referral/use", { l1_address: l1Address, referral_code: code }, await authToken(session));
+    updateRecord(config, l1Address, session.accountIndex, (record) => ({ ...record, referral: code }));
   } catch (error) {
     throw toLighterVenueError(error);
   }

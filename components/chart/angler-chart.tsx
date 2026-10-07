@@ -59,7 +59,7 @@ interface CandleData {
   poolName?: string;
 }
 
-const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", pool: "DEX pool" };
+const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", pool: "DEX pool" };
 
 /** A spot token's own candles (`/api/spot/candles`); null when no indexed pool trades it or the source is down. */
 async function loadPoolCandles(network: PoolNetwork, address: string, interval: ChartInterval, count: number) {
@@ -80,10 +80,11 @@ async function loadPoolCandles(network: PoolNetwork, address: string, interval: 
  * fetches only the latest candles for a refresh.
  */
 async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval, since?: number) {
-  if (venue === "lighter" && !LIGHTER_CANDLE_RESOLUTIONS.has(interval)) return null;
+  if (venue !== "hyperliquid" && !LIGHTER_CANDLE_RESOLUTIONS.has(interval)) return null;
   try {
     // Lighter's venue module (and its signer) only loads when its candles are asked for.
-    const source = venue === "hyperliquid" ? hyperliquidVenue : (await import("@/lib/venues/lighter/venue")).lighterVenue;
+    const lighter = venue === "hyperliquid" ? null : await import("@/lib/venues/lighter/venue");
+    const source = !lighter ? hyperliquidVenue : venue === "lighterRh" ? lighter.lighterRhVenue : lighter.lighterVenue;
     const candles = await source.loadCandles(market, interval, since ?? Date.now() - intervalDuration(interval) * CANDLE_COUNT);
     return candles.length > 0 ? { origin: "venue" as const, source: venue as CandleSource, candles } : null;
   } catch {
@@ -94,7 +95,7 @@ async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interva
 /** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
 function venueOrder(chartSource: ChartSource, tradeVenue: PerpVenueId | null): PerpVenueId[] {
   const first = chartSource === "auto" ? tradeVenue : chartSource === "binance" ? null : chartSource;
-  return [...new Set([first, "hyperliquid", "lighter"].filter((venue): venue is PerpVenueId => venue !== null))];
+  return [...new Set([first, "hyperliquid", "lighter", "lighterRh"].filter((venue): venue is PerpVenueId => venue !== null))];
 }
 
 interface ChartHandles {
@@ -154,9 +155,14 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   );
   // The Hyperliquid market comes from the panel (it knows the dex); Lighter's from its market list.
   const lighterList = marketsByVenue.lighter;
+  const lighterRhList = marketsByVenue.lighterRh;
   const venueMarkets = useMemo<Partial<Record<PerpVenueId, VenueMarket | null>>>(
-    () => ({ hyperliquid: venueMarket ?? null, lighter: lighterList ? findMarket(lighterList, symbol) : null }),
-    [venueMarket, lighterList, symbol],
+    () => ({
+      hyperliquid: venueMarket ?? null,
+      lighter: lighterList ? findMarket(lighterList, symbol) : null,
+      lighterRh: lighterRhList ? findMarket(lighterRhList, symbol) : null,
+    }),
+    [venueMarket, lighterList, lighterRhList, symbol],
   );
   const venues = venueOrder(preferences.chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
   const venuesRef = useRef({ venues, venueMarkets });

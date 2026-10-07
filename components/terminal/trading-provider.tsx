@@ -14,7 +14,7 @@ import {
 } from "@/lib/venues/hyperliquid/onboarding";
 import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
 import { toVenueError } from "@/lib/venues/hyperliquid/errors";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { isLighterVenue, lighterConfig, lighterConfigs, type LighterConfig, type LighterVenueId } from "@/lib/venues/lighter/config";
 import { toLighterVenueError } from "@/lib/venues/lighter/errors";
 import {
   approveLighterIntegrator,
@@ -24,7 +24,7 @@ import {
   revokeLighterKey,
   type LighterOnboarding,
 } from "@/lib/venues/lighter/onboarding";
-import { lighterVenue } from "@/lib/venues/lighter/venue";
+import { lighterRhVenue, lighterVenue } from "@/lib/venues/lighter/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
@@ -42,7 +42,7 @@ import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue };
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue };
 
 interface TradingContextValue {
   /** Hyperliquid network (the chart and the EVM wallet group follow it). */
@@ -57,7 +57,10 @@ interface TradingContextValue {
   /** Enabled perp venues, preferred first. */
   perpOrder: PerpVenueId[];
   onboarding: OnboardingStatus | null;
+  /** Core Lighter's setup state (`lighterStates.lighter`). */
   lighter: LighterOnboarding | null;
+  /** Setup state per Lighter exchange: core Lighter and Lighter on Robinhood Chain. */
+  lighterStates: Record<LighterVenueId, LighterOnboarding | null>;
   isReady: boolean;
   isVenueReady: (venue: PerpVenueId) => boolean;
   /** Positions and orders of every perp venue, merged. */
@@ -70,12 +73,12 @@ interface TradingContextValue {
   approveBuilder: () => Promise<boolean>;
   createAgent: () => Promise<boolean>;
   revoke: () => Promise<void>;
-  /** Re-reads the Lighter setup state; resolves to it, or null when it couldn't be read. */
-  refreshLighter: () => Promise<LighterOnboarding | null>;
-  registerLighter: () => Promise<boolean>;
-  /** Approves the integrator; with `referral`, also sets our Lighter referral code (the user opted in). */
-  approveLighter: (options?: { referral?: boolean }) => Promise<boolean>;
-  revokeLighter: () => Promise<void>;
+  /** Re-reads a Lighter exchange's setup state (core by default); resolves to it, or null when it couldn't be read. */
+  refreshLighter: (venue?: LighterVenueId) => Promise<LighterOnboarding | null>;
+  registerLighter: (venue?: LighterVenueId) => Promise<boolean>;
+  /** Approves the integrator; with `referral`, also sets our referral code there (the user opted in). */
+  approveLighter: (options?: { referral?: boolean; venue?: LighterVenueId }) => Promise<boolean>;
+  revokeLighter: (venue?: LighterVenueId) => Promise<void>;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
   placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
@@ -106,7 +109,7 @@ export function useTrading() {
 }
 
 function venueError(venue: PerpVenueId, error: unknown) {
-  return venue === "lighter" ? toLighterVenueError(error) : toVenueError(error);
+  return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
 
 function useVenueMarkets(venue: PerpVenue, enabled: boolean) {
@@ -125,19 +128,118 @@ function useVenueMarkets(venue: PerpVenue, enabled: boolean) {
   return markets;
 }
 
+type Toast = ReturnType<typeof useToast>;
+
+/**
+ * One Lighter exchange for the connected wallet: its markets, setup state (account, browser key, integrator), live
+ * account stream and setup actions. Core Lighter and Lighter on Robinhood Chain each get one; they share nothing.
+ */
+function useLighterInstance(
+  config: LighterConfig,
+  venue: PerpVenue,
+  enabled: boolean,
+  address: `0x${string}` | null,
+  signMessage: (message: string) => Promise<string>,
+  canSign: boolean,
+  toast: Toast,
+) {
+  const markets = useVenueMarkets(venue, enabled);
+  const [state, setState] = useState<LighterOnboarding | null>(null);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const fail = useCallback((title: string, error: unknown) => toast({ tone: "error", title, message: toLighterVenueError(error).message }), [toast]);
+
+  const refresh = useCallback(async () => {
+    if (!address || !enabled) {
+      setState(null);
+      return null;
+    }
+    try {
+      const next = await getLighterOnboarding(config, address);
+      setState(next);
+      return next;
+    } catch (error) {
+      console.warn(`[${config.venue}] setup state: ${toLighterVenueError(error).message}`);
+      setState({ accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none" });
+      return null;
+    }
+  }, [address, enabled, config]);
+
+  useEffect(() => {
+    setState(null);
+    void refresh();
+  }, [refresh]);
+
+  // Resubscribes once a key is registered: open orders need an auth token signed by it.
+  const keyReady = Boolean(state?.keyReady);
+  useEffect(() => {
+    setAccount(null);
+    if (!address || !enabled) return;
+    return venue.subscribeAccount(address, {
+      onSnapshot: setAccount,
+      onError: (error) => console.warn(`[${config.venue}] account stream: ${toLighterVenueError(error).message}`),
+    });
+  }, [address, enabled, keyReady, venue, config]);
+
+  const register = useCallback(async () => {
+    if (!address || !canSign) return false;
+    try {
+      await registerLighterKey(config, signMessage, address);
+      await refresh();
+      toast({ tone: "success", title: `${config.name} trading key active`, message: `${config.name} orders now sign in the browser without a wallet popup.` });
+      return true;
+    } catch (error) {
+      fail(`Couldn't register the ${config.name} key`, error);
+      return false;
+    }
+  }, [address, canSign, config, signMessage, refresh, fail, toast]);
+
+  const approve = useCallback(
+    async (options?: { referral?: boolean }) => {
+      if (!address || !canSign) return false;
+      try {
+        await approveLighterIntegrator(config, signMessage, address);
+      } catch (error) {
+        fail(`${config.name} approval failed`, error);
+        return false;
+      }
+      // The referral is a bonus: a failure here never blocks trading.
+      if (options?.referral) {
+        await applyLighterReferral(config, address).catch((error: unknown) =>
+          toast({ tone: "info", title: "Referral code not applied", message: toLighterVenueError(error).message }),
+        );
+      }
+      await refresh();
+      return true;
+    },
+    [address, canSign, config, signMessage, refresh, fail, toast],
+  );
+
+  const revoke = useCallback(async () => {
+    if (!address || !canSign) return;
+    try {
+      await revokeLighterKey(config, signMessage, address);
+      await refresh();
+      toast({ tone: "info", title: `${config.name} trading key revoked` });
+    } catch (error) {
+      fail(`Couldn't revoke the ${config.name} key`, error);
+    }
+  }, [address, canSign, config, signMessage, refresh, fail, toast]);
+
+  const ready = Boolean(state && state.accountIndex !== null && state.keyReady && state.integrator !== "needed");
+  return { markets, state, account, refresh, register, approve, revoke, ready };
+}
+
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
   const { address, getWalletClient } = useWallet();
   const { symbol } = useSelectedAsset();
   const lighterEnabled = preferences.venueLighter;
+  const lighterRhEnabled = preferences.venueLighterRh;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
   const markets = useVenueMarkets(hyperliquidVenue, true);
-  const lighterMarkets = useVenueMarkets(lighterVenue, lighterEnabled);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [lighter, setLighter] = useState<LighterOnboarding | null>(null);
   const [hlAccount, setHlAccount] = useState<AccountSnapshot | null>(null);
-  const [lighterAccount, setLighterAccount] = useState<AccountSnapshot | null>(null);
   const [setupVenue, setSetupVenue] = useState<PerpVenueId | null>(null);
   const [depositVenue, setDepositVenue] = useState<PerpVenueId | null>(null);
   const [depositMode, setDepositMode] = useState<FundsMode>("deposit");
@@ -163,17 +265,36 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     );
   }, [markets, symbol]);
 
+  const signMessage = useCallback(
+    async (message: string) => {
+      if (!getWalletClient) throw new Error("Connect an EVM wallet first.");
+      return (await getWalletClient()).signMessage({ message });
+    },
+    [getWalletClient],
+  );
+  const lighterCore = useLighterInstance(lighterConfig, lighterVenue, lighterEnabled, address, signMessage, Boolean(getWalletClient), toast);
+  const lighterRh = useLighterInstance(lighterConfigs.lighterRh, lighterRhVenue, lighterRhEnabled, address, signMessage, Boolean(getWalletClient), toast);
+  const lighterByVenue = useMemo(() => ({ lighter: lighterCore, lighterRh }), [lighterCore, lighterRh]);
+  const lighter = lighterCore.state;
+  const lighterStates = useMemo(() => ({ lighter: lighterCore.state, lighterRh: lighterRh.state }), [lighterCore.state, lighterRh.state]);
+
   const marketsByVenue = useMemo<MarketsByVenue>(
     () => ({
       hyperliquid: preferences.venueHyperliquid ? (markets ?? undefined) : [],
-      lighter: lighterEnabled ? (lighterMarkets ?? undefined) : [],
+      lighter: lighterEnabled ? (lighterCore.markets ?? undefined) : [],
+      lighterRh: lighterRhEnabled ? (lighterRh.markets ?? undefined) : [],
     }),
-    [preferences.venueHyperliquid, markets, lighterEnabled, lighterMarkets],
+    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets],
   );
 
   const perpOrder = useMemo(
-    () => perpVenueOrder(preferences.preferredPerpVenue, { hyperliquid: preferences.venueHyperliquid, lighter: lighterEnabled }),
-    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled],
+    () =>
+      perpVenueOrder(preferences.preferredPerpVenue, {
+        hyperliquid: preferences.venueHyperliquid,
+        lighter: lighterEnabled,
+        lighterRh: lighterRhEnabled,
+      }),
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled],
   );
 
   const refreshOnboarding = useCallback(async () => {
@@ -185,31 +306,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [address]);
 
-  const refreshLighter = useCallback(async () => {
-    if (!address || !lighterEnabled) {
-      setLighter(null);
-      return null;
-    }
-    try {
-      const next = await getLighterOnboarding(address);
-      setLighter(next);
-      return next;
-    } catch (error) {
-      console.warn(`[lighter] setup state: ${toLighterVenueError(error).message}`);
-      setLighter({ accountIndex: null, keyReady: false, integrator: lighterConfig.integrator ? "needed" : "none" });
-      return null;
-    }
-  }, [address, lighterEnabled]);
-
   useEffect(() => {
     setOnboarding(null);
     void refreshOnboarding();
   }, [refreshOnboarding]);
-
-  useEffect(() => {
-    setLighter(null);
-    void refreshLighter();
-  }, [refreshLighter]);
 
   useEffect(() => {
     setHlAccount(null);
@@ -220,20 +320,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     });
   }, [address, fail]);
 
-  // Resubscribes once a key is registered: open orders need an auth token signed by it.
-  const lighterKeyReady = Boolean(lighter?.keyReady);
-  useEffect(() => {
-    setLighterAccount(null);
-    if (!address || !lighterEnabled) return;
-    return lighterVenue.subscribeAccount(address, {
-      onSnapshot: setLighterAccount,
-      onError: (error) => console.warn(`[lighter] account stream: ${toLighterVenueError(error).message}`),
-    });
-  }, [address, lighterEnabled, lighterKeyReady]);
-
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
-  const lighterReady = Boolean(lighter && lighter.accountIndex !== null && lighter.keyReady && lighter.integrator !== "needed");
-  const isVenueReady = useCallback((venue: PerpVenueId) => (venue === "lighter" ? lighterReady : isReady), [isReady, lighterReady]);
+  const isVenueReady = useCallback(
+    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : lighterByVenue[venue].ready),
+    [isReady, lighterByVenue],
+  );
 
   const approveBuilder = useCallback(async () => {
     if (!address || !getWalletClient) return false;
@@ -271,58 +362,13 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [address, getWalletClient, fail, toast]);
 
-  const signMessage = useCallback(
-    async (message: string) => {
-      if (!getWalletClient) throw new Error("Connect an EVM wallet first.");
-      return (await getWalletClient()).signMessage({ message });
-    },
-    [getWalletClient],
-  );
-
-  const registerLighter = useCallback(async () => {
-    if (!address || !getWalletClient) return false;
-    try {
-      await registerLighterKey(signMessage, address);
-      await refreshLighter();
-      toast({ tone: "success", title: "Lighter trading key active", message: "Lighter orders now sign in the browser without a wallet popup." });
-      return true;
-    } catch (error) {
-      fail("lighter", "Couldn't register the Lighter key", error);
-      return false;
-    }
-  }, [address, getWalletClient, signMessage, refreshLighter, fail, toast]);
-
+  const refreshLighter = useCallback((venue: LighterVenueId = "lighter") => lighterByVenue[venue].refresh(), [lighterByVenue]);
+  const registerLighter = useCallback((venue: LighterVenueId = "lighter") => lighterByVenue[venue].register(), [lighterByVenue]);
   const approveLighter = useCallback(
-    async (options?: { referral?: boolean }) => {
-      if (!address || !getWalletClient) return false;
-      try {
-        await approveLighterIntegrator(signMessage, address);
-      } catch (error) {
-        fail("lighter", "Lighter approval failed", error);
-        return false;
-      }
-      // The referral is a bonus: a failure here never blocks trading.
-      if (options?.referral) {
-        await applyLighterReferral(address).catch((error: unknown) =>
-          toast({ tone: "info", title: "Referral code not applied", message: venueError("lighter", error).message }),
-        );
-      }
-      await refreshLighter();
-      return true;
-    },
-    [address, getWalletClient, signMessage, refreshLighter, fail, toast],
+    (options?: { referral?: boolean; venue?: LighterVenueId }) => lighterByVenue[options?.venue ?? "lighter"].approve(options),
+    [lighterByVenue],
   );
-
-  const revokeLighter = useCallback(async () => {
-    if (!address || !getWalletClient) return;
-    try {
-      await revokeLighterKey(signMessage, address);
-      await refreshLighter();
-      toast({ tone: "info", title: "Lighter trading key revoked" });
-    } catch (error) {
-      fail("lighter", "Couldn't revoke the Lighter key", error);
-    }
-  }, [address, getWalletClient, signMessage, refreshLighter, fail, toast]);
+  const revokeLighter = useCallback((venue: LighterVenueId = "lighter") => lighterByVenue[venue].revoke(), [lighterByVenue]);
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput) => {
@@ -421,8 +467,12 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const accounts = useMemo(
-    () => ({ hyperliquid: hlAccount, ...(lighterEnabled ? { lighter: lighterAccount } : {}) }),
-    [hlAccount, lighterAccount, lighterEnabled],
+    () => ({
+      hyperliquid: hlAccount,
+      ...(lighterEnabled ? { lighter: lighterCore.account } : {}),
+      ...(lighterRhEnabled ? { lighterRh: lighterRh.account } : {}),
+    }),
+    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled],
   );
 
   const account = useMemo<AccountSnapshot | null>(() => {
@@ -446,6 +496,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       perpOrder,
       onboarding,
       lighter,
+      lighterStates,
       isReady,
       isVenueReady,
       account,
@@ -481,6 +532,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       perpOrder,
       onboarding,
       lighter,
+      lighterStates,
       isReady,
       isVenueReady,
       account,

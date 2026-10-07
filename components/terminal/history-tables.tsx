@@ -66,7 +66,9 @@ function useOrderHistory() {
     const load = async () => {
       const [hl, lighter] = await Promise.allSettled([
         perpOrder.includes("hyperliquid") ? import("@/lib/venues/hyperliquid/history").then((module) => module.hlOrderHistory(address)) : Promise.resolve([]),
-        perpOrder.includes("lighter") ? import("@/lib/venues/lighter/history").then((module) => module.lighterOrderHistory(address)) : Promise.resolve([]),
+        perpOrder.includes("lighter")
+          ? Promise.all([import("@/lib/venues/lighter/history"), import("@/lib/venues/lighter/config")]).then(([module, { lighterConfig }]) => module.lighterOrderHistory(lighterConfig, address))
+          : Promise.resolve([]),
       ]);
       if (cancelled) return;
       const notes: string[] = [];

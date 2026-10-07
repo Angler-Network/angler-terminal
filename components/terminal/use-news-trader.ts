@@ -15,6 +15,7 @@ import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { quoteVenues } from "./use-best-execution";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
+import { isLighterVenue } from "@/lib/venues/lighter/config";
 import { pickBestSpotQuote } from "@/lib/trading/best-quote";
 import { executeTitanQuote, getTitanQuote } from "@/lib/venues/titan/venue";
 import { resolveArcusToken } from "@/lib/venues/arcus/catalog";
@@ -96,7 +97,7 @@ export function useNewsTrader() {
       if (!price) return fail(`No price for ${trade.symbol} right now.`), false;
       const size = sizeForNotional(trade.sizeUsd, price, market.szDecimals);
       if (!(size > 0)) return fail(`$${trade.sizeUsd} is below ${trade.symbol}'s minimum lot.`), false;
-      if (market.venue === "lighter" && size < minimumSize(market, price)) {
+      if (isLighterVenue(market.venue) && size < minimumSize(market, price)) {
         return fail(`$${trade.sizeUsd} is below Lighter's ${trade.symbol} minimum (about $${Math.ceil(minimumSize(market, price) * price)}).`), false;
       }
       const placed = await placeOrder({

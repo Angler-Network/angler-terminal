@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { VenueMarket } from "@/lib/venues/types";
 import {
   applyLevels,
@@ -58,7 +58,7 @@ export function useOrderBook(market: VenueMarket | null) {
     }, FLUSH_MS);
 
     const isHl = market.venue === "hyperliquid";
-    const url = isHl ? `${hlConfig.apiUrl.replace(/^http/, "ws")}/ws` : lighterConfig.wsUrl;
+    const url = market.venue === "hyperliquid" ? `${hlConfig.apiUrl.replace(/^http/, "ws")}/ws` : lighterConfigs[market.venue].wsUrl;
 
     const onMessage = (event: MessageEvent) => {
       let message: Record<string, unknown>;

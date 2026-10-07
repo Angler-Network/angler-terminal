@@ -2,6 +2,7 @@
 
 import { venueAvailable, type VenueKey } from "@/lib/deployment";
 import { arcusConfig } from "@/lib/venues/arcus/config";
+import { lighterRhConfig } from "@/lib/venues/lighter/config";
 import { Check, ChevronLeft, Loader2, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
@@ -60,6 +61,7 @@ const VENUES: VenueOption[] = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps", chain: "evm", domain: "hyperliquid.xyz", color: "#11806a", live: true },
   { id: "jupiter", name: "Jupiter", kind: "Spot", chain: "solana", domain: "jup.ag", color: "#1f8a5b", live: true },
   { id: "lighter", name: "Lighter", kind: "Perps", chain: "evm", domain: "lighter.xyz", color: "#3a3f4b", live: true },
+  { id: "lighterRh", name: "Lighter RH", kind: "Stock perps", chain: "evm", domain: "robinhood.com", color: "#2f6b2a", live: true },
   { id: "titan", name: "Titan", kind: "Spot", chain: "solana", domain: "titan.exchange", color: "#5b3fd1", live: true },
   { id: "arcus", name: "Arcus", kind: "Stocks", chain: "evm", domain: "arcus.xyz", color: "#2f8f4e", live: true },
 ];
@@ -263,7 +265,7 @@ function WalletModal() {
                   key={venue.id}
                   venue={venue}
                   connected={Boolean(chainState(venue.chain).address)}
-                  network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : venue.id === "arcus" ? arcusConfig.network : undefined}
+                  network={venue.id === "hyperliquid" ? network : venue.id === "lighter" ? lighterNetwork : venue.id === "lighterRh" ? lighterRhConfig.network : venue.id === "arcus" ? arcusConfig.network : undefined}
                   onPick={() => setPicking(venue)}
                 />
               ))}

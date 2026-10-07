@@ -88,6 +88,20 @@ dependency versions and design are free to diverge from angler-news.
   - Exchange errors go through `errors.ts` (`humanizeHlError`) and are shown as toasts.
 - Lighter (`lib/venues/lighter/`, a second `PerpVenue`; research and API notes in `docs/lighter-integration.md`,
   source of truth apidocs.lighter.xyz/llms.txt):
+  - Two exchanges, one code path: core Lighter (venue `lighter`, USDC) and Lighter on Robinhood Chain (venue
+    `lighterRh`, "Lighter RH": USDG margin, mostly stock perps, the venue behind Robinhood Wallet's perps; docs
+    apidocs.rh.lighter.xyz). Same tx format, signer, REST and WebSocket; separate accounts, keys, nonces, markets.
+    Every module takes a `LighterConfig` (`lighterConfig` / `lighterRhConfig`, `lighterConfigs[venue]`): base URL and
+    chain id travel together (RH mainnet `api.rh.lighter.xyz`, chain 466324; testnet `api.rh-testnet.lighter.xyz`,
+    chain 300, only BTC/SOL/ETH). `createLighterVenue(config)` builds each venue; `storeKey` separates browser keys
+    and caches (core keeps the bare network so existing keys stay found). RH env: `NEXT_PUBLIC_LIGHTER_RH_*`
+    (network, integrator account/fee/max, referral); key slot shared, never 157 (reserved on RH). RH marks every
+    market strategy 0, so `forInstance` names its crypto (`RH_CRYPTO`) and calls the rest stocks. Deposits: USDG on
+    Robinhood Chain to the RH intent address (`createIntentAddress` chain_id 4663, ≥ 1 USDG; `ROBINHOOD` source,
+    viem chain from `arcus/config`). The trading provider runs `useLighterInstance` per exchange; the account
+    panel, setup dialog, deposit dialog, merged order book (up to three venues), best execution, chart candles and
+    profile points (same client-order tag) handle both. Still core-only: portfolio/order history, the testnet
+    faucet, the HL → Lighter bridge, funding rates (the feed has no RH).
   - Network from `NEXT_PUBLIC_LIGHTER_NETWORK` (testnet default, chain 300; mainnet 304), per-browser override
     `LIGHTER_NETWORK_OVERRIDE_KEY`. Markets from `orderBookDetails`, cached 60s by `/api/lighter/markets`. Ids,
     decimals and minimums always come from the API.

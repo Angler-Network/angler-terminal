@@ -14,7 +14,7 @@ import { profileIdOf, type ProfileChain } from "./identity";
  */
 const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 
-export const PROFILE_VENUES = ["hyperliquid", "lighter", "jupiter", "titan"] as const;
+export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 const CLAIM_TTL_SECONDS = 400 * 86_400;
@@ -198,13 +198,14 @@ export async function readCursors(id: string) {
     const value = Number(hash[field]);
     return Number.isFinite(value) ? value : null;
   };
-  return { hl: number("hlCursor"), lighter: number("lighterCursor") };
+  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor") };
 }
 
-export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number }) {
+export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number }) {
   const fields: Record<string, string> = {};
   if (cursors.hl !== undefined) fields.hlCursor = String(cursors.hl);
   if (cursors.lighter !== undefined) fields.lighterCursor = String(cursors.lighter);
+  if (cursors.lighterRh !== undefined) fields.lighterRhCursor = String(cursors.lighterRh);
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 

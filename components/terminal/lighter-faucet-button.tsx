@@ -21,7 +21,7 @@ export function LighterFaucetButton({ className, label = "Get test USDC" }: { cl
     setBusy(true);
     try {
       const { requestTestFunds } = await import("@/lib/venues/lighter/api");
-      await requestTestFunds(address);
+      await requestTestFunds(lighterConfig, address);
       // The setup state can miss the new account on the first read (rate limits right after the faucet): retry.
       for (let attempt = 0; attempt < 4; attempt++) {
         if ((await refreshLighter())?.accountIndex != null) break;

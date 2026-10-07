@@ -18,8 +18,8 @@ type Tab = "book" | "trades";
 type VenueView = PerpVenueId | "all";
 
 /** Venue colors in the merged book: depth segments, legend and trade dots. */
-const VENUE_COLORS: Record<PerpVenueId, string> = { hyperliquid: "#3fc8b0", lighter: "#8b8ff8" };
-const VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter" };
+const VENUE_COLORS: Record<PerpVenueId, string> = { hyperliquid: "#3fc8b0", lighter: "#8b8ff8", lighterRh: "#d6f24a" };
+const VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH" };
 
 function decimalsFor(tick: number) {
   return tick >= 1 ? 0 : Math.min(8, Math.ceil(-Math.log10(tick) - 1e-9));
@@ -126,27 +126,38 @@ export function OrderBook() {
   });
   // Until a venue's market list arrives, the book shows a placeholder rather than "not listed".
   const isLoading = choices.length === 0 && perpOrder.some((venue) => marketsByVenue[venue] === undefined);
-  // Two venues list the asset: show them merged unless the user picked one.
+  // Several venues list the asset: show them merged unless the user picked one.
   const isAll = (view ?? "all") === "all" && choices.length > 1;
   const market: VenueMarket | null = isAll ? choices[0] : (choices.find((entry) => entry.venue === view) ?? choices[0] ?? null);
-  // The merged view streams the second venue too; single views leave it idle.
+  // The merged view streams up to two more venues; single views leave them idle.
   const other = isAll ? choices[1] : null;
+  const third = isAll ? (choices[2] ?? null) : null;
   const primary = useOrderBook(market);
   const secondary = useOrderBook(other);
+  const tertiary = useOrderBook(third);
   const { status } = primary;
-  const merged = useMemo(
-    () => (isAll && market && other ? mergeVenueBooks([{ venue: market.venue, book: primary.book }, { venue: other.venue, book: secondary.book }], 0) : null),
-    [isAll, market, other, primary.book, secondary.book],
+  const sides = useMemo(
+    () =>
+      isAll && market && other
+        ? [
+            { venue: market.venue, book: primary.book, trades: primary.trades },
+            { venue: other.venue, book: secondary.book, trades: secondary.trades },
+            ...(third ? [{ venue: third.venue, book: tertiary.book, trades: tertiary.trades }] : []),
+          ]
+        : null,
+    [isAll, market, other, third, primary.book, primary.trades, secondary.book, secondary.trades, tertiary.book, tertiary.trades],
   );
+  const merged = useMemo(() => (sides ? mergeVenueBooks(sides, 0) : null), [sides]);
   const book = merged ?? primary.book;
   const trades = useMemo(
     () =>
-      isAll && market && other
-        ? [...primary.trades.map((trade) => ({ ...trade, venue: market.venue })), ...secondary.trades.map((trade) => ({ ...trade, venue: other.venue }))]
+      sides
+        ? sides
+            .flatMap((side) => side.trades.map((trade) => ({ ...trade, venue: side.venue as PerpVenueId | undefined })))
             .sort((a, b) => b.time - a.time)
             .slice(0, 60)
         : primary.trades.map((trade) => ({ ...trade, venue: undefined as PerpVenueId | undefined })),
-    [isAll, market, other, primary.trades, secondary.trades],
+    [sides, primary.trades],
   );
   const spread = spreadOf(book);
   const ticks = tickOptions(spread?.mid ?? market?.midPx ?? market?.markPx);
@@ -155,14 +166,14 @@ export function OrderBook() {
 
   // The user's open orders on the venues shown, marked on their levels.
   const mine = useMemo(() => {
-    const venues = new Set([market?.venue, other?.venue].filter(Boolean));
+    const venues = new Set([market?.venue, other?.venue, third?.venue].filter(Boolean));
     const orders = (account?.orders ?? []).filter((order) => venues.has(order.venue) && order.symbol === symbol);
     return { bids: ownSizeByLevel(orders, tick, "bids"), asks: ownSizeByLevel(orders, tick, "asks") };
-  }, [account?.orders, market?.venue, other?.venue, symbol, tick]);
+  }, [account?.orders, market?.venue, other?.venue, third?.venue, symbol, tick]);
 
   const { bids, asks, maxTotal, maxSize, crossed } = useMemo(() => {
-    if (isAll && market && other) {
-      const grouped = mergeVenueBooks([{ venue: market.venue, book: primary.book }, { venue: other.venue, book: secondary.book }], tick);
+    if (sides) {
+      const grouped = mergeVenueBooks(sides, tick);
       const groupedBids = withTotals(grouped.bids.slice(0, LEVELS)).map((row, index) => ({ ...row, byVenue: grouped.bids[index].byVenue }));
       const groupedAsks = withTotals(grouped.asks.slice(0, LEVELS)).map((row, index) => ({ ...row, byVenue: grouped.asks[index].byVenue }));
       const largest = Math.max(0, ...groupedBids.map((row) => row.size), ...groupedAsks.map((row) => row.size));
@@ -172,7 +183,7 @@ export function OrderBook() {
     const groupedAsks = withTotals(groupLevels(primary.book.asks, tick, "asks").slice(0, LEVELS));
     const max = Math.max(groupedBids.at(-1)?.total ?? 0, groupedAsks.at(-1)?.total ?? 0);
     return { bids: groupedBids, asks: groupedAsks, maxTotal: max, maxSize: undefined, crossed: false };
-  }, [isAll, market, other, primary.book, secondary.book, tick]);
+  }, [sides, primary.book, tick]);
 
   return (
     <section
@@ -226,9 +237,9 @@ export function OrderBook() {
         )
       ) : tab === "book" ? (
         <div className="flex min-h-0 flex-1 flex-col py-1">
-          {isAll && market && other && (
+          {sides && (
             <div className="flex shrink-0 items-center gap-3 px-2 pb-1 text-[10px] text-app-muted">
-              {[market.venue, other.venue].map((venue) => (
+              {sides.map(({ venue }) => (
                 <span key={venue} className="flex items-center gap-1">
                   <span className="size-2 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />
                   {VENUE_SHORT[venue]}

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
+import { isLighterVenue, lighterConfig, lighterConfigs } from "@/lib/venues/lighter/config";
+import { usePreferences } from "@/components/app/preferences-provider";
 import {
   ARBITRUM,
   HL_BRIDGE,
@@ -173,7 +175,7 @@ function BridgeFunds() {
     if (!address || !wallet) return;
     setBusy(true);
     try {
-      const target = await lighterIntentAddress(ARBITRUM, address);
+      const target = await lighterIntentAddress(lighterConfig, ARBITRUM, address);
       const result = await sendUsdc(wallet.provider, address, ARBITRUM, target, units);
       setStep({ kind: "done", explorerUrl: result.explorerUrl });
       toast({ tone: "success", title: "Bridged to Lighter", message: "Credited to your Lighter account in a few minutes.", link: { href: result.explorerUrl, label: "View transaction" } });
@@ -307,7 +309,8 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
  */
 export function DepositDialog() {
   const toast = useToast();
-  const { depositVenue, depositMode, closeDeposit, openDeposit, network, lighterNetwork, accounts, withdrawHyperliquid } = useTrading();
+  const { depositVenue, depositMode, closeDeposit, openDeposit, network, accounts, withdrawHyperliquid } = useTrading();
+  const { preferences } = usePreferences();
   const { address, wallet } = useWallet();
   const { open: openWallets } = useWalletModal();
   const [mode, setMode] = useState<Mode>("deposit");
@@ -318,11 +321,12 @@ export function DepositDialog() {
   const [done, setDone] = useState<{ explorerUrl: string; arrival: string } | null>(null);
 
   const venue: PerpVenueId = depositVenue ?? "hyperliquid";
-  const venueNetwork = venue === "hyperliquid" ? network : lighterNetwork;
+  const venueNetwork = isLighterVenue(venue) ? lighterConfigs[venue].network : network;
   const plan = depositPlan(venue, venueNetwork);
   const source: SourceChain | null = plan.kind === "transfer" ? (plan.sources[sourceIndex] ?? plan.sources[0]) : null;
   const units = usdcUnits(amount);
-  const error = mode === "deposit" ? depositError(units, balance) : null;
+  const error = mode === "deposit" && plan.kind === "transfer" ? depositError(units, balance, plan.minimum, source?.symbol) : null;
+  const token = source?.symbol ?? "USDC";
   const withdrawable = accounts.hyperliquid?.withdrawable;
   const canWithdraw = venue === "hyperliquid";
 
@@ -358,10 +362,10 @@ export function DepositDialog() {
     if (!source || plan.kind !== "transfer" || units === null || error) return;
     setBusy(true);
     try {
-      const to = plan.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(source, address);
+      const to = plan.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(lighterConfigs[isLighterVenue(venue) ? venue : "lighter"], source, address);
       const result = await sendUsdc(wallet.provider, address, source, to, units);
       setDone({ explorerUrl: result.explorerUrl, arrival: plan.arrival });
-      toast({ tone: "success", title: `Deposited ${amount} USDC`, message: `Credited to ${PERP_VENUE_NAMES[venue]} in ${plan.arrival}.`, link: { href: result.explorerUrl, label: "View transaction" } });
+      toast({ tone: "success", title: `Deposited ${amount} ${token}`, message: `Credited to ${PERP_VENUE_NAMES[venue]} in ${plan.arrival}.`, link: { href: result.explorerUrl, label: "View transaction" } });
     } catch (caught) {
       const message = caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
       toast({ tone: "error", title: "Deposit not sent", message: /reject|denied/i.test(message) ? "You rejected the request in your wallet." : message });
@@ -407,8 +411,9 @@ export function DepositDialog() {
         <Tabs
           value={venue}
           options={[
-            { value: "hyperliquid", label: "Hyperliquid" },
-            { value: "lighter", label: "Lighter" },
+            { value: "hyperliquid" as const, label: "Hyperliquid" },
+            { value: "lighter" as const, label: "Lighter" },
+            ...(preferences.venueLighterRh ? [{ value: "lighterRh" as const, label: "Lighter RH" }] : []),
           ]}
           onChange={openDeposit}
         />
@@ -465,19 +470,21 @@ export function DepositDialog() {
             )}
             <label className="flex flex-col gap-1 text-[12px] text-app-muted">
               <span className="flex items-center justify-between">
-                USDC on {source?.name}
+                {token} on {source?.name}
                 {balance !== null && (
                   <button type="button" onClick={() => setAmount((Number(balance) / 10 ** USDC_DECIMALS).toString())} className="font-semibold text-app-ink hover:underline">
                     Wallet {formatPrice(Number(balance) / 10 ** USDC_DECIMALS)}
                   </button>
                 )}
               </span>
-              <input className={inputClass} inputMode="decimal" placeholder="Amount (min 5)" value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))} />
+              <input className={inputClass} inputMode="decimal" placeholder={`Amount (min ${plan.kind === "transfer" ? plan.minimum : 5})`} value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))} />
             </label>
             <p className="text-[12px] text-app-muted">
               {plan.target === "bridge"
                 ? `Sends native USDC on Arbitrum to Hyperliquid's bridge; it is credited to this wallet in ${plan.arrival}. Less than 5 USDC is lost.`
-                : `Sends USDC on ${source?.name} to your Lighter deposit address (via Circle CCTP); it is credited to this wallet's Lighter account in ${plan.arrival}.`}{" "}
+                : venue === "lighterRh"
+                  ? `Sends USDG on ${source?.name} to your Lighter RH deposit address; it is credited to this wallet's Lighter RH account in ${plan.arrival}.`
+                  : `Sends USDC on ${source?.name} to your Lighter deposit address (via Circle CCTP); it is credited to this wallet's Lighter account in ${plan.arrival}.`}{" "}
               Your wallet pays a little ETH for gas.
             </p>
             {amount && error && <p className="text-[12px] text-app-down">{error}</p>}
@@ -492,7 +499,7 @@ export function DepositDialog() {
               onClick={() => void deposit()}
               className="h-10 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50"
             >
-              {!address ? "Connect wallet" : busy ? "Confirm in your wallet…" : `Deposit ${amount || ""} USDC to ${PERP_VENUE_NAMES[venue]}`}
+              {!address ? "Connect wallet" : busy ? "Confirm in your wallet…" : `Deposit ${amount || ""} ${token} to ${PERP_VENUE_NAMES[venue]}`}
             </button>
           </>
         )}

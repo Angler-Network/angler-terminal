@@ -3,7 +3,7 @@
 import { Check, KeyRound, Landmark, Loader2, ReceiptText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { isLighterVenue, lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -107,19 +107,23 @@ function HyperliquidSteps() {
   );
 }
 
-function LighterSteps() {
-  const { lighter, refreshLighter, registerLighter, approveLighter } = useTrading();
+/** Setup of one Lighter exchange: core Lighter, or Lighter on Robinhood Chain (same steps, its own account and key). */
+function LighterSteps({ venue }: { venue: LighterVenueId }) {
+  const { lighterStates, refreshLighter, registerLighter, approveLighter, openDeposit } = useTrading();
+  const config = lighterConfigs[venue];
+  const lighter = lighterStates[venue];
   const [busy, setBusy] = useState<1 | 2 | 3 | null>(null);
-  const referralCode = lighterConfig.referralCode;
+  const referralCode = config.referralCode;
   const [useReferral, setUseReferral] = useState(true);
   const accountDone = lighter !== null && lighter.accountIndex !== null;
   const keyDone = Boolean(lighter?.keyReady);
-  const integrator = lighterConfig.integrator;
+  const integrator = config.integrator;
+  const isRh = venue === "lighterRh";
 
   const run = async (step: 1 | 2 | 3) => {
     setBusy(step);
     try {
-      await (step === 1 ? refreshLighter() : step === 2 ? registerLighter() : approveLighter({ referral: Boolean(referralCode) && useReferral }));
+      await (step === 1 ? refreshLighter(venue) : step === 2 ? registerLighter(venue) : approveLighter({ venue, referral: Boolean(referralCode) && useReferral }));
     } finally {
       setBusy(null);
     }
@@ -130,11 +134,13 @@ function LighterSteps() {
       <Step
         index={1}
         Icon={Landmark}
-        title="Lighter account"
+        title={`${config.name} account`}
         description={
-          lighterConfig.network === "testnet"
-            ? "On testnet, the faucet opens your Lighter account with test USDC in one click (about 20 seconds)."
-            : "Lighter creates the account on your first deposit. Deposit USDC from this wallet on Lighter, then check again (it can take a few minutes)."
+          isRh
+            ? "Lighter on Robinhood creates the account on your first USDG deposit from this wallet on Robinhood Chain (1 USDG minimum). Deposit, then check again."
+            : config.network === "testnet"
+              ? "On testnet, the faucet opens your Lighter account with test USDC in one click (about 20 seconds)."
+              : "Lighter creates the account on your first deposit. Deposit USDC from this wallet on Lighter, then check again (it can take a few minutes)."
         }
         done={accountDone}
         active={!accountDone}
@@ -143,24 +149,36 @@ function LighterSteps() {
         action="Check again"
         onRun={() => void run(1)}
         extra={
-          <>
-          <LighterFaucetButton className="inline-flex h-8 items-center rounded-lg border border-app-accent px-3 text-[13px] font-semibold text-app-accent hover:bg-app-accent/10 disabled:opacity-60" />
-          <a
-            href={lighterConfig.appUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-8 items-center rounded-lg border border-app-hairline-strong px-3 text-[13px] font-semibold text-app-ink hover:bg-app-chip"
-          >
-            Open Lighter
-          </a>
-          </>
+          isRh ? (
+            <button
+              type="button"
+              onClick={() => openDeposit(venue)}
+              className="inline-flex h-8 items-center rounded-lg border border-app-accent px-3 text-[13px] font-semibold text-app-accent hover:bg-app-accent/10"
+            >
+              Deposit USDG
+            </button>
+          ) : (
+            <>
+              <LighterFaucetButton className="inline-flex h-8 items-center rounded-lg border border-app-accent px-3 text-[13px] font-semibold text-app-accent hover:bg-app-accent/10 disabled:opacity-60" />
+              {config.appUrl && (
+                <a
+                  href={config.appUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 items-center rounded-lg border border-app-hairline-strong px-3 text-[13px] font-semibold text-app-ink hover:bg-app-chip"
+                >
+                  Open Lighter
+                </a>
+              )}
+            </>
+          )
         }
       />
       <Step
         index={2}
         Icon={KeyRound}
         title="Register trading key"
-        description={`Generates a key in this browser (stored encrypted) and registers it at key slot ${lighterConfig.apiKeyIndex} with one wallet signature. It can trade and cancel, but can't send funds to another owner.`}
+        description={`Generates a key in this browser (stored encrypted) and registers it at ${config.name} key slot ${config.apiKeyIndex} with one wallet signature. It can trade and cancel, but can't send funds to another owner.`}
         done={keyDone}
         active={accountDone && !keyDone}
         busy={busy === 2}
@@ -189,8 +207,8 @@ function LighterSteps() {
                   className="mt-0.5 accent-[rgb(var(--app-accent))]"
                 />
                 <span>
-                  Also use Angler&apos;s Lighter referral code <span className="font-semibold text-app-ink">{referralCode}</span>. It replaces
-                  any referral code this Lighter account already uses.
+                  Also use Angler&apos;s {config.name} referral code <span className="font-semibold text-app-ink">{referralCode}</span>. It replaces
+                  any referral code this account already uses.
                 </span>
               </label>
             )
@@ -206,7 +224,7 @@ function LighterSteps() {
  * (agent wallet). Lighter: deposit check, register a browser API key, approve the integrator when configured.
  */
 export function TradingSetupDialog() {
-  const { setupVenue, closeSetup, onboarding, lighter, isVenueReady, network, lighterNetwork } = useTrading();
+  const { setupVenue, closeSetup, onboarding, lighterStates, isVenueReady, network } = useTrading();
   const isDone = setupVenue !== null && isVenueReady(setupVenue);
 
   useEffect(() => {
@@ -214,13 +232,13 @@ export function TradingSetupDialog() {
       const timer = window.setTimeout(closeSetup, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [isDone, closeSetup, onboarding, lighter]);
+  }, [isDone, closeSetup, onboarding, lighterStates]);
 
   const backdropRef = useModalEnter(setupVenue !== null);
 
   if (!setupVenue) return null;
-  const isLighter = setupVenue === "lighter";
-  const isTestnet = (isLighter ? lighterNetwork : network) === "testnet";
+  const lighterVenue = isLighterVenue(setupVenue) ? setupVenue : null;
+  const isTestnet = (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeSetup}>
@@ -234,10 +252,10 @@ export function TradingSetupDialog() {
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="trading-setup-title" className="text-[16px] font-semibold text-app-ink">
-              Set up trading on {isLighter ? "Lighter" : "Hyperliquid"}
+              Set up trading on {lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
-              {isLighter ? "One-time setup" : "Two one-time signatures"}
+              {lighterVenue ? "One-time setup" : "Two one-time signatures"}
               {isTestnet ? " on testnet" : ""}. No funds move.
             </p>
           </div>
@@ -245,7 +263,7 @@ export function TradingSetupDialog() {
             <X className="size-4" />
           </button>
         </header>
-        {isLighter ? <LighterSteps /> : <HyperliquidSteps />}
+        {lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
       </div>
     </div>
   );
