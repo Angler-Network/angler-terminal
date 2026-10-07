@@ -229,7 +229,9 @@ dependency versions and design are free to diverge from angler-news.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
     `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): one
     sentence for every flow, "Move [amount] [token] from [Wallet on chain | venue] to [Wallet on chain | venue]". The
-    wallet side picks USDC on Arbitrum or Base or USDG on Robinhood Chain (where Arcus trades). `fundsRoute` turns the
+    wallet side is a token picker (USDC · Arbitrum, USDC · Base, USDG · Robinhood Chain, where Arcus trades); venue
+    options show their margin token. A "You send / You receive" card shows both amounts (after Hyperliquid's fee and
+    the Across quote) and says plainly when USDC becomes USDG; the button reads "… USDC → USDG to …". `fundsRoute` turns the
     pair into steps the window runs in order (one wallet signature each; waits keep polling with the window closed and
     toast when the next step is ready): `hlWithdraw` (Hyperliquid `withdraw3`, 1 USDC fee, lands on Arbitrum in 3-4
     min, `withdrawalArrived`), `across` (below), `transfer` (mainnet Hyperliquid = native USDC on Arbitrum to Bridge2
