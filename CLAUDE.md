@@ -318,7 +318,7 @@ dependency versions and design are free to diverge from angler-news.
     points yet; analytics records venue `uniswap`.
   - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/ETH/WETH/USDT to
     pay with; native ETH is the zero address `NATIVE_TOKEN`: no approval, sent as the tx value, priced and charted as
-    WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 150 most traded tokens per chain (Trading API `/tokens?sort=volume_24h`, server
+    WETH, "Max" keeps a gas reserve): the spot list adds Uniswap's 300 most traded + 150 deepest (TVL) tokens per chain (Trading API `/tokens?sort=`, max 1000, server
     side with the key; not Robinhood, `listTop: false`), priced by DefiLlama (`lib/spot/llama.ts`: `coins.llama.fi`
     prices + 24h change, free, batches of 60). Volume, liquidity and market cap come from DexScreener
     (`lib/spot/dexscreener.ts`; it returns empty results to rate-limited IPs instead of a 429, which once silently left
@@ -442,7 +442,8 @@ dependency versions and design are free to diverge from angler-news.
   (route 0 → 1, trading key, no wallet signature); IOC at best ask/bid ± 3%, no integrator fee (the approval covers perps
   only). The chart uses the venue's own candles (`spotToken.book`), the card shows "Order book" instead of liquidity.
 - Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
-  live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
+  live from the venues' pools, never a fixed list. Jupiter `toptraded`/`toporganicscore` (24h and 6h) + `toptrending/24h` (100 each, the cap) + `tag=stocks` (the
+  whole cached list must stay under unstable_cache's 2 MB item limit, so check its size before adding big lists),
   Arcus stock/index/commodity tokens priced from the same asset's perp quote. Dollar tokens (Jupiter tags `stable`,
   or `yb` named after USD) stay listed but sort last. An asset without a token of its own ticker (BTC on Solana)
   trades as the most traded verified token that represents it (24h volume first, pool liquidity second: WBTC parks

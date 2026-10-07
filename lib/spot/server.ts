@@ -34,9 +34,11 @@ import {
 } from "./listings";
 
 const REVALIDATE_SECONDS = 120;
+/** Jupiter's category lists return at most 100 tokens each. */
 const TOP_LIMIT = 100;
-/** Most traded Uniswap tokens listed per EVM chain. */
-const UNISWAP_TOP_LIMIT = 150;
+/** Uniswap tokens listed per EVM chain: the most traded, plus the deepest pools (the API allows up to 1000 each). */
+const UNISWAP_TOP_LIMIT = 300;
+const UNISWAP_TVL_LIMIT = 150;
 const LLAMA_URL = "https://coins.llama.fi";
 const DEXSCREENER_URL = "https://api.dexscreener.com";
 const DEXSCREENER_TIMEOUT_MS = 10_000;
@@ -48,12 +50,18 @@ async function jupList(path: string): Promise<SpotListing[]> {
   return Array.isArray(body) ? (body as JupListingRecord[]).flatMap((record) => fromJupRecord(record) ?? []) : [];
 }
 
-/** Jupiter's own lists: the most traded and most organically traded tokens of the day, plus tokenized stocks. */
+/**
+ * Jupiter's own lists: the most traded, most organically traded and trending tokens over the day and the last six
+ * hours, plus tokenized stocks (several hundred distinct tokens once merged).
+ */
 async function jupiterListings(): Promise<SpotListing[]> {
   if (!venueAvailable("jupiter") || !jupServerConfig().apiKey) return [];
   const lists = await Promise.allSettled([
     jupList(`/tokens/v2/toptraded/24h?limit=${TOP_LIMIT}`),
     jupList(`/tokens/v2/toporganicscore/24h?limit=${TOP_LIMIT}`),
+    jupList(`/tokens/v2/toptrending/24h?limit=${TOP_LIMIT}`),
+    jupList(`/tokens/v2/toptraded/6h?limit=${TOP_LIMIT}`),
+    jupList(`/tokens/v2/toporganicscore/6h?limit=${TOP_LIMIT}`),
     jupList("/tokens/v2/tag?query=stocks"),
   ]);
   for (const list of lists) if (list.status === "rejected") console.error("[spot] jupiter list failed:", list.reason);
@@ -228,9 +236,20 @@ async function uniswapListings(): Promise<SpotListing[]> {
   if (!venueAvailable("uniswap") || !apiKey) return [];
   const lists = await Promise.allSettled(
     EVM_SWAP_CHAINS.filter((chain) => chain.listTop !== false).map(async (chain) => {
-      const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort: "volume_24h", limit: String(UNISWAP_TOP_LIMIT), chainId: String(chain.id) })}`, apiKey);
-      if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}) responded ${response.status}`);
-      const records = (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
+      const ranked = async (sort: "volume_24h" | "tvl", limit: number) => {
+        const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort, limit: String(limit), chainId: String(chain.id) })}`, apiKey);
+        if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}, ${sort}) responded ${response.status}`);
+        return (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
+      };
+      // Volume first; the deepest pools add established tokens that trade less today. A failed TVL list only drops those.
+      const [byVolume, byTvl] = await Promise.all([ranked("volume_24h", UNISWAP_TOP_LIMIT), ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => [])]);
+      const seen = new Set<string>();
+      const records = [...byVolume, ...byTvl].filter((record) => {
+        const key = String(record.address).toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       const weth = wrappedNative(chain).address;
       const addresses = records.flatMap((record) => (typeof record.address === "string" && !isNativeToken(record.address) ? [record.address] : []));
       const wanted = [...new Set([...addresses, weth])];
