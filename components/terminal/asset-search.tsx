@@ -13,7 +13,7 @@ import { isWatched, toggleWatch } from "@/lib/watchlist";
 import { Change, TokenIcon, VenueMarks, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 
-/** A Solana token picked to pay with (or receive) in the swap card. */
+/** A token picked to pay with (or receive) in a swap card: a Solana mint, or an EVM ref ("evm:<chain>:<address>"). */
 export interface TokenChoice {
   mint: string;
   symbol: string;
@@ -21,13 +21,20 @@ export interface TokenChoice {
   name?: string;
   verified?: boolean;
   price?: number;
-  /** Shown in the venue column of a pinned row ("Wallet", "Popular"). */
+  /** Shown in the venue column of a pinned row ("Wallet", "Popular", "Uniswap · Base"). */
   source?: string;
+  /** EVM pinned rows: the chain and decimals (search rows carry the chain in `mint`). */
+  chainId?: number;
+  decimals?: number;
 }
 
-/** The search opened as a token picker: Solana tokens only, `pinned` ones (USDC, SOL, the wallet's) first. */
+/**
+ * The search opened as a token picker, `pinned` ones first: Solana tokens (the Solana card), or EVM tokens on every
+ * Uniswap chain (the EVM card, `scope: "evm"`).
+ */
 export interface TokenPickRequest {
   title: string;
+  scope?: "solana" | "evm";
   pinned: TokenChoice[];
   /** The token on the other side of the swap. */
   exclude?: string;
@@ -128,7 +135,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   const isSpot = kind === "spot" || Boolean(pick);
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows, searching } = useSpotRows(isSpot, query, Boolean(pick));
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? "uniswap" : "jupiter") : undefined);
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -175,7 +182,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     const rest = sorted.filter((row) => !pinnedMints.has(row.mint));
     const address = query.trim();
     const pasted =
-      SOLANA_ADDRESS.test(address) && address !== pick.exclude && !pinnedMints.has(address) && !rest.some((row) => row.mint === address)
+      pick.scope !== "evm" && SOLANA_ADDRESS.test(address) && address !== pick.exclude && !pinnedMints.has(address) && !rest.some((row) => row.mint === address)
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
@@ -201,7 +208,8 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     if (!row) return;
     if (pick) {
       if (!row.mint) return;
-      pick.onPick({ mint: row.mint, symbol: row.symbol, icon: row.icon, name: row.name, verified: row.verified, price: row.price });
+      const pinned = pick.pinned.find((token) => token.mint === row.mint);
+      pick.onPick(pinned ?? { mint: row.mint, symbol: row.symbol, icon: row.icon, name: row.name, verified: row.verified, price: row.price });
     } else {
       selectAsset(row.asset, row.mint);
     }
@@ -252,7 +260,11 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
-              pick ? "Search any Solana token by name, ticker or paste an address" : isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"
+              pick
+                ? pick.scope === "evm"
+                  ? "Search any token on Base, Arbitrum or Ethereum by name, ticker or address"
+                  : "Search any Solana token by name, ticker or paste an address"
+                : isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"
             }
             aria-label="Search"
             role="combobox"

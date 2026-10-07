@@ -29,7 +29,9 @@ const erc20Meta = [
 
 /** Decimals (and names) straight from the token contract, for search hits the Uniswap list doesn't carry. */
 async function readTokenMeta(chain: EvmSwapChain, address: `0x${string}`) {
-  if (isNativeToken(address)) return { decimals: 18, symbol: "ETH", name: "Ether" };
+  // The chain's own pay tokens (USDC, ETH, WETH, USDT) are known; no contract call.
+  const known = chain.pay.find((entry) => entry.address.toLowerCase() === address.toLowerCase());
+  if (known) return { decimals: known.decimals, symbol: known.symbol, name: isNativeToken(address) ? "Ether" : known.symbol };
   const { createPublicClient, http } = await import("viem");
   const client = createPublicClient({ transport: http(chain.rpc) });
   const [decimals, symbol, name] = await Promise.all(

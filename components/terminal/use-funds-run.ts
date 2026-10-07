@@ -6,7 +6,7 @@ import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, usdcUnits, USDC_DECIMALS, wi
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { acrossRecipientMinimum, type FundsStep } from "@/lib/venues/bridge-routes";
-import { summarizeAcrossQuote } from "@/lib/venues/across";
+import { BRIDGE_PROVIDER_NAMES, noRouteReason, type BridgeLegRef } from "@/lib/venues/bridge-leg";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { useTrading } from "./trading-provider";
@@ -18,10 +18,10 @@ const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
 const FILL_POLL_MS = 4_000;
 const FILL_TIMEOUT_MS = 15 * 60_000;
 
-/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or Across's relayer filling. */
+/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or the bridge (Across or Relay) filling. */
 export type Wait =
   | { kind: "arrival"; before: bigint; expected: bigint; since: number }
-  | { kind: "fill"; depositId: bigint; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
+  | { kind: "fill"; leg: BridgeLegRef; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
 
 /** A route being carried out: `carry` is what the next step moves (the previous step's output). */
 export interface Run {
@@ -46,7 +46,7 @@ export function stepLabel(step: FundsStep) {
   if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
   const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
   const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
-  return `Bridge with Across to ${into} (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
+  return `Bridge to ${into} with Across or Relay, whichever pays more (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
 }
 
 export function continueLabel(step: FundsStep, carry: bigint) {
@@ -120,21 +120,22 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         return advance(current, current.carry, result.explorerUrl);
       }
       const recipient = step.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[step.recipient], step.to, address);
-      const { fetchAcrossQuote, executeAcross } = await import("@/lib/venues/across-client");
-      // Always a fresh quote right before signing: its transaction carries the amounts and a deadline.
-      const fresh = await fetchAcrossQuote({ from: step.from, to: step.to, units: current.carry, depositor: address, recipient });
-      const summary = summarizeAcrossQuote(fresh);
-      if (!summary.executable) throw new Error("Across has no route for this amount right now.");
+      const { quoteBridgeLeg, executeBridgeLeg } = await import("@/lib/venues/bridge-leg");
+      // Always fresh quotes right before signing (their transactions carry the amounts and a deadline); the larger
+      // output of Across and Relay runs.
+      const quotes = await quoteBridgeLeg({ from: step.from, to: step.to, units: current.carry, depositor: address, recipient });
+      const summary = quotes.best;
+      if (!summary) throw new Error(noRouteReason(quotes));
       if (summary.shortBalance) throw new Error(`Not enough ${step.from.symbol} in your wallet on ${step.from.name}.`);
       const minimum = acrossRecipientMinimum(step.recipient);
       if (summary.minOut < BigInt(minimum) * 10n ** BigInt(USDC_DECIMALS)) throw new Error(`${PERP_VENUE_NAMES[step.recipient as PerpVenueId]} needs at least ${minimum} ${step.to.symbol} after fees.`);
       const before = step.recipient === "wallet" ? await readUsdcBalance(step.to, address).catch(() => null) : null;
-      const sent = await executeAcross(wallet.provider, address, step.from, step.to, fresh);
+      const sent = await executeBridgeLeg(wallet.provider, address, step.from, step.to, current.carry, summary);
       setRun({
         ...current,
         phase: "waiting",
         explorerUrl: sent.explorerUrl,
-        wait: { kind: "fill", depositId: sent.depositId, origin: step.from, to: step.to, before, expected: summary.expectedOut, since: Date.now() },
+        wait: { kind: "fill", leg: sent.ref, origin: step.from, to: step.to, before, expected: summary.expectedOut, since: Date.now() },
       });
     } catch (caught) {
       toast({ tone: "error", title: "Transfer not sent", message: errorMessage(caught) });
@@ -163,8 +164,8 @@ export function useFundsRun(callbacks: FundsRunOptions) {
           }
           return;
         }
-        const { acrossFilled } = await import("@/lib/venues/across-client");
-        const state = await acrossFilled(wait.depositId, wait.origin.chainId).catch(() => "pending" as const);
+        const { bridgeLegState } = await import("@/lib/venues/bridge-leg");
+        const state = await bridgeLegState(wait.leg, wait.origin.chainId).catch(() => "pending" as const);
         if (state === "filled") {
           let carry = wait.expected;
           if (wait.before !== null) {
@@ -179,7 +180,10 @@ export function useFundsRun(callbacks: FundsRunOptions) {
           toast({
             tone: "error",
             title: state === "failed" ? "Bridge refunded" : "Bridge is taking longer than usual",
-            message: state === "failed" ? `Across returned the funds to your wallet on ${wait.origin.name}.` : "Check the transaction; Across refunds on the origin chain if it can't fill.",
+            message:
+              state === "failed"
+                ? `${BRIDGE_PROVIDER_NAMES[wait.leg.provider]} returned the funds to your wallet on ${wait.origin.name}.`
+                : `Check the transaction; ${BRIDGE_PROVIDER_NAMES[wait.leg.provider]} refunds on the origin chain if it can't fill.`,
             ...(current.explorerUrl && { link: { href: current.explorerUrl, label: "View transaction" } }),
           });
           setRun(null);

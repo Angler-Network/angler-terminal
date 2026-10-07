@@ -300,7 +300,10 @@ export function OrderPanel() {
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   // The Bridge shortcut (sidebar, funds window): open the destination chain's USDC with the source chain's dollar.
+  const { isLoaded: preferencesLoaded } = usePreferences();
   useEffect(() => {
+    // After the saved preferences load, or they would put the saved chart asset back over the preset.
+    if (!preferencesLoaded) return;
     const apply = (preset: BridgePreset | null) => {
       if (!preset) return;
       const target = bridgeAsset(preset);
@@ -313,7 +316,7 @@ export function OrderPanel() {
     };
     window.addEventListener(BRIDGE_EVENT, onBridge);
     return () => window.removeEventListener(BRIDGE_EVENT, onBridge);
-  }, [selectAsset]);
+  }, [selectAsset, preferencesLoaded]);
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
   useEffect(() => () => setTradeVenue(null), [setTradeVenue]);
   const isPerp = market !== null;

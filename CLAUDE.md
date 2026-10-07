@@ -320,15 +320,27 @@ dependency versions and design are free to diverge from angler-news.
     Solana/Robinhood card. `useEvmToken` reads the list, else the search by address plus the contract's decimals. The
     chart and the activity panel use GeckoTerminal networks `eth`/`base`/`arbitrum`. Swaps are recorded per wallet
     (`SwapRecord.chain`), counted in analytics as `uniswap`, not in profile points yet.
-    Cross-chain: the card's other side can also be a dollar on another chain (USDC on Arbitrum/Base/Ethereum, USDG on
-    Robinhood, or a Hyperliquid withdrawal when buying). Buying runs `fundsRoute(… → wallet on the token's chain)`
+    Cross-chain: the card's other side is any token on any chain, picked in the market search's EVM pick mode
+    (`pickToken({ scope: "evm" })`: Uniswap tokens of every chain, the chains' USDC/ETH, USDG on Robinhood and, buying,
+    the Hyperliquid balance pinned first). Same chain → Uniswap. Any token across chains → Relay in one go (`direct`:
+    `fetchRelayQuote` any pair, `sendRelayTxs` on the origin chain, `relayRequestState` until filled; analytics venue
+    `relay`). Another chain's dollar (USDC on Arbitrum/Base/Ethereum, USDG on Robinhood) or the Hyperliquid balance
+    keeps the bridge path below. Buying runs `fundsRoute(… → wallet on the token's chain)`
     through `useFundsRun` (`waitForWithdrawal` makes a lone HL withdrawal wait for the USDC too), then asks for one
     more press to swap the USDC that landed (`bridged`); selling swaps to the chain's USDC, then bridges what it
-    delivered. Dollar to dollar is only the bridge: that is Bridge now. The sidebar/top bar/phone "Bridge" calls
-    `openBridge` (`bridge-shortcut.ts`): /swap on the destination's USDC with the source chain's dollar as the other
-    side (an event when the terminal is mounted, `?bridge=from-to` from other pages). The funds window is Deposit /
+    delivered. Dollar to dollar is only the bridge. There is no separate Bridge in the navigation (it opened the same
+    page as Swap); `openBridge` (`bridge-shortcut.ts`) opens /swap on the destination's USDC with the source chain's
+    dollar as the other side (an event when the terminal is mounted, `?bridge=from-to` from other pages, applied once
+    the saved preferences load). The funds window is Deposit /
     Withdraw / Between venues; a wallet-to-wallet pair there hands over to Swap. Ethereum is a funds wallet chain too
     (`ETHEREUM` in `deposits.ts`).
+  - Relay (`lib/venues/relay*.ts`, `bridge-leg.ts`, `app/api/relay/[...path]`): every bridge leg (`FundsStep` "across":
+    funds window, both swap cards) quotes Across and Relay together (`quoteBridgeLeg`) and runs the larger output,
+    Across on a tie; waits follow `BridgeLegRef` (Across deposit id or Relay request id). Relay's `/quote` lists the
+    origin-chain transactions (approval when needed, deposit), `/intents/status/v2` reports waiting → success /
+    refund / failure. No key needed; the proxy (POST quote same origin, GET status) adds our app fee
+    (`RELAY_FEE_BPS` whole bps ≤ 500 to `RELAY_FEE_RECIPIENT`) and, with `RELAY_API_KEY`, the referrer (quotes with a
+    referrer but no key are refused). Relay checks no balance in its quote, so the client does before sending.
   - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
     Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
     The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the

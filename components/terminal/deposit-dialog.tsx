@@ -11,7 +11,7 @@ import { lighterIntentAddress, readUsdcBalance } from "@/lib/venues/deposit-clie
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
-import { summarizeAcrossQuote, type AcrossQuoteSummary } from "@/lib/venues/across";
+import type { BridgeLegQuote } from "@/lib/venues/bridge-leg";
 import {
   BRIDGE_VENUES,
   WALLET_CHAINS,
@@ -119,7 +119,7 @@ export function DepositDialog() {
   const [chains, setChains] = useState<{ from: WalletChain; to: WalletChain }>({ from: "arbitrum", to: "arbitrum" });
   const [amount, setAmount] = useState("");
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [quote, setQuote] = useState<{ key: string; summary?: AcrossQuoteSummary; error?: string } | null>(null);
+  const [quote, setQuote] = useState<{ key: string; summary?: BridgeLegQuote; error?: string } | null>(null);
   const { run, setRun, execute } = useFundsRun({
     resume: () => openDeposit(depositVenue ?? (isPerpEndpoint(to) ? to : "lighter"), "move"),
     onWithdrawOnly: closeDeposit,
@@ -201,16 +201,16 @@ export function DepositDialog() {
     };
   }, [address, fromWallet, input]);
 
-  // Debounced Across quote for the preview line.
+  // Debounced bridge quotes (Across and Relay, the better one) for the preview line.
   useEffect(() => {
     if (!quoteKey || !acrossStep || !acrossInput || !address || locked) return setQuote(null);
     let isActive = true;
     const timer = window.setTimeout(async () => {
       try {
         const recipient = acrossStep.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[acrossStep.recipient], acrossStep.to, address);
-        const { fetchAcrossQuote } = await import("@/lib/venues/across-client");
-        const result = await fetchAcrossQuote({ from: acrossStep.from, to: acrossStep.to, units: acrossInput, depositor: address, recipient });
-        if (isActive) setQuote({ key: quoteKey, summary: summarizeAcrossQuote(result) });
+        const { quoteBridgeLeg, noRouteReason } = await import("@/lib/venues/bridge-leg");
+        const result = await quoteBridgeLeg({ from: acrossStep.from, to: acrossStep.to, units: acrossInput, depositor: address, recipient });
+        if (isActive) setQuote(result.best ? { key: quoteKey, summary: result.best } : { key: quoteKey, error: noRouteReason(result) });
       } catch (caught) {
         if (isActive) setQuote({ key: quoteKey, error: errorMessage(caught) });
       }
@@ -448,7 +448,7 @@ export function DepositDialog() {
                 {acrossStep && quoteLine?.error && <p className="text-[12px] text-app-down">{quoteLine.error}</p>}
                 {acrossStep && quoteLine?.summary && (
                   <p className="text-[11px] text-app-muted">
-                    {converted ? "Bridge and conversion" : "Bridge"} by Across · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
+                    {converted ? "Bridge and conversion" : "Bridge"} by {quoteLine.summary.provider === "relay" ? "Relay" : "Across"} (best of Across and Relay) · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
                     {steps[0].kind === "hlWithdraw" ? " · after Hyperliquid's 1 USDC withdrawal fee" : ""}
                   </p>
                 )}
@@ -488,7 +488,7 @@ export function DepositDialog() {
             )}
             {run?.phase === "waiting" && (
               <p className="text-[13px] text-app-ink">
-                {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `Across is filling on ${run.wait?.to.name}…`} You can close this window and keep trading;
+                {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `The bridge is filling on ${run.wait?.to.name}…`} You can close this window and keep trading;
                 we&apos;ll tell you when it&apos;s there.
               </p>
             )}

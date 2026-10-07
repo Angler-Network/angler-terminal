@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
-import { summarizeAcrossQuote } from "@/lib/venues/across";
 import { fundsRoute, stepsError } from "@/lib/venues/bridge-routes";
 import { readUsdcBalance } from "@/lib/venues/deposit-client";
 import { ARBITRUM, BASE, HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
@@ -436,17 +435,16 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const viaRoute = hasQuotes ? routeText(selected?.route) : null;
   const canSwap = Boolean(owner) && sizeUsd > 0 && !error && !isPlacing && !locked && !needsAck;
 
-  // Debounced Across quote for a cross-chain payment: what USDG lands on Robinhood for this USDC.
+  // Debounced bridge quote (Across or Relay, the better one) for a cross-chain payment: what USDG lands on Robinhood for this USDC.
   useEffect(() => {
     if (!crossKey || !acrossStep || !acrossInput || !evmAddress || locked) return setCrossQuote(null);
     let active = true;
     const timer = window.setTimeout(async () => {
       try {
-        const { fetchAcrossQuote } = await import("@/lib/venues/across-client");
-        const quote = summarizeAcrossQuote(
-          await fetchAcrossQuote({ from: acrossStep.from, to: acrossStep.to, units: acrossInput, depositor: evmAddress, recipient: evmAddress }),
-        );
-        if (active) setCrossQuote({ key: crossKey, out: quote.expectedOut, feeUsd: quote.feeUsd });
+        const { quoteBridgeLeg, noRouteReason } = await import("@/lib/venues/bridge-leg");
+        const result = await quoteBridgeLeg({ from: acrossStep.from, to: acrossStep.to, units: acrossInput, depositor: evmAddress, recipient: evmAddress });
+        const quote = result.best;
+        if (active) setCrossQuote(quote ? { key: crossKey, out: quote.expectedOut, feeUsd: quote.feeUsd } : { key: crossKey, error: noRouteReason(result) });
       } catch (caught) {
         if (active) setCrossQuote({ key: crossKey, error: errorMessage(caught) });
       }
@@ -748,7 +746,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           </ol>
           {run?.phase === "waiting" && (
             <p className="text-[11px] text-app-muted">
-              {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `Across is filling on ${run.wait?.to.name}…`} You can keep trading; we&apos;ll tell
+              {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `The bridge is filling on ${run.wait?.to.name}…`} You can keep trading; we&apos;ll tell
               you when it&apos;s there.
             </p>
           )}

@@ -9,19 +9,18 @@ import { trackTrade } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { uniswapListingId } from "@/lib/spot/listings";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
-import { summarizeAcrossQuote } from "@/lib/venues/across";
-import { WALLET_CHAINS, WALLET_CHAIN_NAMES, fundsRoute, stepsError, walletChainSource, type FundsStep, type WalletChain } from "@/lib/venues/bridge-routes";
-import { HL_WITHDRAW_FEE_USDC, usdcUnits } from "@/lib/venues/deposits";
+import { WALLET_CHAINS, fundsRoute, stepsError, walletChainSource, type FundsStep, type WalletChain } from "@/lib/venues/bridge-routes";
+import { HL_WITHDRAW_FEE_USDC, ROBINHOOD, sourceChainById, usdcUnits } from "@/lib/venues/deposits";
 import { MAX_SPOT_PRICE_IMPACT_PCT } from "@/lib/trading/presets";
 import { bpsToPercent } from "@/lib/trading/slippage";
 import { fromBaseUnits, toBaseUnits } from "@/lib/venues/jupiter/amounts";
-import { evmRef, isNativeToken, sameAddress, wrappedNative, type EvmSwapChain, type EvmSwapToken } from "@/lib/venues/uniswap/chains";
+import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, isNativeToken, sameAddress, wrappedNative, type EvmSwapChain, type EvmSwapToken } from "@/lib/venues/uniswap/chains";
+import type { RelayQuote, RelaySwapRequest } from "@/lib/venues/relay";
 import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
 import type { UniswapQuote } from "@/lib/venues/uniswap/quote";
 import type { OrderSide } from "@/lib/venues/types";
-import { useAssetSearch } from "./asset-search";
+import { useAssetSearch, type TokenChoice } from "./asset-search";
 import { bridgeFromFor } from "./bridge-shortcut";
-import { Picker, type PickerOption } from "./inline-picker";
 import { DetailRow, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
@@ -43,26 +42,36 @@ const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 845
 
 type Side = Pick<EvmSwapToken, "address" | "symbol" | "decimals"> & { icon?: string };
 
-/** The other side of the swap: a token on the token's own chain, or a dollar elsewhere that Across bridges. */
-type Counter = { kind: "local"; address: string } | { kind: "remote"; from: WalletChain | "hyperliquid" };
+/**
+ * The other side of the swap: any token on any chain (same chain → Uniswap; another chain's dollar → the Across/Relay
+ * bridge plus Uniswap; anything else across chains → Relay in one go), or the Hyperliquid balance (a withdrawal).
+ */
+type Counter = { kind: "token"; chainId: number; address: `0x${string}`; symbol: string; decimals?: number; icon?: string } | { kind: "hyperliquid" };
 
-const counterValue = (counter: Counter) => (counter.kind === "local" ? `local:${counter.address}` : `remote:${counter.from}`);
-function readCounter(value: string): Counter {
-  const [kind, rest] = value.split(":");
-  return kind === "remote" ? { kind: "remote", from: rest as WalletChain | "hyperliquid" } : { kind: "local", address: rest };
+const HL_PICK = "hyperliquid";
+const RELAY_POLL_MS = 3_000;
+const RELAY_TIMEOUT_MS = 10 * 60_000;
+const QUOTE_ONLY_USER = "0x000000000000000000000000000000000000dEaD";
+const ROBINHOOD_RPC = "https://rpc.mainnet.chain.robinhood.com";
+
+const rpcFor = (chainId: number | null) => (chainId === null ? null : (evmSwapChain(chainId)?.rpc ?? (chainId === 4663 ? ROBINHOOD_RPC : null)));
+const chainNameOf = (chainId: number) => evmSwapChain(chainId)?.name ?? sourceChainById(chainId)?.name ?? `Chain ${chainId}`;
+
+function tokenCounter(chainId: number, token: { address: `0x${string}`; symbol: string; decimals: number }, icon?: string): Counter {
+  return { kind: "token", chainId, address: token.address, symbol: token.symbol, decimals: token.decimals, icon };
 }
 
 /** The wallet's balances of `tokens` on the chain, refreshed while the tab is visible. */
-function useBalances(chain: EvmSwapChain, owner: `0x${string}` | null, tokens: string[], refresh: number) {
-  const key = owner ? `${chain.id}:${owner}:${tokens.join(",")}:${refresh}` : null;
+function useBalances(rpc: string | null, owner: `0x${string}` | null, tokens: string[], refresh: number) {
+  const key = owner && rpc ? `${rpc}:${owner}:${tokens.join(",")}:${refresh}` : null;
   const [state, setState] = useState<{ key: string; amounts: Record<string, bigint> } | null>(null);
   useEffect(() => {
-    if (!key || !owner) return;
+    if (!key || !owner || !rpc) return;
     let active = true;
     const load = async () => {
       try {
         const { createPublicClient, erc20Abi, http } = await import("viem");
-        const client = createPublicClient({ transport: http(chain.rpc) });
+        const client = createPublicClient({ transport: http(rpc) });
         const amounts = await Promise.all(
           tokens.map((address) =>
             isNativeToken(address)
@@ -124,9 +133,10 @@ function useAcrossPreview(step: Extract<FundsStep, { kind: "across" }> | null, u
     let active = true;
     const timer = window.setTimeout(async () => {
       try {
-        const { fetchAcrossQuote } = await import("@/lib/venues/across-client");
-        const summary = summarizeAcrossQuote(await fetchAcrossQuote({ from: step.from, to: step.to, units, depositor: owner, recipient: owner }));
-        if (active) setState({ key, out: summary.expectedOut, feeUsd: summary.feeUsd });
+        const { quoteBridgeLeg, noRouteReason } = await import("@/lib/venues/bridge-leg");
+        const result = await quoteBridgeLeg({ from: step.from, to: step.to, units, depositor: owner, recipient: owner });
+        const summary = result.best;
+        if (active) setState(summary ? { key, out: summary.expectedOut, feeUsd: summary.feeUsd } : { key, error: noRouteReason(result) });
       } catch (caught) {
         if (active) setState({ key, error: errorMessage(caught) });
       }
@@ -138,6 +148,38 @@ function useAcrossPreview(step: Extract<FundsStep, { kind: "across" }> | null, u
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
   }, [key]);
   return key && state?.key === key ? state : null;
+}
+
+/** A debounced Relay quote for a cross-chain swap of any token pair (the "direct" route), refreshed every few seconds. */
+function useRelayDirect(request: RelaySwapRequest | null) {
+  const key = request && request.amount > 0n ? [request.originChainId, request.originCurrency, request.destinationChainId, request.destinationCurrency, request.amount, request.user].join("|") : null;
+  const [state, setState] = useState<{ key: string; quote?: RelayQuote; error?: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!key || !request) return;
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { fetchRelayQuote } = await import("@/lib/venues/bridge-leg");
+        const quote = await fetchRelayQuote(request);
+        if (active) setState(quote.executable ? { key, quote } : { key, error: "Relay has no route for this swap right now." });
+      } catch (caught) {
+        if (active) setState({ key, error: errorMessage(caught) });
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    const debounce = window.setTimeout(load, QUOTE_DEBOUNCE_MS);
+    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), QUOTE_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearTimeout(debounce);
+      window.clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
+  }, [key]);
+  return { ...(key && state?.key === key ? state : {}), loading };
 }
 
 /** Exact base units for typed text; a "Max" that float rounding pushes past the balance snaps back to it. */
@@ -185,7 +227,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const { preferences } = usePreferences();
   const { address: owner, wallet } = useWallet();
   const { open: openWallets } = useWalletModal();
-  const { open: openSearch } = useAssetSearch();
+  const { open: openSearch, pickToken } = useAssetSearch();
   const { network: hlNetwork, accounts } = useTrading();
   const toast = useToast();
   const router = useRouter();
@@ -195,11 +237,15 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const tokenIsUsdc = sameAddress(token.address, chainUsdc.address);
   const localOptions = chain.pay.filter((entry) => !sameAddress(entry.address, token.address));
   const remoteChains = WALLET_CHAINS.filter((entry) => entry !== chain.key);
+  const remoteDollar = (from: WalletChain): Counter => {
+    const source = walletChainSource(from);
+    return tokenCounter(source.chainId, { address: source.usdc, symbol: source.symbol, decimals: 6 }, stableLogo(source.symbol));
+  };
   // A dollar token (the Bridge shortcut opens USDC) starts on another chain's dollar: the bridge.
   const [counter, setCounter] = useState<Counter>(() => {
     const bridgeFrom = bridgeFromFor(evmRef(chain.id, token.address));
-    if (bridgeFrom && bridgeFrom !== chain.key) return { kind: "remote", from: bridgeFrom };
-    return DOLLARS.has(token.symbol) ? { kind: "remote", from: remoteChains[0] } : { kind: "local", address: localOptions[0].address };
+    if (bridgeFrom && bridgeFrom !== chain.key) return remoteDollar(bridgeFrom);
+    return DOLLARS.has(token.symbol) ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
   const [side, setSide] = useState<OrderSide>("buy");
   const [amount, setAmount] = useState("");
@@ -209,6 +255,16 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const [showSettings, setShowSettings] = useState(false);
   // USDC a cross-chain buy delivered to this chain, waiting for the swap press.
   const [bridged, setBridged] = useState<bigint | null>(null);
+  // A direct (Relay) cross-chain swap sent and waiting for its fill.
+  const [relayPending, setRelayPending] = useState<{
+    requestId: string;
+    explorerUrl: string;
+    since: number;
+    side: OrderSide;
+    tokenAmount: number;
+    other: { amount: number; symbol: string };
+    usd: number;
+  } | null>(null);
   const slippageBps = preferences.swapSlippageBps;
 
   /** What follows the bridge: the swap press (cross-chain buys) or nothing but a toast naming the received token. */
@@ -243,19 +299,42 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     },
   });
 
-  const listingOf = (address: string) =>
-    listings?.find((listing) => listing.id === uniswapListingId(chain.id, address)) ??
-    (isNativeToken(address) ? listings?.find((listing) => listing.id === uniswapListingId(chain.id, wrappedNative(chain).address)) : undefined);
-  const remote = counter.kind === "remote" ? counter.from : null;
-  // Selling into another chain can't land in a venue account (that's Deposit).
+  const listingOf = (address: string, chainId = chain.id) => {
+    const swapChain = evmSwapChain(chainId);
+    return (
+      listings?.find((listing) => listing.id === uniswapListingId(chainId, address)) ??
+      (swapChain && isNativeToken(address) ? listings?.find((listing) => listing.id === uniswapListingId(chainId, wrappedNative(swapChain).address)) : undefined)
+    );
+  };
+  // Decimals of a counter token picked from the search (the Uniswap list has them; else the contract).
+  const counterMeta = useEvmToken(counter.kind === "token" && counter.decimals === undefined && evmSwapChain(counter.chainId) ? evmRef(counter.chainId, counter.address) : undefined);
+  const counterDecimals = counter.kind === "token" ? (counter.decimals ?? counterMeta?.decimals) : 6;
+  const counterChainId = counter.kind === "token" ? counter.chainId : null;
+  const sameChain = counterChainId === chain.id;
+  // Another chain's dollar (USDC, or USDG on Robinhood) goes the bridge way; any other token there goes through Relay.
+  const dollarRemote =
+    counter.kind === "token" && !sameChain
+      ? (WALLET_CHAINS.find((entry) => {
+          const source = walletChainSource(entry);
+          return source.chainId === counter.chainId && sameAddress(source.usdc, counter.address);
+        }) ?? null)
+      : null;
+  const remote = counter.kind === "hyperliquid" ? "hyperliquid" : dollarRemote;
+  // Selling into another chain can't land in a venue account (that's Deposit): it falls back to this chain's USDC.
   const effectiveRemote = remote === "hyperliquid" && side === "sell" ? null : remote;
-  const localToken = (counter.kind === "local" ? localOptions.find((entry) => sameAddress(entry.address, counter.address)) : null) ?? localOptions[0];
+  const direct = counter.kind === "token" && !sameChain && !dollarRemote;
+  const localToken: Side =
+    counter.kind === "token" && sameChain
+      ? { address: counter.address, symbol: counter.symbol, decimals: counterDecimals ?? 18, icon: counter.icon }
+      : { ...chainUsdc, icon: stableLogo("USDC") };
   const remoteSource = effectiveRemote && effectiveRemote !== "hyperliquid" ? walletChainSource(effectiveRemote) : null;
   const remoteSide: Side | null = effectiveRemote
     ? { address: remoteSource?.usdc ?? chainUsdc.address, symbol: remoteSource?.symbol ?? "USDC", decimals: 6, icon: stableLogo(remoteSource?.symbol ?? "USDC") }
-    : null;
-  const remoteChainName = effectiveRemote === "hyperliquid" ? "Hyperliquid" : effectiveRemote ? WALLET_CHAIN_NAMES[effectiveRemote] : chain.name;
-  const remoteChainBadge = effectiveRemote === "hyperliquid" ? "hyperliquid" : (remoteSource?.chainId ?? chain.id);
+    : direct && counter.kind === "token"
+      ? { address: counter.address, symbol: counter.symbol, decimals: counterDecimals ?? 18, icon: counter.icon }
+      : null;
+  const remoteChainName = effectiveRemote === "hyperliquid" ? "Hyperliquid" : effectiveRemote || direct ? chainNameOf(counterChainId!) : chain.name;
+  const remoteChainBadge = effectiveRemote === "hyperliquid" ? "hyperliquid" : effectiveRemote || direct ? counterChainId! : chain.id;
 
   const cross = effectiveRemote !== null;
   const crossBuy = cross && side === "buy";
@@ -269,8 +348,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const acrossIndex = steps.findIndex((step) => step.kind === "across");
   const acrossStep = acrossIndex >= 0 ? (steps[acrossIndex] as Extract<FundsStep, { kind: "across" }>) : null;
 
-  const counterPrice = (entry: Side) => (DOLLARS.has(entry.symbol) ? 1 : listingOf(entry.address)?.price);
-  const pay: Side = remoteSide ?? { ...localToken, icon: listingOf(localToken.address)?.icon };
+  const counterPrice = (entry: Side) => (DOLLARS.has(entry.symbol) ? 1 : listingOf(entry.address, direct ? counterChainId! : chain.id)?.price);
+  const pay: Side = remoteSide ?? { ...localToken, icon: localToken.icon ?? listingOf(localToken.address)?.icon };
   const asset: Side = { address: token.address, symbol: token.symbol, decimals: token.decimals, icon: token.icon };
   const sell = side === "buy" ? pay : asset;
   const buy = side === "buy" ? asset : pay;
@@ -278,15 +357,39 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const sellPrice = side === "buy" ? payPrice : token.price;
   const buyPrice = side === "buy" ? token.price : payPrice;
 
-  const balances = useBalances(chain, owner, [localToken.address, asset.address], refresh);
+  const balances = useBalances(chain.rpc, owner, [localToken.address, asset.address], refresh);
+  // A direct buy spends a token on another chain.
+  const directBalances = useBalances(direct && side === "buy" ? rpcFor(counterChainId) : null, owner, [pay.address], refresh);
   const remoteWallet = useUsdcBalance(crossBuy && remoteSource ? remoteSource : null, owner, refresh);
   const remoteBalance = effectiveRemote === "hyperliquid" ? (accounts.hyperliquid?.withdrawable ?? null) : remoteWallet;
-  const sellBalance = crossBuy ? null : balances ? balances[sell.address.toLowerCase()] : undefined;
+  const sellBalance = crossBuy
+    ? null
+    : direct && side === "buy"
+      ? directBalances
+        ? (directBalances[pay.address.toLowerCase()] ?? 0n)
+        : undefined
+      : balances
+        ? balances[sell.address.toLowerCase()]
+        : undefined;
   const sellBalanceShown = crossBuy ? remoteBalance : sellBalance !== undefined && sellBalance !== null ? fromBaseUnits(sellBalance, sell.decimals) : null;
 
-  const locked = (run !== null && run.phase !== "done") || bridged !== null;
+  const locked = (run !== null && run.phase !== "done") || bridged !== null || relayPending !== null;
   const value = Number(amount) || 0;
-  const units = crossBuy ? usdcUnits(amount) : inputUnits(amount, sell.decimals, sellBalance ?? undefined);
+  const decimalsKnown = counterDecimals !== undefined;
+  const units = !decimalsKnown ? null : crossBuy ? usdcUnits(amount) : inputUnits(amount, sell.decimals, sellBalance ?? undefined);
+  const relay = useRelayDirect(
+    direct && units && counterChainId !== null
+      ? {
+          user: owner ?? QUOTE_ONLY_USER,
+          recipient: owner ?? QUOTE_ONLY_USER,
+          originChainId: side === "buy" ? counterChainId : chain.id,
+          destinationChainId: side === "buy" ? chain.id : counterChainId,
+          originCurrency: sell.address,
+          destinationCurrency: buy.address,
+          amount: units,
+        }
+      : null,
+  );
   // Cross-chain buys bridge first: the Across leg's input is the amount (after Hyperliquid's withdrawal fee).
   const withdrawFirst = steps[0]?.kind === "hlWithdraw";
   const afterFee = withdrawFirst && units !== null ? usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) : units;
@@ -307,33 +410,37 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     chainId: chain.id,
     tokenIn: crossBuy ? chainUsdc.address : sell.address,
     tokenOut: buy.address,
-    amount: crossSell || (crossBuy && tokenIsUsdc) ? null : crossBuy ? landed : units,
+    amount: direct || crossSell || (crossBuy && tokenIsUsdc) ? null : crossBuy ? landed : units,
     swapper: owner,
     slippageBps,
   });
   const quote = crossSell ? sellQuote.quote : swapQuote.quote;
-  const loading = swapQuote.loading || sellQuote.loading;
+  const loading = swapQuote.loading || sellQuote.loading || relay.loading;
 
-  const receiveUnits = crossSell
-    ? (across?.out ?? null)
-    : crossBuy && tokenIsUsdc
-      ? landed
-      : (swapQuote.quote?.outAmount ?? null);
+  const receiveUnits = direct
+    ? (relay.quote?.expectedOut ?? null)
+    : crossSell
+      ? (across?.out ?? null)
+      : crossBuy && tokenIsUsdc
+        ? landed
+        : (swapQuote.quote?.outAmount ?? null);
   const receive =
     receiveUnits !== null
-      ? fromBaseUnits(receiveUnits, crossSell || tokenIsUsdc ? 6 : buy.decimals)
+      ? fromBaseUnits(receiveUnits, buy.decimals)
       : sellPrice && buyPrice && value > 0
         ? (value * sellPrice) / buyPrice
         : null;
   const sellUsd = sellPrice ? value * sellPrice : null;
   const receiveUsd = receive !== null && buyPrice ? receive * buyPrice : null;
   const minOut = !cross && quote?.minOutAmount ? fromBaseUnits(quote.minOutAmount, buy.decimals) : null;
-  const quoteError = crossSell ? sellQuote.error : swapQuote.error;
+  const quoteError = direct ? relay.error : crossSell ? sellQuote.error : swapQuote.error;
 
   const error =
     value <= 0 || bridged !== null
       ? null
-      : units === null
+      : !decimalsKnown
+        ? null
+        : units === null
         ? "Enter a valid amount."
         : cross && route?.kind !== "steps"
           ? route?.kind === "testnet"
@@ -344,9 +451,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
             : crossBuy && remoteBalance !== null && value > remoteBalance + 1e-9
               ? `Not enough ${pay.symbol} on ${remoteChainName}.`
               : !crossBuy && sellBalance !== undefined && sellBalance !== null && units > sellBalance
-                ? `Not enough ${sell.symbol} on ${chain.name}.`
+                ? `Not enough ${sell.symbol} on ${direct && side === "buy" ? remoteChainName : chain.name}.`
                 : (across?.error ?? quoteError ?? null);
-  const ready = cross ? receiveUnits !== null : Boolean(quote);
+  const ready = direct ? Boolean(relay.quote) : cross ? receiveUnits !== null : Boolean(quote);
   const canSwap = Boolean(owner) && ready && !error && !placing && !locked;
 
   useEffect(() => setArmed(false), [side, amount, counter]);
@@ -357,9 +464,44 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   }, [armed]);
 
   const flip = () => {
+    // The Hyperliquid balance can pay but can't receive: selling lands in this chain's USDC instead.
+    if (side === "buy" && counter.kind === "hyperliquid") setCounter(tokenCounter(chain.id, chainUsdc, stableLogo("USDC")));
     setSide((current) => (current === "buy" ? "sell" : "buy"));
     setAmount(receive && receive > 0 ? String(Number(receive.toPrecision(6))) : "");
   };
+
+  // A direct swap fills on the destination in seconds: follow it, then report like any swap.
+  useEffect(() => {
+    if (!relayPending || !owner) return;
+    const pending = relayPending;
+    const timer = window.setInterval(async () => {
+      const { relayRequestState } = await import("@/lib/venues/bridge-leg");
+      const state = await relayRequestState(pending.requestId).catch(() => "pending" as const);
+      if (state === "pending" && Date.now() - pending.since < RELAY_TIMEOUT_MS) return;
+      setRelayPending(null);
+      setRefresh((count) => count + 1);
+      if (state === "filled") {
+        setAmount("");
+        toast({
+          tone: "success",
+          title: `${pending.side === "buy" ? "Bought" : "Sold"} ${amountText(pending.tokenAmount)} ${token.symbol}`,
+          message: `${pending.side === "buy" ? "Paid" : "Received"} ${amountText(pending.other.amount)} ${pending.other.symbol} through Relay`,
+          link: { href: pending.explorerUrl, label: "View transaction" },
+        });
+        recordSwap(owner, { tx: pending.requestId, at: Date.now(), chain: chain.key, token: token.address, symbol: token.symbol, side: pending.side, amount: pending.tokenAmount, usd: pending.usd });
+        trackTrade({ venue: "relay", side: pending.side, usd: Math.round(pending.usd * 100) / 100, feeBps: null, newsId: null, oneClick: preferences.oneClickTrading });
+      } else {
+        toast({
+          tone: "error",
+          title: state === "failed" ? "Swap refunded" : "Relay is taking longer than usual",
+          message: state === "failed" ? "Relay couldn't fill it and returned the funds on the origin chain." : "Check the transaction; Relay refunds on the origin chain if it can't fill.",
+          link: { href: pending.explorerUrl, label: "View transaction" },
+        });
+      }
+    }, RELAY_POLL_MS);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one poller per sent swap
+  }, [relayPending, owner]);
 
   /** One Uniswap swap on this chain; resolves to what it delivered, or null when it failed (a toast says why). */
   const swapOnChain = async (tokenIn: Side, tokenOut: Side, amountIn: bigint) => {
@@ -406,6 +548,44 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     if (!canSwap || units === null) return;
     if (!armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
+    if (direct && counterChainId !== null) {
+      // Any token across chains: one fresh Relay quote, its transactions on the origin chain, then the fill.
+      setPlacing(true);
+      try {
+        const originChainId = side === "buy" ? counterChainId : chain.id;
+        const source = sourceChainById(originChainId);
+        if (!source) throw new Error(`Swaps from ${chainNameOf(originChainId)} aren't supported yet.`);
+        const { fetchRelayQuote, sendRelayTxs } = await import("@/lib/venues/bridge-leg");
+        const fresh = await fetchRelayQuote({
+          user: owner,
+          recipient: owner,
+          originChainId,
+          destinationChainId: side === "buy" ? chain.id : counterChainId,
+          originCurrency: sell.address,
+          destinationCurrency: buy.address,
+          amount: units,
+        });
+        if (!fresh.executable) throw new Error("Relay has no route for this swap right now.");
+        const sent = await sendRelayTxs(wallet.provider, owner, source, fresh);
+        const sold = fromBaseUnits(units, sell.decimals);
+        const bought = fromBaseUnits(fresh.expectedOut, buy.decimals);
+        const otherPrice = counterPrice(pay);
+        setRelayPending({
+          requestId: fresh.requestId,
+          explorerUrl: sent.explorerUrl,
+          since: Date.now(),
+          side,
+          tokenAmount: side === "buy" ? bought : sold,
+          other: { amount: side === "buy" ? sold : bought, symbol: pay.symbol },
+          usd: (side === "buy" ? sold : bought) * (otherPrice ?? 0) || (sellUsd ?? 0),
+        });
+      } catch (caught) {
+        toast({ tone: "error", title: "Swap not sent", message: errorMessage(caught) });
+      } finally {
+        setPlacing(false);
+      }
+      return;
+    }
     if (crossBuy) {
       // Bridge in; the swap waits for the USDC to land and a press (`bridged`).
       pendingFinish.current = tokenIsUsdc ? "USDC" : "swap";
@@ -459,47 +639,57 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       <ChevronDown className="size-4 text-app-muted" aria-hidden />
     </button>
   );
-  const counterOptions: Array<PickerOption<string>> = [
-    ...localOptions.map((entry) => ({
-      value: counterValue({ kind: "local", address: entry.address }),
-      label: `${entry.symbol} · ${chain.name}`,
-      icon: <CoinIcon src={listingOf(entry.address)?.icon ?? stableLogo(entry.symbol)} symbol={entry.symbol} chain={chain.id} size={20} />,
-    })),
-    ...remoteChains.map((entry) => {
-      const source = walletChainSource(entry);
-      return {
-        value: counterValue({ kind: "remote", from: entry }),
-        label: `${source.symbol} · ${WALLET_CHAIN_NAMES[entry]}`,
-        icon: <CoinIcon src={stableLogo(source.symbol)} symbol={source.symbol} chain={source.chainId} size={20} />,
-        note: "bridge",
-      };
-    }),
-    // Hyperliquid pays in (a withdrawal), it can't receive a sale.
+  // Any token on any chain: the market search in pick mode, the chains' dollars and ETH (and Hyperliquid when buying) first.
+  const pinnedCounters: TokenChoice[] = [
+    ...EVM_SWAP_CHAINS.flatMap((entry) =>
+      entry.pay
+        .filter((payToken) => payToken.symbol === "USDC" || isNativeToken(payToken.address))
+        .map((payToken) => ({
+          mint: evmRef(entry.id, payToken.address),
+          symbol: payToken.symbol,
+          name: `${payToken.symbol} on ${entry.name}`,
+          icon: listingOf(payToken.address, entry.id)?.icon ?? stableLogo(payToken.symbol),
+          chainId: entry.id,
+          decimals: payToken.decimals,
+          verified: true,
+          source: `Uniswap · ${entry.name}`,
+        })),
+    ),
+    { mint: evmRef(ROBINHOOD.mainnet.chainId, ROBINHOOD.mainnet.usdc), symbol: "USDG", name: "USDG on Robinhood Chain", icon: stableLogo("USDG"), chainId: ROBINHOOD.mainnet.chainId, decimals: 6, verified: true, source: "Robinhood Chain" },
     ...(side === "buy" && hlNetwork === "mainnet"
-      ? [{ value: "remote:hyperliquid", label: "USDC · Hyperliquid", icon: <CoinIcon src={stableLogo("USDC")} symbol="USDC" chain="hyperliquid" size={20} />, note: "withdraw" }]
+      ? [{ mint: HL_PICK, symbol: "USDC", name: "Your Hyperliquid balance (withdrawal)", icon: stableLogo("USDC"), decimals: 6, verified: true, source: "Hyperliquid" }]
       : []),
   ];
-  const counterPill = (
-    <Picker
-      label={side === "buy" ? "Pay with" : "Receive"}
-      value={effectiveRemote ? counterValue({ kind: "remote", from: effectiveRemote }) : counterValue({ kind: "local", address: localToken.address })}
-      options={counterOptions}
-      disabled={locked}
-      onChange={(next) => {
-        setCounter(readCounter(next));
+  const pickCounter = () =>
+    pickToken({
+      title: side === "buy" ? "Pay with" : "Receive",
+      scope: "evm",
+      pinned: pinnedCounters,
+      exclude: evmRef(chain.id, token.address),
+      onPick: (picked) => {
+        if (picked.mint === HL_PICK) setCounter({ kind: "hyperliquid" });
+        else {
+          const [, id, address] = picked.mint.split(":");
+          const chainId = picked.chainId ?? Number(id);
+          if (!/^0x[0-9a-fA-F]{40}$/.test(address ?? "") || !Number.isFinite(chainId)) return;
+          setCounter({ kind: "token", chainId, address: address as `0x${string}`, symbol: picked.symbol, decimals: picked.decimals, icon: picked.icon });
+        }
         setAmount("");
-      }}
-      buttonClassName={`${pillClass} hover:bg-app-selected disabled:opacity-60`}
-    >
+      },
+    });
+  const counterPill = (
+    <button type="button" aria-label={side === "buy" ? "Pay with" : "Receive"} title="Pick any token on any chain" onClick={pickCounter} disabled={locked} className={`${pillClass} hover:bg-app-selected disabled:opacity-60`}>
       {face(pay, remoteChainName, remoteChainBadge)}
-    </Picker>
+      <ChevronDown className="size-4 text-app-muted" aria-hidden />
+    </button>
   );
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const rate = receive && value > 0 && !(tokenIsUsdc && cross) ? (side === "buy" ? value / receive : receive / value) : null;
   const pureBridge = cross && tokenIsUsdc;
   const swapLabel = `Swap ${chainUsdc.symbol} → ${token.symbol} on Uniswap · ${chain.name} (one signature)`;
-  const checklist = !cross ? [] : crossBuy ? [...steps.map(stepLabel), ...(pureBridge ? [] : [swapLabel])] : [...(pureBridge ? [] : [`Swap ${token.symbol} → USDC on Uniswap · ${chain.name}`]), ...steps.map(stepLabel)];
-  const doneSteps = !cross ? 0 : crossBuy ? (bridged !== null ? steps.length : run ? run.index : 0) : run ? (pureBridge ? 0 : 1) + run.index : 0;
+  const directLabel = `Relay swaps ${sell.symbol} on ${side === "buy" ? remoteChainName : chain.name} for ${buy.symbol} on ${side === "buy" ? chain.name : remoteChainName} (an approval when needed, then one transaction; seconds)`;
+  const checklist = direct ? [directLabel] : !cross ? [] : crossBuy ? [...steps.map(stepLabel), ...(pureBridge ? [] : [swapLabel])] : [...(pureBridge ? [] : [`Swap ${token.symbol} → USDC on Uniswap · ${chain.name}`]), ...steps.map(stepLabel)];
+  const doneSteps = direct ? 0 : !cross ? 0 : crossBuy ? (bridged !== null ? steps.length : run ? run.index : 0) : run ? (pureBridge ? 0 : 1) + run.index : 0;
   const shareBalance = crossBuy ? null : (sellBalance ?? null);
 
   return (
@@ -587,26 +777,30 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         <p className="text-[12px] tabular-nums text-app-muted">
           1 {token.symbol} ≈ {DOLLARS.has(pay.symbol) ? formatPrice(rate) : amountText(rate)} {pay.symbol}
           <span className="text-app-faint">
-            {" · "}Uniswap on {chain.name}
-            {cross ? " + Across" : quote ? (quote.settle === "order" ? ", gasless (UniswapX)" : quote.route.length ? ` via ${quote.route.join(", ")}` : "") : ""}
+            {" · "}
+            {direct ? `Relay, ${remoteChainName} → ${chain.name}` : `Uniswap on ${chain.name}`}
+            {direct ? "" : cross ? " + bridge" : quote ? (quote.settle === "order" ? ", gasless (UniswapX)" : quote.route.length ? ` via ${quote.route.join(", ")}` : "") : ""}
             {loading && <span aria-hidden className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-app-accent align-middle" />}
           </span>
         </p>
       )}
-      {cross && checklist.length > 0 && (
+      {(cross || direct) && checklist.length > 0 && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline p-2.5">
           <p className="text-[12px] text-app-ink">
-            {pureBridge
-              ? `Across moves your ${sell.symbol} from ${side === "buy" ? remoteChainName : chain.name} to ${side === "buy" ? chain.name : remoteChainName}${sell.symbol !== buy.symbol ? ` and converts it to ${buy.symbol} (about 1:1)` : ""}.`
+            {direct
+              ? `Your ${sell.symbol} on ${side === "buy" ? remoteChainName : chain.name} becomes ${buy.symbol} on ${side === "buy" ? chain.name : remoteChainName} in one cross-chain swap.`
+              : pureBridge
+              ? `Across or Relay moves your ${sell.symbol} from ${side === "buy" ? remoteChainName : chain.name} to ${side === "buy" ? chain.name : remoteChainName}${sell.symbol !== buy.symbol ? ` and converts it to ${buy.symbol} (about 1:1)` : ""}.`
               : crossBuy
                 ? `Your ${pay.symbol} on ${remoteChainName} is bridged to ${chain.name} as USDC, then swapped for ${token.symbol} on Uniswap.`
                 : `${token.symbol} is swapped for USDC on ${chain.name}, then bridged to ${remoteChainName}${pay.symbol !== "USDC" ? ` as ${pay.symbol}` : ""}.`}
-            {across?.feeUsd !== undefined && <span className="text-app-muted"> Bridge fee {across.feeUsd < 0.01 ? "< $0.01" : `$${across.feeUsd.toFixed(2)}`}.</span>}
+            {direct && relay.quote && <span className="text-app-muted"> Route fee {relay.quote.feeUsd < 0.01 ? "< $0.01" : `$${relay.quote.feeUsd.toFixed(2)}`}.</span>}
+            {!direct && across?.feeUsd !== undefined && <span className="text-app-muted"> Bridge fee {across.feeUsd < 0.01 ? "< $0.01" : `$${across.feeUsd.toFixed(2)}`}.</span>}
           </p>
           <ol className="flex flex-col gap-1">
             {checklist.map((label, index) => {
               const done = index < doneSteps;
-              const current = index === doneSteps && (run !== null || bridged !== null);
+              const current = index === doneSteps && (run !== null || bridged !== null || relayPending !== null);
               return (
                 <li key={index} className={`flex items-start gap-2 text-[11px] ${current ? "font-semibold text-app-ink" : done ? "text-app-up" : "text-app-faint"}`}>
                   <span className={`mt-px grid size-4 shrink-0 place-items-center rounded-full text-[10px] ${done ? "bg-app-up text-black" : current ? "bg-app-accent text-app-on-accent" : "bg-app-chip"}`}>
@@ -619,7 +813,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
           </ol>
           {run?.phase === "waiting" && (
             <p className="text-[11px] text-app-muted">
-              {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `Across is filling on ${run.wait?.to.name}…`} You can keep trading; we&apos;ll tell you when
+              {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `The bridge is filling on ${run.wait?.to.name}…`} You can keep trading; we&apos;ll tell you when
               it&apos;s there.
             </p>
           )}
@@ -657,6 +851,14 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
             </DetailRow>
           )}
           {quote && quote.feeBps > 0 && <DetailRow label="Platform fee">{bpsToPercent(quote.feeBps)}</DetailRow>}
+          {direct && relay.quote && (
+            <>
+              <DetailRow label="Min. received">
+                {amountText(fromBaseUnits(relay.quote.minOut, buy.decimals))} {buy.symbol}
+              </DetailRow>
+              <DetailRow label="Route fee">{relay.quote.feeUsd < 0.01 ? "< $0.01" : `$${relay.quote.feeUsd.toFixed(2)}`}</DetailRow>
+            </>
+          )}
           {cross && across?.feeUsd !== undefined && <DetailRow label="Bridge fee">{across.feeUsd < 0.01 ? "< $0.01" : `$${across.feeUsd.toFixed(2)}`}</DetailRow>}
           {withdrawFirst && <DetailRow label="Withdrawal fee">{`${HL_WITHDRAW_FEE_USDC} USDC`}</DetailRow>}
           {quote && quote.gasFeeUsd !== null && (
@@ -667,7 +869,11 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </div>
       )}
       {error && <p className="text-[12px] text-app-down">{error}</p>}
-      {bridged !== null ? (
+      {relayPending ? (
+        <button type="button" disabled className="h-11 rounded-xl bg-app-accent text-[14px] font-semibold text-app-on-accent disabled:opacity-50">
+          Relay is filling on {side === "buy" ? chain.name : remoteChainName}…
+        </button>
+      ) : bridged !== null ? (
         <button type="button" disabled={placing} onClick={() => void swapBridged()} className="h-11 rounded-xl bg-app-accent text-[14px] font-semibold text-app-on-accent disabled:opacity-50">
           {placing ? "Confirm in your wallet…" : `Swap ${units6(bridged).toFixed(2)} USDC → ${token.symbol}`}
         </button>
@@ -696,7 +902,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
                 : value > 0
                   ? !ready && !error
                     ? "Getting a quote…"
-                    : `${pureBridge ? "Bridge" : cross ? (crossBuy ? "Bridge & swap" : "Swap & bridge") : "Swap"} ${amountText(value)} ${sell.symbol} → ${buy.symbol}`
+                    : `${pureBridge ? "Bridge" : cross ? (crossBuy ? "Bridge & swap" : "Swap & bridge") : "Swap"} ${amountText(value)} ${sell.symbol} → ${buy.symbol}${direct ? (side === "buy" ? ` · ${remoteChainName} → ${chain.name}` : ` · ${chain.name} → ${remoteChainName}`) : ""}`
                   : "Enter an amount"}
         </button>
       )}

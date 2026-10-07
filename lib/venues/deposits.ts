@@ -114,3 +114,8 @@ export function moveError(amount: number, withdrawable: number | undefined) {
 export function withdrawalArrived(before: bigint, now: bigint, expected: bigint) {
   return now - before >= (expected * 99n) / 100n;
 }
+
+/** The wallet chains' stablecoin entries by chain id (mainnet), for flows that start from any of them. */
+export function sourceChainById(chainId: number): SourceChain | null {
+  return [ARBITRUM, BASE, ETHEREUM, ROBINHOOD.mainnet].find((source) => source.chainId === chainId) ?? null;
+}
