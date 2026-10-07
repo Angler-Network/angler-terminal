@@ -121,11 +121,15 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
     return sortRows(filtered, sort);
   }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort]);
 
+  // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
-    for (const row of (isSpot ? spotRows : perpRows) ?? []) byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
+    for (const row of (isSpot ? spotRows : perpRows) ?? []) {
+      if (isSpot && verifiedOnly && !row.verified) continue;
+      byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
+    }
     return byCategory;
-  }, [isSpot, spotRows, perpRows]);
+  }, [isSpot, spotRows, perpRows, verifiedOnly]);
 
   useEffect(() => setActive(0), [query, tab, verifiedOnly, sort]);
   useEffect(() => inputRef.current?.focus(), []);
