@@ -54,6 +54,7 @@ describe("Uniswap token list entries", () => {
     expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "blocked" } } })).toBeNull();
     expect(fromUniswapToken({ ...entry, extensions: { safetyInfo: { safetyLevel: "verified", sellFee: 5 } } })?.verified).toBe(false);
     expect(fromUniswapToken({ ...entry, address: "nope" })).toBeNull();
+    expect(fromUniswapToken({ ...entry, symbol: "ETH", address: "0x0000000000000000000000000000000000000000" })).toBeNull();
   });
 
   it("marks dollar tokens", () => {

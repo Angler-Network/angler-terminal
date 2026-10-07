@@ -197,14 +197,16 @@ export function uniswapListingId(chainId: number, address: string) {
 }
 
 /**
- * A Uniswap-listed EVM token with its market numbers. Tokens Uniswap's compliance check blocks are dropped; tokens
- * with a transfer tax are listed unverified; the rest count as verified when they are on Uniswap's default token list
- * or their pools hold real liquidity (top-volume lists can carry wash-traded tokens).
+ * A Uniswap-listed EVM token with its market numbers. Native ETH and tokens Uniswap's compliance check blocks are
+ * dropped; tokens with a transfer tax are listed unverified; the rest count as verified when they are on Uniswap's
+ * default token list or their pools hold real liquidity (top-volume lists can carry wash-traded tokens).
  */
 export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket = {}): SpotListing | null {
   const { address, chainId, symbol, decimals } = record;
   if (typeof address !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(address) || typeof chainId !== "number") return null;
   if (typeof symbol !== "string" || !symbol || typeof decimals !== "number") return null;
+  // Native ETH (the zero address) isn't an ERC-20 the swap card can approve and pay with; WETH stands for it.
+  if (/^0x0{40}$/.test(address)) return null;
   const safety = record.extensions?.safetyInfo;
   if (safety?.safetyLevel === "blocked") return null;
   const taxed = (safety?.buyFee ?? 0) > 0 || (safety?.sellFee ?? 0) > 0;
