@@ -229,15 +229,17 @@ dependency versions and design are free to diverge from angler-news.
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
 - Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
   live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
-  Arcus stock/index/commodity tokens priced from the same asset's perp quote. An asset without a token of its own
-  ticker (BTC on Solana) trades as the most liquid verified token that represents it (`representsAsset`: same
+  Arcus stock/index/commodity tokens priced from the same asset's perp quote. Dollar tokens (Jupiter tags `stable`,
+  or `yb` named after USD) stay listed but sort last. An asset without a token of its own ticker (BTC on Solana)
+  trades as the most traded verified token that represents it (24h volume first, pool liquidity second: WBTC parks
+  more liquidity, cbBTC trades ~4x more) (`representsAsset`: same
   ticker, a wrapper named "wrapped"/"bridged" or after the asset, a tokenized stock; staked/leveraged versions never)
-  — `/api/jup/token` falls back to it, so BTC → WBTC or cbBTC by live liquidity. Unverified tokens never win: Jupiter's
+  — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; the watchlist highlights that token. Unverified tokens never win: Jupiter's
   search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
   `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
-  ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  sortable columns, ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
 - History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid
