@@ -1,11 +1,13 @@
 "use client";
 
-import { ChartPie, ChevronDown, Gift, UserRound, Wallet } from "lucide-react";
+import { ChartPie, ChevronDown, Gift, LogOut, UserRound, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@/components/terminal/connect-button";
+import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { useWallet } from "@/components/terminal/wallet-provider";
 import { shortAddress } from "@/lib/profile/identity";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
@@ -21,6 +23,8 @@ const tile =
 export function ProfileButton() {
   const { id, profile, pendingReferral } = useProfile();
   const wallets = useWalletModal();
+  const evm = useWallet();
+  const solana = useSolanaWallet();
   const active = usePathname().startsWith("/profile");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -87,6 +91,20 @@ export function ProfileButton() {
           >
             <Wallet className="size-5" strokeWidth={1.75} aria-hidden />
             Wallets
+          </button>
+          {/* Disconnects every wallet so another one can sign in. */}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              if (evm.address) evm.disconnect();
+              if (solana.address) void solana.disconnect();
+            }}
+            className="col-span-2 mt-0.5 inline-flex h-9 items-center justify-center gap-2 rounded-xl border-t border-app-hairline text-[12px] font-semibold text-app-down transition-colors hover:bg-app-down/10"
+          >
+            <LogOut className="size-4" strokeWidth={1.75} aria-hidden />
+            Log out
           </button>
         </div>
       )}
