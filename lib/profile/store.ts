@@ -1,6 +1,7 @@
 import "server-only";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
+import type { EnsIdentity } from "./ens";
 import { profileIdOf, type ProfileChain } from "./identity";
 
 /**
@@ -135,6 +136,8 @@ export interface ProfileView {
   /** Profiles this one referred, and the points their volume earned it. */
   referrals: number;
   referralPoints: number;
+  /** Primary ENS name and avatar (EVM), added by the API route. */
+  ens?: EnsIdentity | null;
 }
 
 function volumeOf(hash: Record<string, string>) {
@@ -307,6 +310,8 @@ export interface LeaderboardEntry {
   rank: number;
   id: string;
   username: string | null;
+  /** Primary ENS name and avatar (EVM), added by the API route. */
+  ens?: EnsIdentity | null;
   points: number;
   level: number;
   levelName: string;

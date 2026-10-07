@@ -94,13 +94,13 @@ function ProfileHeader({ tab }: { tab: ProfileTab }) {
   return (
     <header className={`surface-panel shrink-0 ${card} bg-app-card/55 px-4 pt-4 sm:px-5`}>
       <div className="flex flex-wrap items-center gap-4 pb-4">
-        {shownId ? <ProfileAvatar id={shownId} size={56} /> : <span className="inline-flex size-14 items-center justify-center rounded-full bg-app-chip"><Wallet className="size-6 text-app-muted" aria-hidden /></span>}
+        {shownId ? <ProfileAvatar id={shownId} size={56} image={profile?.ens?.avatar} /> : <span className="inline-flex size-14 items-center justify-center rounded-full bg-app-chip"><Wallet className="size-6 text-app-muted" aria-hidden /></span>}
         <div className="min-w-0 flex-1">
           {editing ? (
             <UsernameEditor current={profile?.username ?? null} onDone={() => setEditing(false)} />
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-[20px] font-semibold text-app-ink">{profile?.username ?? (shownId ? shortAddress(shownId) : "Profile")}</h1>
+              <h1 className="truncate text-[20px] font-semibold text-app-ink">{profile?.username ?? profile?.ens?.name ?? (shownId ? shortAddress(shownId) : "Profile")}</h1>
               {profile && (
                 <button type="button" onClick={() => setEditing(true)} title={profile.username ? "Change username" : "Set a username"} className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] text-app-muted hover:bg-app-selected/70 hover:text-app-ink">
                   <Pencil className="size-3.5" aria-hidden />
@@ -112,6 +112,7 @@ function ProfileHeader({ tab }: { tab: ProfileTab }) {
           {!editing && (
             <p className="mt-0.5 truncate text-[12px] text-app-muted">
               {shownId ? shortAddress(shownId) : "Connect a wallet to start earning points"}
+              {profile?.ens && profile.username && ` · ${profile.ens.name}`}
               {profile && ` · ${profile.level.name}`}
             </p>
           )}
@@ -391,8 +392,8 @@ function Leaderboard() {
                   <td className={`${td} font-semibold ${entry.rank <= 3 ? "text-[#f5c97b]" : "text-app-muted"}`}>{entry.rank}</td>
                   <td className={td}>
                     <span className="flex items-center gap-2 text-app-ink">
-                      <ProfileAvatar id={entry.id} size={20} />
-                      <span className="truncate font-medium">{entry.username ?? shortAddress(entry.id)}</span>
+                      <ProfileAvatar id={entry.id} size={20} image={entry.ens?.avatar} />
+                      <span className="truncate font-medium">{entry.username ?? entry.ens?.name ?? shortAddress(entry.id)}</span>
                       {mine && <span className="text-[11px] text-app-muted">you</span>}
                     </span>
                   </td>

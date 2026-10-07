@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { profileIdOf } from "@/lib/profile/identity";
 import { syncProfile } from "@/lib/profile/server";
+import { ensOf } from "@/lib/profile/ens";
 import { readProfile } from "@/lib/profile/store";
 
 /**
@@ -12,7 +13,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!parsed) return NextResponse.json({ error: "Unknown wallet address." }, { status: 400 });
   try {
     if (request.nextUrl.searchParams.get("sync") === "1") await syncProfile(parsed.id);
-    return NextResponse.json(await readProfile(parsed.id), { headers: { "cache-control": "no-store" } });
+    const [profile, ens] = await Promise.all([readProfile(parsed.id), ensOf(parsed.id)]);
+    return NextResponse.json({ ...profile, ens }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ error: `Couldn't read the profile: ${error instanceof Error ? error.message : String(error)}` }, { status: 502 });
   }

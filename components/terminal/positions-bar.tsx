@@ -245,10 +245,13 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
             <Fragment key={key}>
             <tr data-motion-key={key} className="border-t border-app-hairline">
               <td className={td}>
-                <SymbolCell symbol={position.symbol} coin={position.coin} />
-                {!grouped && <VenueBadge venue={position.venue} />}
-                <span className="ml-1.5 text-app-faint">
-                  {position.leverage}x {position.leverageType}
+                {/* One centered row: icon, symbol, venue and leverage line up with the rest of the position. */}
+                <span className="flex items-center">
+                  <SymbolCell symbol={position.symbol} coin={position.coin} />
+                  {!grouped && <VenueBadge venue={position.venue} />}
+                  <span className="ml-1.5 text-app-faint">
+                    {position.leverage}x {position.leverageType}
+                  </span>
                 </span>
               </td>
               <td className={`${tdBase} ${isLong ? "text-app-up" : "text-app-down"}`}>
@@ -327,8 +330,10 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
         {group.rows.map((order) => (
           <tr key={`${order.venue}:${order.oid}`} data-motion-key={`${order.venue}:${order.oid}`} className="border-t border-app-hairline">
             <td className={td}>
-              <SymbolCell symbol={order.symbol} coin={order.coin} />
-              {!grouped && <VenueBadge venue={order.venue} />}
+              <span className="flex items-center">
+                <SymbolCell symbol={order.symbol} coin={order.coin} />
+                {!grouped && <VenueBadge venue={order.venue} />}
+              </span>
             </td>
             <td className={td}>
               {order.orderType}

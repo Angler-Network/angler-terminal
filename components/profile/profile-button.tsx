@@ -56,8 +56,8 @@ export function ProfileButton() {
           active || open ? "border-app-accent/50 bg-app-card text-app-ink" : "border-app-hairline-strong bg-app-card/60 text-app-ink hover:bg-app-card"
         }`}
       >
-        <ProfileAvatar id={shownId} size={22} />
-        <span className="hidden max-w-[120px] truncate sm:inline">{profile?.username ?? shortAddress(shownId)}</span>
+        <ProfileAvatar id={shownId} size={22} image={profile?.ens?.avatar} />
+        <span className="hidden max-w-[120px] truncate sm:inline">{profile?.username ?? profile?.ens?.name ?? shortAddress(shownId)}</span>
         {profile && (
           <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 2 })} points`} className="hidden rounded-md bg-[#f5c97b]/25 px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00] sm:inline [html[data-tone=dark]_&]:bg-[#f5c97b]/20 [html[data-tone=dark]_&]:text-[#f5c97b]">
             Lv {profile.level.level}

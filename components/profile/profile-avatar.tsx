@@ -1,10 +1,29 @@
+"use client";
+
+import { useState } from "react";
 import { avatarSpec } from "@/lib/profile/avatar";
 
 /**
- * A soft "aura" avatar drawn from the wallet address (`avatarSpec`): blurred blobs from a curated palette, so every
- * profile has a stable, distinct face without uploads.
+ * The profile's ENS avatar when it has one (`image`), else a soft "aura" drawn from the wallet address
+ * (`avatarSpec`): blurred blobs from a curated palette, so every profile has a stable, distinct face without uploads.
  */
-export function ProfileAvatar({ id, size = 28, className = "" }: { id: string; size?: number; className?: string }) {
+export function ProfileAvatar({ id, size = 28, className = "", image }: { id: string; size?: number; className?: string; image?: string | null }) {
+  const [broken, setBroken] = useState<string | null>(null);
+  if (image && broken !== image) {
+    return (
+      <img
+        src={image}
+        alt=""
+        aria-hidden
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => setBroken(image)}
+        className={`inline-block shrink-0 rounded-full object-cover ring-1 ring-app-hairline-strong ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const spec = avatarSpec(id);
   // Same address, same art: avatars that repeat on a page can share their defs.
   const key = `pa-${id.toLowerCase().replace(/[^a-z0-9]/g, "").slice(-16)}`;
