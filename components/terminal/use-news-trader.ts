@@ -42,6 +42,8 @@ export interface NewsTrade {
   spotSource?: "best" | "jupiter" | "titan";
   side: OrderSide;
   sizeUsd: number;
+  /** Swaps: fixed slippage in bps from the swap card; unset lets each venue choose. */
+  slippageBps?: number | null;
   /** Perp leverage; defaults to the news leverage setting. */
   leverage?: number;
   newsId?: string;
@@ -128,7 +130,7 @@ export function useNewsTrader() {
         const amount = usdToInputAmount(trade.sizeUsd, trade.side, usdc, token);
         if (amount <= 0n) return fail("Size is too small."), false;
 
-        const input = { inputToken, outputToken, amount, taker: solanaAddress };
+        const input = { inputToken, outputToken, amount, taker: solanaAddress, slippageBps: trade.slippageBps };
         // Jupiter and Titan quote the same swap; the one with more output is executed.
         const [balances, jupiter, titan] = await Promise.all([
           jupiterVenue.getBalances(solanaAddress, [usdc.mint, token.mint]),
@@ -197,6 +199,7 @@ export function useNewsTrader() {
           side: trade.side,
           sizeUsd: trade.sizeUsd,
           maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
+          slippageBps: trade.slippageBps,
         });
         const format = (amount: bigint, decimals: number, symbol: string) =>
           `${fromBaseUnits(amount, decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${symbol}`;

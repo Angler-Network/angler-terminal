@@ -41,10 +41,11 @@ async function quoteToken() {
   return usdc;
 }
 
-async function getQuote({ inputToken, outputToken, amount, taker }: SpotQuoteInput): Promise<SpotQuote> {
+async function getQuote({ inputToken, outputToken, amount, taker, slippageBps }: SpotQuoteInput): Promise<SpotQuote> {
   if (amount <= 0n) throw new VenueError("Enter a size.");
   const params = new URLSearchParams({ inputMint: inputToken.mint, outputMint: outputToken.mint, amount: amount.toString() });
   if (taker) params.set("taker", taker);
+  if (slippageBps) params.set("slippageBps", String(slippageBps));
   const response = await fetch(`/api/jup/order?${params}`, { cache: "no-store" });
   const body = await readJson<JupOrderResponse>(response);
   if (!response.ok) throw new VenueError(body.errorMessage ?? body.error ?? `Jupiter quote failed (${response.status}).`);

@@ -1,3 +1,4 @@
+import { readSlippageBps } from "@/lib/trading/slippage";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { readTitanFeeConfig, titanFeeParams } from "@/lib/venues/titan/fees";
@@ -20,18 +21,19 @@ export async function GET(request: NextRequest) {
   if (!isSolanaAddress(inputMint) || !isSolanaAddress(outputMint) || !/^\d{1,20}$/.test(amount ?? "") || !isSolanaAddress(taker)) {
     return NextResponse.json({ error: "Invalid swap parameters" }, { status: 400 });
   }
+  const feeParams = titanFeeParams(await readTitanFeeConfig(process.env), inputMint!, outputMint!);
   const params = new URLSearchParams({
     inputMint,
     outputMint,
     amount: amount!,
     // Instructions are built for this wallet's token accounts.
     userPublicKey: taker!,
-    slippageBps: String(SLIPPAGE_BPS),
+    slippageBps: String(readSlippageBps(incoming.get("slippageBps")) ?? SLIPPAGE_BPS),
     numQuotes: "3",
     includeAltContents: "true",
     titanSwapVersion: "3",
     // Partner fee in USDC (TITAN_FEE_WALLET + TITAN_FEE_BPS), when configured.
-    ...titanFeeParams(await readTitanFeeConfig(process.env), inputMint!, outputMint!),
+    ...feeParams,
   });
   let response: Response;
   try {
@@ -62,6 +64,7 @@ export async function GET(request: NextRequest) {
       inUsdValue: route.inUsdValue,
       outUsdValue: route.outUsdValue,
       labels: route.labels,
+      feeBps: Number(feeParams.feeBps) || 0,
       transaction: built.transaction,
       lastValidBlockHeight: built.lastValidBlockHeight,
     },

@@ -226,6 +226,14 @@ dependency versions and design are free to diverge from angler-news.
     venue's (USDC on Solana, USDG on Robinhood). Execution is unchanged: `use-news-trader.ts`, sized in USD (sells:
     amount × price). Shared pieces: `inline-picker.tsx` (portaled dropdown), `token-icon.tsx` (`CoinIcon`: token or
     asset logo + chain badge, falls back to `MarketIcon` when an image fails).
+    A gear in the card's header opens Max slippage (`swapSlippageBps` preference, `lib/trading/slippage.ts`): Auto
+    (null: Jupiter's real-time estimate, RTSE; Titan 0.5%, Arcus 0.5%) or a fixed 0.5 / 1 / 3 % / custom value sent as
+    `slippageBps` to `/api/jup/order`, `/api/titan/order` and Arcus `/v1/quote` (also on the trade itself), with a
+    warning above 5% or under 0.1%. Under the card a summary like the venues' own: You sell, Est. amount, Est. out
+    value, Min. received (quote's `minOutAmount`), Price impact, Max slippage (the quote's own when Auto), Platform
+    fee (`feeBps`: Jupiter's total incl. our referral; Titan's our partner fee), Bridge fee for cross-chain buys.
+    On /swap the panel under the chart is Holdings (`swap-holdings.tsx`: the Solana wallet's tokens through
+    `components/portfolio/spot-table.tsx`, shared with the portfolio page; a row picks that token), not perp positions.
     Cross-chain buys (Arcus mainnet only): the Sell pill is a "Pay with" picker (USDG · Robinhood, USDC · Arbitrum /
     Base / Hyperliquid). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
     with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →

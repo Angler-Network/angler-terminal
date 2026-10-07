@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { getTitanQuote } from "@/lib/venues/titan/venue";
-import type { OrderSide, SpotToken } from "@/lib/venues/types";
+import type { OrderSide, SpotQuote, SpotToken } from "@/lib/venues/types";
 
 export type SpotSource = "jupiter" | "titan";
 
@@ -16,9 +16,22 @@ export interface SpotSourceQuote {
   note: string | null;
   /** The DEXes the route trades through (Raydium, Pump.fun, Meteora…), in order. */
   route?: string[];
+  /** The quote's details for the swap card's summary. */
+  minOut?: bigint;
+  priceImpactPct?: number;
+  feeBps?: number;
+  slippageBps?: number;
 }
 
 const DEBOUNCE_MS = 400;
+
+const details = (quote: SpotQuote) => ({
+  route: quote.route,
+  minOut: quote.minOutAmount,
+  priceImpactPct: quote.priceImpactPct,
+  feeBps: quote.feeBps,
+  slippageBps: quote.slippageBps,
+});
 const REFRESH_MS = 10_000;
 
 /**
@@ -31,16 +44,18 @@ export function useSpotQuotes({
   sizeUsd,
   taker,
   titan,
+  slippageBps = null,
 }: {
   token: SpotToken | null;
   side: OrderSide;
   sizeUsd: number;
   taker: string | null;
   titan: boolean;
+  slippageBps?: number | null;
 }) {
   const [quotes, setQuotes] = useState<SpotSourceQuote[]>([]);
   const [loading, setLoading] = useState(false);
-  const key = [token?.mint, side, sizeUsd, taker, titan].join("|");
+  const key = [token?.mint, side, sizeUsd, taker, titan, slippageBps].join("|");
 
   useEffect(() => {
     if (!token || !(sizeUsd > 0)) {
@@ -55,7 +70,7 @@ export function useSpotQuotes({
         const inputToken = side === "buy" ? usdc : token;
         const outputToken = side === "buy" ? token : usdc;
         const amount = usdToInputAmount(sizeUsd, side, usdc, token);
-        const input = { inputToken, outputToken, amount, taker: taker ?? undefined };
+        const input = { inputToken, outputToken, amount, taker: taker ?? undefined, slippageBps };
         const [jupiter, titanQuote] = await Promise.all([
           // Price-only for Jupiter (no taker): the list compares routes; balances are checked when the swap is placed.
           jupiterVenue.getQuote({ ...input, taker: undefined }).catch((error: unknown) => (error instanceof Error ? error : new Error(String(error)))),
@@ -65,14 +80,14 @@ export function useSpotQuotes({
         const rows: SpotSourceQuote[] = [
           jupiter instanceof Error || jupiter.error
             ? { source: "jupiter", outAmount: null, outputToken, note: (jupiter instanceof Error ? jupiter.message : jupiter.error) ?? "No quote" }
-            : { source: "jupiter", outAmount: jupiter.outAmount, outputToken, note: null, route: jupiter.route },
+            : { source: "jupiter", outAmount: jupiter.outAmount, outputToken, note: null, ...details(jupiter) },
         ];
         if (titan) {
           rows.push(
             !taker
               ? { source: "titan", outAmount: null, outputToken, note: "Connect a Solana wallet" }
               : titanQuote
-                ? { source: "titan", outAmount: titanQuote.outAmount, outputToken, note: null, route: titanQuote.route }
+                ? { source: "titan", outAmount: titanQuote.outAmount, outputToken, note: null, ...details(titanQuote) }
                 : { source: "titan", outAmount: null, outputToken, note: "No route" },
           );
         }

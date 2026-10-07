@@ -30,6 +30,7 @@ import { readWatchlist, type WatchlistEntry } from "./watchlist";
 import { venueAvailable } from "./deployment";
 import { defaultPanelSizes, readPanelSizes, type PanelSizes } from "./layout/panel-sizes";
 import { defaultArrangement, readArrangement, type Arrangement } from "./layout/arrangement";
+import { readSlippageBps } from "./trading/slippage";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -185,6 +186,8 @@ export interface Preferences extends Appearance {
   newsLeverage: number;
   /** Height of the positions panel under the chart, dragged by the user; null sizes it to its content. */
   positionsHeight: number | null;
+  /** Swap slippage in bps; null is Auto (Jupiter's real-time estimate). `lib/trading/slippage.ts`. */
+  swapSlippageBps: number | null;
   /** Column widths and the order book height, dragged by the user; null keeps the automatic size. */
   panelSizes: PanelSizes;
   /** Column order and which of the order book / news sits under the order panel (dragged by the user). */
@@ -267,6 +270,7 @@ export const defaultPreferences: Preferences = {
   tradeMinImpact: 60,
   newsLeverage: 5,
   positionsHeight: null,
+  swapSlippageBps: null,
   panelSizes: defaultPanelSizes,
   arrangement: defaultArrangement,
   positionsLayout: "grouped",
@@ -403,6 +407,7 @@ export function parsePreferences(raw: string | null): Preferences {
       tradeMinImpact: readRange(stored.tradeMinImpact, 0, 100, 1, defaultPreferences.tradeMinImpact),
       newsLeverage: readRange(stored.newsLeverage, 1, 50, 1, defaultPreferences.newsLeverage),
       positionsHeight: stored.positionsHeight == null ? null : readRange(stored.positionsHeight, 80, 2000, 1, 240),
+      swapSlippageBps: readSlippageBps(stored.swapSlippageBps),
       panelSizes: readPanelSizes(stored.panelSizes),
       arrangement: readArrangement(stored.arrangement),
       positionsLayout: stored.positionsLayout === "list" ? "list" : "grouped",

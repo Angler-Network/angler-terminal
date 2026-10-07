@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { readSlippageBps } from "@/lib/trading/slippage";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { badRequest, jupFetch, jupServerConfig, relay, unreachable } from "@/lib/venues/jupiter/server";
 
@@ -18,6 +19,9 @@ export async function GET(request: NextRequest) {
 
   const params = new URLSearchParams({ inputMint, outputMint, amount });
   if (taker) params.set("taker", taker);
+  // A fixed tolerance from the swap card's setting; without it Jupiter estimates slippage itself (RTSE).
+  const slippageBps = readSlippageBps(incoming.get("slippageBps"));
+  if (slippageBps !== null) params.set("slippageBps", String(slippageBps));
   const { referral } = jupServerConfig();
   if (referral) {
     params.set("referralAccount", referral.account);

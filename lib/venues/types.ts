@@ -162,6 +162,8 @@ export interface SpotQuoteInput {
   amount: bigint;
   /** Wallet that will sign; without it the venue returns a price-only quote. */
   taker?: string;
+  /** Fixed slippage tolerance in bps; unset lets the venue choose (Jupiter's real-time estimate). */
+  slippageBps?: number | null;
 }
 
 export interface SpotQuote {

@@ -114,6 +114,8 @@ export interface ArcusSwapInput {
   sizeUsd: number;
   /** Refuse fills worse than this against the router's reference price (percent). */
   maxPriceImpactPct: number;
+  /** The swap card's tolerance in bps; the default (ARCUS_SLIPPAGE_BPS) otherwise. */
+  slippageBps?: number | null;
 }
 
 export interface ArcusSwapResult {
@@ -137,7 +139,7 @@ export async function arcusSwap(input: ArcusSwapInput): Promise<ArcusSwapResult>
   }
 }
 
-async function swap({ provider, account, token, side, sizeUsd, maxPriceImpactPct }: ArcusSwapInput): Promise<ArcusSwapResult> {
+async function swap({ provider, account, token, side, sizeUsd, maxPriceImpactPct, slippageBps }: ArcusSwapInput): Promise<ArcusSwapResult> {
   if (sizeUsd < ARCUS_MIN_NOTIONAL_USD) throw new VenueError(`Arcus needs at least $${ARCUS_MIN_NOTIONAL_USD} per trade.`);
   const stable = await arcusQuoteToken();
   const usdAmount = BigInt(Math.floor(sizeUsd * 10 ** stable.decimals));
@@ -164,7 +166,7 @@ async function swap({ provider, account, token, side, sizeUsd, maxPriceImpactPct
       buyToken: buyToken.address,
       sellAmount: sellAmount.toString(),
       taker: account,
-      slippageBps: String(ARCUS_SLIPPAGE_BPS),
+      slippageBps: String(slippageBps ?? ARCUS_SLIPPAGE_BPS),
     })}`,
   );
   const quote = pickArcusQuote<ArcusFirmQuote>(response);

@@ -16,9 +16,10 @@ function big(value: unknown) {
 }
 
 /** Titan quote with a ready-to-sign transaction, or null when Titan is unavailable (no key, no route, down). */
-export async function getTitanQuote({ inputToken, outputToken, amount, taker }: SpotQuoteInput): Promise<SpotQuote | null> {
+export async function getTitanQuote({ inputToken, outputToken, amount, taker, slippageBps }: SpotQuoteInput): Promise<SpotQuote | null> {
   if (unconfigured || !taker || amount <= 0n) return null;
   const params = new URLSearchParams({ inputMint: inputToken.mint, outputMint: outputToken.mint, amount: amount.toString(), taker });
+  if (slippageBps) params.set("slippageBps", String(slippageBps));
   try {
     const response = await fetch(`/api/titan/order?${params}`, { cache: "no-store" });
     if (response.status === 503) {
@@ -37,7 +38,7 @@ export async function getTitanQuote({ inputToken, outputToken, amount, taker }: 
       minOutAmount: big(body.minOutAmount),
       slippageBps: Number(body.slippageBps) || 0,
       priceImpactPct: typeof body.priceImpactPct === "number" ? body.priceImpactPct : 0,
-      feeBps: 0,
+      feeBps: Number(body.feeBps) || 0,
       networkFeeLamports: BASE_FEE_LAMPORTS,
       inUsdValue: typeof body.inUsdValue === "number" ? body.inUsdValue : undefined,
       outUsdValue: typeof body.outUsdValue === "number" ? body.outUsdValue : undefined,

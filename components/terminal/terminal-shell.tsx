@@ -17,6 +17,7 @@ import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
 import { PanelResizer, type ResizeEdge } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
+import { SwapHoldings } from "./swap-holdings";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { usePathname } from "next/navigation";
@@ -303,7 +304,8 @@ export function TerminalShell() {
                 }}
               />
             )}
-            <PositionsBar />
+            {/* /swap trades tokens, not positions: the wallet's tokens sit under the chart there. */}
+            {isSpot ? <SwapHoldings /> : <PositionsBar />}
           </div>
         )}
       </div>

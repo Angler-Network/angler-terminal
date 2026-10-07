@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ChevronDown } from "lucide-react";
+import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -14,6 +14,8 @@ import { venueAvailable } from "@/lib/deployment";
 import { formatPrice } from "@/lib/format";
 import { normalizeSpotSymbol } from "@/lib/spot/listings";
 import { estimateReceive, routeText, shareOf, swapSizeUsd } from "@/lib/trading/swap";
+import { SLIPPAGE_PRESETS_BPS, bpsToPercent, percentToBps, slippageWarning } from "@/lib/trading/slippage";
+import { ARCUS_SLIPPAGE_BPS } from "@/lib/venues/arcus/config";
 import { arcusQuoteToken, call } from "@/lib/venues/arcus/catalog";
 import { ARCUS_MIN_NOTIONAL_USD, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
@@ -196,6 +198,60 @@ function SpotRoutes({ quotes, loading, pick, onPick }: { quotes: SpotSourceQuote
 
 /** Long amounts shrink so the token pill keeps its place in the narrow trading column. */
 const amountSize = (text: string) => (text.length > 9 ? "text-[16px]" : text.length > 6 ? "text-[19px]" : "text-[22px]");
+/** Max slippage: Auto (each venue's own estimate) or a fixed percentage, saved as the `swapSlippageBps` preference. */
+function SlippageSettings() {
+  const { preferences, updatePreference } = usePreferences();
+  const current = preferences.swapSlippageBps;
+  const [custom, setCustom] = useState(current !== null && !SLIPPAGE_PRESETS_BPS.includes(current) ? String(current / 100) : "");
+  const chip = (active: boolean) =>
+    `h-7 rounded-lg px-2.5 text-[12px] font-semibold ${active ? "bg-app-accent text-app-on-accent" : "bg-app-chip text-app-muted hover:text-app-ink"}`;
+  const warning = slippageWarning(current);
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/30 p-2.5">
+      <div className="flex items-center justify-between text-[12px]">
+        <span className="font-semibold text-app-ink">Max slippage</span>
+        <span className="text-app-faint">{current === null ? "Auto: estimated per swap" : `Fixed ${bpsToPercent(current)}`}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button type="button" onClick={() => (setCustom(""), updatePreference("swapSlippageBps", null))} className={chip(current === null)}>
+          Auto
+        </button>
+        {SLIPPAGE_PRESETS_BPS.map((bps) => (
+          <button key={bps} type="button" onClick={() => (setCustom(""), updatePreference("swapSlippageBps", bps))} className={chip(current === bps)}>
+            {bpsToPercent(bps)}
+          </button>
+        ))}
+        <label className={`flex h-7 items-center gap-1 rounded-lg border px-2 text-[12px] ${custom ? "border-app-accent" : "border-app-hairline-strong"}`}>
+          <input
+            aria-label="Custom slippage in percent"
+            inputMode="decimal"
+            placeholder="Custom"
+            value={custom}
+            onChange={(event) => {
+              const text = event.target.value.replace(/[^0-9.]/g, "");
+              setCustom(text);
+              const bps = percentToBps(text);
+              if (bps !== null) updatePreference("swapSlippageBps", bps);
+            }}
+            className="w-14 bg-transparent text-right tabular-nums text-app-ink outline-hidden placeholder:text-app-faint"
+          />
+          <span className="text-app-muted">%</span>
+        </label>
+      </div>
+      {warning && <p className="text-[11px] text-[#f5c97b]">{warning}</p>}
+    </div>
+  );
+}
+
+function DetailRow({ label, children, tone }: { label: string; children: React.ReactNode; tone?: "warn" | "muted" }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-[12px]">
+      <span className="text-app-muted">{label}</span>
+      <span className={`truncate text-right tabular-nums ${tone === "warn" ? "text-app-down" : tone === "muted" ? "text-app-faint" : "text-app-ink"}`}>{children}</span>
+    </div>
+  );
+}
+
 const amountText = (value: number) => value.toLocaleString("en-US", { maximumSignificantDigits: value < 1 ? 4 : 6 });
 const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-app-chip pl-1.5 pr-2.5 text-[14px] font-semibold text-app-ink";
 
@@ -223,6 +279,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const [refresh, setRefresh] = useState(0);
   // Buying an unverified token (most fresh pump.fun launches) needs this tick, per token.
   const [acknowledged, setAcknowledged] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const slippageBps = preferences.swapSlippageBps;
   const toast = useToast();
   const router = useRouter();
   const { network: hlNetwork, accounts } = useTrading();
@@ -282,6 +340,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     sizeUsd,
     taker: solanaAddress,
     titan: preferences.venueTitan && venueAvailable("titan"),
+    slippageBps,
   });
   const selected = pick ? quotes.find((quote) => quote.source === pick) : quotes.find((quote) => quote.outAmount !== null);
   const quoted = selected?.outAmount != null && selected.outputToken ? fromBaseUnits(selected.outAmount, selected.outputToken.decimals) : null;
@@ -367,6 +426,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         spotVenue: "arcus",
         side: "buy",
         sizeUsd: Math.floor(units6(bridged) * 100) / 100,
+        slippageBps,
         oneClick: preferences.oneClickTrading,
       });
       if (placed) {
@@ -396,6 +456,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         spotVenue: isSolana ? "jupiter" : "arcus",
         side,
         sizeUsd,
+        slippageBps,
         oneClick: preferences.oneClickTrading,
       });
       if (placed) setAmount("");
@@ -476,8 +537,26 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const walletName = isSolana ? "Solana" : "EVM";
 
+  const quoteOut = selected?.outputToken;
+  const minOut = isSolana && selected?.minOut !== undefined && quoteOut ? fromBaseUnits(selected.minOut, quoteOut.decimals) : null;
+  const impact = isSolana && selected?.priceImpactPct !== undefined ? Math.abs(selected.priceImpactPct) : null;
+  const shownSlippage = isSolana ? (selected?.slippageBps ?? slippageBps) : (slippageBps ?? ARCUS_SLIPPAGE_BPS);
+
   return (
     <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-app-ink">Swap</span>
+        <button
+          type="button"
+          aria-expanded={showSettings}
+          onClick={() => setShowSettings((open) => !open)}
+          className={`flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-semibold ${showSettings ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"}`}
+        >
+          {slippageBps === null ? "Auto" : bpsToPercent(slippageBps)}
+          <Settings2 className="size-4" aria-hidden />
+        </button>
+      </div>
+      {showSettings && <SlippageSettings />}
       <div className="relative flex flex-col gap-1">
         <div className={box}>
           <div className="flex items-center justify-between text-[12px]">
@@ -616,6 +695,31 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         <p className="text-[11px] text-app-faint">Launched on {choice.token.launchpad}.</p>
       )}
       {isSolana && sizeUsd > 0 && quotes.length > 1 && <SpotRoutes quotes={quotes} loading={loading} pick={pick} onPick={setPick} />}
+      {value > 0 && (
+        <div className="flex flex-col gap-1 rounded-xl border border-app-hairline p-2.5">
+          <DetailRow label="You sell">
+            {amountText(value)} {sell.symbol}
+          </DetailRow>
+          <DetailRow label="Est. amount">{receive ? `${amountText(receive)} ${buy.symbol}` : "—"}</DetailRow>
+          <DetailRow label="Est. out value">{receiveUsd ? `~${formatPrice(receiveUsd)}` : "—"}</DetailRow>
+          {minOut !== null && (
+            <DetailRow label="Min. received">
+              {amountText(minOut)} {quoteOut?.symbol}
+            </DetailRow>
+          )}
+          {impact !== null && (
+            <DetailRow label="Price impact" tone={impact > 1 ? "warn" : undefined}>
+              {impact < 0.01 ? "< 0.01%" : `${impact.toFixed(2)}%`}
+            </DetailRow>
+          )}
+          <DetailRow label="Max slippage" tone={slippageBps === null ? "muted" : undefined}>
+            {shownSlippage ? bpsToPercent(shownSlippage) : "—"}
+            {slippageBps === null ? " · auto" : ""}
+          </DetailRow>
+          {isSolana && selected?.feeBps !== undefined && <DetailRow label="Platform fee">{bpsToPercent(selected.feeBps)}</DetailRow>}
+          {cross && crossLine?.feeUsd !== undefined && <DetailRow label="Bridge fee">{crossLine.feeUsd < 0.01 ? "< $0.01" : `$${crossLine.feeUsd.toFixed(2)}`}</DetailRow>}
+        </div>
+      )}
       {error && <p className="text-[12px] text-app-down">{error}</p>}
 
       {bridged !== null ? (
