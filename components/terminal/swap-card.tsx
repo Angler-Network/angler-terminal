@@ -22,6 +22,8 @@ import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { spendableBalance } from "@/lib/venues/jupiter/balances";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
+import { USDC_MINT, WSOL_MINT } from "@/lib/venues/jupiter/config";
+import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import type { OrderSide, SpotToken } from "@/lib/venues/types";
 import { useAssetSearch } from "./asset-search";
 import { Picker, type PickerOption } from "./inline-picker";
@@ -46,6 +48,34 @@ const SHARES = [25, 50, 75, 100];
 const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan" };
 const OTHER_TOKEN = "__other";
 const QUOTE_DEBOUNCE_MS = 600;
+const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+const TOKEN_LIST = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet";
+/** What a Solana swap can be paid with (or paid out in on a sell) besides the wallet's other priced tokens. */
+const COMMON_PAY = [
+  { mint: USDC_MINT, symbol: "USDC", icon: undefined },
+  { mint: WSOL_MINT, symbol: "SOL", icon: `${TOKEN_LIST}/${WSOL_MINT}/logo.png` },
+  { mint: USDT_MINT, symbol: "USDT", icon: `${TOKEN_LIST}/${USDT_MINT}/logo.svg` },
+];
+const DOLLARS = new Set([USDC_MINT, USDT_MINT]);
+/** SOL left in the wallet for network fees when "Max" spends SOL. */
+const SOL_FEE_RESERVE = 0.01;
+
+/** The Jupiter token for the "Pay with" mint (USDC until something else is picked). */
+function usePayToken(mint: string | null) {
+  const [state, setState] = useState<{ mint: string; token: SpotToken } | null>(null);
+  useEffect(() => {
+    if (!mint) return;
+    let active = true;
+    jupiterVenue
+      .quoteToken(mint)
+      .then((token) => active && setState({ mint, token }))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [mint]);
+  return mint && state?.mint === mint ? state.token : null;
+}
 
 /** Where an Arcus buy is paid from: USDG already on Robinhood, or USDC elsewhere that is bridged in first. */
 type PayFrom = "direct" | "arbitrum" | "base" | "hyperliquid";
@@ -73,9 +103,9 @@ function useUsdcBalance(source: SourceChain | null, owner: `0x${string}` | null,
 }
 
 /** The wallet's stablecoin and asset balances on the choice's chain, refreshed while the tab is visible. */
-function useSwapBalances(choice: SpotChoice, owner: string | null, refresh: number) {
+function useSwapBalances(choice: SpotChoice, owner: string | null, refresh: number, payMint: string = USDC_MINT) {
   const assetId = choice.id === "solana" ? choice.token.mint : choice.arcusToken.address;
-  const key = `${choice.id}:${assetId}:${owner}:${refresh}`;
+  const key = `${choice.id}:${assetId}:${owner}:${refresh}:${payMint}`;
   const [state, setState] = useState<{ key: string; stable: number; asset: number } | null>(null);
   useEffect(() => {
     if (!owner) return;
@@ -83,9 +113,9 @@ function useSwapBalances(choice: SpotChoice, owner: string | null, refresh: numb
     const load = async () => {
       try {
         if (choice.id === "solana") {
-          const usdc = await jupiterVenue.quoteToken();
-          const held = await jupiterVenue.getBalances(owner, [usdc.mint, choice.token.mint]);
-          const stable = fromBaseUnits(held.tokens[usdc.mint] ?? 0n, usdc.decimals);
+          const pay = await jupiterVenue.quoteToken(payMint);
+          const held = await jupiterVenue.getBalances(owner, [pay.mint, choice.token.mint]);
+          const stable = fromBaseUnits(spendableBalance(pay.mint, held.tokens, held.lamports), pay.decimals);
           const asset = fromBaseUnits(spendableBalance(choice.token.mint, held.tokens, held.lamports), choice.token.decimals);
           if (active) setState({ key, stable, asset });
         } else {
@@ -308,10 +338,20 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const asset = isSolana
     ? { symbol: choice.token.symbol, icon: choice.token.icon, chain: "solana" as const, chainName: "Solana", kind: undefined }
     : { symbol: choice.arcusToken.symbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood", kind: "stock" as const };
-  const stable = isSolana ? { symbol: "USDC", chain: "solana" as const, chainName: "Solana" } : { symbol: arcusConfig.quoteSymbol, chain: arcusConfig.chainId, chainName: "Robinhood" };
+  // Solana swaps pay with (or pay out in) any token: USDC by default, SOL, USDT or another priced token in the wallet.
+  const [pickedPay, setPickedPay] = useState(USDC_MINT);
+  const payMint = isSolana && pickedPay !== choice.token.mint ? pickedPay : USDC_MINT;
+  const solanaPay = usePayToken(isSolana ? payMint : null);
+  const payIsDollar = !isSolana || DOLLARS.has(payMint);
+  const sellIsSol = isSolana && (side === "buy" ? payMint === WSOL_MINT : choice.token.mint === WSOL_MINT);
+  const payPrice = !isSolana || payMint === USDC_MINT ? 1 : solanaPay?.usdPrice;
+  const stable = isSolana
+    ? { symbol: solanaPay?.symbol ?? COMMON_PAY.find((entry) => entry.mint === payMint)?.symbol ?? "USDC", icon: payMint === USDC_MINT ? undefined : solanaPay?.icon, chain: "solana" as const, chainName: "Solana" }
+    : { symbol: arcusConfig.quoteSymbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood" };
+  const holdings = useSpotHoldings();
   const arcusPrice = useArcusPrice(isSolana ? null : choice.arcusToken);
   const price = isSolana ? choice.token.usdPrice : arcusPrice;
-  const balances = useSwapBalances(choice, owner, refresh);
+  const balances = useSwapBalances(choice, owner, refresh, payMint);
 
   const value = Number(amount);
   // Buying an Arcus stock with dollars held elsewhere: bridge to USDG on Robinhood first (`bridge-routes.ts`), then swap.
@@ -333,7 +373,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const crossKey = acrossStep && acrossInput && acrossInput > 0n && evmAddress ? `${acrossStep.from.chainId}:${acrossInput}:${evmAddress}` : null;
   const crossLine = crossQuote && crossQuote.key === crossKey ? crossQuote : null;
   const crossOut = crossLine?.out !== undefined ? units6(crossLine.out) : null;
-  const sizeUsd = cross ? (crossOut ?? 0) : swapSizeUsd(side, value, price);
+  const sizeUsd = cross ? (crossOut ?? 0) : side === "buy" ? (value > 0 && payPrice ? value * payPrice : 0) : swapSizeUsd("sell", value, price);
   const { quotes, loading } = useSpotQuotes({
     token: isSolana ? choice.token : null,
     side,
@@ -341,10 +381,13 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     taker: solanaAddress,
     titan: preferences.venueTitan && venueAvailable("titan"),
     slippageBps,
+    quoteMint: payMint === USDC_MINT ? undefined : payMint,
   });
   const selected = pick ? quotes.find((quote) => quote.source === pick) : quotes.find((quote) => quote.outAmount !== null);
   const quoted = selected?.outAmount != null && selected.outputToken ? fromBaseUnits(selected.outAmount, selected.outputToken.decimals) : null;
-  const receive = sizeUsd > 0 ? (cross ? estimateReceive("buy", sizeUsd, price) : (quoted ?? estimateReceive(side, value, price))) : null;
+  // Before a quote lands: the USD size at the asset's price (buys) or the pay token's (sells).
+  const estimated = side === "buy" ? estimateReceive("buy", sizeUsd, price) : payPrice ? sizeUsd / payPrice : null;
+  const receive = sizeUsd > 0 ? (cross ? estimateReceive("buy", sizeUsd, price) : (quoted ?? estimated)) : null;
   const payToken = {
     symbol: "USDC",
     chain: payFrom === "hyperliquid" ? ("hyperliquid" as const) : paySource.chainId,
@@ -353,7 +396,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const sell = cross ? payToken : side === "buy" ? stable : asset;
   const buy = side === "buy" ? asset : stable;
   const sellBalance = cross ? payBalance : balances ? (side === "buy" ? balances.stable : balances.asset) : null;
-  const receiveUsd = receive === null ? null : side === "buy" ? (cross ? crossOut : price ? receive * price : null) : receive;
+  const receiveUsd = receive === null ? null : side === "buy" ? (cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
   // What one asset token costs in this swap (the quote's own rate once it's in).
   const rate = receive && value > 0 ? (side === "buy" ? value / receive : receive / value) : price;
   const error = !(value > 0)
@@ -452,6 +495,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         symbol,
         mint: isSolana ? choice.token.mint : undefined,
         spotSource: isSolana ? (pick ?? "best") : undefined,
+        quoteMint: isSolana && payMint !== USDC_MINT ? payMint : undefined,
         venue: "spot",
         spotVenue: isSolana ? "jupiter" : "arcus",
         side,
@@ -507,13 +551,43 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         <ChevronDown className="size-4 text-app-muted" aria-hidden />
       </button>
     );
-  const stablePill = (
-    <span className={pillClass} title={`${stable.symbol} on ${stable.chainName}, the dollar this venue trades against`}>
-      <CoinIcon symbol={stable.symbol} chain={stable.chain} size={24} />
+  const stableFace = (
+    <>
+      <CoinIcon src={stable.icon} symbol={stable.symbol} chain={stable.chain} size={24} />
       <span className="flex flex-col items-start leading-tight">
         {stable.symbol}
         <span className="text-[10px] font-medium text-app-muted">{stable.chainName}</span>
       </span>
+    </>
+  );
+  // Solana: USDC, SOL, USDT, then the wallet's other priced tokens (not the one being traded).
+  const solanaPayOptions: Array<PickerOption<string>> = isSolana
+    ? [
+        ...COMMON_PAY,
+        ...(holdings.data?.holdings ?? [])
+          .filter((holding) => holding.usdPrice !== null && !COMMON_PAY.some((entry) => entry.mint === holding.mint))
+          .slice(0, 12)
+          .map((holding) => ({ mint: holding.mint, symbol: holding.symbol, icon: holding.icon ?? undefined })),
+      ]
+        .filter((entry) => entry.mint !== choice.token.mint)
+        .map((entry) => ({ value: entry.mint, label: entry.symbol, icon: <CoinIcon src={entry.icon} symbol={entry.symbol} chain="solana" size={20} /> }))
+    : [];
+  const stablePill = isSolana ? (
+    <Picker
+      label={side === "buy" ? "Pay with" : "Receive"}
+      value={payMint}
+      options={solanaPayOptions}
+      onChange={(mint) => {
+        setPickedPay(mint);
+        setAmount("");
+      }}
+      buttonClassName={`${pillClass} hover:bg-app-selected`}
+    >
+      {stableFace}
+    </Picker>
+  ) : (
+    <span className={pillClass} title={`${stable.symbol} on ${stable.chainName}, the dollar this venue trades against`}>
+      {stableFace}
     </span>
   );
   const payOptions: Array<PickerOption<PayFrom>> = [
@@ -587,7 +661,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
                 <button
                   key={share}
                   type="button"
-                  onClick={() => setAmount(shareOf(sellBalance, share, side === "buy" ? 6 : 8))}
+                  // Paying with SOL keeps a little back for network fees.
+                  onClick={() => setAmount(shareOf(Math.max(0, sellBalance - (sellIsSol ? SOL_FEE_RESERVE : 0)), share, side === "buy" ? 6 : 8))}
                   className="h-6 rounded-full bg-app-chip px-2 text-[11px] font-semibold text-app-muted hover:text-app-ink"
                 >
                   {share === 100 ? "Max" : `${share}%`}
@@ -657,7 +732,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       )}
       {rate && (
         <p className="text-[12px] tabular-nums text-app-muted">
-          1 {asset.symbol} ≈ {formatPrice(rate)} {stable.symbol}
+          1 {asset.symbol} ≈ {payIsDollar ? formatPrice(rate) : amountText(rate)} {stable.symbol}
           <span className="text-app-faint">
             {" · "}
             {isSolana
@@ -713,8 +788,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
             </DetailRow>
           )}
           <DetailRow label="Max slippage" tone={slippageBps === null ? "muted" : undefined}>
-            {shownSlippage ? bpsToPercent(shownSlippage) : "—"}
-            {slippageBps === null ? " · auto" : ""}
+            {shownSlippage ? `${bpsToPercent(shownSlippage)}${slippageBps === null ? " · auto" : ""}` : "Auto"}
           </DetailRow>
           {isSolana && selected?.feeBps !== undefined && <DetailRow label="Platform fee">{bpsToPercent(selected.feeBps)}</DetailRow>}
           {cross && crossLine?.feeUsd !== undefined && <DetailRow label="Bridge fee">{crossLine.feeUsd < 0.01 ? "< $0.01" : `$${crossLine.feeUsd.toFixed(2)}`}</DetailRow>}

@@ -216,8 +216,8 @@ export interface SpotVenue {
   kind: "spot";
   id: string;
   name: string;
-  /** The stablecoin positions are sized in (USDC). */
-  quoteToken(): Promise<SpotToken>;
+  /** The token swaps are priced against: USDC, or `mint` when the swap card pays with another token. */
+  quoteToken(mint?: string): Promise<SpotToken>;
   /** Resolves a symbol, or a mint when one is known, to the single verified token to trade. */
   resolveToken(query: { symbol: string; mint?: string }): Promise<SpotToken | null>;
   getQuote(input: SpotQuoteInput): Promise<SpotQuote>;

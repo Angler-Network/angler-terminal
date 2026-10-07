@@ -35,10 +35,11 @@ function resolveToken(query: { symbol: string; mint?: string }) {
   return promise;
 }
 
-async function quoteToken() {
-  const usdc = await resolveToken({ symbol: "USDC", mint: USDC_MINT });
-  if (!usdc) throw new VenueError("USDC isn't available on Jupiter right now.");
-  return usdc;
+/** The token a swap is priced against: USDC, or the one the swap card's "Pay with" picked (SOL, USDT, a held token). */
+async function quoteToken(mint: string = USDC_MINT) {
+  const token = await resolveToken({ symbol: mint === USDC_MINT ? "USDC" : "", mint });
+  if (!token) throw new VenueError(`${mint === USDC_MINT ? "USDC" : "That token"} isn't available on Jupiter right now.`);
+  return token;
 }
 
 async function getQuote({ inputToken, outputToken, amount, taker, slippageBps }: SpotQuoteInput): Promise<SpotQuote> {

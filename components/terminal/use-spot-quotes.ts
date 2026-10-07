@@ -45,6 +45,7 @@ export function useSpotQuotes({
   taker,
   titan,
   slippageBps = null,
+  quoteMint,
 }: {
   token: SpotToken | null;
   side: OrderSide;
@@ -52,10 +53,12 @@ export function useSpotQuotes({
   taker: string | null;
   titan: boolean;
   slippageBps?: number | null;
+  /** The other side of the swap; USDC when unset. */
+  quoteMint?: string;
 }) {
   const [quotes, setQuotes] = useState<SpotSourceQuote[]>([]);
   const [loading, setLoading] = useState(false);
-  const key = [token?.mint, side, sizeUsd, taker, titan, slippageBps].join("|");
+  const key = [token?.mint, side, sizeUsd, taker, titan, slippageBps, quoteMint].join("|");
 
   useEffect(() => {
     if (!token || !(sizeUsd > 0)) {
@@ -66,10 +69,10 @@ export function useSpotQuotes({
     const load = async () => {
       setLoading(true);
       try {
-        const usdc = await jupiterVenue.quoteToken();
-        const inputToken = side === "buy" ? usdc : token;
-        const outputToken = side === "buy" ? token : usdc;
-        const amount = usdToInputAmount(sizeUsd, side, usdc, token);
+        const payToken = await jupiterVenue.quoteToken(quoteMint);
+        const inputToken = side === "buy" ? payToken : token;
+        const outputToken = side === "buy" ? token : payToken;
+        const amount = usdToInputAmount(sizeUsd, side, payToken, token);
         const input = { inputToken, outputToken, amount, taker: taker ?? undefined, slippageBps };
         const [jupiter, titanQuote] = await Promise.all([
           // Price-only for Jupiter (no taker): the list compares routes; balances are checked when the swap is placed.

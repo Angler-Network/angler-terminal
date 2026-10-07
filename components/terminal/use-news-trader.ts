@@ -8,7 +8,7 @@ import { filledUsd, type TradeEvent } from "@/lib/analytics/trades";
 import { MAX_SPOT_PRICE_IMPACT_PCT, sideLabel, type TradeVenueKind } from "@/lib/trading/presets";
 import { fromBaseUnits, usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { spendableBalance } from "@/lib/venues/jupiter/balances";
-import { WSOL_MINT } from "@/lib/venues/jupiter/config";
+import { USDC_MINT, WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { MESSAGES } from "@/lib/venues/jupiter/errors";
 import { SwapFailedError, jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
@@ -42,6 +42,8 @@ export interface NewsTrade {
   spotSource?: "best" | "jupiter" | "titan";
   side: OrderSide;
   sizeUsd: number;
+  /** Solana swaps: the token paid with (or received on a sell); USDC when unset. */
+  quoteMint?: string;
   /** Swaps: fixed slippage in bps from the swap card; unset lets each venue choose. */
   slippageBps?: number | null;
   /** Perp leverage; defaults to the news leverage setting. */
@@ -123,17 +125,17 @@ export function useNewsTrader() {
         return false;
       }
       try {
-        const [usdc, token] = await Promise.all([jupiterVenue.quoteToken(), jupiterVenue.resolveToken({ symbol: trade.symbol, mint: trade.mint })]);
+        const [payToken, token] = await Promise.all([jupiterVenue.quoteToken(trade.quoteMint), jupiterVenue.resolveToken({ symbol: trade.symbol, mint: trade.mint })]);
         if (!token) return fail(`${trade.symbol} has no verified token on Jupiter.`), false;
-        const inputToken = trade.side === "buy" ? usdc : token;
-        const outputToken = trade.side === "buy" ? token : usdc;
-        const amount = usdToInputAmount(trade.sizeUsd, trade.side, usdc, token);
+        const inputToken = trade.side === "buy" ? payToken : token;
+        const outputToken = trade.side === "buy" ? token : payToken;
+        const amount = usdToInputAmount(trade.sizeUsd, trade.side, payToken, token);
         if (amount <= 0n) return fail("Size is too small."), false;
 
         const input = { inputToken, outputToken, amount, taker: solanaAddress, slippageBps: trade.slippageBps };
         // Jupiter and Titan quote the same swap; the one with more output is executed.
         const [balances, jupiter, titan] = await Promise.all([
-          jupiterVenue.getBalances(solanaAddress, [usdc.mint, token.mint]),
+          jupiterVenue.getBalances(solanaAddress, [payToken.mint, token.mint]),
           trade.spotSource === "titan" ? Promise.resolve(null) : jupiterVenue.getQuote(input).catch((error: unknown) => error),
           preferences.venueTitan && trade.spotSource !== "jupiter" ? getTitanQuote(input) : Promise.resolve(null),
         ]);
@@ -160,13 +162,14 @@ export function useNewsTrader() {
         toast({
           tone: "success",
           title: `${bought ? "Bought" : "Sold"} ${amountText(bought ? result.outAmount : result.inAmount, token)}`,
-          message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, usdc)} · min. received was ${amountText(quote.minOutAmount, outputToken)} · via ${viaTitan ? "Titan" : "Jupiter"}`,
+          message: `${bought ? "Spent" : "Received"} ${amountText(bought ? result.inAmount : result.outAmount, payToken)} · min. received was ${amountText(quote.minOutAmount, outputToken)} · via ${viaTitan ? "Titan" : "Jupiter"}`,
           link: { href: result.explorerUrl, label: "View on Solscan" },
         });
         // Profile points: the server checks the transaction paid our fee before counting it.
         claimSwapPoints(result.signature);
-        // The USDC side of the swap is its USD volume.
-        const usd = fromBaseUnits(bought ? result.inAmount : result.outAmount, usdc.decimals);
+        // The quote side of the swap is its USD volume (USDC at par, another token at its price).
+        const paid = fromBaseUnits(bought ? result.inAmount : result.outAmount, payToken.decimals);
+        const usd = payToken.mint === USDC_MINT ? paid : paid * (payToken.usdPrice ?? 0);
         return { venue: viaTitan ? "titan" : "jupiter", usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({
