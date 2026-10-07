@@ -17,7 +17,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useLang, useT } from "@/lib/i18n/client";
 import { langTags } from "@/lib/i18n/config";
 import { intervalDuration, loadCandles, type Candle, type ChartInterval } from "@/lib/chart/candles";
-import { mergeCandles } from "@/lib/chart/merge-candles";
+import { applyLivePrice, mergeCandles } from "@/lib/chart/merge-candles";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import type { ChartDataSource, ChartSource } from "@/lib/preferences";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
@@ -39,7 +39,7 @@ interface AnglerChartProps {
   /** When the asset trades on Hyperliquid, candles come from the configured Hyperliquid network. */
   venueMarket?: VenueMarket | null;
   /** On /spot: the traded token, charted from its own busiest DEX pool (cbBTC, not "BTC") when "Auto". */
-  spotToken?: { network: PoolNetwork | null; address: string; symbol: string } | null;
+  spotToken?: { network: PoolNetwork | null; address: string; symbol: string; price?: number } | null;
 }
 
 const CANDLE_COUNT = 1000;
@@ -167,6 +167,18 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   // On /spot with "Auto", the token's own pool comes first.
   const pool = preferences.chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
   const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? ""].join("|");
+  // Pool candles are refetched every few minutes (they cost API credits); the token's live price moves the last one.
+  const livePrice = spotToken?.price;
+  const livePriceRef = useRef(livePrice);
+  livePriceRef.current = livePrice;
+  useEffect(() => {
+    if (livePrice === undefined) return;
+    setData((current) =>
+      current && current.key === key && current.origin === "pool"
+        ? { ...current, candles: applyLivePrice(current.candles, livePrice, Date.now(), intervalDuration(interval)) }
+        : current,
+    );
+  }, [livePrice, key, interval]);
   const candles = data?.key === key ? data.candles : null;
   const newsByTime = useMemo(() => {
     const groups = new Map<number, NewsItem[]>();
@@ -294,7 +306,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
               : null
             : await loadCandles(symbol, interval, { ...options, sources: [current.source as ChartDataSource], since });
       if (!isActive || !tail || dataRef.current !== current) return;
-      setData({ ...current, candles: mergeCandles(current.candles, tail.candles, CANDLE_COUNT) });
+      const merged = mergeCandles(current.candles, tail.candles, CANDLE_COUNT);
+      const price = current.origin === "pool" ? livePriceRef.current : undefined;
+      setData({ ...current, candles: price === undefined ? merged : applyLivePrice(merged, price, Date.now(), intervalDuration(interval)) });
     };
     void load();
     const timer = window.setInterval(() => {

@@ -136,3 +136,22 @@ export async function readTopNews(dayCount = 7, limit = 20, now = new Date()) {
     .slice(0, limit)
     .map(([newsId, usd]) => ({ newsId, usd: Math.round(usd * 100) / 100 }));
 }
+
+const budgetMemory = (globalThis as unknown as { __anglerBudgets?: Map<string, number> }).__anglerBudgets ??= new Map();
+
+/**
+ * Takes one unit of a named daily budget (UTC day); false once `limit` is used up. Shared through Redis when it's
+ * configured, per server instance otherwise. A Redis error falls back to the instance counter rather than blocking.
+ */
+export async function takeDailyBudget(name: string, limit: number, now = new Date()) {
+  const key = `${PREFIX}:budget:${name}:${now.toISOString().slice(0, 10)}`;
+  if (redisConfig()) {
+    try {
+      const [count] = await redisPipeline([["INCR", key], ["EXPIRE", key, 2 * 86_400]]);
+      return Number(count) <= limit;
+    } catch {}
+  }
+  const count = (budgetMemory.get(key) ?? 0) + 1;
+  budgetMemory.set(key, count);
+  return count <= limit;
+}

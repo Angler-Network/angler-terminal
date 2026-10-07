@@ -240,8 +240,11 @@ dependency versions and design are free to diverge from angler-news.
 - Spot charts: on /spot the chart header and candles are the traded token's (`use-spot-chart-token.ts`: cbBTC with its
   logo, price, liquidity, volume, market cap), not the asset's. Candles come from the token's busiest DEX pool via
   `GET /api/spot/candles` (`lib/spot/pool-candles*.ts`: GeckoTerminal; CoinGecko's on-chain API with
-  `COINGECKO_API_KEY`). The free API allows ~10 calls a minute for the whole site, so pools are cached an hour,
-  candles a minute, refreshes ask for 3 candles, and any failure falls back to the asset's market chart. Intervals
+  `COINGECKO_API_KEY`, `COINGECKO_API_PLAN=pro` for paid plans). Calls are scarce (free: ~10/min site-wide; keyed:
+  monthly credits possibly shared with the Angler API), so the server fetches 1000 base candles per pool and timeframe
+  once every 5 minutes and slices them for every interval and refresh, pools are cached an hour, and a keyed setup
+  stops at `COINGECKO_DAILY_BUDGET` calls a day (`takeDailyBudget`, Redis). Between fetches `applyLivePrice` moves the
+  last candle with the token's live price. Any failure falls back to the asset's market chart. Intervals
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
