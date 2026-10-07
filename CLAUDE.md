@@ -67,10 +67,10 @@ dependency versions and design are free to diverge from angler-news.
 - Deployments: one repo and branch, two Vercel projects. `NEXT_PUBLIC_DEPLOYMENT` (`lib/deployment.ts`) = `mainnet`
   (trade.angler.network) or `testnet` (testnet-trade.angler.network) pins every venue's network (`pinnedNetwork`,
   ignoring the per-browser overrides, which Settings then hides) and limits venues through `venueAvailable`
-  (preferences, wallet tiles, settings rows, account sections): testnet drops Jupiter/Titan; mainnet offers only
+  (preferences, wallet tiles, settings rows, account sections): testnet drops Jupiter/Titan/Uniswap; mainnet offers only
   venues whose required settings exist, from `NEXT_PUBLIC_CONFIGURED_VENUES`, which `next.config.mjs` derives at build
   time from env presence (names only: HL needs a real `NEXT_PUBLIC_HL_BUILDER_ADDRESS`, Jupiter `JUP_API_KEY`, Titan
-  `TITAN_API_KEY`, Arcus `ARCUS_API_KEY`; Lighter needs nothing). A Testnet badge in the top bar links to
+  `TITAN_API_KEY`, Arcus `ARCUS_API_KEY`, Uniswap `UNISWAP_API_KEY`; Lighter needs nothing). A Testnet badge in the top bar links to
   `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL`. Unset, each venue follows its own `NEXT_PUBLIC_*_NETWORK` as before.
 - Venues (`lib/venues/*`): the `Venue` interface in `types.ts`; Hyperliquid in `hyperliquid/`, built on
   `@nktkas/hyperliquid`.
@@ -292,6 +292,20 @@ dependency versions and design are free to diverge from angler-news.
     only preset the pair (`presetRoute`). Pickers portal their list to the body (the dialog's blur clips a fixed list).
     The order panel shows total buying power and, when the chosen venue lacks margin, offers to trade on a funded
     venue, move funds or deposit (`openDeposit(venue, mode)`).
+  - Uniswap (`lib/venues/uniswap/*`, `app/api/uniswap/[...path]`): the Trading API (trade-api.gateway.uniswap.org/v1,
+    OpenAPI at `/v1/api.json`), mainnet only (it has no testnet; `uniswapOnRobinhood` needs a mainnet Robinhood Chain).
+    The proxy allows `check_approval`, `quote`, `swap`, `order` (POST, same origin) and `orders`, `swaps` (GET), adds
+    `x-api-key` (`UNISWAP_API_KEY`) and replaces any browser fee with ours: `integratorFees: [{ bips, recipient }]`
+    from `UNISWAP_FEE_BPS` (≤ 500, two decimals; fractional pins Universal Router 2.1.1) + `UNISWAP_FEE_RECIPIENT`
+    (shape confirmed against the live validator). Quotes are same-chain only (4663 now; 42161/8453 allowed for later).
+    First use: Robinhood Chain stock tokens (the Arcus catalog, which needs no Arcus key) are quoted on every enabled
+    source (`robinhood-sources.ts`, `robinhood-quotes.ts`: Arcus `/v1/price` vs Uniswap `/quote`) and the larger
+    output wins (Arcus on a tie); the swap card lists both like Jupiter/Titan and a press pins one. Execution
+    (`venue.ts`, on demand): balance, `check_approval` (one-time Permit2 approve, needs ETH gas), a fresh quote for
+    the wallet, Permit2 EIP-712 signature (`permitPrimaryType`), then `routing` decides: CLASSIC/WRAP/UNWRAP →
+    `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,
+    polled through `/orders` until filled. `readUniswapTx` refuses empty calldata. Uniswap volume doesn't earn profile
+    points yet; analytics records venue `uniswap`.
   - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
     Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
     The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the

@@ -48,3 +48,12 @@ export async function arcusQuoteToken() {
   return token;
 }
 
+
+/** Arcus's indicative output for selling `sellAmount` (`/v1/price`, no wallet needed); null without an arcus price. */
+export async function arcusIndicativeOut(sellToken: ArcusToken, buyToken: ArcusToken, sellAmount: bigint) {
+  const body = await call<{ all?: Array<{ venue: string; buyAmount: string }> }>(
+    `price?${new URLSearchParams({ chainId: String(arcusConfig.chainId), sellToken: sellToken.address, buyToken: buyToken.address, sellAmount: sellAmount.toString() })}`,
+  );
+  const entry = body.all?.find((row) => row.venue === "arcus");
+  return entry ? BigInt(entry.buyAmount) : null;
+}

@@ -27,6 +27,7 @@ import { useTrading } from "./trading-provider";
 import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import { ROBINHOOD_SOURCE_NAMES, robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { useArcusToken } from "./use-arcus-token";
 import { takerFeeFor, useBestExecution } from "./use-best-execution";
 import { useFunding } from "./use-funding";
@@ -219,7 +220,8 @@ function useVenueChoices(symbol: string, mint?: string) {
   const { preferences } = usePreferences();
   const { marketsByVenue, perpOrder, network } = useTrading();
   const token = useSpotToken(symbol, mint, preferences.venueJupiter);
-  const arcusToken = useArcusToken(symbol, preferences.venueArcus && !mint);
+  const rhSources = robinhoodSources(preferences);
+  const arcusToken = useArcusToken(symbol, rhSources.length > 0 && !mint);
   const choices: VenueChoice[] = [];
   for (const venue of perpOrder) {
     const list = marketsByVenue[venue];
@@ -235,7 +237,10 @@ function useVenueChoices(symbol: string, mint?: string) {
     const titan = preferences.venueTitan && venueAvailable("titan");
     choices.push({ id: "solana", name: titan ? "Jupiter · Titan" : "Jupiter", network: "mainnet", kind: "spot", token });
   }
-  if (arcusToken) choices.push({ id: "arcus", name: "Arcus", network: arcusConfig.network, kind: "spot", arcusToken });
+  if (arcusToken) {
+    const name = rhSources.map((source) => ROBINHOOD_SOURCE_NAMES[source]).join(" · ");
+    choices.push({ id: "arcus", name, network: arcusConfig.network, kind: "spot", arcusToken });
+  }
   return { choices, isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined };
 }
 

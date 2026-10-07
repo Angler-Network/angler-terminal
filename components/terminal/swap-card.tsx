@@ -19,6 +19,7 @@ import { ARCUS_SLIPPAGE_BPS } from "@/lib/venues/arcus/config";
 import { arcusQuoteToken, call } from "@/lib/venues/arcus/catalog";
 import { ARCUS_MIN_NOTIONAL_USD, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
+import { ROBINHOOD_SOURCE_NAMES, robinhoodSources, type RobinhoodSource } from "@/lib/venues/robinhood-sources";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { spendableBalance } from "@/lib/venues/jupiter/balances";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -33,7 +34,7 @@ import { CoinIcon } from "./token-icon";
 import { useTrading } from "./trading-provider";
 import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
 import { useNewsTrader } from "./use-news-trader";
-import { useSpotQuotes, type SpotSource, type SpotSourceQuote } from "./use-spot-quotes";
+import { useRobinhoodQuotes, useSpotQuotes, type SpotSource, type SpotSourceQuote } from "./use-spot-quotes";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 
@@ -45,7 +46,7 @@ export type SpotChoice =
 const ARM_MS = 5_000;
 const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
-const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan" };
+const SOURCE_NAMES: Record<SpotSource, string> = { jupiter: "Jupiter", titan: "Titan", ...ROBINHOOD_SOURCE_NAMES };
 const OTHER_TOKEN = "__other";
 const QUOTE_DEBOUNCE_MS = 600;
 const USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
@@ -383,7 +384,23 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     slippageBps,
     quoteMint: payMint === USDC_MINT ? undefined : payMint,
   });
-  const selected = pick ? quotes.find((quote) => quote.source === pick) : quotes.find((quote) => quote.outAmount !== null);
+  // Robinhood Chain stock tokens: Arcus and Uniswap quote the same swap once Uniswap is on (Arcus alone keeps its own flow).
+  const rhSources = isSolana ? [] : robinhoodSources(preferences);
+  const compareRh = !isSolana && !cross && rhSources.includes("uniswap");
+  const rh = useRobinhoodQuotes({
+    token: compareRh && !isSolana ? choice.arcusToken : null,
+    side,
+    sizeUsd,
+    taker: evmAddress,
+    sources: rhSources,
+    slippageBps,
+  });
+  const routeQuotes = isSolana ? quotes : rh.quotes;
+  const routesLoading = isSolana ? loading : rh.loading;
+  const hasQuotes = isSolana || compareRh;
+  const selected = pick ? routeQuotes.find((quote) => quote.source === pick) : routeQuotes.find((quote) => quote.outAmount !== null);
+  // The Robinhood source the swap goes to: the pinned or best quote, else the first enabled one.
+  const rhSource = isSolana ? null : ((selected?.source as RobinhoodSource | undefined) ?? rhSources[0] ?? "arcus");
   const quoted = selected?.outAmount != null && selected.outputToken ? fromBaseUnits(selected.outAmount, selected.outputToken.decimals) : null;
   // Before a quote lands: the USD size at the asset's price (buys) or the pay token's (sells).
   const estimated = side === "buy" ? estimateReceive("buy", sizeUsd, price) : payPrice ? sizeUsd / payPrice : null;
@@ -411,12 +428,12 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       ? `Not enough ${sell.symbol} on ${sell.chainName}.`
       : side === "sell" && !price
         ? `No ${asset.symbol} price yet.`
-        : !isSolana && sizeUsd < ARCUS_MIN_NOTIONAL_USD
+        : !isSolana && rhSource === "arcus" && sizeUsd < ARCUS_MIN_NOTIONAL_USD
           ? `Arcus needs at least $${ARCUS_MIN_NOTIONAL_USD} per swap.`
           : null;
   const unverified = isSolana && !choice.token.isVerified ? choice.token : null;
   const needsAck = unverified !== null && side === "buy" && acknowledged !== unverified.mint;
-  const viaRoute = isSolana ? routeText(selected?.route) : null;
+  const viaRoute = hasQuotes ? routeText(selected?.route) : null;
   const canSwap = Boolean(owner) && sizeUsd > 0 && !error && !isPlacing && !locked && !needsAck;
 
   // Debounced Across quote for a cross-chain payment: what USDG lands on Robinhood for this USDC.
@@ -442,6 +459,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   }, [crossKey, locked]);
 
   useEffect(() => setArmed(false), [symbol, choice.id, side, amount, pick, payFrom]);
+  // A pinned source belongs to one chain's list.
+  useEffect(() => setPick(null), [choice.id]);
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
@@ -494,7 +513,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       const placed = await trade({
         symbol,
         mint: isSolana ? choice.token.mint : undefined,
-        spotSource: isSolana ? (pick ?? "best") : undefined,
+        spotSource: isSolana ? ((pick as "jupiter" | "titan" | null) ?? "best") : undefined,
+        robinhoodSource: !isSolana && pick ? (pick as RobinhoodSource) : undefined,
         quoteMint: isSolana && payMint !== USDC_MINT ? payMint : undefined,
         venue: "spot",
         spotVenue: isSolana ? "jupiter" : "arcus",
@@ -612,9 +632,10 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const walletName = isSolana ? "Solana" : "EVM";
 
   const quoteOut = selected?.outputToken;
-  const minOut = isSolana && selected?.minOut !== undefined && quoteOut ? fromBaseUnits(selected.minOut, quoteOut.decimals) : null;
-  const impact = isSolana && selected?.priceImpactPct !== undefined ? Math.abs(selected.priceImpactPct) : null;
-  const shownSlippage = isSolana ? (selected?.slippageBps ?? slippageBps) : (slippageBps ?? ARCUS_SLIPPAGE_BPS);
+  const minOut = hasQuotes && selected?.minOut !== undefined && quoteOut ? fromBaseUnits(selected.minOut, quoteOut.decimals) : null;
+  const impact = hasQuotes && selected?.priceImpactPct !== undefined ? Math.abs(selected.priceImpactPct) : null;
+  // Uniswap picks its own slippage under Auto; Arcus signs its default bound.
+  const shownSlippage = isSolana ? (selected?.slippageBps ?? slippageBps) : rhSource === "uniswap" ? slippageBps : (slippageBps ?? ARCUS_SLIPPAGE_BPS);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -702,11 +723,11 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline p-2.5">
           <p className="text-[12px] text-app-ink">
             Your USDC is bridged to Robinhood Chain and converted to {arcusConfig.quoteSymbol} (Paxos&apos;s dollar, about 1:1), then swapped for{" "}
-            {asset.symbol} on Arcus.
+            {asset.symbol} on {rhSources.includes("uniswap") ? "Arcus or Uniswap, whichever pays more" : "Arcus"}.
             {crossLine?.feeUsd !== undefined && <span className="text-app-muted"> Bridge fee {crossLine.feeUsd < 0.01 ? "< $0.01" : `$${crossLine.feeUsd.toFixed(2)}`}.</span>}
           </p>
           <ol className="flex flex-col gap-1">
-            {[...crossSteps.map(stepLabel), `Swap ${arcusConfig.quoteSymbol} → ${asset.symbol} on Arcus (signature, gasless)`].map((label, index) => {
+            {[...crossSteps.map(stepLabel), rhSources.includes("uniswap") ? `Swap ${arcusConfig.quoteSymbol} → ${asset.symbol} at the best price (Arcus or Uniswap)` : `Swap ${arcusConfig.quoteSymbol} → ${asset.symbol} on Arcus (signature, gasless)`].map((label, index) => {
               const at = bridged !== null ? crossSteps.length : run ? run.index : -1;
               const done = index < at;
               const current = index === at;
@@ -739,7 +760,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
               ? viaRoute
                 ? `via ${viaRoute}`
                 : "Jupiter / Titan, best route"
-              : `Arcus on Robinhood Chain${arcusConfig.network === "mainnet" ? "" : ` ${arcusConfig.network}`}, gasless`}
+              : rhSource === "uniswap"
+                ? `Uniswap on Robinhood Chain${selected?.gasFeeUsd === 0 ? ", gasless" : viaRoute ? ` via ${viaRoute}` : ""}`
+                : `Arcus on Robinhood Chain${arcusConfig.network === "mainnet" ? "" : ` ${arcusConfig.network}`}, gasless`}
           </span>
         </p>
       )}
@@ -769,7 +792,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       {isSolana && !unverified && choice.token.launchpad && (
         <p className="text-[11px] text-app-faint">Launched on {choice.token.launchpad}.</p>
       )}
-      {isSolana && sizeUsd > 0 && quotes.length > 1 && <SpotRoutes quotes={quotes} loading={loading} pick={pick} onPick={setPick} />}
+      {hasQuotes && sizeUsd > 0 && routeQuotes.length > 1 && <SpotRoutes quotes={routeQuotes} loading={routesLoading} pick={pick} onPick={setPick} />}
       {value > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-app-hairline p-2.5">
           <DetailRow label="You sell">
@@ -790,7 +813,12 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           <DetailRow label="Max slippage" tone={slippageBps === null ? "muted" : undefined}>
             {shownSlippage ? `${bpsToPercent(shownSlippage)}${slippageBps === null ? " · auto" : ""}` : "Auto"}
           </DetailRow>
-          {isSolana && selected?.feeBps !== undefined && <DetailRow label="Platform fee">{bpsToPercent(selected.feeBps)}</DetailRow>}
+          {hasQuotes && selected?.feeBps !== undefined && <DetailRow label="Platform fee">{bpsToPercent(selected.feeBps)}</DetailRow>}
+          {!isSolana && selected?.gasFeeUsd !== undefined && selected.gasFeeUsd !== null && (
+            <DetailRow label="Network fee" tone={selected.gasFeeUsd === 0 ? "muted" : undefined}>
+              {selected.gasFeeUsd === 0 ? "None (gasless)" : selected.gasFeeUsd < 0.01 ? "< $0.01" : `~$${selected.gasFeeUsd.toFixed(2)}`}
+            </DetailRow>
+          )}
           {cross && crossLine?.feeUsd !== undefined && <DetailRow label="Bridge fee">{crossLine.feeUsd < 0.01 ? "< $0.01" : `$${crossLine.feeUsd.toFixed(2)}`}</DetailRow>}
         </div>
       )}

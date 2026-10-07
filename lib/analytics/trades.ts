@@ -2,7 +2,7 @@
  * Trade analytics, anonymous by design: events carry no wallet address and no IP, and the store keeps only daily
  * totals (trades, USD volume, estimated partner fees per venue), never a per-trade record.
  */
-export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "polymarket"] as const;
+export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "polymarket"] as const;
 export type TradeVenue = (typeof TRADE_VENUES)[number];
 
 export interface TradeEvent {
@@ -49,6 +49,7 @@ export interface ServerFeeRates {
   jupiterBps: number;
   titanBps: number;
   arcusBps: number;
+  uniswapBps: number;
 }
 
 /** Jupiter keeps 20% of the referral fee. */
@@ -63,6 +64,7 @@ export function readServerFeeRates(env: Record<string, string | undefined>): Ser
     jupiterBps: bps(env.JUP_REFERRAL_FEE_BPS, Boolean(env.JUP_REFERRAL_ACCOUNT?.trim())),
     titanBps: bps(env.TITAN_FEE_BPS, Boolean(env.TITAN_FEE_WALLET?.trim())),
     arcusBps: bps(env.ARCUS_BUILDER_FEE_BPS, Boolean(env.ARCUS_API_KEY?.trim())),
+    uniswapBps: bps(env.UNISWAP_FEE_BPS, Boolean(env.UNISWAP_API_KEY?.trim() && env.UNISWAP_FEE_RECIPIENT?.trim())),
   };
 }
 
@@ -75,7 +77,9 @@ export function estimateFeeUsd(event: TradeEvent, rates: ServerFeeRates) {
         ? rates.titanBps
         : event.venue === "arcus"
           ? rates.arcusBps
-          : (event.feeBps ?? 0);
+          : event.venue === "uniswap"
+            ? rates.uniswapBps
+            : (event.feeBps ?? 0);
   return Math.round(event.usd * bps * 100) / 1_000_000;
 }
 

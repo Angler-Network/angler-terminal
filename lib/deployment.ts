@@ -23,7 +23,7 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-export type VenueKey = "hyperliquid" | "lighter" | "lighterRh" | "jupiter" | "titan" | "arcus";
+export type VenueKey = "hyperliquid" | "lighter" | "lighterRh" | "jupiter" | "titan" | "arcus" | "uniswap";
 
 /** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */
 export const configuredVenues = readConfiguredVenues(process.env.NEXT_PUBLIC_CONFIGURED_VENUES);
@@ -34,12 +34,13 @@ export function readConfiguredVenues(value: string | undefined) {
 
 /**
  * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a
- * builder address for Hyperliquid, API keys for Jupiter, Titan and Arcus); the testnet site has no mainnet-only
- * Solana venues; unpinned builds offer everything.
+ * builder address for Hyperliquid, API keys for Jupiter, Titan, Arcus and Uniswap); the testnet site has no
+ * mainnet-only venues (Jupiter, Titan, Uniswap); unpinned builds offer everything.
  */
 export function venueAvailable(venue: VenueKey, pinned: Deployment | null = deployment, configured: Set<string> = configuredVenues) {
   if (pinned === "mainnet") return configured.has(venue);
-  if (pinned === "testnet") return venue !== "jupiter" && venue !== "titan";
+  // Jupiter, Titan and the Uniswap Trading API have no testnet.
+  if (pinned === "testnet") return venue !== "jupiter" && venue !== "titan" && venue !== "uniswap";
   return true;
 }
 

@@ -5,6 +5,7 @@ import { pickQuote } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
 import { arcusFetch } from "@/lib/venues/arcus/server";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
+import { uniswapOnRobinhood } from "@/lib/venues/robinhood-sources";
 import { fromArcusToken, fromJupRecord, mergeListings, type JupListingRecord, type SpotListing } from "./listings";
 
 const REVALIDATE_SECONDS = 120;
@@ -31,7 +32,8 @@ async function jupiterListings(): Promise<SpotListing[]> {
 
 /** Arcus stock, index and commodity tokens, priced from the same asset's perp quote when a perp venue lists it. */
 async function arcusListings(): Promise<SpotListing[]> {
-  if (!venueAvailable("arcus")) return [];
+  // The Arcus catalog lists Robinhood Chain stock tokens for Arcus and for Uniswap alike.
+  if (!venueAvailable("arcus") && !uniswapOnRobinhood()) return [];
   const [tokensResponse, markets] = await Promise.all([arcusFetch("/v1/tokens", { next: { revalidate: 300 } }), getMarkets("perp").catch(() => [])]);
   if (!tokensResponse.ok) throw new Error(`Arcus tokens responded ${tokensResponse.status}`);
   const body = (await tokensResponse.json()) as unknown;
@@ -55,7 +57,7 @@ async function loadSpotListings(): Promise<SpotListing[]> {
   if (arcus.status === "rejected") console.error("[spot] arcus listings failed:", arcus.reason);
   const listings = mergeListings(jupiter.status === "fulfilled" ? jupiter.value : [], arcus.status === "fulfilled" ? arcus.value : []);
   // An all-empty load is an outage: throwing keeps the cache's last good list.
-  if (listings.length === 0 && (venueAvailable("jupiter") || venueAvailable("arcus"))) throw new Error("No spot venue answered");
+  if (listings.length === 0 && (venueAvailable("jupiter") || venueAvailable("arcus") || uniswapOnRobinhood())) throw new Error("No spot venue answered");
   return listings;
 }
 

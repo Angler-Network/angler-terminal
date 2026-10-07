@@ -24,6 +24,7 @@ function readConfiguredVenues(env) {
     jupiter: set(env.JUP_API_KEY),
     titan: set(env.TITAN_API_KEY),
     arcus: set(env.ARCUS_API_KEY),
+    uniswap: set(env.UNISWAP_API_KEY),
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])

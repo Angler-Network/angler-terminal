@@ -5,6 +5,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
+import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { fromBaseUnits } from "@/lib/venues/jupiter/amounts";
 import { ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig } from "@/lib/venues/arcus/config";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
@@ -323,10 +324,10 @@ function ArcusSection({ address }: { address: `0x${string}` }) {
     amount === undefined ? "—" : fromBaseUnits(amount, decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 });
 
   return (
-    <Section title="Arcus stock tokens" badge={arcusConfig.network === "testnet" ? "Testnet" : "Mainnet"}>
+    <Section title="Robinhood Chain stock tokens" badge={arcusConfig.network === "testnet" ? "Testnet" : "Mainnet"}>
       <Row label={arcusConfig.quoteSymbol}>{state ? show(state.amounts[state.stable.address], state.stable.decimals) : "—"}</Row>
       {token && <Row label={token.symbol}>{state ? show(state.amounts[token.address], token.decimals) : "—"}</Row>}
-      <Row label="ETH (approvals)">{state ? show(state.eth, 18) : "—"}</Row>
+      <Row label="ETH (gas)">{state ? show(state.eth, 18) : "—"}</Row>
       {arcusConfig.network === "testnet" && <ArcusTestFunds address={address} hasEth={Boolean(state && state.eth > 0n)} onMinted={load} />}
     </Section>
   );
@@ -360,7 +361,7 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
         )}
         {showAccount && kind === "perp" && evmAddress && <PerpAccount />}
         {showAccount && kind === "spot" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
-        {showAccount && kind === "spot" && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
+        {showAccount && kind === "spot" && evmAddress && robinhoodSources(preferences).length > 0 && <ArcusSection address={evmAddress} />}
       </div>
     </div>
   );

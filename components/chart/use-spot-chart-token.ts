@@ -9,6 +9,7 @@ import { useSpotToken } from "@/components/terminal/use-spot-token";
 import type { PoolNetwork } from "@/lib/spot/pool-candles";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { arcusConfig } from "@/lib/venues/arcus/config";
+import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 
 /** The token /swap actually trades for the selected asset, with what the chart header shows about it. */
 export interface SpotChartToken {
@@ -36,7 +37,7 @@ export function useSpotChartToken(): SpotChartToken | null | undefined {
   const { symbol, mint } = useSelectedAsset();
   const { preferences } = usePreferences();
   const jupiter = useSpotToken(symbol, mint, isSpot && preferences.venueJupiter);
-  const needArcus = isSpot && preferences.venueArcus && jupiter === null && !mint;
+  const needArcus = isSpot && robinhoodSources(preferences).length > 0 && jupiter === null && !mint;
   const arcus = useArcusToken(symbol, needArcus);
   const listings = useSpotListings(isSpot);
 

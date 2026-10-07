@@ -5,6 +5,7 @@ import { pickPerpMarket } from "@/lib/venues/routing";
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import type { SpotToken, SpotVenueId, VenueMarket } from "@/lib/venues/types";
 import { useTrading } from "./trading-provider";
+import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { useArcusToken } from "./use-arcus-token";
 import { useSpotToken } from "./use-spot-token";
 
@@ -39,7 +40,7 @@ export function useAssetVenues(
   const spot = useSpotToken(symbol, mint, lookupSpot && perp !== undefined);
 
   const spotResolved = perp !== undefined && !(lookupSpot && spot === undefined);
-  const lookupArcus = preferences.venueArcus && !mint && spotResolved && (options.needArcus === true || (perp === null && !spot));
+  const lookupArcus = robinhoodSources(preferences).length > 0 && !mint && spotResolved && (options.needArcus === true || (perp === null && !spot));
   const arcus = useArcusToken(symbol, lookupArcus);
 
   if (!spotResolved || (lookupArcus && arcus === undefined)) return undefined;

@@ -550,7 +550,7 @@ function VenueRow({ name, description, badge, children }: { name: string; descri
   );
 }
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap" };
 
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
@@ -698,6 +698,15 @@ function VenueSettings() {
         description="24/7 stock and index tokens, bought and sold with USDG. Used for stocks that no perp venue lists, and in the test order form. Gasless: your wallet signs, Arcus settles."
       >
         <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
+      </VenueRow>
+      )}
+      {venueAvailable("uniswap") && arcusConfig.network === "mainnet" && (
+      <VenueRow
+        name="Uniswap"
+        badge="Stock tokens · Robinhood Chain"
+        description="Every Robinhood Chain stock swap asks Uniswap and Arcus for a quote and takes the one that pays more. UniswapX fills are gasless; pool swaps need a little ETH on Robinhood Chain for gas."
+      >
+        <Toggle label="Uniswap" checked={preferences.venueUniswap} onChange={(checked) => updatePreference("venueUniswap", checked)} />
       </VenueRow>
       )}
 {venueAvailable("titan") && (

@@ -24,6 +24,8 @@ describe("deployment", () => {
     expect(venueAvailable("arcus", "testnet", new Set())).toBe(true);
     expect(venueAvailable("jupiter", "testnet", configured)).toBe(false);
     expect(venueAvailable("titan", null, new Set())).toBe(true);
+    expect(venueAvailable("uniswap", "testnet", new Set(["uniswap"]))).toBe(false);
+    expect(venueAvailable("uniswap", "mainnet", new Set(["uniswap"]))).toBe(true);
     expect(readConfiguredVenues(undefined).size).toBe(0);
   });
 });

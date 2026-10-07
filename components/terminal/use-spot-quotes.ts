@@ -4,15 +4,19 @@ import { useEffect, useState } from "react";
 import { usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { getTitanQuote } from "@/lib/venues/titan/venue";
+import type { ArcusToken } from "@/lib/venues/arcus/tokens";
+import { quoteRobinhood } from "@/lib/venues/robinhood-quotes";
+import type { RobinhoodSource } from "@/lib/venues/robinhood-sources";
 import type { OrderSide, SpotQuote, SpotToken } from "@/lib/venues/types";
 
-export type SpotSource = "jupiter" | "titan";
+/** Solana aggregators (Jupiter, Titan) or Robinhood Chain stock swap sources (Arcus, Uniswap). */
+export type SpotSource = "jupiter" | "titan" | RobinhoodSource;
 
 export interface SpotSourceQuote {
   source: SpotSource;
   /** Output in the output token's smallest unit, or null with `note` saying why there's no quote. */
   outAmount: bigint | null;
-  outputToken: SpotToken | null;
+  outputToken: Pick<SpotToken, "symbol" | "decimals"> | null;
   note: string | null;
   /** The DEXes the route trades through (Raydium, Pump.fun, Meteora…), in order. */
   route?: string[];
@@ -21,6 +25,8 @@ export interface SpotSourceQuote {
   priceImpactPct?: number;
   feeBps?: number;
   slippageBps?: number;
+  /** Gas the wallet pays in USD (Uniswap pool swaps); 0 when a relayer or filler pays it. */
+  gasFeeUsd?: number | null;
 }
 
 const DEBOUNCE_MS = 400;
@@ -113,6 +119,75 @@ export function useSpotQuotes({
       window.clearInterval(timer);
     };
     // key captures every input; token is compared by mint.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return { quotes, loading };
+}
+
+/**
+ * Arcus and Uniswap quotes for a USDG ↔ stock token swap on Robinhood Chain, best first, refreshed like the Solana
+ * ones. Uniswap quotes for the connected wallet when there is one.
+ */
+export function useRobinhoodQuotes({
+  token,
+  side,
+  sizeUsd,
+  taker,
+  sources,
+  slippageBps = null,
+}: {
+  token: ArcusToken | null;
+  side: OrderSide;
+  sizeUsd: number;
+  taker: string | null;
+  sources: RobinhoodSource[];
+  slippageBps?: number | null;
+}) {
+  const [quotes, setQuotes] = useState<SpotSourceQuote[]>([]);
+  const [loading, setLoading] = useState(false);
+  const key = [token?.address, side, sizeUsd, taker, sources.join(","), slippageBps].join("|");
+
+  useEffect(() => {
+    if (!token || !(sizeUsd > 0) || sources.length === 0) {
+      setQuotes([]);
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const set = await quoteRobinhood({ token, side, sizeUsd, sources, taker, slippageBps });
+        if (!active) return;
+        setQuotes(
+          set.quotes.map((quote) => ({
+            source: quote.source,
+            outAmount: quote.out,
+            outputToken: set.buyToken,
+            note: quote.note,
+            route: quote.uniswap?.route,
+            minOut: quote.uniswap?.minOutAmount ?? undefined,
+            priceImpactPct: quote.uniswap?.priceImpactPct ?? undefined,
+            feeBps: quote.uniswap?.feeBps,
+            gasFeeUsd: quote.source === "arcus" ? 0 : quote.uniswap?.gasFeeUsd,
+          })),
+        );
+      } catch {
+        if (active) setQuotes([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    const debounce = window.setTimeout(load, DEBOUNCE_MS);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void load();
+    }, REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearTimeout(debounce);
+      window.clearInterval(timer);
+    };
+    // key captures every input; the token is compared by address.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

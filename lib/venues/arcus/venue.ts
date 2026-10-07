@@ -10,7 +10,8 @@ import {
   signQuote,
   type ArcusFirmQuote,
 } from "@arcus-xyz/arcus-spot-sdk";
-import { createPublicClient, createWalletClient, custom, erc20Abi, http, type EIP1193Provider } from "viem";
+import { createPublicClient, erc20Abi, http, type EIP1193Provider } from "viem";
+import { walletMessage, walletOnChain } from "../evm-wallet";
 import { VenueError, type OrderSide } from "../types";
 import { ARCUS_MIN_NOTIONAL_USD, ARCUS_SLIPPAGE_BPS, ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig, explorerTxUrl } from "./config";
 import { arcusQuoteToken, call } from "./catalog";
@@ -33,27 +34,8 @@ export function getArcusNativeBalance(owner: `0x${string}`) {
   return publicClient.getBalance({ address: owner });
 }
 
-function walletMessage(error: unknown) {
-  const code = (error as { code?: number } | null)?.code;
-  const message = error instanceof Error ? error.message : String(error);
-  if (code === 4001 || /reject|denied|cancel/i.test(message)) return "You rejected the request in your wallet.";
-  return message.split("\n")[0];
-}
-
 /** Moves the wallet to Robinhood Chain, adding the network first when the wallet doesn't know it. */
-async function walletOnRobinhood(provider: EIP1193Provider, account: `0x${string}`) {
-  const wallet = createWalletClient({ account, chain: arcusConfig.chain, transport: custom(provider) });
-  if ((await wallet.getChainId()) === arcusConfig.chainId) return wallet;
-  try {
-    await wallet.switchChain({ id: arcusConfig.chainId });
-  } catch (error) {
-    const code = (error as { code?: number; cause?: { code?: number } }).code ?? (error as { cause?: { code?: number } }).cause?.code;
-    if (code !== 4902 && !/unrecognized|not added|unknown chain/i.test(String((error as Error).message))) throw error;
-    await wallet.addChain({ chain: arcusConfig.chain });
-    if ((await wallet.getChainId()) !== arcusConfig.chainId) await wallet.switchChain({ id: arcusConfig.chainId });
-  }
-  return wallet;
-}
+const walletOnRobinhood = (provider: EIP1193Provider, account: `0x${string}`) => walletOnChain(provider, account, arcusConfig.chain);
 
 const mintAbi = [
   { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },

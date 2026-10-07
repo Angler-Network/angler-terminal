@@ -19,6 +19,9 @@ import { isLighterVenue } from "@/lib/venues/lighter/config";
 import { pickBestSpotQuote } from "@/lib/trading/best-quote";
 import { executeTitanQuote, getTitanQuote } from "@/lib/venues/titan/venue";
 import { resolveArcusToken } from "@/lib/venues/arcus/catalog";
+import { arcusConfig } from "@/lib/venues/arcus/config";
+import { quoteRobinhood } from "@/lib/venues/robinhood-quotes";
+import { ROBINHOOD_SOURCE_NAMES, robinhoodSources, type RobinhoodSource } from "@/lib/venues/robinhood-sources";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
 import { claimSwapPoints } from "@/lib/profile/client";
 import type { OrderSide, PerpVenueId, SpotQuote, SpotToken, SpotVenueId } from "@/lib/venues/types";
@@ -41,6 +44,8 @@ export interface NewsTrade {
   spotVenue?: SpotVenueId;
   /** Solana swaps: "best" (default) compares Jupiter and Titan; "jupiter" or "titan" uses that one only. */
   spotSource?: "best" | "jupiter" | "titan";
+  /** Robinhood Chain stock swaps: one source only; unset compares every enabled one (Arcus, Uniswap). */
+  robinhoodSource?: RobinhoodSource;
   side: OrderSide;
   sizeUsd: number;
   /** Solana swaps: the token paid with (or received on a sell); USDC when unset. */
@@ -199,61 +204,97 @@ export function useNewsTrader() {
   const tradeArcus = useCallback(
     async (trade: NewsTrade): Promise<Placed> => {
       if (!evmAddress || !evmWallet) {
-        fail("Connect an EVM wallet to trade stock tokens on Arcus.");
+        fail("Connect an EVM wallet to trade stock tokens on Robinhood Chain.");
         openWallets();
         return false;
       }
+      const enabled = robinhoodSources(preferences);
+      const sources = trade.robinhoodSource ? enabled.filter((source) => source === trade.robinhoodSource) : enabled;
+      if (sources.length === 0) return fail("No Robinhood Chain swap venue is on. Turn on Arcus or Uniswap in Settings → Venues."), false;
+      let source = sources[0];
       try {
         const token = await resolveArcusToken(trade.symbol);
-        if (!token) return fail(`${trade.symbol} isn't listed on Arcus.`), false;
-        const { arcusSwap } = await import("@/lib/venues/arcus/venue");
-        const result = await arcusSwap({
-          provider: evmWallet.provider,
-          account: evmAddress,
-          token,
-          side: trade.side,
-          sizeUsd: trade.sizeUsd,
-          maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
-          slippageBps: trade.slippageBps,
-        });
+        if (!token) return fail(`${trade.symbol} isn't listed on Robinhood Chain.`), false;
+        // With Uniswap in the mix both sources quote the same swap and the larger output wins (Arcus on a tie).
+        const compared = sources.includes("uniswap")
+          ? await quoteRobinhood({ token, side: trade.side, sizeUsd: trade.sizeUsd, sources, taker: evmAddress, slippageBps: trade.slippageBps })
+          : null;
+        if (compared) {
+          const best = compared.quotes.find((quote) => quote.out !== null);
+          if (!best) return fail(compared.quotes[0]?.note ?? "No quote for this swap right now."), false;
+          source = best.source;
+        }
+        let swapped: { txHash: string; explorerUrl: string; sold: { amount: bigint; token: typeof token }; bought: { amount: bigint; token: typeof token }; gasless: boolean };
+        if (source === "uniswap" && compared) {
+          const { uniswapSwap } = await import("@/lib/venues/uniswap/venue");
+          const result = await uniswapSwap({
+            provider: evmWallet.provider,
+            account: evmAddress,
+            chain: arcusConfig.chain,
+            tokenIn: compared.sellToken,
+            tokenOut: compared.buyToken,
+            amount: compared.sellAmount,
+            slippageBps: trade.slippageBps,
+            maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
+          });
+          swapped = {
+            ...result,
+            sold: { amount: result.inAmount, token: compared.sellToken },
+            bought: { amount: result.outAmount, token: compared.buyToken },
+          };
+        } else {
+          const { arcusSwap } = await import("@/lib/venues/arcus/venue");
+          const result = await arcusSwap({
+            provider: evmWallet.provider,
+            account: evmAddress,
+            token,
+            side: trade.side,
+            sizeUsd: trade.sizeUsd,
+            maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
+            slippageBps: trade.slippageBps,
+          });
+          swapped = { ...result, gasless: true };
+        }
+        const venueName = ROBINHOOD_SOURCE_NAMES[source];
         const format = (amount: bigint, decimals: number, symbol: string) =>
           `${fromBaseUnits(amount, decimals).toLocaleString("en-US", { maximumSignificantDigits: 6 })} ${symbol}`;
         const bought = trade.side === "buy";
+        const { sold: soldLeg, bought: boughtLeg } = swapped;
         toast({
           tone: "success",
-          title: `${bought ? "Bought" : "Sold"} ${bought ? format(result.bought.amount, token.decimals, token.symbol) : format(result.sold.amount, token.decimals, token.symbol)}`,
+          title: `${bought ? "Bought" : "Sold"} ${bought ? format(boughtLeg.amount, token.decimals, token.symbol) : format(soldLeg.amount, token.decimals, token.symbol)}`,
           message: bought
-            ? `Spent ${format(result.sold.amount, result.sold.token.decimals, result.sold.token.symbol)} on Arcus`
-            : `Received ${format(result.bought.amount, result.bought.token.decimals, result.bought.token.symbol)} on Arcus`,
-          link: { href: result.explorerUrl, label: "View transaction" },
+            ? `Spent ${format(soldLeg.amount, soldLeg.token.decimals, soldLeg.token.symbol)} on ${venueName}`
+            : `Received ${format(boughtLeg.amount, boughtLeg.token.decimals, boughtLeg.token.symbol)} on ${venueName}`,
+          link: { href: swapped.explorerUrl, label: "View transaction" },
         });
-        // USDG is the dollar side of an Arcus swap.
-        const usd = bought ? fromBaseUnits(result.sold.amount, result.sold.token.decimals) : fromBaseUnits(result.bought.amount, result.bought.token.decimals);
+        // USDG is the dollar side of a Robinhood Chain swap.
+        const usd = bought ? fromBaseUnits(soldLeg.amount, soldLeg.token.decimals) : fromBaseUnits(boughtLeg.amount, boughtLeg.token.decimals);
         recordSwap(evmAddress, {
-          tx: result.txHash,
+          tx: swapped.txHash,
           at: Date.now(),
           chain: "robinhood",
           token: token.address,
           symbol: token.symbol,
           side: trade.side,
-          amount: fromBaseUnits(bought ? result.bought.amount : result.sold.amount, token.decimals),
+          amount: fromBaseUnits(bought ? boughtLeg.amount : soldLeg.amount, token.decimals),
           usd,
         });
-        return { venue: "arcus", usd, feeBps: null } satisfies Placed;
+        return { venue: source, usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({
           tone: "error",
-          title: "Arcus swap failed",
+          title: `${ROBINHOOD_SOURCE_NAMES[source]} swap failed`,
           message: error instanceof Error ? error.message : String(error),
           link:
-            error instanceof Error && "explorerUrl" in error && typeof error.explorerUrl === "string"
+            error instanceof Error && "explorerUrl" in error && typeof error.explorerUrl === "string" && error.explorerUrl
               ? { href: error.explorerUrl, label: "View transaction" }
               : undefined,
         });
         return false;
       }
     },
-    [evmAddress, evmWallet, fail, toast, openWallets],
+    [evmAddress, evmWallet, fail, toast, openWallets, preferences],
   );
 
   return useCallback(

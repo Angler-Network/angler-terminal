@@ -202,6 +202,8 @@ export interface Preferences extends Appearance {
   venueLighterRh: boolean;
   venueJupiter: boolean;
   venueArcus: boolean;
+  /** Quote Robinhood Chain stock tokens on Uniswap too and swap on the better of Uniswap and Arcus (mainnet). */
+  venueUniswap: boolean;
   /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
   venueTitan: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
@@ -280,6 +282,7 @@ export const defaultPreferences: Preferences = {
   venueLighterRh: venueAvailable("lighterRh"),
   venueJupiter: venueAvailable("jupiter"),
   venueArcus: venueAvailable("arcus"),
+  venueUniswap: venueAvailable("uniswap"),
   venueTitan: venueAvailable("titan"),
   preferredPerpVenue: "hyperliquid",
   newsFilters: defaultNewsFilters,
@@ -418,6 +421,7 @@ export function parsePreferences(raw: string | null): Preferences {
       // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
       venueJupiter: venueAvailable("jupiter") && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
+      venueUniswap: venueAvailable("uniswap") && readBoolean(stored.venueUniswap, defaultPreferences.venueUniswap),
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" ? stored.preferredPerpVenue : "hyperliquid",
       newsFilters: readNewsFilters(stored.newsFilters),
