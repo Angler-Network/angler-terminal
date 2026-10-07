@@ -82,7 +82,7 @@ function usePayToken(mint: string | null) {
 type PayFrom = "direct" | "arbitrum" | "base" | "hyperliquid";
 
 /** The wallet's USDC on one chain (cross-chain payment), refreshed while the tab is visible. */
-function useUsdcBalance(source: SourceChain | null, owner: `0x${string}` | null, refresh: number) {
+export function useUsdcBalance(source: SourceChain | null, owner: `0x${string}` | null, refresh: number) {
   const key = source && owner ? `${source.chainId}:${owner}:${refresh}` : null;
   const [state, setState] = useState<{ key: string; amount: number } | null>(null);
   useEffect(() => {

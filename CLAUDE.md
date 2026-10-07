@@ -320,6 +320,15 @@ dependency versions and design are free to diverge from angler-news.
     Solana/Robinhood card. `useEvmToken` reads the list, else the search by address plus the contract's decimals. The
     chart and the activity panel use GeckoTerminal networks `eth`/`base`/`arbitrum`. Swaps are recorded per wallet
     (`SwapRecord.chain`), counted in analytics as `uniswap`, not in profile points yet.
+    Cross-chain: the card's other side can also be a dollar on another chain (USDC on Arbitrum/Base/Ethereum, USDG on
+    Robinhood, or a Hyperliquid withdrawal when buying). Buying runs `fundsRoute(… → wallet on the token's chain)`
+    through `useFundsRun` (`waitForWithdrawal` makes a lone HL withdrawal wait for the USDC too), then asks for one
+    more press to swap the USDC that landed (`bridged`); selling swaps to the chain's USDC, then bridges what it
+    delivered. Dollar to dollar is only the bridge: that is Bridge now. The sidebar/top bar/phone "Bridge" calls
+    `openBridge` (`bridge-shortcut.ts`): /swap on the destination's USDC with the source chain's dollar as the other
+    side (an event when the terminal is mounted, `?bridge=from-to` from other pages). The funds window is Deposit /
+    Withdraw / Between venues; a wallet-to-wallet pair there hands over to Swap. Ethereum is a funds wallet chain too
+    (`ETHEREUM` in `deposits.ts`).
   - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
     Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
     The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the

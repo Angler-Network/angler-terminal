@@ -1,4 +1,4 @@
-import { ARBITRUM, BASE, HL_WITHDRAW_FEE_USDC, MIN_DEPOSIT_USDC, ROBINHOOD, depositPlan, type DepositPlan, type SourceChain } from "./deposits";
+import { ARBITRUM, BASE, ETHEREUM, HL_WITHDRAW_FEE_USDC, MIN_DEPOSIT_USDC, ROBINHOOD, depositPlan, type DepositPlan, type SourceChain } from "./deposits";
 import type { LighterVenueId } from "./lighter/config";
 import type { PerpVenueId } from "./types";
 
@@ -21,14 +21,14 @@ export type FundsEndpoint = "wallet" | BridgeVenueId;
 export type FundsKind = "deposit" | "withdraw" | "move";
 
 /** Where the wallet side holds its stablecoin. */
-export const WALLET_CHAINS = ["arbitrum", "base", "robinhood"] as const;
+export const WALLET_CHAINS = ["arbitrum", "base", "ethereum", "robinhood"] as const;
 export type WalletChain = (typeof WALLET_CHAINS)[number];
 
 type Network = "mainnet" | "testnet";
 
 /** The wallet chain's stablecoin on that network (Arbitrum and Base are mainnet-only here). */
 export function walletChainSource(chain: WalletChain, network: Network = "mainnet"): SourceChain {
-  return chain === "robinhood" ? ROBINHOOD[network] : chain === "base" ? BASE : ARBITRUM;
+  return chain === "robinhood" ? ROBINHOOD[network] : chain === "base" ? BASE : chain === "ethereum" ? ETHEREUM : ARBITRUM;
 }
 
 export type FundsStep =
@@ -162,4 +162,4 @@ export function endpointName(endpoint: FundsEndpoint) {
   return endpoint === "wallet" ? "Wallet" : bridgeVenueName(endpoint);
 }
 
-export const WALLET_CHAIN_NAMES: Record<WalletChain, string> = { arbitrum: "Arbitrum", base: "Base", robinhood: "Robinhood Chain" };
+export const WALLET_CHAIN_NAMES: Record<WalletChain, string> = { arbitrum: "Arbitrum", base: "Base", ethereum: "Ethereum", robinhood: "Robinhood Chain" };

@@ -85,7 +85,8 @@ export function useEvmToken(ref: string | undefined): EvmToken | null | undefine
     name: listing?.name ?? lookup?.meta?.name ?? symbol,
     decimals,
     icon: listing?.icon,
-    verified: listing?.verified ?? false,
+    // The chain's own pay tokens (USDC, ETH, WETH, USDT) are known contracts.
+    verified: listing?.verified || parsed.chain.pay.some((entry) => entry.address.toLowerCase() === parsed.address.toLowerCase()),
     price: listing?.price,
     change24h: listing?.change24h,
     volume24h: listing?.volume24h,

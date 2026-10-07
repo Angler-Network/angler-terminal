@@ -8,6 +8,7 @@ import type { SourceChain } from "./deposits";
 /** On-chain USDC moves for deposits. viem loads on first use, not with the page. */
 
 const RPC_URLS: Record<number, string> = {
+  1: "https://ethereum-rpc.publicnode.com",
   42161: "https://arb1.arbitrum.io/rpc",
   8453: "https://mainnet.base.org",
   4663: "https://rpc.mainnet.chain.robinhood.com",
@@ -15,12 +16,12 @@ const RPC_URLS: Record<number, string> = {
 };
 
 export async function chainFor(source: SourceChain) {
-  const { arbitrum, base } = await import("viem/chains");
+  const { arbitrum, base, mainnet } = await import("viem/chains");
   if (source.chainId === 4663 || source.chainId === 46630) {
     const { robinhoodChain } = await import("./arcus/config");
     return robinhoodChain(source.chainId === 4663 ? "mainnet" : "testnet");
   }
-  return source.chainId === base.id ? base : arbitrum;
+  return source.chainId === base.id ? base : source.chainId === mainnet.id ? mainnet : arbitrum;
 }
 
 export async function readUsdcBalance(source: SourceChain, owner: `0x${string}`) {

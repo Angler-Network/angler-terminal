@@ -3,6 +3,7 @@
 import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Trophy, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { openBridge } from "@/components/terminal/bridge-shortcut";
 import { useEffect, useRef, useState } from "react";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { durations, ease, ENTER_PROPS } from "@/lib/motion";
@@ -36,7 +37,7 @@ export function MobileNav() {
   const { view, setView } = useMobileView();
   const wallets = useWalletModal();
   const { address } = useWallet();
-  const { openDeposit, openProOrder } = useTrading();
+  const { openProOrder } = useTrading();
   const [menuOpen, setMenuOpen] = useState(false);
   const onTerminal = terminalKindOf(pathname) !== null;
 
@@ -137,8 +138,7 @@ export function MobileNav() {
               className={`${sheetItem} w-full`}
               onClick={() => {
                 setMenuOpen(false);
-                if (address) openDeposit("lighter", "move");
-                else wallets.open();
+                openBridge(router.push);
               }}
             >
               <ArrowLeftRight className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />

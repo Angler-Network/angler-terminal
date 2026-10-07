@@ -37,6 +37,15 @@ export const BASE: SourceChain = {
   explorer: "https://basescan.org",
 };
 
+/** Ethereum mainnet: Across bridges USDC to and from it like the L2s (gas costs more there). */
+export const ETHEREUM: SourceChain = {
+  chainId: 1,
+  name: "Ethereum",
+  usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  symbol: "USDC",
+  explorer: "https://etherscan.io",
+};
+
 export const ROBINHOOD: Record<"mainnet" | "testnet", SourceChain> = {
   mainnet: { chainId: ROBINHOOD_CHAIN_IDS.mainnet, name: "Robinhood Chain", usdc: RH_USDG.mainnet, symbol: "USDG", explorer: "https://robinhoodchain.blockscout.com" },
   testnet: {

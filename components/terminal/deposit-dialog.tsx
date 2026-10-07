@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { openBridge } from "./bridge-shortcut";
 import { ArrowLeftRight, ExternalLink, Wallet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CoinIcon, stableLogo } from "./token-icon";
@@ -96,12 +98,13 @@ function Tabs<T extends string>({ value, options, onChange, disabled }: { value:
 }
 
 const primaryButton = "h-10 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50";
-const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withdraw", move: "Bridge" };
+const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withdraw", move: "Move" };
 
 
 /**
- * Funds: "Move [amount] [token] from [endpoint] to [endpoint]" in one sentence, where an endpoint is a venue or the
- * wallet on a chain (USDC on Arbitrum or Base, USDG on Robinhood Chain). `fundsRoute` (`bridge-routes.ts`) turns the
+ * Deposit / Withdraw: "Move [amount] [token] from [endpoint] to [endpoint]" in one sentence, where an endpoint is a
+ * venue or the wallet on a chain (USDC on Arbitrum, Base or Ethereum, USDG on Robinhood Chain). Wallet to wallet hands
+ * over to the swap card (`bridge-shortcut.ts`), which bridges any token. `fundsRoute` (`bridge-routes.ts`) turns the
  * pair into steps (a Hyperliquid withdrawal, an Across bridge that also swaps USDC ↔ USDG, a transfer into a venue)
  * and this window runs them in order: every step is one wallet signature, waits (the withdrawal landing, the relayer
  * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
@@ -122,6 +125,8 @@ export function DepositDialog() {
     onWithdrawOnly: closeDeposit,
   });
 
+  const router = useRouter();
+  const walletToWallet = from === "wallet" && to === "wallet";
   const networkOf = (venue: PerpVenueId) => (isLighterVenue(venue) ? lighterConfigs[venue].network : network);
   const route = fundsRoute(from, to, chains, networkOf);
   const kind = fundsKind(route);
@@ -296,7 +301,7 @@ export function DepositDialog() {
           options={[
             { value: "deposit", label: "Deposit" },
             { value: "withdraw", label: "Withdraw" },
-            { value: "move", label: "Bridge" },
+            { value: "move", label: "Between venues" },
           ]}
           onChange={pickKind}
         />
@@ -451,7 +456,22 @@ export function DepositDialog() {
             )}
             {amount && error && !locked && <p className="text-[12px] text-app-down">{error}</p>}
 
-            {(run === null || run.phase === "done") && (
+            {walletToWallet && (run === null || run.phase === "done") ? (
+              // Wallet to wallet is a cross-chain swap now: the swap card bridges dollars and tokens alike.
+              <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/40 p-3 text-[12px] text-app-ink">
+                Moving dollars between your own wallets on different chains is done in Swap now, where any token can come along.
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeDeposit();
+                    openBridge(router.push, chains.from, chains.to);
+                  }}
+                  className={primaryButton}
+                >
+                  Open in Swap: {WALLET_CHAIN_NAMES[chains.from]} → {WALLET_CHAIN_NAMES[chains.to]}
+                </button>
+              </div>
+            ) : (run === null || run.phase === "done") && (
               <button type="button" disabled={Boolean(address) && Boolean(error)} onClick={start} className={primaryButton}>
                 {!address ? "Connect wallet" : `${kind ? TITLES[kind] : "Move"} ${amount || ""} ${converted ? `${token} → ${output?.symbol}` : token} to ${toName}`}
               </button>

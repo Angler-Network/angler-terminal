@@ -2,7 +2,8 @@
 
 import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { openBridge } from "@/components/terminal/bridge-shortcut";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
@@ -23,7 +24,8 @@ export function TopNav() {
   const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
-  const { openDeposit, openProOrder } = useTrading();
+  const { openProOrder } = useTrading();
+  const router = useRouter();
   return (
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
       {marketNav.map(({ href, label: text, title, icon: Icon, soon, isActive }) => (
@@ -56,7 +58,7 @@ export function TopNav() {
         <Layers className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Pro order</span>
       </button>
-      <button type="button" title="Bridge" onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} className={itemClass(false)}>
+      <button type="button" title="Bridge" onClick={() => openBridge(router.push)} className={itemClass(false)}>
         <ArrowLeftRight className="size-[18px]" strokeWidth={1.75} aria-hidden />
         <span className={label}>Bridge</span>
       </button>

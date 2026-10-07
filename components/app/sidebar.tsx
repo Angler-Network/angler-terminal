@@ -3,7 +3,8 @@
 import { ArrowLeftRight, BarChart3, ChartPie, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { openBridge } from "@/components/terminal/bridge-shortcut";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
@@ -47,7 +48,8 @@ export function Sidebar() {
   const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
-  const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
+  const { openProOrder, isProOrderOpen } = useTrading();
+  const router = useRouter();
 
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
@@ -95,7 +97,7 @@ export function Sidebar() {
           <Layers className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>Pro order</NavLabel>
         </button>
-        <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
+        <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => openBridge(router.push)} />
         <Link href="/settings" title={t("nav.settings")} aria-current={isSettingsOpen ? "page" : undefined} className={navItemClass(isSettingsOpen)}>
           <Settings className="size-5" strokeWidth={1.75} aria-hidden />
           <NavLabel>{t("nav.settings")}</NavLabel>

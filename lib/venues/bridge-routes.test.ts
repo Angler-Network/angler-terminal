@@ -27,6 +27,10 @@ describe("fundsRoute", () => {
     expect(shape(fundsRoute("wallet", "lighter", on("robinhood"), mainnet))).toEqual(["across 4663>42161 lighter"]);
     // Hyperliquid credits the sender, so the wallet receives first and then deposits.
     expect(shape(fundsRoute("wallet", "hyperliquid", on("base"), mainnet))).toEqual(["across 8453>42161 wallet", "transfer hyperliquid 42161"]);
+    expect(shape(fundsRoute("wallet", "lighter", on("ethereum"), mainnet))).toEqual(["across 1>42161 lighter"]);
+    // Wallet to wallet across chains: one bridge (the swap card's cross-chain payments).
+    expect(shape(fundsRoute("wallet", "wallet", on("ethereum", "base"), mainnet))).toEqual(["across 1>8453 wallet"]);
+    expect(shape(fundsRoute("hyperliquid", "wallet", on("arbitrum", "ethereum"), mainnet))).toEqual(["hlWithdraw", "across 42161>1 wallet"]);
     expect(fundsRoute("wallet", "lighterRh", on("arbitrum"), testnet).kind).toBe("testnet");
   });
 

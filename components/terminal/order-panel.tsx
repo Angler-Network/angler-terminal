@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { venueAvailable } from "@/lib/deployment";
+import { BRIDGE_EVENT, bridgeAsset, readBridgeParam, type BridgePreset } from "./bridge-shortcut";
 import { EvmSwapCard } from "./evm-swap-card";
 import { SwapCard, type SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
@@ -252,7 +253,7 @@ function useVenueChoices(symbol: string, mint?: string) {
  * that).
  */
 export function OrderPanel() {
-  const { symbol, mint, setTradeVenue } = useSelectedAsset();
+  const { symbol, mint, setTradeVenue, selectAsset } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
   const toast = useToast();
   const { accounts, placeOrder, openDeposit } = useTrading();
@@ -298,6 +299,21 @@ export function OrderPanel() {
   };
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
+  // The Bridge shortcut (sidebar, funds window): open the destination chain's USDC with the source chain's dollar.
+  useEffect(() => {
+    const apply = (preset: BridgePreset | null) => {
+      if (!preset) return;
+      const target = bridgeAsset(preset);
+      selectAsset(target.symbol, target.mint);
+    };
+    apply(readBridgeParam());
+    const onBridge = (event: Event) => {
+      event.preventDefault();
+      apply((event as CustomEvent<BridgePreset>).detail);
+    };
+    window.addEventListener(BRIDGE_EVENT, onBridge);
+    return () => window.removeEventListener(BRIDGE_EVENT, onBridge);
+  }, [selectAsset]);
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
   useEffect(() => () => setTradeVenue(null), [setTradeVenue]);
   const isPerp = market !== null;

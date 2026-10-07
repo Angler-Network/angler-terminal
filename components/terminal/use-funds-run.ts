@@ -63,6 +63,8 @@ interface FundsRunOptions {
   onWithdrawOnly?: () => void;
   /** Replaces the "Funds moved" toast when something follows the run (the swap card's swap). */
   onDone?: (carry: bigint, explorerUrl: string | undefined) => void;
+  /** A lone Hyperliquid withdrawal waits for the USDC to land too (a swap follows it), then calls `onDone`. */
+  waitForWithdrawal?: boolean;
 }
 
 /**
@@ -105,7 +107,7 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         const expected = usdcUnits(String(Math.floor((units6(current.carry) - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;
         if (!(await withdrawHyperliquid(String(units6(current.carry))))) return setRun(current.index === 0 ? null : { ...current, phase: "ready" });
         // A withdrawal straight to the wallet ends here (Hyperliquid pays out by itself and the provider says so).
-        if (current.steps.length === 1) {
+        if (current.steps.length === 1 && !options.current.waitForWithdrawal) {
           setRun(null);
           return options.current.onWithdrawOnly?.();
         }
@@ -152,8 +154,9 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         if (wait.kind === "arrival") {
           const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
           if (now !== null && withdrawalArrived(wait.before, now, wait.expected)) {
+            const last = current.index + 1 >= current.steps.length;
             advance(current, wait.expected);
-            toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
+            if (!last) toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
           } else if (Date.now() - wait.since > ARRIVAL_TIMEOUT_MS) {
             toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then continue from Funds." });
             setRun(null);
