@@ -447,6 +447,18 @@ html[data-scrollbars="hidden"] .scrollbar-subtle::-webkit-scrollbar {
   }
 }
 
+/*
+  Onboarding (opened before hydration, see lib/onboarding.ts): the welcome logo is Next's optimized image (the width
+  next/image picks for 56px at 2x) as a background, so it only downloads while the dialog is open.
+*/
+dialog[open] .welcome-logo {
+  background: url("/_next/image?url=%2Fblacklogo.png&w=128&q=75") center / contain no-repeat;
+}
+
+html[data-tone="dark"] dialog[open] .welcome-logo {
+  background-image: url("/_next/image?url=%2Fwhitelogo.png&w=128&q=75");
+}
+
 /* Terminal: brief highlight for high-impact news arrivals */
 @keyframes news-flash {
   0%,

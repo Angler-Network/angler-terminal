@@ -1,17 +1,16 @@
 "use client";
 
 import { Check, FlaskConical } from "lucide-react";
-import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { accentSwatches, themeOptions } from "@/lib/appearance";
 import { deployment } from "@/lib/deployment";
 import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
+import { ONBOARDING_ACK_KEY } from "@/lib/onboarding";
 import { layoutPresets, navModeChange, panelNames, type NavMode, type TapePosition, type TerminalPanels } from "@/lib/preferences";
 import { usePreferences } from "./preferences-provider";
 import { riseIn, useEnter } from "./use-motion";
 
-/** Bump the version when the onboarding changes so everyone sees it again. */
-const ACK_KEY = "angler-terminal:alpha-ack:v3";
+const ACK_KEY = ONBOARDING_ACK_KEY;
 const OPEN_EVENT = "angler-terminal:welcome";
 
 /** The funds line depends on the site: none on mainnet (everything is real), mock funds on testnet. */
@@ -34,8 +33,8 @@ export function openWelcomeTour() {
 function WelcomeStep() {
   return (
     <div className="flex flex-col items-center gap-4 py-6 text-center">
-      <Image src="/blacklogo.png" alt="" width={56} height={56} className="[html[data-tone=dark]_&]:hidden" />
-      <Image src="/whitelogo.png" alt="" width={56} height={56} className="hidden [html[data-tone=dark]_&]:block" />
+      {/* A CSS background (globals.css), so the logo only downloads when the welcome step is actually shown. */}
+      <span aria-hidden className="welcome-logo size-14" />
       <h2 id="alpha-notice-title" className="text-[26px] font-semibold leading-tight">
         Welcome to Angler Terminal
       </h2>
@@ -268,6 +267,10 @@ const STEPS = 4;
  */
 export function AlphaNotice() {
   const [isOpen, setIsOpen] = useState(false);
+  // The server (and so the first client render) can't read localStorage: it renders the welcome step, and
+  // `openOnboardingScript` opens the dialog before React loads when html[data-welcome] is set (`onboardingScript`).
+  // Once hydrated, React owns the open state: it keeps the open dialog or unmounts the step.
+  const [isHydrated, setIsHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
@@ -280,6 +283,7 @@ export function AlphaNotice() {
     } catch {
       setIsOpen(true);
     }
+    setIsHydrated(true);
     const reopen = () => {
       setStep(0);
       setIsOpen(true);
@@ -293,7 +297,9 @@ export function AlphaNotice() {
     if (!dialog) return;
     if (isOpen && !dialog.open) dialog.showModal();
     if (!isOpen && dialog.open) dialog.close();
-  }, [isOpen]);
+    // From here the modal state is React's.
+    if (isHydrated) delete document.documentElement.dataset.welcome;
+  }, [isOpen, isHydrated]);
   useEnter(dialogRef, riseIn, isOpen);
 
   // Steps slide in from the side they come from.
@@ -319,10 +325,10 @@ export function AlphaNotice() {
       aria-labelledby="alpha-notice-title"
       // Escape is ignored: onboarding finishes with its own button.
       onCancel={(event) => event.preventDefault()}
-      className="surface-menu m-auto max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100vw-2rem))] max-w-none overflow-y-auto rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
+      className="welcome-dialog surface-menu m-auto max-h-[calc(100dvh-2rem)] w-[min(480px,calc(100vw-2rem))] max-w-none overflow-y-auto rounded-3xl border border-app-card/70 bg-app-dialog p-0 font-sans text-app-ink shadow-[0_30px_80px_-20px_rgba(3,12,21,0.6)] backdrop:bg-[#030c15]/70 backdrop:backdrop-blur-[3px]"
     >
-      {/* Content mounts only while open, so returning visitors don't download the welcome logos. */}
-      {isOpen && (
+      {/* After hydration the content mounts only while open, so returning visitors don't keep the welcome step. */}
+      {(isOpen || !isHydrated) && (
       <div className="flex flex-col gap-5 p-6">
         <div ref={stepRef}>{step === 0 ? <WelcomeStep /> : step === 1 ? <LookStep /> : step === 2 ? <LayoutStep /> : <AlphaStep />}</div>
         <div className="flex items-center gap-3">

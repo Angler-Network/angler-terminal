@@ -19,9 +19,13 @@ import { WalletModalProvider } from "@/components/terminal/wallet-modal";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { CHART_COOKIE, parseChartCookie } from "@/lib/markets/model";
+import { onboardingScript, openOnboardingScript } from "@/lib/onboarding";
 import { preferencesScript } from "@/lib/preferences";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import "./globals.css";
+
+const title = "Angler Terminal";
+const description = "News-driven trading terminal: live Angler news next to the chart and the order ticket.";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -29,9 +33,6 @@ const sora = Sora({
   variable: "--font-sora",
   display: "swap",
 });
-
-const title = "Angler Terminal";
-const description = "News-driven trading terminal: live Angler news next to the chart and the order ticket.";
 
 export const metadata: Metadata = {
   title: { template: "%s · Angler", default: title },
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en-US" className={sora.variable} data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
+        <script dangerouslySetInnerHTML={{ __html: onboardingScript }} />
       </head>
       <body className="app-frame h-dvh overflow-hidden font-sans antialiased">
         <I18nProvider>
@@ -76,6 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </div>
                     <LazyDialogs />
                     <AlphaNotice />
+                    <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
                     <UpdateNotice />
                   </TradeTicketProvider>
                   </WalletModalProvider>
