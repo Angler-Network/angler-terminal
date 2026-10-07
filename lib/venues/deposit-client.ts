@@ -14,7 +14,7 @@ const RPC_URLS: Record<number, string> = {
   46630: "https://rpc.testnet.chain.robinhood.com",
 };
 
-async function chainFor(source: SourceChain) {
+export async function chainFor(source: SourceChain) {
   const { arbitrum, base } = await import("viem/chains");
   if (source.chainId === 4663 || source.chainId === 46630) {
     const { robinhoodChain } = await import("./arcus/config");
@@ -46,9 +46,9 @@ export async function lighterIntentAddress(config: LighterConfig, source: Source
   return body.intent_address as `0x${string}`;
 }
 
-/** Sends USDC on the source chain (switching the wallet to it first) and waits for the receipt. */
-export async function sendUsdc(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain, to: `0x${string}`, units: bigint) {
-  const { createPublicClient, createWalletClient, custom, erc20Abi, http } = await import("viem");
+/** A wallet client on the source chain, switching the wallet to it (adding the chain when it doesn't know it). */
+export async function walletOn(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain) {
+  const { createWalletClient, custom } = await import("viem");
   const chain = await chainFor(source);
   const wallet = createWalletClient({ account, chain, transport: custom(provider) });
   if ((await wallet.getChainId()) !== chain.id) {
@@ -58,6 +58,19 @@ export async function sendUsdc(provider: EIP1193Provider, account: `0x${string}`
       await wallet.addChain({ chain });
     }
   }
+  return { wallet, chain };
+}
+
+/** A read-only client for a source chain. */
+export async function publicClientOn(source: SourceChain) {
+  const { createPublicClient, http } = await import("viem");
+  return createPublicClient({ chain: await chainFor(source), transport: http(RPC_URLS[source.chainId]) });
+}
+
+/** Sends USDC on the source chain (switching the wallet to it first) and waits for the receipt. */
+export async function sendUsdc(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain, to: `0x${string}`, units: bigint) {
+  const { createPublicClient, erc20Abi, http } = await import("viem");
+  const { wallet, chain } = await walletOn(provider, account, source);
   const hash = await wallet.writeContract({ address: source.usdc, abi: erc20Abi, functionName: "transfer", args: [to, units] });
   const receipt = await createPublicClient({ chain, transport: http(RPC_URLS[source.chainId]) }).waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new VenueError(`The ${source.symbol} transfer reverted.`);

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@across-protocol/app-sdk": "0.6.1",
     "@arcus-xyz/arcus-spot-sdk": "1.0.2",
     "@nktkas/hyperliquid": "0.33.3",
     "@polymarket/client": "0.12.0",

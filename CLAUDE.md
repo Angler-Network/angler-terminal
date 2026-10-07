@@ -101,7 +101,7 @@ dependency versions and design are free to diverge from angler-news.
     viem chain from `arcus/config`). The trading provider runs `useLighterInstance` per exchange; the account
     panel, setup dialog, deposit dialog, merged order book (up to three venues), best execution, chart candles and
     profile points (same client-order tag) handle both. Still core-only: portfolio/order history, the testnet
-    faucet, the HL → Lighter bridge, funding rates (the feed has no RH).
+    faucet, funding rates (the feed has no RH).
   - Network from `NEXT_PUBLIC_LIGHTER_NETWORK` (testnet default, chain 300; mainnet 304), per-browser override
     `LIGHTER_NETWORK_OVERRIDE_KEY`. Markets from `orderBookDetails`, cached 60s by `/api/lighter/markets`. Ids,
     decimals and minimums always come from the API.
@@ -228,18 +228,26 @@ dependency versions and design are free to diverge from angler-news.
     actually used.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
     `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): one
-    sentence for every flow, "Move [amount] USDC from [Wallet | venue] to [Wallet | venue]" (`fundsRoute`: wallet →
-    venue deposits, Hyperliquid → wallet withdraws, Hyperliquid → Lighter bridges, other pairs say "coming soon"; a
-    new venue is one `BRIDGE_VENUES` entry). Deposit / Withdraw / Bridge tabs only preset the pair (`presetRoute`);
-    the wallet side names its chain (Arbitrum/Base picker for Lighter). The pickers portal their list to the body
-    (the dialog's blur would clip a fixed list). Mainnet Hyperliquid = native USDC transfer on Arbitrum to Bridge2
-    (`0x2Df1…3dF7`, min 5 USDC, less is lost); mainnet Lighter = USDC on Arbitrum/Base to the wallet's CCTP intent
-    address (`createIntentAddress`); testnets link to each venue's faucet. Hyperliquid withdrawals: `withdraw3`
-    signed by the wallet (1 USDC fee, 3-4 min). Lighter's universal deposit address needs a builder key (not used).
-    Bridge (mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
-    (`withdrawalArrived`, keeps polling with the window closed and toasts on arrival) → deposit to the Lighter intent
-    address; the route stays locked until the deposit is sent. The order panel shows total buying power and, when
-    the chosen venue lacks margin, offers to trade on a funded venue, move funds or deposit (`openDeposit(venue, mode)`).
+    sentence for every flow, "Move [amount] [token] from [Wallet on chain | venue] to [Wallet on chain | venue]". The
+    wallet side picks USDC on Arbitrum or Base or USDG on Robinhood Chain (where Arcus trades). `fundsRoute` turns the
+    pair into steps the window runs in order (one wallet signature each; waits keep polling with the window closed and
+    toast when the next step is ready): `hlWithdraw` (Hyperliquid `withdraw3`, 1 USDC fee, lands on Arbitrum in 3-4
+    min, `withdrawalArrived`), `across` (below), `transfer` (mainnet Hyperliquid = native USDC on Arbitrum to Bridge2
+    `0x2Df1…3dF7`, min 5, less is lost, credits the sender; Lighter = USDC on Arbitrum/Base to the wallet's CCTP
+    intent address (`createIntentAddress`); Lighter RH = USDG on Robinhood Chain to its intent address, min 1).
+    Examples: HL → Lighter RH = withdraw + Across USDC → USDG paid straight to the RH intent address; Base → HL =
+    Across to the wallet on Arbitrum + transfer. Lighter/RH withdrawals and other venues say "coming soon"; testnets
+    use faucets (Lighter's universal deposit address needs a builder key, not used). Deposit / Withdraw / Bridge tabs
+    only preset the pair (`presetRoute`). Pickers portal their list to the body (the dialog's blur clips a fixed list).
+    The order panel shows total buying power and, when the chosen venue lacks margin, offers to trade on a funded
+    venue, move funds or deposit (`openDeposit(venue, mode)`).
+  - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
+    Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
+    The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the
+    server adds `ACROSS_INTEGRATOR_ID` and the optional `ACROSS_APP_FEE` + `ACROSS_APP_FEE_RECIPIENT`, never the
+    browser). Signing uses the official `@across-protocol/app-sdk` (pinned, loaded on demand): a fresh exactInput quote
+    right before signing, approval + deposit on the origin chain, then the indexer status until `filled` (`expired` /
+    `refunded` = funds back on origin). A Lighter recipient must clear its deposit minimum after fees (`minOutputAmount`).
   - Pro order (`pro-order-dialog.tsx`, yellow "Pro order" in the sidebar/top bar/mobile menu; logic in
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
     coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm

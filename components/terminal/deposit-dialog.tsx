@@ -6,29 +6,26 @@ import { createPortal } from "react-dom";
 import { useToast } from "@/components/app/toast-provider";
 import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
-import { isLighterVenue, lighterConfig, lighterConfigs } from "@/lib/venues/lighter/config";
+import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { usePreferences } from "@/components/app/preferences-provider";
-import {
-  ARBITRUM,
-  HL_BRIDGE,
-  HL_WITHDRAW_FEE_USDC,
-  depositError,
-  moveError,
-  usdcUnits,
-  USDC_DECIMALS,
-  withdrawalArrived,
-  type SourceChain,
-} from "@/lib/venues/deposits";
+import { ARBITRUM, HL_BRIDGE, HL_WITHDRAW_FEE_USDC, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
+import { summarizeAcrossQuote, type AcrossQuoteSummary } from "@/lib/venues/across";
 import {
   BRIDGE_VENUES,
+  WALLET_CHAINS,
+  acrossRecipientMinimum,
+  WALLET_CHAIN_NAMES,
   bridgeVenueDomain,
   endpointName,
   fundsKind,
   fundsRoute,
   isPerpEndpoint,
   presetRoute,
+  stepsError,
   type FundsEndpoint,
   type FundsKind,
+  type FundsStep,
+  type WalletChain,
 } from "@/lib/venues/bridge-routes";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -40,9 +37,26 @@ import { useModalEnter } from "@/components/app/use-motion";
 
 const ARRIVAL_POLL_MS = 10_000;
 const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
+const FILL_POLL_MS = 4_000;
+const FILL_TIMEOUT_MS = 15 * 60_000;
+const QUOTE_DEBOUNCE_MS = 600;
 
-type MoveStep = { kind: "idle" } | { kind: "waiting"; before: bigint; units: bigint; since: number } | { kind: "arrived"; units: bigint } | { kind: "done"; explorerUrl: string };
+/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or Across's relayer filling. */
+type Wait =
+  | { kind: "arrival"; before: bigint; expected: bigint; since: number }
+  | { kind: "fill"; depositId: bigint; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
 
+/** A route being carried out: `carry` is what the next step moves (the previous step's output). */
+interface Run {
+  steps: FundsStep[];
+  index: number;
+  phase: "ready" | "busy" | "waiting" | "done";
+  carry: bigint;
+  wait?: Wait;
+  explorerUrl?: string;
+}
+
+const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 /** The wallet's icon, or a venue's logo (its site favicon through /api/favicon), its initial when that fails. */
 function EndpointLogo({ endpoint, size = 18 }: { endpoint: FundsEndpoint; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -178,14 +192,32 @@ const primaryButton = "h-10 rounded-lg bg-app-accent text-[13px] font-semibold t
 const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withdraw", move: "Bridge" };
 
 function errorMessage(caught: unknown) {
-  return caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
+  const message = caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
+  return /reject|denied/i.test(message) ? "You rejected the request in your wallet." : message;
+}
+
+/** One line per step, for the checklist and the continue button. */
+function stepLabel(step: FundsStep) {
+  if (step.kind === "hlWithdraw") return "Withdraw from Hyperliquid (signature, no gas, 1 USDC fee), lands on Arbitrum in 3-4 min";
+  if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
+  const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
+  const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
+  return `Bridge with Across to ${into} (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
+}
+
+function continueLabel(step: FundsStep, carry: bigint) {
+  const amount = units6(carry).toFixed(2);
+  if (step.kind === "transfer") return `Deposit ${amount} ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]}`;
+  if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
+  return "Withdraw from Hyperliquid";
 }
 
 /**
- * Funds: "Move [amount] USDC from [endpoint] to [endpoint]" in one sentence, where an endpoint is the wallet or a
- * venue (`bridge-routes.ts`). Wallet → venue deposits (an on-chain transfer the wallet signs; testnet: the venue's
- * faucet), Hyperliquid → wallet withdraws, Hyperliquid → Lighter bridges in two wallet signatures (withdraw to
- * Arbitrum, wait 3-4 min, deposit to the wallet's Lighter address). Other directions show as coming soon.
+ * Funds: "Move [amount] [token] from [endpoint] to [endpoint]" in one sentence, where an endpoint is a venue or the
+ * wallet on a chain (USDC on Arbitrum or Base, USDG on Robinhood Chain). `fundsRoute` (`bridge-routes.ts`) turns the
+ * pair into steps (a Hyperliquid withdrawal, an Across bridge that also swaps USDC ↔ USDG, a transfer into a venue)
+ * and this window runs them in order: every step is one wallet signature, waits (the withdrawal landing, the relayer
+ * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
  */
 export function DepositDialog() {
   const toast = useToast();
@@ -195,38 +227,37 @@ export function DepositDialog() {
   const { open: openWallets } = useWalletModal();
   const [from, setFrom] = useState<FundsEndpoint>("wallet");
   const [to, setTo] = useState<FundsEndpoint>("hyperliquid");
-  const [sourceIndex, setSourceIndex] = useState(0);
+  const [chains, setChains] = useState<{ from: WalletChain; to: WalletChain }>({ from: "arbitrum", to: "arbitrum" });
   const [amount, setAmount] = useState("");
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ explorerUrl: string; arrival: string } | null>(null);
-  const [step, setStep] = useState<MoveStep>({ kind: "idle" });
+  const [quote, setQuote] = useState<{ key: string; summary?: AcrossQuoteSummary; error?: string } | null>(null);
+  const [run, setRun] = useState<Run | null>(null);
 
   const networkOf = (venue: PerpVenueId) => (isLighterVenue(venue) ? lighterConfigs[venue].network : network);
-  const route = fundsRoute(from, to, networkOf);
+  const route = fundsRoute(from, to, chains, networkOf);
   const kind = fundsKind(route);
-  // A bridge waiting on its withdrawal keeps its route until the deposit is sent.
-  const locked = step.kind === "waiting" || step.kind === "arrived";
+  const steps = route.kind === "steps" ? route.steps : [];
+  const input = route.kind === "steps" ? route.input : null;
+  const output = route.kind === "steps" ? route.output : null;
+  const token = input?.symbol ?? "USDC";
+  // A run in progress keeps its route until it finishes.
+  const locked = run !== null && run.phase !== "done";
+  const busy = run?.phase === "busy";
   const venueSide = isPerpEndpoint(to) ? to : isPerpEndpoint(from) ? from : null;
-  const plan = route.kind === "deposit" ? route.plan : null;
-  const sources: SourceChain[] = plan?.kind === "transfer" ? plan.sources : route.kind === "withdraw" || route.kind === "move" ? [ARBITRUM] : [];
-  const source = sources[sourceIndex] ?? sources[0] ?? null;
-  const token = source?.symbol ?? "USDC";
-  const units = usdcUnits(amount);
   const value = Number(amount);
-  const withdrawable = isPerpEndpoint(from) ? accounts[from]?.withdrawable : undefined;
+  const units = usdcUnits(amount);
+  const withdrawable = from === "hyperliquid" ? accounts.hyperliquid?.withdrawable : undefined;
+  const fromWallet = from === "wallet" && input !== null;
   const error =
-    plan?.kind === "transfer"
-      ? depositError(units, balance, plan.minimum, token)
-      : route.kind === "withdraw"
-        ? !(value > HL_WITHDRAW_FEE_USDC)
-          ? `Withdraw more than the ${HL_WITHDRAW_FEE_USDC} USDC fee.`
-          : withdrawable !== undefined && value > withdrawable
-            ? "More than Hyperliquid can withdraw right now."
-            : null
-        : route.kind === "move"
-          ? moveError(value, withdrawable)
-          : null;
+    route.kind !== "steps"
+      ? null
+      : (stepsError(steps, value, withdrawable, token) ??
+        (fromWallet && units !== null && balance !== null && units > balance ? `Not enough ${token} in your wallet on ${input.name}.` : null));
+  // The Across leg's quote preview: what it would pay out for this amount (after the withdrawal fee when it follows one).
+  const acrossIndex = steps.findIndex((step) => step.kind === "across");
+  const acrossStep = acrossIndex >= 0 ? (steps[acrossIndex] as Extract<FundsStep, { kind: "across" }>) : null;
+  const acrossInput = acrossStep && units !== null ? (acrossIndex === 0 ? units : usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6))) : null;
+  const quoteKey = acrossStep && acrossInput && acrossInput > 0n && address ? `${acrossStep.from.chainId}>${acrossStep.to.chainId}:${acrossStep.recipient}:${acrossInput}:${address}` : null;
 
   const enabled = (venue: PerpVenueId) =>
     venue === depositVenue || (venue === "hyperliquid" ? preferences.venueHyperliquid : venue === "lighter" ? preferences.venueLighter : preferences.venueLighterRh);
@@ -240,147 +271,204 @@ export function DepositDialog() {
       note: venue.live ? undefined : "Soon",
     })),
   ];
+  const chainOptions: Array<PickerOption<WalletChain>> = WALLET_CHAINS.map((chain) => ({
+    value: chain,
+    label: WALLET_CHAIN_NAMES[chain],
+    note: chain === "robinhood" ? "USDG" : "USDC",
+  }));
 
-  // Opening (or reopening on another venue) starts on the route the caller asked for, unless a bridge is under way.
+  // Opening (or reopening on another venue) starts on the route the caller asked for, unless a run is under way.
   useEffect(() => {
     if (!depositVenue || locked) return;
     const preset = presetRoute(depositMode, depositVenue);
     setFrom(preset.from);
     setTo(preset.to);
+    setChains(preset.chains);
     setAmount("");
-    setStep({ kind: "idle" });
+    setRun(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the caller opens the window
   }, [depositVenue, depositMode]);
 
   useEffect(() => {
-    setDone(null);
-    setSourceIndex(0);
-  }, [from, to]);
+    if (!locked) setRun(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a new route clears a finished run
+  }, [from, to, chains.from, chains.to]);
 
+  // The wallet's balance of the token the route starts with.
   useEffect(() => {
     setBalance(null);
-    if (!address || !source || plan?.kind !== "transfer") return;
+    if (!address || !fromWallet || !input) return;
     let isActive = true;
-    readUsdcBalance(source, address)
+    readUsdcBalance(input, address)
       .then((next) => isActive && setBalance(next))
       .catch(() => {});
     return () => {
       isActive = false;
     };
-  }, [address, source, plan?.kind]);
+  }, [address, fromWallet, input]);
 
-  // Keeps polling with the window closed, and says when the USDC has landed.
+  // Debounced Across quote for the preview line.
   useEffect(() => {
-    if (step.kind !== "waiting" || !address) return;
-    const timer = window.setInterval(async () => {
-      const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
-      if (now !== null && withdrawalArrived(step.before, now, step.units)) {
-        setStep({ kind: "arrived", units: step.units });
-        toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Deposit it to Lighter to finish the bridge.", action: { label: "Deposit", onClick: () => openDeposit("lighter", "move") }, durationMs: 15_000 });
-      } else if (Date.now() - step.since > ARRIVAL_TIMEOUT_MS) {
-        toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then deposit to Lighter from Funds." });
-        setStep({ kind: "idle" });
+    if (!quoteKey || !acrossStep || !acrossInput || !address || locked) return setQuote(null);
+    let isActive = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const recipient = acrossStep.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[acrossStep.recipient], acrossStep.to, address);
+        const { fetchAcrossQuote } = await import("@/lib/venues/across-client");
+        const result = await fetchAcrossQuote({ from: acrossStep.from, to: acrossStep.to, units: acrossInput, depositor: address, recipient });
+        if (isActive) setQuote({ key: quoteKey, summary: summarizeAcrossQuote(result) });
+      } catch (caught) {
+        if (isActive) setQuote({ key: quoteKey, error: errorMessage(caught) });
       }
-    }, ARRIVAL_POLL_MS);
+    }, QUOTE_DEBOUNCE_MS);
+    return () => {
+      isActive = false;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
+  }, [quoteKey, locked]);
+
+  /** Moves to the step after `current` with `carry`, or finishes. */
+  const advance = (current: Run, carry: bigint, explorerUrl?: string) => {
+    const next = current.index + 1;
+    if (next >= current.steps.length) {
+      setRun({ ...current, phase: "done", carry, wait: undefined, explorerUrl: explorerUrl ?? current.explorerUrl });
+      const last = current.steps[current.steps.length - 1];
+      const where = last.kind === "transfer" ? PERP_VENUE_NAMES[last.venue] : last.kind === "across" && last.recipient !== "wallet" ? PERP_VENUE_NAMES[last.recipient] : "your wallet";
+      toast({ tone: "success", title: "Funds moved", message: `${units6(carry).toFixed(2)} sent to ${where}.`, ...(explorerUrl && { link: { href: explorerUrl, label: "View transaction" } }) });
+      return;
+    }
+    setRun({ ...current, index: next, phase: "ready", carry, wait: undefined, explorerUrl: explorerUrl ?? current.explorerUrl });
+  };
+
+  const execute = async (current: Run) => {
+    if (!address || !wallet) return openWallets();
+    const step = current.steps[current.index];
+    setRun({ ...current, phase: "busy" });
+    try {
+      if (step.kind === "hlWithdraw") {
+        const before = await readUsdcBalance(ARBITRUM, address);
+        const expected = usdcUnits(String(Math.floor((units6(current.carry) - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;
+        if (!(await withdrawHyperliquid(String(units6(current.carry))))) return setRun(current.index === 0 ? null : { ...current, phase: "ready" });
+        // A withdrawal straight to the wallet ends here (Hyperliquid pays out by itself and the provider says so).
+        if (current.steps.length === 1) {
+          setRun(null);
+          return closeDeposit();
+        }
+        setRun({ ...current, phase: "waiting", wait: { kind: "arrival", before, expected, since: Date.now() } });
+        return;
+      }
+      if (step.kind === "transfer") {
+        const target = step.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(lighterConfigs[isLighterVenue(step.venue) ? step.venue : "lighter"], step.source, address);
+        const result = await sendUsdc(wallet.provider, address, step.source, target, current.carry);
+        return advance(current, current.carry, result.explorerUrl);
+      }
+      const recipient = step.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[step.recipient], step.to, address);
+      const { fetchAcrossQuote, executeAcross } = await import("@/lib/venues/across-client");
+      // Always a fresh quote right before signing: its transaction carries the amounts and a deadline.
+      const fresh = await fetchAcrossQuote({ from: step.from, to: step.to, units: current.carry, depositor: address, recipient });
+      const summary = summarizeAcrossQuote(fresh);
+      if (!summary.executable) throw new Error("Across has no route for this amount right now.");
+      if (summary.shortBalance) throw new Error(`Not enough ${step.from.symbol} in your wallet on ${step.from.name}.`);
+      const minimum = acrossRecipientMinimum(step.recipient);
+      if (summary.minOut < BigInt(minimum) * 10n ** BigInt(USDC_DECIMALS)) throw new Error(`${PERP_VENUE_NAMES[step.recipient as PerpVenueId]} needs at least ${minimum} ${step.to.symbol} after fees.`);
+      const before = step.recipient === "wallet" ? await readUsdcBalance(step.to, address).catch(() => null) : null;
+      const sent = await executeAcross(wallet.provider, address, step.from, step.to, fresh);
+      setRun({
+        ...current,
+        phase: "waiting",
+        explorerUrl: sent.explorerUrl,
+        wait: { kind: "fill", depositId: sent.depositId, origin: step.from, to: step.to, before, expected: summary.expectedOut, since: Date.now() },
+      });
+    } catch (caught) {
+      toast({ tone: "error", title: "Transfer not sent", message: errorMessage(caught) });
+      setRun(current.index === 0 ? null : { ...current, phase: "ready" });
+    }
+  };
+
+  // Waits keep polling with the window closed and say when the next step is ready.
+  const waiting = run?.phase === "waiting" ? run : null;
+  useEffect(() => {
+    if (!waiting?.wait || !address) return;
+    const current = waiting;
+    const wait = waiting.wait;
+    const resume = () => openDeposit(depositVenue ?? (isPerpEndpoint(to) ? to : "lighter"), "move");
+    const timer = window.setInterval(
+      async () => {
+        if (wait.kind === "arrival") {
+          const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
+          if (now !== null && withdrawalArrived(wait.before, now, wait.expected)) {
+            advance(current, wait.expected);
+            toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
+          } else if (Date.now() - wait.since > ARRIVAL_TIMEOUT_MS) {
+            toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then continue from Funds." });
+            setRun(null);
+          }
+          return;
+        }
+        const { acrossFilled } = await import("@/lib/venues/across-client");
+        const state = await acrossFilled(wait.depositId, wait.origin.chainId).catch(() => "pending" as const);
+        if (state === "filled") {
+          let carry = wait.expected;
+          if (wait.before !== null) {
+            const now = await readUsdcBalance(wait.to, address).catch(() => null);
+            // What actually arrived, never more than the quote (other funds landing at the same time stay put).
+            if (now !== null && now > wait.before) carry = now - wait.before < wait.expected ? now - wait.before : wait.expected;
+          }
+          const last = current.index + 1 >= current.steps.length;
+          advance(current, carry);
+          if (!last) toast({ tone: "info", title: `Arrived on ${wait.to.name}`, message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
+        } else if (state === "failed" || Date.now() - wait.since > FILL_TIMEOUT_MS) {
+          toast({
+            tone: "error",
+            title: state === "failed" ? "Bridge refunded" : "Bridge is taking longer than usual",
+            message: state === "failed" ? `Across returned the funds to your wallet on ${wait.origin.name}.` : "Check the transaction; Across refunds on the origin chain if it can't fill.",
+            ...(current.explorerUrl && { link: { href: current.explorerUrl, label: "View transaction" } }),
+          });
+          setRun(null);
+        }
+      },
+      wait.kind === "arrival" ? ARRIVAL_POLL_MS : FILL_POLL_MS,
+    );
     return () => window.clearInterval(timer);
-  }, [step, address, toast, openDeposit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one poller per wait
+  }, [waiting?.wait, address]);
 
   const backdropRef = useModalEnter(depositVenue !== null);
 
   if (!depositVenue) return null;
 
   const pickFrom = (endpoint: FundsEndpoint) => {
-    if (endpoint === to) setTo(from);
+    if (endpoint === to && endpoint !== "wallet") setTo(from);
     setFrom(endpoint);
   };
   const pickTo = (endpoint: FundsEndpoint) => {
-    if (endpoint === from) setFrom(to);
+    if (endpoint === from && endpoint !== "wallet") setFrom(to);
     setTo(endpoint);
   };
   const pickKind = (next: FundsKind) => {
     const preset = presetRoute(next, venueSide ?? depositVenue);
     setFrom(preset.from);
     setTo(preset.to);
+    setChains(preset.chains);
   };
-
-  const deposit = async () => {
-    if (!address || !wallet) return openWallets();
-    if (!source || plan?.kind !== "transfer" || units === null || error) return;
-    const venue = plan.venue;
-    setBusy(true);
-    try {
-      const target = plan.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(lighterConfigs[isLighterVenue(venue) ? venue : "lighter"], source, address);
-      const result = await sendUsdc(wallet.provider, address, source, target, units);
-      setDone({ explorerUrl: result.explorerUrl, arrival: plan.arrival });
-      toast({ tone: "success", title: `Deposited ${amount} ${token}`, message: `Credited to ${PERP_VENUE_NAMES[venue]} in ${plan.arrival}.`, link: { href: result.explorerUrl, label: "View transaction" } });
-    } catch (caught) {
-      const message = errorMessage(caught);
-      toast({ tone: "error", title: "Deposit not sent", message: /reject|denied/i.test(message) ? "You rejected the request in your wallet." : message });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const withdraw = async () => {
+  const start = () => {
     if (!address) return openWallets();
-    if (error) return;
-    setBusy(true);
-    const ok = await withdrawHyperliquid(String(value));
-    setBusy(false);
-    if (ok) closeDeposit();
+    if (route.kind !== "steps" || error || units === null) return;
+    void execute({ steps, index: 0, phase: "ready", carry: units });
   };
 
-  const startMove = async () => {
-    if (!address) return openWallets();
-    if (error) return;
-    setBusy(true);
-    try {
-      const before = await readUsdcBalance(ARBITRUM, address);
-      const expected = usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;
-      if (await withdrawHyperliquid(String(value))) setStep({ kind: "waiting", before, units: expected, since: Date.now() });
-    } catch (caught) {
-      toast({ tone: "error", title: "Couldn't start the bridge", message: errorMessage(caught) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const finishMove = async (expected: bigint) => {
-    if (!address || !wallet) return;
-    setBusy(true);
-    try {
-      const target = await lighterIntentAddress(lighterConfig, ARBITRUM, address);
-      const result = await sendUsdc(wallet.provider, address, ARBITRUM, target, expected);
-      setStep({ kind: "done", explorerUrl: result.explorerUrl });
-      toast({ tone: "success", title: "Bridged to Lighter", message: "Credited to your Lighter account in a few minutes.", link: { href: result.explorerUrl, label: "View transaction" } });
-    } catch (caught) {
-      const message = errorMessage(caught);
-      toast({ tone: "error", title: "Deposit not sent", message: /reject|denied/i.test(message) ? "You rejected the request in your wallet. The USDC is in your wallet on Arbitrum." : message });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const chain =
-    sources.length > 1 ? (
-      <Picker
-        label="Chain"
-        value={String(sourceIndex)}
-        options={sources.map((entry, index) => ({ value: String(index), label: entry.name }))}
-        onChange={(next) => setSourceIndex(Number(next))}
-        disabled={locked}
-      />
-    ) : (
-      source && <span className="font-semibold text-app-ink">{source.name}</span>
-    );
-  const walletChain = (side: FundsEndpoint) =>
-    side === "wallet" && source && (route.kind === "deposit" || route.kind === "withdraw") && <span className="inline-flex items-center gap-2 whitespace-nowrap">on {chain}</span>;
-
-  const moveSteps = ["Withdraw from Hyperliquid (signature, no gas, 1 USDC fee)", "Arrives on Arbitrum in 3-4 minutes", "Deposit to Lighter (one transaction, a little ETH for gas)"];
-  const moveIndex = step.kind === "idle" ? 0 : step.kind === "waiting" ? 1 : 2;
-  const showAmount = plan?.kind !== "faucet";
+  const chainPicker = (side: "from" | "to") => (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+      on
+      <Picker label={side === "from" ? "From chain" : "To chain"} value={chains[side]} options={chainOptions} onChange={(chain) => setChains((current) => ({ ...current, [side]: chain }))} disabled={locked} />
+    </span>
+  );
   const fromName = endpointName(from);
-  const toName = endpointName(to);
+  const toName = to === "wallet" ? WALLET_CHAIN_NAMES[chains.to] : endpointName(to);
+  const quoteLine = quote && quote.key === quoteKey ? quote : null;
+  const showSteps = steps.length > 1 || acrossStep !== null;
+  const activeStep = run ? run.index : 0;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeDeposit}>
@@ -414,7 +502,7 @@ export function DepositDialog() {
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2.5 text-[18px] leading-tight text-app-muted">
           Move
-          {showAmount && (
+          {route.kind !== "faucet" && (
             <input
               aria-label={`${token} amount`}
               inputMode="decimal"
@@ -425,14 +513,15 @@ export function DepositDialog() {
               className="w-24 rounded-lg border border-app-field-border bg-app-field px-2 py-0.5 text-[18px] font-semibold tabular-nums text-app-ink outline-hidden focus:border-app-ink"
             />
           )}
-          {showAmount ? `${token} from` : `test ${token} from`}
+          {route.kind === "faucet" ? "test USDC from" : `${token} from`}
           <Picker label="From" value={from} options={endpointOptions} onChange={pickFrom} disabled={locked} />
-          {walletChain(from)}
+          {from === "wallet" && chainPicker("from")}
           <button
             type="button"
             onClick={() => {
               setFrom(to);
               setTo(from);
+              setChains({ from: chains.to, to: chains.from });
             }}
             disabled={locked}
             aria-label="Swap direction"
@@ -443,22 +532,22 @@ export function DepositDialog() {
           </button>
           to
           <Picker label="To" value={to} options={endpointOptions} onChange={pickTo} disabled={locked} />
-          {walletChain(to)}
+          {to === "wallet" && chainPicker("to")}
         </div>
 
-        {plan?.kind === "transfer" && balance !== null && (
-          <button type="button" onClick={() => setAmount((Number(balance) / 10 ** USDC_DECIMALS).toString())} className="-mt-1 self-start text-[12px] text-app-muted hover:text-app-ink">
-            Wallet on {source?.name} <span className="font-semibold text-app-ink">{formatPrice(Number(balance) / 10 ** USDC_DECIMALS)}</span> · use max
+        {fromWallet && balance !== null && !locked && (
+          <button type="button" onClick={() => setAmount(units6(balance).toString())} className="-mt-1 self-start text-[12px] text-app-muted hover:text-app-ink">
+            Wallet on {input.name} <span className="font-semibold text-app-ink">{formatPrice(units6(balance))}</span> · use max
           </button>
         )}
-        {(route.kind === "withdraw" || route.kind === "move") && withdrawable !== undefined && step.kind === "idle" && (
+        {from === "hyperliquid" && withdrawable !== undefined && !locked && route.kind === "steps" && (
           <button type="button" onClick={() => setAmount(String(Math.floor(withdrawable * 100) / 100))} className="-mt-1 self-start text-[12px] text-app-muted hover:text-app-ink">
-            {fromName} withdrawable <span className="font-semibold text-app-ink">{formatPrice(withdrawable)}</span> · use max
+            Hyperliquid withdrawable <span className="font-semibold text-app-ink">{formatPrice(withdrawable)}</span> · use max
           </button>
         )}
 
         {route.kind === "same" && <p className="text-[13px] text-app-muted">Pick where the {token} goes.</p>}
-        {route.kind === "testnet" && <p className="text-[13px] text-app-muted">The bridge works on mainnet. On testnet, get test USDC from each venue&apos;s faucet.</p>}
+        {route.kind === "testnet" && <p className="text-[13px] text-app-muted">Bridging works on mainnet. On testnet, get test funds from each venue&apos;s faucet.</p>}
         {route.kind === "soon" && (
           <p className="rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">
             {to === "wallet"
@@ -469,92 +558,87 @@ export function DepositDialog() {
           </p>
         )}
 
-        {plan?.kind === "faucet" && (
+        {route.kind === "faucet" && (
           <div className="flex flex-col gap-2 text-[13px] text-app-muted">
-            <p>{PERP_VENUE_NAMES[plan.venue]} is on testnet: test USDC comes from its faucet, not from your wallet.</p>
-            {plan.venue === "lighter" && <LighterFaucetButton label="Get test USDC now" className={`inline-flex items-center justify-center hover:opacity-90 ${primaryButton}`} />}
+            <p>{PERP_VENUE_NAMES[route.venue]} is on testnet: test USDC comes from its faucet, not from your wallet.</p>
+            {route.venue === "lighter" && <LighterFaucetButton label="Get test USDC now" className={`inline-flex items-center justify-center hover:opacity-90 ${primaryButton}`} />}
             <a
-              href={plan.url}
+              href={route.plan.url}
               target="_blank"
               rel="noopener noreferrer"
               className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold ${
-                plan.venue === "lighter" ? "border border-app-hairline-strong text-app-ink hover:bg-app-chip" : "bg-app-accent text-app-on-accent"
+                route.venue === "lighter" ? "border border-app-hairline-strong text-app-ink hover:bg-app-chip" : "bg-app-accent text-app-on-accent"
               }`}
             >
-              {plan.label} <ExternalLink className="size-3.5" aria-hidden />
+              {route.plan.label} <ExternalLink className="size-3.5" aria-hidden />
             </a>
           </div>
         )}
 
-        {plan?.kind === "transfer" && (
+        {route.kind === "steps" && (
           <>
-            <p className="text-[12px] text-app-muted">
-              {plan.target === "bridge"
-                ? `Sent to Hyperliquid's bridge contract; credited to this wallet in ${plan.arrival}. Less than ${plan.minimum} USDC is lost.`
-                : `Sent to your ${PERP_VENUE_NAMES[plan.venue]} deposit address${plan.venue === "lighter" ? " (Circle CCTP)" : ""}; credited in ${plan.arrival}.`}{" "}
-              Minimum {plan.minimum} {token}, a little gas from your wallet.
-            </p>
-            {amount && error && <p className="text-[12px] text-app-down">{error}</p>}
-            {done && (
-              <a href={done.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-app-up hover:underline">
-                Sent. Arrives in {done.arrival}. View transaction
-              </a>
+            {showSteps ? (
+              <ol className="flex flex-col gap-1.5">
+                {steps.map((step, index) => {
+                  const done = run !== null && (index < activeStep || run.phase === "done");
+                  const current = !done && index === activeStep;
+                  return (
+                    <li key={index} className={`flex items-start gap-2 text-[12px] ${current ? "font-semibold text-app-ink" : done ? "text-app-up" : "text-app-faint"}`}>
+                      <span
+                        className={`mt-px grid size-4 shrink-0 place-items-center rounded-full text-[10px] ${done ? "bg-app-up text-black" : current ? "bg-app-accent text-app-on-accent" : "bg-app-chip"}`}
+                      >
+                        {done ? "✓" : index + 1}
+                      </span>
+                      {stepLabel(step)}
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="text-[12px] text-app-muted">
+                {steps[0].kind === "hlWithdraw"
+                  ? "Your wallet signs once (no gas). Hyperliquid sends it to your wallet on Arbitrum in 3-4 minutes and charges a 1 USDC fee."
+                  : steps[0].kind === "transfer" && steps[0].target === "bridge"
+                    ? `Sent to Hyperliquid's bridge contract; credited to this wallet in ${steps[0].arrival}. Less than ${steps[0].minimum} USDC is lost. A little ETH for gas.`
+                    : steps[0].kind === "transfer"
+                      ? `Sent to your ${PERP_VENUE_NAMES[steps[0].venue]} deposit address${steps[0].venue === "lighter" ? " (Circle CCTP)" : ""}; credited in ${steps[0].arrival}. Minimum ${steps[0].minimum} ${token}, a little gas from your wallet.`
+                      : null}
+              </p>
             )}
-            <button type="button" disabled={busy || (Boolean(address) && Boolean(error))} onClick={() => void deposit()} className={primaryButton}>
-              {!address ? "Connect wallet" : busy ? "Confirm in your wallet…" : `Deposit ${amount || ""} ${token} to ${toName}`}
-            </button>
-          </>
-        )}
 
-        {route.kind === "withdraw" && (
-          <>
-            <p className="text-[12px] text-app-muted">Your wallet signs once (no gas). Hyperliquid sends it in 3-4 minutes and charges a 1 USDC fee.</p>
-            {amount && error && <p className="text-[12px] text-app-down">{error}</p>}
-            <button type="button" disabled={busy || (Boolean(address) && Boolean(error))} onClick={() => void withdraw()} className={primaryButton}>
-              {!address ? "Connect wallet" : busy ? "Confirm in your wallet…" : `Withdraw ${amount || ""} USDC to your wallet`}
-            </button>
-          </>
-        )}
+            {acrossStep && !locked && run?.phase !== "done" && quoteLine && (
+              <p className={`text-[12px] ${quoteLine.error ? "text-app-down" : "text-app-muted"}`}>
+                {quoteLine.error ??
+                  (quoteLine.summary &&
+                    `You receive ≈ ${units6(quoteLine.summary.expectedOut).toFixed(2)} ${acrossStep.to.symbol}${acrossStep.recipient === "wallet" ? "" : ` in ${PERP_VENUE_NAMES[acrossStep.recipient]}`} · bridge fee ${formatPrice(quoteLine.summary.feeUsd)} · ~${Math.max(1, quoteLine.summary.fillSeconds)}s`)}
+              </p>
+            )}
+            {amount && error && !locked && <p className="text-[12px] text-app-down">{error}</p>}
 
-        {route.kind === "move" && (
-          <>
-            <ol className="flex flex-col gap-1.5">
-              {moveSteps.map((label, index) => (
-                <li key={label} className={`flex items-center gap-2 text-[12px] ${index === moveIndex ? "font-semibold text-app-ink" : index < moveIndex ? "text-app-up" : "text-app-faint"}`}>
-                  <span
-                    className={`grid size-4 shrink-0 place-items-center rounded-full text-[10px] ${
-                      index < moveIndex ? "bg-app-up text-black" : index === moveIndex ? "bg-app-accent text-app-on-accent" : "bg-app-chip"
-                    }`}
-                  >
-                    {index < moveIndex ? "✓" : index + 1}
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ol>
-            {amount && error && step.kind === "idle" && <p className="text-[12px] text-app-down">{error}</p>}
-            {(step.kind === "idle" || step.kind === "done") && (
-              <button
-                type="button"
-                disabled={busy || (Boolean(address) && Boolean(error))}
-                onClick={() => {
-                  setStep({ kind: "idle" });
-                  void startMove();
-                }}
-                className={primaryButton}
-              >
-                {!address ? "Connect wallet" : busy ? "Confirm in your wallet…" : `Bridge ${amount || ""} USDC to ${toName}`}
+            {(run === null || run.phase === "done") && (
+              <button type="button" disabled={Boolean(address) && Boolean(error)} onClick={start} className={primaryButton}>
+                {!address ? "Connect wallet" : `${kind ? TITLES[kind] : "Move"} ${amount || ""} ${token} to ${toName}`}
               </button>
             )}
-            {step.kind === "waiting" && <p className="text-[13px] text-app-ink">Waiting for the USDC to land on Arbitrum… You can close this window and keep trading; we&apos;ll tell you when it arrives.</p>}
-            {step.kind === "arrived" && (
-              <button type="button" disabled={busy} onClick={() => void finishMove(step.units)} className={primaryButton}>
-                {busy ? "Confirm in your wallet…" : `Deposit ${(Number(step.units) / 10 ** USDC_DECIMALS).toFixed(2)} USDC to Lighter`}
+            {run?.phase === "busy" && (
+              <button type="button" disabled className={primaryButton}>
+                Confirm in your wallet…
               </button>
             )}
-            {step.kind === "done" && (
-              <a href={step.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-app-up hover:underline">
-                Sent to Lighter. Arrives in a few minutes. View transaction
+            {run?.phase === "ready" && (
+              <button type="button" disabled={busy} onClick={() => void execute(run)} className={primaryButton}>
+                Continue: {continueLabel(run.steps[run.index], run.carry)}
+              </button>
+            )}
+            {run?.phase === "waiting" && (
+              <p className="text-[13px] text-app-ink">
+                {run.wait?.kind === "arrival" ? "Waiting for the USDC to land on Arbitrum…" : `Across is filling on ${run.wait?.to.name}…`} You can close this window and keep trading;
+                we&apos;ll tell you when it&apos;s there.
+              </p>
+            )}
+            {run?.phase === "done" && run.explorerUrl && (
+              <a href={run.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-app-up hover:underline">
+                Done: {units6(run.carry).toFixed(2)} {output?.symbol} sent. View transaction
               </a>
             )}
           </>
