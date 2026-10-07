@@ -310,7 +310,10 @@ dependency versions and design are free to diverge from angler-news.
     (shape confirmed against the live validator). Quotes are same-chain only (4663 now; 42161/8453 allowed for later).
     First use: Robinhood Chain stock tokens (the Arcus catalog, which needs no Arcus key) are quoted on every enabled
     source (`robinhood-sources.ts`, `robinhood-quotes.ts`: Arcus `/v1/price` vs Uniswap `/quote`) and the larger
-    output wins (Arcus on a tie); the swap card lists both like Jupiter/Titan and a press pins one. Execution
+    output wins (Arcus on a tie). `preferArcus` (default on, a checkbox under the swap card's route list, not in Settings:
+    Arcus volume earns Arcus points) keeps Arcus first unless Uniswap pays over `PREFER_ARCUS_BPS` (0.5%) more
+    (`orderRobinhoodQuotes`, also used by news trades). The route list (`SpotRoutes`) shows whenever two sources can
+    fill, before any amount: "Best price" or one source pinned (rows or chips). Execution
     (`venue.ts`, on demand): balance, `check_approval` (one-time Permit2 approve, needs ETH gas), a fresh quote for
     the wallet, Permit2 EIP-712 signature (`permitPrimaryType`), then `routing` decides: CLASSIC/WRAP/UNWRAP →
     `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,

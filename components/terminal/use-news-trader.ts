@@ -215,9 +215,10 @@ export function useNewsTrader() {
       try {
         const token = await resolveArcusToken(trade.symbol);
         if (!token) return fail(`${trade.symbol} isn't listed on Robinhood Chain.`), false;
-        // With Uniswap in the mix both sources quote the same swap and the larger output wins (Arcus on a tie).
+        // With Uniswap in the mix both sources quote the same swap and the larger output wins (Arcus on a tie, or while
+        // Uniswap pays under 0.5% more when Arcus is preferred).
         const compared = sources.includes("uniswap")
-          ? await quoteRobinhood({ token, side: trade.side, sizeUsd: trade.sizeUsd, sources, taker: evmAddress, slippageBps: trade.slippageBps })
+          ? await quoteRobinhood({ token, side: trade.side, sizeUsd: trade.sizeUsd, sources, taker: evmAddress, slippageBps: trade.slippageBps, preferArcus: preferences.preferArcus })
           : null;
         if (compared) {
           const best = compared.quotes.find((quote) => quote.out !== null);

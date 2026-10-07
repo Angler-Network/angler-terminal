@@ -176,41 +176,64 @@ function useArcusPrice(token: ArcusToken | null) {
 }
 
 /**
- * Quotes from each Solana source for the size, best first. With no pick the best one is used; pressing a row pins
- * that source, pressing it again goes back to the best.
+ * The swap's route, always on screen when more than one source can fill it: "Best price" (the default: the best
+ * quote, or Arcus within 0.5% when Arcus is preferred) or one source pinned. Sources can be pinned before an amount
+ * is typed; once there is one, each row shows what it pays and how far it trails the best.
  */
-function SpotRoutes({ quotes, loading, pick, onPick }: { quotes: SpotSourceQuote[]; loading: boolean; pick: SpotSource | null; onPick: (source: SpotSource | null) => void }) {
-  const best = quotes[0]?.outAmount ?? null;
-  const selected = pick ?? quotes.find((quote) => quote.outAmount !== null)?.source ?? null;
+function SpotRoutes({
+  sources,
+  quotes,
+  loading,
+  pick,
+  onPick,
+  preferArcus,
+}: {
+  sources: SpotSource[];
+  quotes: SpotSourceQuote[];
+  loading: boolean;
+  pick: SpotSource | null;
+  onPick: (source: SpotSource | null) => void;
+  preferArcus?: { on: boolean; set: (on: boolean) => void };
+}) {
+  // Quoted sources in quote order (best first), then any the quotes don't cover yet.
+  const rows = [...quotes.filter((quote) => sources.includes(quote.source)), ...sources.filter((source) => !quotes.some((quote) => quote.source === source)).map((source) => ({ source, outAmount: null, note: null }) as SpotSourceQuote)];
+  const outs = rows.flatMap((quote) => (quote.outAmount !== null ? [quote.outAmount] : []));
+  const best = outs.length ? outs.reduce((max, out) => (out > max ? out : max)) : null;
+  const auto = rows.find((quote) => quote.outAmount !== null)?.source ?? null;
+  const chip = (active: boolean) => `h-6 shrink-0 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${active ? "bg-app-accent text-app-on-accent" : "text-app-muted hover:bg-app-chip hover:text-app-ink"}`;
   return (
     <div className="overflow-hidden rounded-xl border border-app-hairline">
-      <div className="flex items-center gap-2 border-b border-app-hairline bg-app-chip/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">
-        <span>Route</span>
-        {loading && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />}
+      <div className="flex items-center gap-1.5 border-b border-app-hairline bg-app-chip/40 px-2 py-1.5">
+        <span className="mr-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">Route</span>
+        <button type="button" aria-pressed={pick === null} onClick={() => onPick(null)} className={chip(pick === null)}>
+          Best price
+        </button>
+        {sources.map((source) => (
+          <button key={source} type="button" aria-pressed={pick === source} onClick={() => onPick(source)} className={chip(pick === source)}>
+            {SOURCE_NAMES[source]}
+          </button>
+        ))}
+        {loading && <span aria-hidden className="ml-auto size-1.5 animate-pulse rounded-full bg-app-accent" />}
       </div>
-      {quotes.map((quote, index) => {
+      {rows.map((quote) => {
         const amount = quote.outAmount !== null && quote.outputToken ? fromBaseUnits(quote.outAmount, quote.outputToken.decimals) : null;
-        const gap = quote.outAmount !== null && best !== null && best > 0n && index > 0 ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
-        const isSelected = selected === quote.source;
+        const gap = quote.outAmount !== null && best !== null && best > 0n && quote.outAmount < best ? (Number(best - quote.outAmount) / Number(best)) * 100 : 0;
+        const used = (pick ?? auto) === quote.source;
         return (
           <button
             key={quote.source}
             type="button"
-            disabled={quote.outAmount === null}
             onClick={() => onPick(pick === quote.source ? null : quote.source)}
-            title={quote.note ?? (pick === quote.source ? "Pinned: press again to follow the best quote" : "Swap on this route")}
-            className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 disabled:cursor-default ${
-              isSelected ? "bg-app-accent/10" : "hover:bg-app-chip/60"
-            }`}
+            title={quote.note ?? (pick === quote.source ? "Pinned: press again for the best price" : "Swap on this route")}
+            className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${used ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
           >
-            <span aria-hidden className={`grid size-3 shrink-0 place-items-center rounded-full border ${isSelected ? "border-app-accent" : "border-app-hairline-strong"}`}>
-              {isSelected && <span className="size-1.5 rounded-full bg-app-accent" />}
+            <span aria-hidden className={`grid size-3 shrink-0 place-items-center rounded-full border ${used ? "border-app-accent" : "border-app-hairline-strong"}`}>
+              {used && <span className="size-1.5 rounded-full bg-app-accent" />}
             </span>
             <span className={`shrink-0 font-semibold ${quote.outAmount === null ? "text-app-muted" : "text-app-ink"}`}>{SOURCE_NAMES[quote.source]}</span>
-            {index === 0 && quote.outAmount !== null && (
+            {quote.outAmount !== null && quote.outAmount === best && (
               <span className="rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>
             )}
-            {pick === quote.source && <span className="text-[10px] text-app-faint">pinned</span>}
             {routeText(quote.route) && <span className="min-w-0 truncate text-[10px] text-app-faint" title={`via ${routeText(quote.route)}`}>via {routeText(quote.route)}</span>}
             <span className="ml-auto min-w-0 truncate text-right tabular-nums">
               {amount !== null ? (
@@ -218,13 +241,19 @@ function SpotRoutes({ quotes, loading, pick, onPick }: { quotes: SpotSourceQuote
                   {amount.toLocaleString("en-US", { maximumSignificantDigits: 6 })} {quote.outputToken?.symbol}
                 </span>
               ) : (
-                <span className="text-[11px] text-app-faint">{quote.note}</span>
+                <span className="text-[11px] text-app-faint">{quote.note ?? "Enter an amount"}</span>
               )}
             </span>
             {gap > 0 && <span className="shrink-0 text-[11px] tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
           </button>
         );
       })}
+      {preferArcus && pick === null && (
+        <label className="flex cursor-pointer items-center gap-2 border-t border-app-hairline px-2.5 py-1.5 text-[11px] text-app-muted">
+          <input type="checkbox" checked={preferArcus.on} onChange={(event) => preferArcus.set(event.target.checked)} className="size-3.5 accent-[rgb(var(--app-accent))]" />
+          Prefer Arcus (Arcus points) unless Uniswap pays over 0.5% more
+        </label>
+      )}
     </div>
   );
 }
@@ -297,7 +326,7 @@ export const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-
  */
 export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const { symbol } = useSelectedAsset();
-  const { preferences } = usePreferences();
+  const { preferences, updatePreference } = usePreferences();
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
   const { open: openWallets } = useWalletModal();
@@ -397,10 +426,12 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     taker: evmAddress,
     sources: rhSources,
     slippageBps,
+    preferArcus: preferences.preferArcus,
   });
   const routeQuotes = isSolana ? quotes : rh.quotes;
   const routesLoading = isSolana ? loading : rh.loading;
   const hasQuotes = isSolana || compareRh;
+  const routeSources: SpotSource[] = isSolana ? ["jupiter", ...(preferences.venueTitan && venueAvailable("titan") ? (["titan"] as const) : [])] : compareRh ? rhSources : [];
   const selected = pick ? routeQuotes.find((quote) => quote.source === pick) : routeQuotes.find((quote) => quote.outAmount !== null);
   // The Robinhood source the swap goes to: the pinned or best quote, else the first enabled one.
   const rhSource = isSolana ? null : ((selected?.source as RobinhoodSource | undefined) ?? rhSources[0] ?? "arcus");
@@ -801,7 +832,16 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       {isSolana && !unverified && choice.token.launchpad && (
         <p className="text-[11px] text-app-faint">Launched on {choice.token.launchpad}.</p>
       )}
-      {hasQuotes && sizeUsd > 0 && routeQuotes.length > 1 && <SpotRoutes quotes={routeQuotes} loading={routesLoading} pick={pick} onPick={setPick} />}
+      {hasQuotes && routeSources.length > 1 && (
+        <SpotRoutes
+          sources={routeSources}
+          quotes={sizeUsd > 0 ? routeQuotes : []}
+          loading={routesLoading}
+          pick={pick}
+          onPick={setPick}
+          preferArcus={!isSolana && venueAvailable("arcus") ? { on: preferences.preferArcus, set: (on) => updatePreference("preferArcus", on) } : undefined}
+        />
+      )}
       {value > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-app-hairline p-2.5">
           <DetailRow label="You sell">

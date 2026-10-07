@@ -18,3 +18,19 @@ export function robinhoodSources(preferences: { venueArcus: boolean; venueUniswa
   if (preferences.venueUniswap && uniswapOnRobinhood()) sources.push("uniswap");
   return sources;
 }
+
+/** How much more Uniswap must pay before it beats Arcus when Arcus is preferred (Arcus volume earns Arcus points). */
+export const PREFER_ARCUS_BPS = 50;
+
+/**
+ * Quotes best first (no quote last). With `preferArcus`, Arcus leads unless Uniswap's output is more than
+ * `PREFER_ARCUS_BPS` larger; without it, the larger output leads and Arcus wins a tie.
+ */
+export function orderRobinhoodQuotes<Q extends { source: RobinhoodSource; out: bigint | null }>(quotes: Q[], preferArcus: boolean): Q[] {
+  const sorted = [...quotes].sort((a, b) => (a.out === null ? 1 : b.out === null ? -1 : a.out === b.out ? (a.source === "arcus" ? -1 : b.source === "arcus" ? 1 : 0) : a.out > b.out ? -1 : 1));
+  const arcus = sorted.find((quote) => quote.source === "arcus");
+  const leader = sorted[0];
+  if (!preferArcus || !arcus || arcus.out === null || leader === arcus || leader.out === null) return sorted;
+  if (leader.out * 10_000n > arcus.out * BigInt(10_000 + PREFER_ARCUS_BPS)) return sorted;
+  return [arcus, ...sorted.filter((quote) => quote !== arcus)];
+}

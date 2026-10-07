@@ -3,7 +3,7 @@
 import { arcusIndicativeOut, arcusQuoteToken } from "./arcus/catalog";
 import { arcusConfig } from "./arcus/config";
 import type { ArcusToken } from "./arcus/tokens";
-import type { RobinhoodSource } from "./robinhood-sources";
+import { orderRobinhoodQuotes, type RobinhoodSource } from "./robinhood-sources";
 import type { OrderSide } from "./types";
 import { fetchUniswapQuote } from "./uniswap/client";
 import type { UniswapQuote } from "./uniswap/quote";
@@ -37,6 +37,7 @@ export async function quoteRobinhood({
   sources,
   taker,
   slippageBps,
+  preferArcus = false,
 }: {
   token: ArcusToken;
   side: OrderSide;
@@ -44,6 +45,8 @@ export async function quoteRobinhood({
   sources: RobinhoodSource[];
   taker?: string | null;
   slippageBps?: number | null;
+  /** Arcus leads unless Uniswap pays over `PREFER_ARCUS_BPS` more (`orderRobinhoodQuotes`). */
+  preferArcus?: boolean;
 }): Promise<RobinhoodQuoteSet> {
   const stable = await arcusQuoteToken();
   const usdAmount = BigInt(Math.floor(sizeUsd * 10 ** stable.decimals));
@@ -75,6 +78,5 @@ export async function quoteRobinhood({
       }
     }),
   );
-  quotes.sort((a, b) => (a.out === null ? 1 : b.out === null ? -1 : a.out === b.out ? 0 : a.out > b.out ? -1 : 1));
-  return { sellToken, buyToken, sellAmount, quotes };
+  return { sellToken, buyToken, sellAmount, quotes: orderRobinhoodQuotes(quotes, preferArcus) };
 }

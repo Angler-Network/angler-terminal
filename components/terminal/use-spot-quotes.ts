@@ -136,6 +136,7 @@ export function useRobinhoodQuotes({
   taker,
   sources,
   slippageBps = null,
+  preferArcus = false,
 }: {
   token: ArcusToken | null;
   side: OrderSide;
@@ -143,10 +144,11 @@ export function useRobinhoodQuotes({
   taker: string | null;
   sources: RobinhoodSource[];
   slippageBps?: number | null;
+  preferArcus?: boolean;
 }) {
   const [quotes, setQuotes] = useState<SpotSourceQuote[]>([]);
   const [loading, setLoading] = useState(false);
-  const key = [token?.address, side, sizeUsd, taker, sources.join(","), slippageBps].join("|");
+  const key = [token?.address, side, sizeUsd, taker, sources.join(","), slippageBps, preferArcus].join("|");
 
   useEffect(() => {
     if (!token || !(sizeUsd > 0) || sources.length === 0) {
@@ -157,7 +159,7 @@ export function useRobinhoodQuotes({
     const load = async () => {
       setLoading(true);
       try {
-        const set = await quoteRobinhood({ token, side, sizeUsd, sources, taker, slippageBps });
+        const set = await quoteRobinhood({ token, side, sizeUsd, sources, taker, slippageBps, preferArcus });
         if (!active) return;
         setQuotes(
           set.quotes.map((quote) => ({
