@@ -323,7 +323,7 @@ export const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-
  * confirm press unless one-click is on.
  */
 export function SwapCard({ choices }: { choices: SpotChoice[] }) {
-  const { symbol } = useSelectedAsset();
+  const { symbol, mint: pickedMint, spotVenue } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
@@ -362,6 +362,11 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     },
   });
 
+  // The venue the pick came from: an Arcus row opens Arcus, a Solana mint opens Solana (else the last one chosen here).
+  useEffect(() => {
+    if (spotVenue === "arcus") setVenueId("arcus");
+    else if (pickedMint) setVenueId("solana");
+  }, [symbol, pickedMint, spotVenue]);
   const choice = choices.find((entry) => entry.id === venueId) ?? choices[0];
   const isSolana = choice.id === "solana";
   const owner = isSolana ? solanaAddress : evmAddress;

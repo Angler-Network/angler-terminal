@@ -10,7 +10,7 @@ import { assetSymbolOf, byMarketThenStable } from "@/lib/spot/listings";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { toggleWatch } from "@/lib/watchlist";
-import { Change, TokenIcon, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
+import { Change, TokenIcon, rowChain, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useSpotToken } from "./use-spot-token";
@@ -176,7 +176,7 @@ export function WatchlistPanel() {
                 <button
                   type="button"
                   aria-current={active || undefined}
-                  onClick={() => selectAsset(row.asset, row.mint)}
+                  onClick={() => selectAsset(row.asset, row.mint, rowChain(row) === "arcus" ? "arcus" : undefined)}
                   className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 pr-1.5 text-left tabular-nums"
                 >
                   <TokenIcon row={row} />

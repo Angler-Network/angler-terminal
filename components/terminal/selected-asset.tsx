@@ -8,7 +8,12 @@ interface SelectedAssetValue {
   symbol: string;
   /** Solana mint for the asset when the source (e.g. a news item) provided one. */
   mint?: string;
-  selectAsset: (symbol: string, mint?: string) => void;
+  /**
+   * The swap venue the pick came from when the asset has several (TSLA: Solana's TSLAx or Arcus's TSLA on Robinhood):
+   * a search row of the Arcus filter opens the swap card on Arcus instead of the first venue (Solana).
+   */
+  spotVenue?: "arcus";
+  selectAsset: (symbol: string, mint?: string, spotVenue?: "arcus") => void;
   /** Symbol the news feed is narrowed to (picked from the ticker tape), or null. */
   newsFocus: string | null;
   /** Selects the asset in the chart and narrows the news feed to it. */
@@ -31,17 +36,18 @@ export function useSelectedAsset() {
 export function SelectedAssetProvider({ children }: { children: React.ReactNode }) {
   const { preferences, updatePreference } = usePreferences();
   const symbol = preferences.chartSymbol;
-  const [mintFor, setMintFor] = useState<{ symbol: string; mint: string } | null>(null);
+  const [mintFor, setMintFor] = useState<{ symbol: string; mint?: string; spotVenue?: "arcus" } | null>(null);
   const selectAsset = useCallback(
-    (next: string, mint?: string) => {
+    (next: string, mint?: string, spotVenue?: "arcus") => {
       const clean = next.toUpperCase();
       if (!/^[A-Z0-9]{1,20}$/.test(clean)) return;
       updatePreference("chartSymbol", clean);
-      setMintFor(mint ? { symbol: clean, mint } : null);
+      setMintFor(mint || spotVenue ? { symbol: clean, mint, spotVenue } : null);
     },
     [updatePreference],
   );
   const mint = mintFor?.symbol === symbol ? mintFor.mint : undefined;
+  const spotVenue = mintFor?.symbol === symbol ? mintFor.spotVenue : undefined;
   const [newsFocus, setNewsFocus] = useState<string | null>(null);
   const focusAsset = useCallback(
     (next: string) => {
@@ -53,8 +59,8 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
   const clearNewsFocus = useCallback(() => setNewsFocus(null), []);
   const [tradeVenue, setTradeVenue] = useState<PerpVenueId | null>(null);
   const value = useMemo(
-    () => ({ symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue }),
-    [symbol, mint, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue],
+    () => ({ symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue }),
+    [symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue],
   );
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }

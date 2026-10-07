@@ -227,7 +227,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
       const pinned = pick.pinned.find((token) => token.mint === row.mint);
       pick.onPick(pinned ?? { mint: row.mint, symbol: row.symbol, icon: row.icon, name: row.name, verified: row.verified, price: row.price });
     } else {
-      selectAsset(row.asset, row.mint);
+      selectAsset(row.asset, row.mint, rowChain(row) === "arcus" ? "arcus" : undefined);
     }
     onClose();
   };

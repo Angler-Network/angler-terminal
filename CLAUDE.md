@@ -546,7 +546,9 @@ dependency versions and design are free to diverge from angler-news.
   `components/chart/interval-picker.tsx` shows starred ones (`chartFavoriteIntervals`) as quick buttons. In the
   terminal the chart header measures what's left after the market stats and passes `maxQuick` (`lib/chart/interval-fit.ts`):
   narrow headers keep only the active interval, the rest stay in the dropdown.
-- Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. Clicking a ticker
+- Selected asset lives in `components/terminal/selected-asset.tsx`; news chips call `selectAsset`. A pick carries the
+  swap venue when the asset has several (`spotVenue: "arcus"` from an Arcus search/watchlist row, else a Solana mint):
+  the swap card opens on it instead of its first venue, Solana (picking TSLA under Arcus used to land on TSLAx). Clicking a ticker
   tape pill calls `focusAsset`: it selects the chart and narrows the feed to that symbol (`newsFocus`, cleared from
   the "Only X" chip). The clickable pill is a terminal-only change to the copied `ticker-pill.tsx`/`ticker-tape.tsx`.
   The feed renders `news-card.tsx` with a terminal-only `compact` prop (smaller icon, type and padding); the empty
