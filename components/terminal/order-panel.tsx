@@ -603,28 +603,29 @@ export function OrderPanel() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            {kindChoices.length > 1 ? (
-              <div className="min-w-0 flex-1">
-                <Segmented
-                  label="Venue"
-                  value={choice!.id}
-                  options={kindChoices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
-                  onChange={pickVenue}
-                />
-              </div>
-            ) : (
-              <span className="flex-1 text-[12px] font-semibold text-app-ink">{choice!.name}</span>
-            )}
-            <span
-              title={choice!.kind === "perp" ? "Perpetual" : "Spot"}
-              className={`shrink-0 rounded px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.08em] ${
-                choice!.network === "mainnet" ? "bg-app-chip text-app-muted" : "bg-[#f5c97b]/15 text-[#f5c97b]"
-              }`}
-            >
-              {choice!.network}
-            </span>
-          </div>
+          {/* A venue picker only when there's a choice; the network only shows when it isn't mainnet. */}
+          {(kindChoices.length > 1 || choice!.network !== "mainnet") && (
+            <div className="flex items-center gap-2">
+              {kindChoices.length > 1 && (
+                <div className="min-w-0 flex-1">
+                  <Segmented
+                    label="Venue"
+                    value={choice!.id}
+                    options={kindChoices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
+                    onChange={pickVenue}
+                  />
+                </div>
+              )}
+              {choice!.network !== "mainnet" && (
+                <span
+                  title={`${choice!.name} ${choice!.network}`}
+                  className="ml-auto shrink-0 rounded bg-[#f5c97b]/15 px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.08em] text-[#f5c97b]"
+                >
+                  {choice!.network}
+                </span>
+              )}
+            </div>
+          )}
           {solanaChoice && normalizeSpotSymbol(solanaChoice.token.symbol) !== normalizeSpotSymbol(symbol) && (
             // The asset has no token of its own name on Solana: say which token the swap actually buys or sells.
             <p className="-mt-1 text-[11px] leading-snug text-app-faint">
