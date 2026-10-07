@@ -33,7 +33,7 @@ export function readArcusNetwork(value: string | null | undefined): ArcusNetwork
 export function robinhoodChain(network: ArcusNetwork, rpcUrl?: string) {
   const isTestnet = network === "testnet";
   const rpc = rpcUrl || (isTestnet ? "https://rpc.testnet.chain.robinhood.com" : "https://rpc.mainnet.chain.robinhood.com");
-  const explorer = isTestnet ? "https://explorer.testnet.chain.robinhood.com" : "https://explorer.chain.robinhood.com";
+  const explorer = isTestnet ? "https://explorer.testnet.chain.robinhood.com" : "https://robinhoodchain.blockscout.com";
   // A plain Chain object (not viem's defineChain) so this config doesn't pull viem into pages that only read it.
   const chain: Chain = {
     id: CHAIN_IDS[network],

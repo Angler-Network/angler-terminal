@@ -59,18 +59,28 @@ interface Run {
 
 const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 
-/** Brand colors of the two dollar stablecoins the window moves (Circle's USDC, Paxos's USDG). */
-const TOKEN_COLORS: Record<string, string> = { USDC: "#2775CA", USDG: "#00A07A" };
+/** Self-hosted logos (`public/tokens`, `public/chains`) of the stablecoins and chains the window moves between. */
+const TOKEN_LOGOS: Record<string, string> = { USDC: "/tokens/usdc.png", USDG: "/tokens/usdg.png" };
+const CHAIN_LOGOS: Record<number, string> = { 42161: "/chains/arbitrum.svg", 8453: "/chains/base.svg", 4663: "/chains/robinhood.svg", 46630: "/chains/robinhood.svg" };
 const TOKEN_ABOUT: Record<string, string> = { USDC: "Circle's dollar", USDG: "Paxos's Global Dollar, the dollar Robinhood Chain venues use" };
 
-function TokenBadge({ symbol, size = 18 }: { symbol: string; size?: number }) {
+/** The token's logo with its chain's logo in the corner. */
+function TokenIcon({ token, size = 18, showChain = true }: { token: SourceChain; size?: number; showChain?: boolean }) {
+  const chain = showChain ? CHAIN_LOGOS[token.chainId] : undefined;
+  const badge = Math.round(size * 0.5);
   return (
-    <span
-      aria-hidden
-      className="grid shrink-0 place-items-center rounded-full font-bold text-white"
-      style={{ width: size, height: size, fontSize: size * 0.55, background: TOKEN_COLORS[symbol] ?? "#666" }}
-    >
-      $
+    <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      <img src={TOKEN_LOGOS[token.symbol]} alt="" width={size} height={size} className="rounded-full" style={{ width: size, height: size }} />
+      {chain && (
+        <img
+          src={chain}
+          alt=""
+          width={badge}
+          height={badge}
+          className="absolute -bottom-0.5 -right-1 rounded-full ring-2 ring-app-dialog"
+          style={{ width: badge, height: badge }}
+        />
+      )}
     </span>
   );
 }
@@ -293,8 +303,8 @@ export function DepositDialog() {
   ];
   // The wallet side is a stablecoin on a chain: the user picks what they send or want to receive.
   const chainOptions: Array<PickerOption<WalletChain>> = WALLET_CHAINS.map((chain) => {
-    const symbol = walletChainSource(chain).symbol;
-    return { value: chain, label: `${symbol} · ${WALLET_CHAIN_NAMES[chain]}`, icon: <TokenBadge symbol={symbol} /> };
+    const token = walletChainSource(chain);
+    return { value: chain, label: `${token.symbol} · ${WALLET_CHAIN_NAMES[chain]}`, icon: <TokenIcon token={token} size={20} /> };
   });
 
   // Opening (or reopening on another venue) starts on the route the caller asked for, unless a run is under way.
@@ -488,6 +498,7 @@ export function DepositDialog() {
     />
   );
   const fromName = endpointName(from);
+  const venueSource = input ?? walletChainSource(from === "lighterRh" ? "robinhood" : "arbitrum");
   const toName = to === "wallet" ? WALLET_CHAIN_NAMES[chains.to] : endpointName(to);
   const quoteLine = quote && quote.key === quoteKey ? quote : null;
   // Send / receive card: what leaves, what arrives (after Hyperliquid's fee and Across's quote), and any conversion.
@@ -550,9 +561,19 @@ export function DepositDialog() {
               className="w-24 rounded-lg border border-app-field-border bg-app-field px-2 py-0.5 text-[18px] font-semibold tabular-nums text-app-ink outline-hidden focus:border-app-ink"
             />
           )}
-          {route.kind === "faucet" ? "test USDC from" : `${token} from`}
+          {route.kind === "faucet" ? (
+            "test USDC"
+          ) : from === "wallet" ? (
+            chainPicker("from")
+          ) : (
+            // A venue holds one stablecoin, so its side shows the token instead of a picker.
+            <span className="inline-flex items-center gap-1.5 font-semibold text-app-ink">
+              <TokenIcon token={venueSource} size={20} showChain={false} />
+              {venueSource.symbol}
+            </span>
+          )}
+          from
           <Picker label="From" value={from} options={endpointOptions} onChange={pickFrom} disabled={locked} />
-          {from === "wallet" && chainPicker("from")}
           <button
             type="button"
             onClick={() => {
@@ -647,7 +668,7 @@ export function DepositDialog() {
               <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/40 p-3 text-[13px]">
                 <div className="flex items-center gap-2">
                   <span className="w-20 shrink-0 text-[12px] text-app-muted">You send</span>
-                  <TokenBadge symbol={input.symbol} />
+                  <TokenIcon token={input} />
                   <span className="font-semibold tabular-nums text-app-ink">
                     {value.toFixed(2)} {input.symbol}
                   </span>
@@ -655,7 +676,7 @@ export function DepositDialog() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-20 shrink-0 text-[12px] text-app-muted">You receive</span>
-                  <TokenBadge symbol={output.symbol} />
+                  <TokenIcon token={output} />
                   <span className="font-semibold tabular-nums text-app-ink">
                     {receive === null ? (quoteLine?.error ? "—" : "…") : `≈ ${receive.toFixed(2)}`} {output.symbol}
                   </span>

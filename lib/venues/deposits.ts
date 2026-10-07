@@ -38,7 +38,7 @@ export const BASE: SourceChain = {
 };
 
 export const ROBINHOOD: Record<"mainnet" | "testnet", SourceChain> = {
-  mainnet: { chainId: ROBINHOOD_CHAIN_IDS.mainnet, name: "Robinhood Chain", usdc: RH_USDG.mainnet, symbol: "USDG", explorer: "https://explorer.chain.robinhood.com" },
+  mainnet: { chainId: ROBINHOOD_CHAIN_IDS.mainnet, name: "Robinhood Chain", usdc: RH_USDG.mainnet, symbol: "USDG", explorer: "https://robinhoodchain.blockscout.com" },
   testnet: {
     chainId: ROBINHOOD_CHAIN_IDS.testnet,
     name: "Robinhood Chain testnet",

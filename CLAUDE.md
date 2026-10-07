@@ -229,8 +229,10 @@ dependency versions and design are free to diverge from angler-news.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
     `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): one
     sentence for every flow, "Move [amount] [token] from [Wallet on chain | venue] to [Wallet on chain | venue]". The
-    wallet side is a token picker (USDC · Arbitrum, USDC · Base, USDG · Robinhood Chain, where Arcus trades); venue
-    options show their margin token. A "You send / You receive" card shows both amounts (after Hyperliquid's fee and
+    wallet side is a token picker (USDC · Arbitrum, USDC · Base, USDG · Robinhood Chain, where Arcus trades): the
+    sending one sits right after the amount, a venue source shows its fixed token there instead; venue options show
+    their margin token. Token and chain logos are self-hosted (`public/tokens`, `public/chains`; Across's token list
+    gives USDG the USDC logo, so it isn't used). A "You send / You receive" card shows both amounts (after Hyperliquid's fee and
     the Across quote) and says plainly when USDC becomes USDG; the button reads "… USDC → USDG to …". `fundsRoute` turns the
     pair into steps the window runs in order (one wallet signature each; waits keep polling with the window closed and
     toast when the next step is ready): `hlWithdraw` (Hyperliquid `withdraw3`, 1 USDC fee, lands on Arbitrum in 3-4
@@ -251,7 +253,7 @@ dependency versions and design are free to diverge from angler-news.
     right before signing, approval + deposit on the origin chain, then the indexer status until `filled` (`expired` /
     `refunded` = funds back on origin). A Lighter recipient must clear its deposit minimum after fees (`minOutputAmount`).
     Robinhood Chain's public mainnet RPC is `rpc.mainnet.chain.robinhood.com` (`rpc.chain.robinhood.com` never
-    answers); Lighter RH's `createIntentAddress` takes chain 4663 only, core Lighter's takes 42161/8453.
+    answers) and its explorer `robinhoodchain.blockscout.com`; Lighter RH's `createIntentAddress` takes chain 4663 only, core Lighter's takes 42161/8453.
   - Pro order (`pro-order-dialog.tsx`, yellow "Pro order" in the sidebar/top bar/mobile menu; logic in
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
     coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm
