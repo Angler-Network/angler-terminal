@@ -33,6 +33,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  // Self-hosted fonts carry a content hash in their name.
+  async headers() {
+    return [{ source: "/fonts/:file*.woff2", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
+  },
   env: {
     // Compared with /api/version to tell open tabs a newer deploy is live.
     NEXT_PUBLIC_COMMIT_SHA: readCommitSha(),

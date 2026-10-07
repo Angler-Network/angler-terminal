@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Sora } from "next/font/google";
 import { cookies } from "next/headers";
-import { preconnect } from "react-dom";
+import { preconnect, preload } from "react-dom";
 import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { LazyDialogs } from "@/components/app/lazy-dialogs";
@@ -27,13 +26,6 @@ import "./globals.css";
 const title = "Angler Terminal";
 const description = "News-driven trading terminal: live Angler news next to the chart and the order ticket.";
 
-const sora = Sora({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-sora",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: { template: "%s · Angler", default: title },
   description,
@@ -54,9 +46,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // The first screen loads coin icons and Hyperliquid candles/books before anything else from these hosts.
   preconnect("https://app.hyperliquid.xyz");
   preconnect(hlConfig.apiUrl, { crossOrigin: "anonymous" });
+  // Sent with the HTML (as a Link header), so the text font loads in parallel with the CSS instead of after it.
+  preload("/fonts/sora-latin.3dc379dc.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   const chart = parseChartCookie((await cookies()).get(CHART_COOKIE)?.value);
   return (
-    <html lang="en-US" className={sora.variable} data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
+    <html lang="en-US" data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
         <script dangerouslySetInnerHTML={{ __html: onboardingScript }} />

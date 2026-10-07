@@ -51,8 +51,8 @@ export function Sidebar() {
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
       <Link href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
-        <Image src="/blacklogo.png" alt="Angler" width={30} height={30} priority className="[html[data-tone=dark]_&]:hidden" />
-        <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} className="hidden [html[data-tone=dark]_&]:block" />
+        <Image src="/blacklogo.png" alt="Angler" width={30} height={30} className="[html[data-tone=dark]_&]:hidden" />
+        <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} priority className="hidden [html[data-tone=dark]_&]:block" />
       </Link>
 
       <nav aria-label={t("nav.primary")} className="flex flex-col gap-1">

@@ -41,8 +41,8 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
       <header className="app-topbar surface-chrome flex h-14 shrink-0 items-center gap-3 border-b border-app-hairline px-3 sm:px-4">
         {/* The rail carries the logo; the top bar shows it on small screens and in top navigation. */}
         <Link href="/" aria-label="Angler Terminal" className="flex shrink-0 lg:hidden [html[data-nav=top]_&]:flex">
-          <Image src="/blacklogo.png" alt="Angler" width={28} height={28} priority className="[html[data-tone=dark]_&]:hidden" />
-          <Image src="/whitelogo.png" alt="" aria-hidden width={28} height={28} className="hidden [html[data-tone=dark]_&]:block" />
+          <Image src="/blacklogo.png" alt="Angler" width={28} height={28} className="[html[data-tone=dark]_&]:hidden" />
+          <Image src="/whitelogo.png" alt="" aria-hidden width={28} height={28} priority className="hidden [html[data-tone=dark]_&]:block" />
         </Link>
         <span className="app-sidebar-toggle contents">
           <SidebarToggle />

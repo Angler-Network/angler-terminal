@@ -24,7 +24,11 @@ dependency versions and design are free to diverge from angler-news.
 ## Architecture
 
 - Theme: Tailwind CSS 4, configured in CSS (no `tailwind.config`): `app/globals.css` holds the `--app-*` channel
-  variables per theme and the `@theme` tokens (`--color-app-*` → `bg-app-card/55` etc.), Sora font in `app/layout.tsx`.
+  variables per theme and the `@theme` tokens (`--color-app-*` → `bg-app-card/55` etc.).
+- Font: Sora is self-hosted in `public/fonts` (SIL OFL, `OFL.txt` next to it), declared in `globals.css` with a
+  metric-matched "Sora Fallback", and the Latin file is preloaded from `app/layout.tsx` (a `Link` header). Not
+  `next/font`: it only hinted the font late in the page, so text repainted seconds after the first paint. File names
+  carry a content hash (`next.config.mjs` caches `/fonts/*` for a year); rename the file when replacing it.
   Never put two display utilities on one element (`inline-flex hidden lg:inline-flex`): Tailwind 4's stylesheet order
   differs from 3's, so set the display per breakpoint instead. Default look is the `oled` theme with the `liquid`
   surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once).
@@ -226,7 +230,12 @@ dependency versions and design are free to diverge from angler-news.
 - Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "Make it yours" (theme,
   accent, framed or full screen, sidebar or top navigation, tape position; applied live) → "What do you want on your
   screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
-  notice. Bump `ACK_KEY` to show it again; Settings → About reopens it. Keep it short: no text-heavy slides.
+  notice. Bump `ONBOARDING_ACK_KEY` (`lib/onboarding.ts`) to show it again; Settings → About reopens it. Keep it short:
+  no text-heavy slides. It is the first visit's largest paint, so it opens before hydration: `onboardingScript` (head)
+  marks `html[data-welcome]` when the acknowledgement is missing, the server always renders the welcome step, and
+  `openOnboardingScript` (right after it in `layout.tsx`) calls `showModal()` at once. Opening it from React later
+  would move it into the top layer after its first paint (a new, later LCP). The welcome logo is a CSS background
+  (`.welcome-logo`) so it only downloads when the dialog is open.
 - Wallets: one Connect button opens `wallet-modal.tsx`: a grid of colored venue tiles (logo, name, kind; built to take
   more venues), connected wallets listed once per chain below. Choosing a venue lists the wallets for its chain: EVM via EIP-6963 discovery, Solana via Wallet
   Standard. One wallet per chain serves every venue on that chain. The account panel (`account-panel.tsx`: balances, trading key) and
