@@ -323,7 +323,7 @@ export const pillClass = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-
  * confirm press unless one-click is on.
  */
 export function SwapCard({ choices }: { choices: SpotChoice[] }) {
-  const { symbol, mint: pickedMint, spotVenue } = useSelectedAsset();
+  const { symbol, mint: pickedMint, spotVenue, setSwapVenue } = useSelectedAsset();
   const { preferences, updatePreference } = usePreferences();
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
@@ -368,6 +368,11 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     else if (pickedMint) setVenueId("solana");
   }, [symbol, pickedMint, spotVenue]);
   const choice = choices.find((entry) => entry.id === venueId) ?? choices[0];
+  // The account card shows this venue's balances only.
+  useEffect(() => {
+    setSwapVenue(choice.id);
+    return () => setSwapVenue(null);
+  }, [choice.id, setSwapVenue]);
   const isSolana = choice.id === "solana";
   const owner = isSolana ? solanaAddress : evmAddress;
   const asset = isSolana

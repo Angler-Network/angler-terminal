@@ -350,6 +350,7 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
   const { address: solanaAddress } = useSolanaWallet();
   const { preferences } = usePreferences();
   const kind = terminalKindOf(usePathname()) ?? "perp";
+  const { swapVenue } = useSelectedAsset();
   const showAccount = account && Boolean(evmAddress || solanaAddress);
   if (!orderEntry && !showAccount) return null;
   return (
@@ -361,8 +362,8 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
           </div>
         )}
         {showAccount && kind === "perp" && evmAddress && <PerpAccount />}
-        {showAccount && kind === "spot" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
-        {showAccount && kind === "spot" && evmAddress && robinhoodSources(preferences).length > 0 && <ArcusSection address={evmAddress} />}
+        {showAccount && kind === "spot" && swapVenue === "solana" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
+        {showAccount && kind === "spot" && swapVenue === "arcus" && evmAddress && robinhoodSources(preferences).length > 0 && <ArcusSection address={evmAddress} />}
       </div>
     </div>
   );

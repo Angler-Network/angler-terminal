@@ -22,7 +22,12 @@ interface SelectedAssetValue {
   /** Perp venue the order panel is on (picked or routed), or null for spot; the chart follows it on "auto". */
   tradeVenue: PerpVenueId | null;
   setTradeVenue: (venue: PerpVenueId | null) => void;
+  /** Swap venue the swap card is on, or null when no swap card shows; the account card lists only its balances. */
+  swapVenue: SwapVenue | null;
+  setSwapVenue: (venue: SwapVenue | null) => void;
 }
+
+export type SwapVenue = "solana" | "arcus";
 
 const SelectedAssetContext = createContext<SelectedAssetValue | null>(null);
 
@@ -58,9 +63,10 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
   );
   const clearNewsFocus = useCallback(() => setNewsFocus(null), []);
   const [tradeVenue, setTradeVenue] = useState<PerpVenueId | null>(null);
+  const [swapVenue, setSwapVenue] = useState<SwapVenue | null>(null);
   const value = useMemo(
-    () => ({ symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue }),
-    [symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue],
+    () => ({ symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, setTradeVenue, swapVenue, setSwapVenue }),
+    [symbol, mint, spotVenue, selectAsset, newsFocus, focusAsset, clearNewsFocus, tradeVenue, swapVenue],
   );
   return <SelectedAssetContext.Provider value={value}>{children}</SelectedAssetContext.Provider>;
 }
