@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readLeaderboard } from "@/lib/profile/store";
 
-/** The top profiles by points (one per dollar traded through the terminal). */
+/** The top profiles by points (0.01 per dollar traded through the terminal). */
 export async function GET() {
   try {
     return NextResponse.json({ entries: await readLeaderboard() }, { headers: { "cache-control": "public, s-maxage=30, stale-while-revalidate=60" } });

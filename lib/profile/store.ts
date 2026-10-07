@@ -188,7 +188,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
     referrals: referred.length,
-    referralPoints: Math.floor(referralUsdOf(hash)),
+    referralPoints: pointsFor(referralUsdOf(hash)),
   };
 }
 

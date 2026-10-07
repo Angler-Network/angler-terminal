@@ -55,7 +55,7 @@ export function ProfileButton() {
         <ProfileAvatar id={shownId} size={22} />
         <span className="hidden max-w-[120px] truncate sm:inline">{profile?.username ?? shortAddress(shownId)}</span>
         {profile && (
-          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US")} points`} className="hidden rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-app-accent sm:inline">
+          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 2 })} points`} className="hidden rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-app-accent sm:inline">
             Lv {profile.level.level}
           </span>
         )}

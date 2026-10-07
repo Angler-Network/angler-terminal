@@ -27,7 +27,8 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
 ];
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
-const number = new Intl.NumberFormat("en-US");
+// Points carry two decimals (0.01 per dollar).
+const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 
@@ -192,7 +193,7 @@ function Overview() {
       <section className={`${card} flex flex-col items-center gap-3 p-8 text-center`}>
         <Trophy className="size-8 text-app-muted" strokeWidth={1.5} aria-hidden />
         <h2 className="text-[16px] font-semibold text-app-ink">Earn points as you trade</h2>
-        <p className="max-w-sm text-[13px] text-app-muted">One point per dollar you trade through Angler. Level up from Minnow to Whale and climb the leaderboard.</p>
+        <p className="max-w-sm text-[13px] text-app-muted">A point for every $100 you trade through Angler. Level up from Minnow to Whale and climb the leaderboard.</p>
         <button type="button" onClick={wallets.open} className="mt-1 h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent">
           Connect wallet
         </button>
@@ -254,7 +255,7 @@ function Overview() {
       <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
-          <li>One point per dollar traded through Angler, on every venue the terminal routes to.</li>
+          <li>0.01 point per dollar (a point per $100) traded through Angler, on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
           <li>Referrals: you earn 10% of the points of everyone who joins with your link, from their volume after they join. Their own points stay the same.</li>
@@ -303,7 +304,7 @@ function ReferralCard() {
         </div>
         <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
           <p className="text-[11px] text-app-muted">Referral points</p>
-          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.referralPoints.toLocaleString("en-US")}</p>
+          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{number.format(profile.referralPoints)}</p>
         </div>
       </div>
       {profile.referrer ? (

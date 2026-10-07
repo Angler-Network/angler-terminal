@@ -7,11 +7,11 @@ import { levelFor, pointsFor } from "./levels";
 import { hlAnglerVolume, isAnglerFill, lighterAnglerVolume, readAnglerSwap, type LighterTrade, type ParsedSolanaTx } from "./volume";
 
 describe("levels", () => {
-  it("gives a point per dollar and walks the level table", () => {
-    expect(pointsFor(1234.99)).toBe(1234);
+  it("gives 0.01 point per dollar and walks the level table", () => {
+    expect(pointsFor(1234.99)).toBe(12.34);
     expect(pointsFor(-5)).toBe(0);
-    expect(levelFor(0)).toMatchObject({ level: 1, name: "Minnow", next: 1000, progress: 0 });
-    expect(levelFor(3000)).toMatchObject({ level: 2, name: "Perch", floor: 1000, next: 5000, nextName: "Trout", progress: 0.5 });
+    expect(levelFor(0)).toMatchObject({ level: 1, name: "Minnow", next: 10, progress: 0 });
+    expect(levelFor(30)).toMatchObject({ level: 2, name: "Perch", floor: 10, next: 50, nextName: "Trout", progress: 0.5 });
     expect(levelFor(2e9)).toMatchObject({ level: 10, name: "Whale", next: null, progress: 1 });
   });
 });
