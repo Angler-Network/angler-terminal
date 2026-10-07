@@ -1,0 +1,695 @@
+[
+ {
+  "id": "30829",
+  "slug": "democratic-presidential-nominee-2028",
+  "title": "Democratic Presidential Nominee 2028",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/democrats+2028+donkey.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/democrats+2028+donkey.png",
+  "endDate": "2028-11-08T04:59:00Z",
+  "volume24hr": 1580634.727838,
+  "volume": 1290067316.749387,
+  "negRisk": true,
+  "closed": false,
+  "tags": [
+   {
+    "label": "United States",
+    "slug": "united-states"
+   },
+   {
+    "label": "Elections",
+    "slug": "elections"
+   },
+   {
+    "label": "Politics",
+    "slug": "politics"
+   },
+   {
+    "label": "US Election",
+    "slug": "us-presidential-election"
+   },
+   {
+    "label": "World Elections",
+    "slug": "world-elections"
+   },
+   {
+    "label": "Earn 3.25%",
+    "slug": "earn-4"
+   },
+   {
+    "label": "Primaries",
+    "slug": "primaries"
+   }
+  ],
+  "markets": [
+   {
+    "id": "559652",
+    "question": "Will Gavin Newsom win the 2028 Democratic presidential nomination?",
+    "conditionId": "0x0f49db97f71c68b1e42a6d16e3de93d85dbf7d4148e3f018eb79e88554be9f75",
+    "groupItemTitle": "Gavin Newsom",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.1675\", \"0.8325\"]",
+    "clobTokenIds": "[\"54533043819946592547517511176940999955633860128497669742211153063842200957669\", \"87854174148074652060467921081181402357467303721471806610111179101805869578687\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 10056.173931999998,
+    "oneDayPriceChange": 0.0105
+   },
+   {
+    "id": "559653",
+    "question": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
+    "conditionId": "0xe6bcc2f1dd025ce5e1833190f7c60a71171c94f805df55b9ab0ded695ec93565",
+    "groupItemTitle": "Alexandria Ocasio-Cortez",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.1795\", \"0.8205\"]",
+    "clobTokenIds": "[\"107064985435494333113391038470401719113272800530429703182710416066774068907304\", \"65176072261324737856085688071627118509549293922582857186996392180609764586527\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 3266.176098
+   },
+   {
+    "id": "559654",
+    "question": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
+    "conditionId": "0x4c325469d9b516ef4e6b8f73a81a12607dec075e3c2fd454f91765aaeafc4760",
+    "groupItemTitle": "Pete Buttigieg",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0505\", \"0.9495\"]",
+    "clobTokenIds": "[\"91031279171981959197361710127213577102576826515163085396576756946418341946256\", \"18494065527924073750217237765784380365430319396356251245973222791140100738948\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 5647.530475999999
+   },
+   {
+    "id": "559655",
+    "question": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
+    "conditionId": "0xd65891729ce093cc12236856837eba1a0872fc7998fd4294c21346f7db68079c",
+    "groupItemTitle": "Josh Shapiro",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.063\", \"0.937\"]",
+    "clobTokenIds": "[\"71169839497420596285841847514123589847893415750912355173877524195175834054354\", \"55290827599553280245963175724940496753557722439999671239772487781170052583987\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 2421.116901,
+    "oneDayPriceChange": -0.0045
+   }
+  ]
+ },
+ {
+  "id": "606422",
+  "slug": "fed-decision-in-october-20260617190323537",
+  "title": "Fed Decision in October?",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/fed-decision-in-september-762-c4RyWuxRPo1L.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/fed-decision-in-september-762-c4RyWuxRPo1L.jpg",
+  "endDate": "2026-10-29T03:59:00Z",
+  "volume24hr": 1117071.036721,
+  "volume": 28133761.560748987,
+  "negRisk": true,
+  "closed": false,
+  "tags": [
+   {
+    "label": "Fed",
+    "slug": "fed"
+   },
+   {
+    "label": "fomc",
+    "slug": "fomc"
+   },
+   {
+    "label": "Trump",
+    "slug": "trump"
+   },
+   {
+    "label": "Economy",
+    "slug": "economy"
+   },
+   {
+    "label": "Fed Rates",
+    "slug": "fed-rates"
+   },
+   {
+    "label": "Kevin Warsh",
+    "slug": "kevin-warsh"
+   },
+   {
+    "label": "Global Rates",
+    "slug": "Global-Rates"
+   },
+   {
+    "label": "Economic Policy",
+    "slug": "economic-policy"
+   },
+   {
+    "label": "Macro Indicators",
+    "slug": "macro-indicators"
+   },
+   {
+    "label": "Recurring",
+    "slug": "recurring"
+   }
+  ],
+  "markets": [
+   {
+    "id": "2589810",
+    "question": "Will the Fed decrease interest rates by 50+ bps after the October 2026 meeting?",
+    "conditionId": "0xa69ef420d8b4075ad8ba8611d02c63cb2ece46f5c8c643af223c272689b0c96f",
+    "groupItemTitle": "50+ bps decrease",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0015\", \"0.9985\"]",
+    "clobTokenIds": "[\"17010377994663817312158123655937348199252960045746746128731746451645055725586\", \"61725366781282351729996972759460154434089275036953062948669003249092837754960\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 383974.24199999997
+   },
+   {
+    "id": "2589811",
+    "question": "Will the Fed decrease interest rates by 25 bps after the October 2026 meeting?",
+    "conditionId": "0x9cf563d7b55aa9aa876d5d7e55126347eee473f0ae56d799e325fdef2bf25297",
+    "groupItemTitle": "25 bps decrease",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0035\", \"0.9965\"]",
+    "clobTokenIds": "[\"33268510350568915228897273528353467773422190590579607471427765079749830445947\", \"110888499829195123034987289109543572302716575133123608254293945182185650232552\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 272036.995417,
+    "oneDayPriceChange": -0.001
+   },
+   {
+    "id": "2589812",
+    "question": "Will there be no change in Fed interest rates after the October 2026 meeting?",
+    "conditionId": "0xdf9bf27ee5757c55b44b8b9826ddc9ec3a8809aa3278634c45edbb7fc8f1a3e3",
+    "groupItemTitle": "No change",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.825\", \"0.175\"]",
+    "clobTokenIds": "[\"111061902544814266207267295505639408607400625795891618462682726460921782993748\", \"42038775866198212615491650114881818219665139981763207699110491615333273795415\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 177175.76329299997
+   },
+   {
+    "id": "2589813",
+    "question": "Will the Fed increase interest rates by 25 bps after the October 2026 meeting?",
+    "conditionId": "0x12aa13b3da17ceae1b0a59b5d5b77121e91bb79b4bb0b52bf6543ed3f8d0953b",
+    "groupItemTitle": "25 bps increase",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.175\", \"0.825\"]",
+    "clobTokenIds": "[\"55159722761418013044126414276680602270318000841690689684819994448621694923050\", \"78632395083310670734315205502061249602319069653915932320155846460019107676757\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 112010.572013,
+    "oneDayPriceChange": 0.01
+   }
+  ]
+ },
+ {
+  "id": "79987",
+  "slug": "next-french-presidential-election",
+  "title": "Next French Presidential Election",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/france-presidential-election-2027-U5QY3acvfubZ.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/france-presidential-election-2027-U5QY3acvfubZ.png",
+  "endDate": "2027-04-19T03:59:00Z",
+  "volume24hr": 1100587.353083,
+  "volume": 146356237.265111,
+  "negRisk": true,
+  "closed": false,
+  "tags": [
+   {
+    "label": "French Election",
+    "slug": "french-election"
+   },
+   {
+    "label": "Main Election",
+    "slug": "main-election"
+   },
+   {
+    "label": "France",
+    "slug": "france"
+   },
+   {
+    "label": "World",
+    "slug": "world"
+   },
+   {
+    "label": "Politics",
+    "slug": "politics"
+   },
+   {
+    "label": "Global Elections",
+    "slug": "global-elections"
+   },
+   {
+    "label": "Elections",
+    "slug": "elections"
+   },
+   {
+    "label": "French Elections",
+    "slug": "french-elections"
+   }
+  ],
+  "markets": [
+   {
+    "id": "679018",
+    "question": "Will Marine Le Pen win the 2027 French presidential election?",
+    "conditionId": "0x8126317d621047fb13d508a2651eecc8d38305904671822a62309c5aabd353aa",
+    "groupItemTitle": "Marine Le Pen",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.4325\", \"0.5675\"]",
+    "clobTokenIds": "[\"55764212211467781322980371912612507865974994976253196346176314491480419639168\", \"5649717099758674861276159343380402289083378331461490840325685141994171250523\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 24706.286984000013,
+    "oneDayPriceChange": 0.007
+   },
+   {
+    "id": "679019",
+    "question": "Will Jordan Bardella win the 2027 French presidential election?",
+    "conditionId": "0x1166388a24a3f2a9bb0a45956bdb205c70f0ecafb8539e277a57adf022e306be",
+    "groupItemTitle": "Jordan Bardella",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0085\", \"0.9915\"]",
+    "clobTokenIds": "[\"1114938555853162662375805609341386795965961002028313810409954359771505507177\", \"39814929193752558825038669670647206213767631805507014416889259758143556745530\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 7350.003335000001
+   },
+   {
+    "id": "679020",
+    "question": "Will Éric Zemmour win the 2027 French presidential election?",
+    "conditionId": "0x290b3a5826b17e48ae7166b188767d95df5a9ed0b69fda116d98d0d27d753281",
+    "groupItemTitle": "Éric Zemmour",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0085\", \"0.9915\"]",
+    "clobTokenIds": "[\"51126599157451146230415396920771455069752975116525743821340393650626382714261\", \"90997833546019007990916014938756861651789144262105272333307948825561373623753\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 23514.118866999997,
+    "oneDayPriceChange": -0.001
+   },
+   {
+    "id": "679021",
+    "question": "Will Édouard Philippe win the 2027 French presidential election?",
+    "conditionId": "0x46f2f457e14ee9021ebd0ef4c27eacd98fdceaf7f2938b484e2551e9e3275ae8",
+    "groupItemTitle": "Édouard Philippe",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.175\", \"0.825\"]",
+    "clobTokenIds": "[\"84846382165343032223975853870946110241285484772019446686866815597350660955868\", \"80456575204440643570499123641511043765364487572502085512858581574010154701650\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 15710.025562000003
+   }
+  ]
+ },
+ {
+  "id": "1125033",
+  "slug": "elon-musk-of-tweets-october-5-october-7-2026",
+  "title": "Elon Musk # tweets October 5 - October 7, 2026?",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/elon-musk-of-tweets-nov-22-29-apMPG21-pzx_.jpg",
+  "endDate": "2026-10-07T16:00:00Z",
+  "volume24hr": 982397.9413000002,
+  "volume": 1124164.876735,
+  "negRisk": true,
+  "closed": false,
+  "tags": [
+   {
+    "label": "Culture",
+    "slug": "pop-culture"
+   },
+   {
+    "label": "Politics",
+    "slug": "politics"
+   },
+   {
+    "label": "Tweet Markets",
+    "slug": "tweets-markets"
+   },
+   {
+    "label": "Recurring",
+    "slug": "recurring"
+   }
+  ],
+  "markets": [
+   {
+    "id": "5239515",
+    "question": "Will Elon Musk post <40 tweets from October 5 to October 7, 2026?",
+    "conditionId": "0x0fcfd063f06450c331206c5ac89cd34cfa80537ea42f7cfb79da46d735d4890e",
+    "groupItemTitle": "<40",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0015\", \"0.9985\"]",
+    "clobTokenIds": "[\"25970336441945300575004243200564618159675719792779865833699013734498757024566\", \"69857957774754248710028364420684503569655513069949026517927961600943887681729\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 600666.7938640001,
+    "oneDayPriceChange": -0.7535
+   },
+   {
+    "id": "5239516",
+    "question": "Will Elon Musk post 40-64 tweets from October 5 to October 7, 2026?",
+    "conditionId": "0x8f05713325d7b9cfbf668cb79a91fb4eefe07d3f362ae1ff331a9e650868d751",
+    "groupItemTitle": "40-64",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.9805\", \"0.0195\"]",
+    "clobTokenIds": "[\"43068321969440619826153877417177737699021212946482480945677067974495648410612\", \"26758273713300158202426026755903826601161809109494404280271345253101183997577\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 118350.89156400003,
+    "oneDayPriceChange": 0.7755
+   },
+   {
+    "id": "5239517",
+    "question": "Will Elon Musk post 65-89 tweets from October 5 to October 7, 2026?",
+    "conditionId": "0xe016472b442b43d88ae4d406a53ff61b1e370b55bfbfb694b0f38a1e0d336d43",
+    "groupItemTitle": "65-89",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.015\", \"0.985\"]",
+    "clobTokenIds": "[\"15564576180917834997727675890742794281825044059980072416157912276149034863137\", \"53780828415232295472036888050499476423887921006267534010543143291447236487260\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 127165.01197799997,
+    "oneDayPriceChange": -0.019
+   },
+   {
+    "id": "5239518",
+    "question": "Will Elon Musk post 90-114 tweets from October 5 to October 7, 2026?",
+    "conditionId": "0xd6509ad7dd3624080a7c63ec87854fd04d0e233df02610cf33687a6446c2aada",
+    "groupItemTitle": "90-114",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.0005\", \"0.9995\"]",
+    "clobTokenIds": "[\"99562079565964504723961433655853265219207900429363583976871817592825937853418\", \"55809956086740778779708064450210163812403100984092922118154276729325067866849\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": true,
+    "volume24hr": 121095.243894,
+    "oneDayPriceChange": -0.003
+   }
+  ]
+ },
+ {
+  "id": "1109111",
+  "slug": "bitcoin-above-on-october-7-2026",
+  "title": "Bitcoin above ___ on October 7?",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+  "endDate": "2026-10-07T16:00:00Z",
+  "volume24hr": 901562.190772,
+  "volume": 1154314.3646149999,
+  "negRisk": false,
+  "closed": false,
+  "tags": [
+   {
+    "label": "Bitcoin",
+    "slug": "bitcoin"
+   },
+   {
+    "label": "Weekly",
+    "slug": "weekly"
+   },
+   {
+    "label": "Multi Strikes",
+    "slug": "multi-strikes"
+   },
+   {
+    "label": "Crypto",
+    "slug": "crypto"
+   },
+   {
+    "label": "Crypto Prices",
+    "slug": "crypto-prices"
+   },
+   {
+    "label": "Recurring",
+    "slug": "recurring"
+   },
+   {
+    "label": "Hide From New",
+    "slug": "hide-from-new"
+   }
+  ],
+  "markets": [
+   {
+    "id": "5156688",
+    "question": "Will the price of Bitcoin be above $74,000 on October 7?",
+    "conditionId": "0x5c2eacc115b1700047492499e8bfeac8f846e6e13d8e13edb4d4fe4f1c480fa8",
+    "groupItemTitle": "74,000",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+    "clobTokenIds": "[\"43569562420122045124526714284471751883833567206101147397428328311850818391774\", \"13843471299419687837593468250112482921230893274157944033299871748046948622226\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 39740.01,
+    "oneDayPriceChange": 0.001
+   },
+   {
+    "id": "5156690",
+    "question": "Will the price of Bitcoin be above $76,000 on October 7?",
+    "conditionId": "0x5bcf0a7252eaaf8049aa9d5ce5c54f4c597eb196f4e99de22a6bd4de8637f5d1",
+    "groupItemTitle": "76,000",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.9995\", \"0.0005\"]",
+    "clobTokenIds": "[\"90584533395160917460452672224907260994593601600332640142577010785952373544053\", \"91582122858645100842851657700206940621353872549683028810403009814852041265263\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 52707.26,
+    "oneDayPriceChange": 0.002
+   },
+   {
+    "id": "5156692",
+    "question": "Will the price of Bitcoin be above $78,000 on October 7?",
+    "conditionId": "0x29aa1d04675ba5360d7c0fbfb4925878bd1ffe6d770c0e5c65492c20b64f7460",
+    "groupItemTitle": "78,000",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.9975\", \"0.0025\"]",
+    "clobTokenIds": "[\"73893415700834705885795899859163059680850315733664512070489364714175883602657\", \"52831133626349291234272364870388329029334749143272995814337181773223402629684\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 75176.269916,
+    "oneDayPriceChange": -0.001
+   },
+   {
+    "id": "5156694",
+    "question": "Will the price of Bitcoin be above $80,000 on October 7?",
+    "conditionId": "0x3f6c2e27ec0208fb4d4a12435ec0a0a7afb0cda120fef96dc5d9c13d78efe3db",
+    "groupItemTitle": "80,000",
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"0.997\", \"0.003\"]",
+    "clobTokenIds": "[\"29618780082619469426095464162810524807176387955557423122492833921592019652645\", \"97591968513255581992365876170560095219100182702515190087033752526275502268780\"]",
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.001,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 90334.208042
+   }
+  ]
+ },
+ {
+  "id": "1145393",
+  "slug": "cs2-prv-navi-2026-10-07",
+  "title": "Counter-Strike: PARIVISION vs Natus Vincere (BO3) - ESL Pro League Group Stage",
+  "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/counter-strike-image-16c415c538.png",
+  "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/counter-strike-image-16c415c538.png",
+  "endDate": "2026-10-07T20:30:00Z",
+  "volume24hr": 830766.1774420001,
+  "volume": 819460.2627730004,
+  "negRisk": false,
+  "closed": false,
+  "tags": [
+   {
+    "label": "Esports",
+    "slug": "esports"
+   },
+   {
+    "label": "counter strike 2",
+    "slug": "counter-strike-2"
+   },
+   {
+    "label": "Games",
+    "slug": "games"
+   },
+   {
+    "label": "Sports",
+    "slug": "sports"
+   }
+  ],
+  "markets": [
+   {
+    "id": "5393025",
+    "question": "Counter-Strike: PARIVISION vs Natus Vincere - Map 1 Winner",
+    "conditionId": "0xebc7fdab3d03d043e4027b504ea5f612338efdfc0d404a7bd6d9fd750459f4c4",
+    "groupItemTitle": "Map 1 Winner",
+    "outcomes": "[\"PARIVISION\", \"Natus Vincere\"]",
+    "outcomePrices": "[\"0.255\", \"0.745\"]",
+    "clobTokenIds": "[\"46921968182350168466342620205312123165234711422874982241053211043631418946442\", \"19224196233322934134225370662634292359467886745833640720639547745832589972367\"]",
+    "positionIds": [
+     "543408944278863740216351992369764920707611216213693975988145628550835208192",
+     "543408944278863740216351992369764920707611216213693975988145628550835208193"
+    ],
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 114943.57494199999
+   },
+   {
+    "id": "5393026",
+    "question": "Counter-Strike: PARIVISION vs Natus Vincere - Map 2 Winner",
+    "conditionId": "0xd6a79be7ff8978f614bf05b45deec74ad4a64526e159f3fdbca5a39eeae73a0d",
+    "groupItemTitle": "Map 2 Winner",
+    "outcomes": "[\"PARIVISION\", \"Natus Vincere\"]",
+    "outcomePrices": "[\"0.315\", \"0.685\"]",
+    "clobTokenIds": "[\"87941208709324076608701351439603068190877392741496257299892025012277338567944\", \"6649689635969324827189593343225301855163834429253122071388288460010053661033\"]",
+    "positionIds": [
+     "828031980540742397025605660326394865063331652689986843327345718125056229376",
+     "828031980540742397025605660326394865063331652689986843327345718125056229377"
+    ],
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 10661.223197
+   },
+   {
+    "id": "5393027",
+    "question": "Counter-Strike: PARIVISION vs Natus Vincere (BO3) - ESL Pro League Group Stage",
+    "conditionId": "0xb4a2d266a6712fe83ce019e661a4d63f53aa16d01bda52bc5bde1695c30ffd9e",
+    "groupItemTitle": "Match Winner",
+    "outcomes": "[\"PARIVISION\", \"Natus Vincere\"]",
+    "outcomePrices": "[\"0.235\", \"0.765\"]",
+    "clobTokenIds": "[\"103578897322798490142992079282696407355913185157973009282179550532198969519472\", \"48883219960159792083712637987088355440701697138540948699007301981794206632425\"]",
+    "positionIds": [
+     "600135066874068015543026727844501871211427564339102585191163257702741704704",
+     "600135066874068015543026727844501871211427564339102585191163257702741704705"
+    ],
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 597790.2965490002
+   },
+   {
+    "id": "5393028",
+    "question": "Games Total: O/U 2.5",
+    "conditionId": "0x206016a7825156a49de3d950bd571f45f7d21e984229cd12cab2944cea8a37c7",
+    "groupItemTitle": "O/U 2.5 Games",
+    "outcomes": "[\"Over\", \"Under\"]",
+    "outcomePrices": "[\"0.425\", \"0.575\"]",
+    "clobTokenIds": "[\"13468855997510329681229079927332202620142141629443013550646979874150523132101\", \"63373278654271081646331881393631610542399742381070619517695005937606280802668\"]",
+    "positionIds": [
+     "890174265149439681237889718685943576644238862246076579300905311001085214720",
+     "890174265149439681237889718685943576644238862246076579300905311001085214721"
+    ],
+    "version": "v1",
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderPriceMinTickSize": 0.01,
+    "orderMinSize": 5,
+    "negRisk": false,
+    "volume24hr": 4764.198878999999
+   }
+  ]
+ }
+]

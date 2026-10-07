@@ -15,12 +15,5 @@ export interface MarketNavItem {
 export const marketNav: MarketNavItem[] = [
   { href: "/perp", label: "Perp", title: "Perpetual futures", icon: CandlestickChart, isActive: (pathname) => terminalKindOf(pathname) === "perp" },
   { href: "/spot", label: "Spot", title: "Spot tokens and stocks", icon: Coins, isActive: (pathname) => terminalKindOf(pathname) === "spot" },
-  {
-    href: "/prediction",
-    label: "Prediction",
-    title: "Prediction markets (coming soon)",
-    icon: Target,
-    soon: true,
-    isActive: (pathname) => pathname === "/prediction",
-  },
+  { href: "/prediction", label: "Prediction", title: "Prediction markets: Polymarket and Hyperliquid", icon: Target, isActive: (pathname) => pathname === "/prediction" },
 ];

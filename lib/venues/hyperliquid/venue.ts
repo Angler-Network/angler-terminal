@@ -58,7 +58,7 @@ function listMarkets() {
   return marketCache.promise;
 }
 
-function requireTradingSetup(user: `0x${string}`) {
+export function requireTradingSetup(user: `0x${string}`) {
   const storage = browserStorage();
   const record = storage ? readOnboarding(storage, hlConfig.network, user) : {};
   if (!hlConfig.builder) {

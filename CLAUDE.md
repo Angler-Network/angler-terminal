@@ -234,10 +234,31 @@ dependency versions and design are free to diverge from angler-news.
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
 - Routes: the terminal is `/perp` and `/spot`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
   layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/` redirects
-  to `/perp` (`next.config.mjs`). `/prediction` is a placeholder on the brand banner (`public/brand/angler-banner.jpg`,
-  angler-landing's og-banner) and `app/not-found.tsx` the 404 (`StatusScreen`). Perp / Spot / Prediction lead every
+  to `/perp` (`next.config.mjs`). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
+  (`StatusScreen`). Perp / Spot / Prediction lead every
   navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /spot hides the order book
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
+- Prediction (`/prediction`, `components/prediction/*`, `lib/prediction/*`): Polymarket and Hyperliquid HIP-4
+  outcome markets in one shape (`types.ts`: event → binary markets → two outcomes with price = probability and the
+  traded asset). Polymarket is where the volume is (HIP-4 traded ~$51M in September, about 0.07% of Polymarket +
+  Kalshi), HIP-4 trades with the account the terminal already has. Polymarket is blocked by ISPs in Turkey (DNS points
+  at a block page): develop it over a VPN exit outside Polymarket's geoblock list, and never route orders through
+  our server to get around a block.
+  - Data goes through our server (`server.ts`, `unstable_cache`): Gamma `/events` (top 150 by 24h volume),
+    `/public-search`, `/events/{id}`; CLOB `/prices-history` and `/book`; Hyperliquid `outcomeMeta` + `allMids`,
+    `candleSnapshot` and `l2Book` for `#N` coins. Routes: `/api/prediction/{events,event,history,book}`.
+  - Polymarket (`polymarket.ts`): Gamma sends outcomes, prices and ids as JSON strings; V2 markets trade by
+    `positionIds`, older ones by `clobTokenIds`; categories come from tags; neg-risk events are one-winner
+    (`exclusive`, likeliest first), others keep Gamma's order (price strikes, game lines).
+  - HIP-4 (`hip4.ts`): outcome `o`, side `s` (0 = Yes) trades as coin `#(10o+s)`, order asset `100000000 + 10o+s`,
+    balances `+N`. Titles come from the deployers' templates (pipe-separated `key:value` descriptions): questions
+    (one winner among named outcomes; the 0.5-placeholder "Other" is hidden) and standalone outcomes grouped by
+    asset+date ("BTC above ___ on Oct 8?"), game, or IPO deadline; hand-written questions get a category from their
+    words; events that ended 3+ days ago are dropped (testnet keeps months of them).
+  - HIP-4 trading (`lib/venues/hyperliquid/outcomes.ts`, `hip4-trade.ts`): same agent key and builder fee as perps,
+    IOC at the best ask/bid ± 5¢ inside (0, 1), whole contracts, ≥ $10 per order. Outcomes spend spot USDC (shared on
+    unified accounts); a standard account gets "Move $X from perps to spot" (`usdClassTransfer`, user-signed).
+    Fills carry our builder fee, so profile points count them.
 - Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
   live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
   Arcus stock/index/commodity tokens priced from the same asset's perp quote. Dollar tokens (Jupiter tags `stable`,
