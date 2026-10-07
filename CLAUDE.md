@@ -224,13 +224,19 @@ dependency versions and design are free to diverge from angler-news.
     coarser size step), sent together; a half-filled pair is reported so the user can close the unhedged leg.
   - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
     actually used.
-  - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel; `lib/venues/deposits.ts` +
-    `deposit-client.ts`, viem on demand): mainnet Hyperliquid = native USDC transfer on Arbitrum to Bridge2
+  - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
+    `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): one
+    sentence for every flow, "Move [amount] USDC from [Wallet | venue] to [Wallet | venue]" (`fundsRoute`: wallet →
+    venue deposits, Hyperliquid → wallet withdraws, Hyperliquid → Lighter bridges, other pairs say "coming soon"; a
+    new venue is one `BRIDGE_VENUES` entry). Deposit / Withdraw / Bridge tabs only preset the pair (`presetRoute`);
+    the wallet side names its chain (Arbitrum/Base picker for Lighter). The pickers portal their list to the body
+    (the dialog's blur would clip a fixed list). Mainnet Hyperliquid = native USDC transfer on Arbitrum to Bridge2
     (`0x2Df1…3dF7`, min 5 USDC, less is lost); mainnet Lighter = USDC on Arbitrum/Base to the wallet's CCTP intent
     address (`createIntentAddress`); testnets link to each venue's faucet. Hyperliquid withdrawals: `withdraw3`
     signed by the wallet (1 USDC fee, 3-4 min). Lighter's universal deposit address needs a builder key (not used).
-    Move (Lighter tab, mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
-    (`withdrawalArrived`) → deposit to the Lighter intent address. The order panel shows total buying power and, when
+    Bridge (mainnet only): Hyperliquid `withdraw3` → poll the wallet's Arbitrum USDC until it lands
+    (`withdrawalArrived`, keeps polling with the window closed and toasts on arrival) → deposit to the Lighter intent
+    address; the route stays locked until the deposit is sent. The order panel shows total buying power and, when
     the chosen venue lacks margin, offers to trade on a funded venue, move funds or deposit (`openDeposit(venue, mode)`).
   - Pro order (`pro-order-dialog.tsx`, yellow "Pro order" in the sidebar/top bar/mobile menu; logic in
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
