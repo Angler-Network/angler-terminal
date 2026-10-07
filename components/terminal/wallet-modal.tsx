@@ -206,7 +206,6 @@ function WalletModal() {
                           )}
                         </span>
                         <span className="w-full truncate text-center text-[12px] font-semibold text-app-ink">{row.name}</span>
-                        <span className="text-[10px] text-app-faint">{[row.evm && "EVM", row.solana && "SOL"].filter(Boolean).join(" · ")}</span>
                       </button>
                     );
                   })}
