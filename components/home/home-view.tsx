@@ -11,7 +11,6 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { formatPrice, formatRelativeTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/client";
-import { HeroArt } from "./hero-art";
 import { assetRows, matchesQuery, sortAssetRows, type AssetRow, type AssetSort } from "@/lib/markets/rows";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -178,7 +177,7 @@ export function HomeView() {
       <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-6 lg:px-8 lg:py-10">
         <section className={`${panel} relative p-5 sm:p-7`}>
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
-          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:items-end">
+          <div className="relative">
             <div className="flex flex-col gap-4">
               <div>
                 <h1 className="text-[30px] font-semibold leading-[1.1] tracking-tight text-app-ink sm:text-[38px]">
@@ -214,7 +213,6 @@ export function HomeView() {
                 )}
               </div>
             </div>
-            <HeroArt className="pointer-events-none -my-4 hidden h-auto w-full select-none lg:block" />
           </div>
         </section>
 
