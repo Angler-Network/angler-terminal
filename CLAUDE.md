@@ -171,6 +171,11 @@ dependency versions and design are free to diverge from angler-news.
     keep only the gasless `arcus` venue quote, refuse impact above `MAX_SPOT_PRICE_IMPACT_PCT` vs `referencePrice`,
     switch/add Robinhood Chain in the wallet, Permit2 allowance (EIP-2612 permit or one-time approve), sign the
     Permit2 witness, `/v1/submit`, poll `/v1/status`. Minimum $5 per trade.
+  - Testnet quotes: the testnet router quotes only some mock tokens (often only TSLA; mTSLA, AMD, AMZN, NFLX, PLTR and
+    mUSDC answer `NO_QUOTES`, "upstream venue unavailable"). The testnet spot list prices each token from the router's
+    own `/v1/price` for $100 of mUSDG (`arcusTestnetListings`, `indicativeTokenPrice`) and leaves out what it can't
+    quote; the swap card says "Arcus has no quote for X right now" instead of a silent 0. Arcus tokens show "Quote on
+    request" instead of liquidity/volume/market cap in the chart header (RFQ: no pool).
   - Testnet funds: the account panel's Arcus section links the Robinhood testnet ETH faucet and mints
     `TEST_USDG_MINT_AMOUNT` mUSDG through the token's open `mint(address,uint256)` (`mintTestUsdg`, simulated first; the
     contract is unverified so explorers can't call it, and it limits mints per wallet). mUSDG supports EIP-2612 permits.

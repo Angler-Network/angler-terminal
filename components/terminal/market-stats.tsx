@@ -78,11 +78,20 @@ export function SpotStats({
   return (
     <div className={`scrollbar-none flex min-w-0 flex-1 overflow-x-auto pr-4 mask-[linear-gradient(90deg,#000_calc(100%-24px),transparent)] ${className}`}>
       <div ref={contentRef} className="flex w-max items-center gap-3">
-        <Stat label="Liquidity" title="Total liquidity in the token's DEX pools">
-          {formatUsdCompact(token.liquidity)}
-        </Stat>
-        <Stat label="24h volume">{formatUsdCompact(token.volume24h)}</Stat>
-        <Stat label="Market cap">{formatUsdCompact(token.marketCap)}</Stat>
+        {token.venue === "Arcus" ? (
+          // Arcus quotes on request (RFQ): no pool, so no liquidity, volume or market cap to show as blanks.
+          <Stat label="Pricing" title="Arcus prices every swap on request from market makers; there is no pool">
+            Quote on request
+          </Stat>
+        ) : (
+          <>
+            <Stat label="Liquidity" title="Total liquidity in the token's DEX pools">
+              {formatUsdCompact(token.liquidity)}
+            </Stat>
+            <Stat label="24h volume">{formatUsdCompact(token.volume24h)}</Stat>
+            <Stat label="Market cap">{formatUsdCompact(token.marketCap)}</Stat>
+          </>
+        )}
         <Stat label="Venue">{token.venue}</Stat>
       </div>
     </div>

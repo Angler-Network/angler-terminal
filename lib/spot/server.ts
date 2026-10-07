@@ -3,7 +3,9 @@ import { unstable_cache } from "next/cache";
 import { venueAvailable } from "@/lib/deployment";
 import { pickQuote } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
-import { arcusFetch } from "@/lib/venues/arcus/server";
+import { CHAIN_IDS, QUOTE_SYMBOLS } from "@/lib/venues/arcus/config";
+import { indicativeTokenPrice, pickArcusQuote } from "@/lib/venues/arcus/quote";
+import { arcusFetch, readArcusServerConfig } from "@/lib/venues/arcus/server";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
 import { uniswapOnRobinhood } from "@/lib/venues/robinhood-sources";
 import { EVM_SWAP_CHAINS, isNativeToken, wrappedNative } from "@/lib/venues/uniswap/chains";
@@ -64,6 +66,7 @@ async function arcusListings(): Promise<SpotListing[]> {
   const body = (await tokensResponse.json()) as unknown;
   const bySymbol = new Map(markets.map((market) => [market.symbol, market]));
   if (!Array.isArray(body)) return [];
+  if (readArcusServerConfig(process.env).network === "testnet") return arcusTestnetListings(body);
   return body.flatMap((entry) => {
     const record = entry as Record<string, unknown>;
     if (record.verified === false || typeof record.address !== "string" || typeof record.symbol !== "string") return [];
@@ -75,6 +78,39 @@ async function arcusListings(): Promise<SpotListing[]> {
     );
     return listing ? [listing] : [];
   });
+}
+
+const TESTNET_PROBE_USD = 100;
+
+/**
+ * Testnet: the router quotes only some of its mock tokens (often just TSLA), and perp prices mean nothing for them.
+ * Each tradable token is priced from the router's own `/v1/price` for $100 of the test stablecoin, and tokens it
+ * can't quote are left out instead of showing a card that never fills. A handful of calls per refresh.
+ */
+async function arcusTestnetListings(body: unknown[]): Promise<SpotListing[]> {
+  const records = body as Array<Record<string, unknown>>;
+  const stable = records.find((record) => record.symbol === QUOTE_SYMBOLS.testnet);
+  if (!stable || typeof stable.address !== "string" || typeof stable.decimals !== "number") return [];
+  const sellAmount = String(TESTNET_PROBE_USD * 10 ** stable.decimals);
+  const listings = await Promise.all(
+    records.map(async (record) => {
+      if (record.verified === false || typeof record.address !== "string" || typeof record.symbol !== "string" || typeof record.decimals !== "number") return null;
+      const token = { address: record.address, symbol: record.symbol, name: typeof record.name === "string" ? record.name : record.symbol, category: String(record.category ?? "") };
+      if (!fromArcusToken(token)) return null;
+      try {
+        const response = await arcusFetch(
+          `/v1/price?${new URLSearchParams({ chainId: String(CHAIN_IDS.testnet), sellToken: stable.address as string, buyToken: record.address, sellAmount })}`,
+          { cache: "no-store" },
+        );
+        const quote = response.ok ? pickArcusQuote<{ venue: string; buyAmount: string }>(await response.json()) : null;
+        const price = indicativeTokenPrice(TESTNET_PROBE_USD, quote?.buyAmount, record.decimals);
+        return price ? fromArcusToken(token, { price, changePct: 0 }) : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return listings.flatMap((listing) => (listing ? [{ ...listing, change24h: undefined }] : []));
 }
 
 const uniswapOn = () => venueAvailable("uniswap") && Boolean(readUniswapServerConfig(process.env).apiKey);

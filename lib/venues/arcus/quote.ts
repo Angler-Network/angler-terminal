@@ -39,3 +39,16 @@ export function pickArcusQuote<Q extends { venue: string }>(body: unknown): Q | 
   if (!Array.isArray(all)) return null;
   return (all.find((quote) => quote && (quote as Q).venue === "arcus") as Q | undefined) ?? null;
 }
+
+/** USD price of one token from an indicative quote that spent `spendUsd` of the stablecoin; null without a fill. */
+export function indicativeTokenPrice(spendUsd: number, buyAmount: string | bigint | undefined, decimals: number) {
+  if (buyAmount === undefined) return null;
+  let units: bigint;
+  try {
+    units = BigInt(buyAmount);
+  } catch {
+    return null;
+  }
+  const tokens = Number(units) / 10 ** decimals;
+  return tokens > 0 ? spendUsd / tokens : null;
+}

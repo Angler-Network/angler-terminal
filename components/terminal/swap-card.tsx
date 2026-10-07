@@ -141,7 +141,7 @@ function useSwapBalances(choice: SpotChoice, owner: string | null, refresh: numb
 
 /** Arcus's indicative price for a stock token in USDG (what $100 buys), refreshed every few seconds. */
 function useArcusPrice(token: ArcusToken | null) {
-  const [state, setState] = useState<{ address: string; price: number } | null>(null);
+  const [state, setState] = useState<{ address: string; price?: number; error?: string } | null>(null);
   useEffect(() => {
     if (!token) return;
     let active = true;
@@ -159,8 +159,11 @@ function useArcusPrice(token: ArcusToken | null) {
         );
         const entry = body.all?.find((row) => row.venue === "arcus");
         const bought = entry ? fromBaseUnits(BigInt(entry.buyAmount), token.decimals) : 0;
-        if (active && bought > 0) setState({ address: token.address, price: spend / bought });
-      } catch {}
+        if (active) setState(bought > 0 ? { address: token.address, price: spend / bought } : { address: token.address, error: `Arcus has no quote for ${token.symbol} right now.` });
+      } catch (caught) {
+        // NO_QUOTES and friends arrive as readable VenueErrors (`arcusErrorMessage`).
+        if (active) setState({ address: token.address, error: caught instanceof Error ? caught.message : String(caught) });
+      }
     };
     void load();
     const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), BALANCE_REFRESH_MS);
@@ -169,7 +172,7 @@ function useArcusPrice(token: ArcusToken | null) {
       window.clearInterval(timer);
     };
   }, [token]);
-  return token && state?.address === token.address ? state.price : undefined;
+  return token && state?.address === token.address ? state : null;
 }
 
 /**
@@ -349,7 +352,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     ? { symbol: solanaPay?.symbol ?? (payMint === picked?.mint ? picked.symbol : "USDC"), icon: payMint === USDC_MINT ? undefined : (solanaPay?.icon ?? picked?.icon), chain: "solana" as const, chainName: "Solana" }
     : { symbol: arcusConfig.quoteSymbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood" };
   const holdings = useSpotHoldings();
-  const arcusPrice = useArcusPrice(isSolana ? null : choice.arcusToken);
+  const arcusQuote = useArcusPrice(isSolana ? null : choice.arcusToken);
+  const arcusPrice = arcusQuote?.price;
   const price = isSolana ? choice.token.usdPrice : arcusPrice;
   const balances = useSwapBalances(choice, owner, refresh, payMint);
 
@@ -415,7 +419,11 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const receiveUsd = receive === null ? null : side === "buy" ? (cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
   // What one asset token costs in this swap (the quote's own rate once it's in).
   const rate = receive && value > 0 ? (side === "buy" ? value / receive : receive / value) : price;
-  const error = !(value > 0)
+  // Arcus alone (no Uniswap to compare, e.g. testnet) and it has no quote: say so before any amount is typed.
+  const arcusUnavailable = !isSolana && !compareRh && rhSource === "arcus" && !arcusPrice && arcusQuote?.error ? arcusQuote.error : null;
+  const error = arcusUnavailable
+    ? arcusUnavailable
+    : !(value > 0)
     ? null
     : cross && crossRoute?.kind !== "steps"
       ? "This payment route isn't available right now."
