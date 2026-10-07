@@ -828,22 +828,12 @@ function SectionContent({ section }: { section: SettingsSectionId }) {
 /** The settings page: sections on the left (a scrolling strip on phones), each at its own URL. */
 export function SettingsView({ section }: { section: SettingsSectionId }) {
   const t = useT();
-  const { closeSettings } = usePreferences();
   const activeLabel = settingsSections.find((entry) => entry.id === section)?.label;
 
   return (
     <div className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
       <header className="flex shrink-0 items-center justify-between border-b border-app-line px-5 py-3.5">
         <h1 className="text-[18px] font-semibold">{t("nav.settings")}</h1>
-        <button
-          type="button"
-          onClick={closeSettings}
-          aria-label={t("settings.close")}
-          title="Back"
-          className="inline-flex size-9 items-center justify-center rounded-xl text-app-muted transition-colors hover:bg-app-selected/70 hover:text-app-ink"
-        >
-          <X className="size-[18px]" />
-        </button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav
