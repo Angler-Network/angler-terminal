@@ -15,6 +15,7 @@ import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { useModalEnter } from "@/components/app/use-motion";
+import { RangeSlider } from "@/components/app/range-slider";
 
 const ARM_MS = 5_000;
 
@@ -132,14 +133,7 @@ export function FundingArbDialog({
             Leverage on each venue
             <span className="font-semibold tabular-nums text-app-ink">{leverage}x</span>
           </span>
-          <input
-            type="range"
-            min={1}
-            max={maxLeverage}
-            value={leverage}
-            onChange={(event) => setLeverage(Number(event.target.value))}
-            className="accent-[rgb(var(--app-accent))]"
-          />
+          <RangeSlider label="Leverage on each venue" min={1} max={maxLeverage} value={leverage} onChange={setLeverage} />
         </label>
         <div className="flex flex-col gap-1 rounded-lg bg-app-chip/50 px-2.5 py-2 text-[12px] tabular-nums">
           <Row label="Each leg">

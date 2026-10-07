@@ -29,6 +29,7 @@ import { useNewsTrader } from "./use-news-trader";
 import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { RangeSlider } from "@/components/app/range-slider";
 
 type VenueChoice =
   | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
@@ -97,21 +98,19 @@ function FieldBox({ label, children }: { label: string; children: React.ReactNod
 function PercentSlider({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (percent: number) => void }) {
   return (
     <div className={`flex items-center gap-2 ${disabled ? "opacity-50" : ""}`}>
-      <div className="relative flex-1 pb-3.5">
-        <input
-          type="range"
-          aria-label="Percent of available"
-          min={0}
-          max={100}
-          step={1}
-          disabled={disabled}
-          value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
-          className="relative z-10 w-full accent-[rgb(var(--app-accent))]"
-        />
-        <div className="absolute inset-x-0 bottom-0 flex justify-between px-0.5 text-[9px] tabular-nums text-app-faint">
+      <div className="range-slider relative flex-1 pb-3.5" style={{ "--p": 0 } as React.CSSProperties}>
+        <RangeSlider label="Percent of available" min={0} max={100} value={value} disabled={disabled} marks={[0, ...PERCENTS]} onChange={onChange} />
+        {/* Each stop sits under the thumb's position for that value (same formula as the slider's fill). */}
+        <div className="absolute inset-x-0 bottom-0 h-3 text-[9px] tabular-nums text-app-faint">
           {[0, ...PERCENTS].map((stop) => (
-            <button key={stop} type="button" disabled={disabled} onClick={() => onChange(stop)} className="hover:text-app-ink">
+            <button
+              key={stop}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(stop)}
+              style={{ left: `calc(var(--thumb) / 2 + (100% - var(--thumb)) * ${stop / 100})` }}
+              className="absolute -translate-x-1/2 leading-none hover:text-app-ink"
+            >
               {stop}%
             </button>
           ))}
@@ -181,16 +180,7 @@ function LeverageControl({
             <span className="text-app-muted">Leverage</span>
             <span className="font-semibold tabular-nums text-app-ink">{leverage}x</span>
           </div>
-          <input
-            type="range"
-            aria-label="Leverage"
-            min={1}
-            max={maxLeverage}
-            step={1}
-            value={leverage}
-            onChange={(event) => onLeverage(Number(event.target.value))}
-            className="w-full accent-[rgb(var(--app-accent))]"
-          />
+          <RangeSlider label="Leverage" min={1} max={maxLeverage} value={leverage} onChange={onLeverage} />
           <div className="grid grid-cols-6 gap-1">
             {presets.map((value) => (
               <button

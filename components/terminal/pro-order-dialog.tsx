@@ -18,6 +18,8 @@ import { minOrderUsd, takerFeeFor } from "./use-best-execution";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { useModalEnter } from "@/components/app/use-motion";
+import { RangeSlider } from "@/components/app/range-slider";
+import { SelectField } from "@/components/app/select-field";
 
 type Mode = "hedge" | "multi";
 
@@ -72,13 +74,15 @@ function CoinPicker({ symbols, value, onChange }: { symbols: string[]; value: st
 
 function VenueSelect({ venues, value, onChange, label }: { venues: PerpVenueId[]; value: PerpVenueId; onChange: (venue: PerpVenueId) => void; label: string }) {
   return (
-    <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value as PerpVenueId)} className={`${field} cursor-pointer`}>
-      {venues.map((venue) => (
-        <option key={venue} value={venue}>
-          {PERP_VENUE_NAMES[venue]}
-        </option>
-      ))}
-    </select>
+    <SelectField<PerpVenueId>
+      size="sm"
+      rootClassName="w-full"
+      className="w-full"
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={venues.map((venue) => ({ value: venue, label: PERP_VENUE_NAMES[venue] }))}
+    />
   );
 }
 
@@ -295,13 +299,12 @@ export function ProOrderDialog() {
                 Leverage on each venue
                 <span className="font-semibold tabular-nums text-app-ink">{Math.min(hedgeLeverage, hedgeMaxLeverage)}x</span>
               </span>
-              <input
-                type="range"
+              <RangeSlider
+                label="Leverage on each venue"
                 min={1}
                 max={hedgeMaxLeverage}
                 value={Math.min(hedgeLeverage, hedgeMaxLeverage)}
-                onChange={(event) => setHedgeLeverage(Number(event.target.value))}
-                className="accent-[rgb(var(--app-accent))]"
+                onChange={setHedgeLeverage}
               />
             </label>
             <p className="text-[11px] text-app-faint">

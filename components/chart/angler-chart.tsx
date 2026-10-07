@@ -26,6 +26,7 @@ import { LIGHTER_CANDLE_RESOLUTIONS } from "@/lib/venues/lighter/config";
 import type { NewsItem } from "@/lib/types";
 import { hyperliquidVenue } from "@/lib/venues/hyperliquid/venue";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
+import { SelectField } from "@/components/app/select-field";
 
 const REFRESH_MS = 30_000;
 
@@ -329,24 +330,23 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket }: A
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={containerRef} className="absolute inset-0" />
-      <label className="absolute left-2 top-1.5 z-10">
-        <span className="sr-only">Chart data source</span>
-        <select
+      {/* Where the candles come from. Auto follows the venue in the order panel. */}
+      <div className="absolute left-2 top-1.5 z-10">
+        <SelectField<ChartSource>
+          size="ghost"
+          label="Chart data source"
           value={preferences.chartSource}
-          onChange={(event) => updatePreference("chartSource", event.target.value as ChartSource)}
-          title="Where the candles come from. Auto follows the venue in the order panel."
-          className="cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-[11px] text-app-faint outline-hidden hover:bg-app-chip hover:text-app-ink focus-visible:ring-2 focus-visible:ring-app-ring"
-        >
-          {(["auto", "hyperliquid", "lighter", "binance"] as const).map((source) => (
-            <option key={source} value={source} className="bg-app-dialog text-app-ink">
-              {source === "auto"
+          onChange={(source) => updatePreference("chartSource", source)}
+          options={(["auto", "hyperliquid", "lighter", "binance"] as const).map((source) => ({
+            value: source,
+            label:
+              source === "auto"
                 ? `Auto${data && candles ? ` · ${SOURCE_NAMES[data.source]}` : ""}`
                 : // A pick the chart couldn't serve shows what it fell back to.
-                  `${SOURCE_NAMES[source]}${data && candles && preferences.chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`}
-            </option>
-          ))}
-        </select>
-      </label>
+                  `${SOURCE_NAMES[source]}${data && candles && preferences.chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
+          }))}
+        />
+      </div>
       {hovered && (
         <div
           className="surface-menu pointer-events-none absolute top-8 z-20 w-64 rounded-xl border border-app-hairline-strong bg-app-card px-3 py-2 shadow-[0_12px_32px_-12px_rgba(19,35,58,0.35)]"

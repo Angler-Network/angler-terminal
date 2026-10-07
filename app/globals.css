@@ -494,6 +494,118 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   background-image: url("/_next/image?url=%2Fwhitelogo.png&w=128&q=75");
 }
 
+/*
+  Slider (components/app/range-slider.tsx). --p is the value's position (0-1); the fill stops at the thumb's center,
+  which travels from half a thumb in from each end. --marks holds the breaks drawn into the track (Firefox shows them
+  on the unfilled part only, its progress bar is a separate box).
+*/
+.range-slider {
+  --thumb: 16px;
+  --track: 4px;
+  --at: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+}
+
+.range-slider-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.range-slider-input:disabled {
+  cursor: not-allowed;
+}
+
+.range-slider-input:focus {
+  outline: none;
+}
+
+.range-slider-input::-webkit-slider-runnable-track {
+  height: var(--track);
+  border-radius: 999px;
+  background:
+    var(--marks, linear-gradient(transparent, transparent)),
+    linear-gradient(to right, rgb(var(--app-accent)) 0 var(--at), rgb(var(--app-hairline-strong)) var(--at) 100%);
+}
+
+.range-slider-input::-moz-range-track {
+  height: var(--track);
+  border-radius: 999px;
+  background:
+    var(--marks, linear-gradient(transparent, transparent)),
+    rgb(var(--app-hairline-strong));
+}
+
+.range-slider-input::-moz-range-progress {
+  height: var(--track);
+  border-radius: 999px;
+  background: rgb(var(--app-accent));
+}
+
+.range-slider-input::-webkit-slider-thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((var(--track) - var(--thumb)) / 2);
+  border: 2px solid rgb(var(--app-accent));
+  border-radius: 50%;
+  background: rgb(var(--app-card));
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.range-slider-input::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: var(--thumb);
+  border: 2px solid rgb(var(--app-accent));
+  border-radius: 50%;
+  background: rgb(var(--app-card));
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.range-slider-input:not(:disabled):hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+.range-slider-input:not(:disabled):hover::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+.range-slider-input:not(:disabled):active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 6px rgb(var(--app-accent) / 0.18);
+}
+
+.range-slider-input:not(:disabled):active::-moz-range-thumb {
+  box-shadow: 0 0 0 6px rgb(var(--app-accent) / 0.18);
+}
+
+.range-slider-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgb(var(--app-ring) / 0.6);
+}
+
+.range-slider-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgb(var(--app-ring) / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .range-slider-input::-webkit-slider-thumb,
+  .range-slider-input::-moz-range-thumb {
+    transition: none;
+  }
+}
+
 /* Terminal: brief highlight for high-impact news arrivals */
 @keyframes news-flash {
   0%,

@@ -25,6 +25,7 @@ import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from
 import { usePreferences } from "./preferences-provider";
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { SearchableSelect } from "./searchable-select";
+import { RangeSlider } from "./range-slider";
 
 const DISCLAIMER = "Not financial advice. Scores are model outputs.";
 
@@ -761,16 +762,15 @@ function NotificationSettings() {
       </SettingRow>
       <SettingRow title={t("settings.volume")} description={t("settings.volumeText")}>
         <div className="flex w-[150px] shrink-0 items-center gap-3">
-          <input
-            type="range"
+          <RangeSlider
+            label={t("settings.volume")}
             min={0}
             max={100}
             step={5}
             value={preferences.alertVolume}
-            aria-label={t("settings.volume")}
-            onChange={(event) => updatePreference("alertVolume", Number(event.target.value))}
+            onChange={(volume) => updatePreference("alertVolume", volume)}
             onPointerUp={() => playAlertSound("bell", preferences.alertVolume)}
-            className="min-w-0 flex-1 accent-app-accent"
+            className="min-w-0 flex-1"
           />
           <span className="w-8 text-right text-[13px] tabular-nums text-app-muted">{preferences.alertVolume}</span>
         </div>

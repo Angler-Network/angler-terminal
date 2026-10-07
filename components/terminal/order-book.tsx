@@ -9,6 +9,7 @@ import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useOrderBook } from "./use-order-book";
+import { SelectField } from "@/components/app/select-field";
 
 const LEVELS = 30;
 
@@ -157,35 +158,25 @@ export function OrderBook() {
           </button>
         ))}
         {choices.length > 1 ? (
-          <select
-            aria-label="Venue"
-            value={isAll ? "all" : market?.venue}
-            onChange={(event) => setView(event.target.value as VenueView)}
-            className="ml-auto h-6 rounded-md border border-app-hairline bg-app-field px-1 text-[11px] text-app-ink"
-          >
-            <option value="all">All venues</option>
-            {choices.map((entry) => (
-              <option key={entry.venue} value={entry.venue}>
-                {PERP_VENUE_NAMES[entry.venue]}
-              </option>
-            ))}
-          </select>
+          <SelectField<VenueView>
+            size="xs"
+            rootClassName="ml-auto"
+            label="Venue"
+            value={isAll ? "all" : (market?.venue ?? "all")}
+            onChange={setView}
+            options={[{ value: "all", label: "All venues" }, ...choices.map((entry) => ({ value: entry.venue, label: PERP_VENUE_NAMES[entry.venue] }))]}
+          />
         ) : (
           market && <span className="ml-auto text-[11px] text-app-faint">{PERP_VENUE_NAMES[market.venue]}</span>
         )}
         {tab === "book" && ticks.length > 0 && (
-          <select
-            aria-label="Grouping"
-            value={tickIndex}
-            onChange={(event) => setTickIndex(Number(event.target.value))}
-            className="h-6 rounded-md border border-app-hairline bg-app-field px-1 text-[11px] tabular-nums text-app-ink"
-          >
-            {ticks.map((value, index) => (
-              <option key={value} value={index}>
-                {value}
-              </option>
-            ))}
-          </select>
+          <SelectField
+            size="xs"
+            label="Grouping"
+            value={String(tickIndex)}
+            onChange={(index) => setTickIndex(Number(index))}
+            options={ticks.map((value, index) => ({ value: String(index), label: String(value) }))}
+          />
         )}
       </header>
 

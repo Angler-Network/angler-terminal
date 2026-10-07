@@ -7,15 +7,59 @@ const LIST_GAP = 6;
 const LIST_MAX_HEIGHT = 280;
 const VIEWPORT_MARGIN = 8;
 
-interface SelectFieldProps {
+type SelectSize = "md" | "sm" | "xs" | "ghost";
+
+interface SelectFieldProps<T extends string> {
   label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+  /** Width and extra classes for the trigger button. */
   className?: string;
+  /** Classes for the wrapper (placement in a flex row, e.g. `ml-auto`). */
+  rootClassName?: string;
+  /** md: settings rows · sm: form fields · xs: compact panel headers · ghost: borderless inline text. */
+  size?: SelectSize;
 }
 
-export function SelectField({ label, value, options, onChange, className = "w-[150px]" }: SelectFieldProps) {
+const triggerSizes: Record<SelectSize, { base: string; idle: string; open: string; chevron: string }> = {
+  md: {
+    base: "h-10 gap-2 rounded-xl border pl-4 pr-3 text-[14px] text-app-ink focus-visible:ring-4",
+    idle: "border-app-field-border bg-app-field hover:bg-app-field-hover",
+    open: "border-app-focus bg-app-field-hover",
+    chevron: "size-4",
+  },
+  sm: {
+    base: "h-9 gap-1.5 rounded-lg border pl-2.5 pr-2 text-[13px] text-app-ink focus-visible:ring-4",
+    idle: "border-app-field-border bg-app-field hover:bg-app-field-hover",
+    open: "border-app-ink bg-app-field-hover",
+    chevron: "size-3.5",
+  },
+  xs: {
+    base: "h-6 gap-1 rounded-md border pl-1.5 pr-1 text-[11px] text-app-ink focus-visible:ring-2",
+    idle: "border-app-hairline bg-app-field hover:bg-app-field-hover",
+    open: "border-app-hairline-strong bg-app-field-hover",
+    chevron: "size-3",
+  },
+  ghost: {
+    base: "h-6 gap-0.5 rounded-md px-1 text-[11px] focus-visible:ring-2",
+    idle: "bg-transparent text-app-faint hover:bg-app-chip hover:text-app-ink",
+    open: "bg-app-chip text-app-ink",
+    chevron: "size-3",
+  },
+};
+
+export function SelectField<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  className,
+  rootClassName = "",
+  size = "md",
+}: SelectFieldProps<T>) {
+  const compact = size !== "md";
+  const trigger = triggerSizes[size];
   const listId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -138,7 +182,7 @@ export function SelectField({ label, value, options, onChange, className = "w-[1
   }
 
   return (
-    <div className="shrink-0">
+    <div className={`shrink-0 ${rootClassName}`}>
       <button
         ref={triggerRef}
         type="button"
@@ -150,13 +194,13 @@ export function SelectField({ label, value, options, onChange, className = "w-[1
         aria-activedescendant={isOpen ? `${listId}-${activeIndex}` : undefined}
         onClick={() => (isOpen ? close(false) : open())}
         onKeyDown={handleKeyDown}
-        className={`flex h-10 ${className} items-center gap-2 rounded-xl border pl-4 pr-3 text-left text-[14px] text-app-ink outline-hidden transition-colors focus-visible:ring-4 focus-visible:ring-app-ring/60 ${
-          isOpen ? "border-app-focus bg-app-field-hover" : "border-app-field-border bg-app-field hover:bg-app-field-hover"
+        className={`flex ${className ?? (compact ? "" : "w-[150px]")} items-center text-left outline-hidden transition-colors focus-visible:ring-app-ring/60 ${trigger.base} ${
+          isOpen ? trigger.open : trigger.idle
         }`}
       >
-        <span className="min-w-0 flex-1 truncate">{selected?.label}</span>
+        <span className="min-w-0 flex-1 truncate tabular-nums">{selected?.label}</span>
         <ChevronDown
-          className={`size-4 shrink-0 text-app-muted transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`${trigger.chevron} shrink-0 opacity-70 transition-transform ${isOpen ? "rotate-180" : ""}`}
           aria-hidden
         />
       </button>
@@ -180,12 +224,12 @@ export function SelectField({ label, value, options, onChange, className = "w-[1
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => choose(index)}
-              className={`flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg py-2 pl-3 pr-2.5 text-[14px] ${
-                index === activeIndex ? "bg-app-chip" : ""
-              } ${isSelected ? "font-semibold" : ""}`}
+              className={`flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg tabular-nums ${
+                compact ? "py-1.5 pl-2.5 pr-2 text-[12px]" : "py-2 pl-3 pr-2.5 text-[14px]"
+              } ${index === activeIndex ? "bg-app-chip" : ""} ${isSelected ? "font-semibold" : ""}`}
             >
               <span className="flex-1">{option.label}</span>
-              <Check className={`size-4 shrink-0 text-app-accent ${isSelected ? "" : "invisible"}`} aria-hidden />
+              <Check className={`${compact ? "size-3.5" : "size-4"} shrink-0 text-app-accent ${isSelected ? "" : "invisible"}`} aria-hidden />
             </li>
           );
         })}
