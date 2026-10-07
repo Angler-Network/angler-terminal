@@ -229,7 +229,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   };
 
   const loading = (isSpot ? spotRows : perpRows) === null;
-  const tabs: Array<{ value: Tab; label: string; count?: number }> = pick ? [{ value: "all", label: pick.title }] : [
+  const tabs: Array<{ value: Tab; label: string; count?: number }> = [
     { value: "all", label: "All" },
     ...MARKET_CATEGORIES.filter((category) => counts[category.value]).map((category) => ({ value: category.value as Tab, label: category.label, count: counts[category.value] })),
   ];
@@ -301,6 +301,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
               {option.count !== undefined && <span className="ml-1.5 text-app-faint">{option.count}</span>}
             </button>
           ))}
+          {pick && <span className="ml-auto shrink-0 pl-3 text-[12px] font-semibold text-app-muted">{pick.title}</span>}
         </div>
 
         <div className={`grid shrink-0 ${columns} gap-3 border-b border-app-hairline px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint`}>
