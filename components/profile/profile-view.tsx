@@ -275,10 +275,14 @@ function ReferralCard() {
   useEffect(() => {
     if (pendingReferral) setCode(pendingReferral);
   }, [pendingReferral]);
+  // Opened from the account menu's Referrals: scroll here once the card has rendered.
+  useEffect(() => {
+    if (profile && window.location.hash === "#referrals") document.getElementById("referrals")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [profile]);
   if (!id || !profile) return null;
   const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${profile.username ?? profile.id}`;
   return (
-    <section className={`${card} p-4`}>
+    <section id="referrals" className={`${card} scroll-mt-4 p-4`}>
       <h2 className="text-[13px] font-semibold text-app-ink">Referrals</h2>
       <p className="mt-1 text-[12px] text-app-muted">Share your link: you earn 10% of the points of everyone who joins with it.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">

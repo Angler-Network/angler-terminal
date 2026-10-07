@@ -351,7 +351,7 @@ dependency versions and design are free to diverge from angler-news.
   Referrals: `?ref=<username or address>` is kept in localStorage; the profile page applies it with a signed
   "Use referral code" message (`POST /api/profile/referral`, once, never changed). The referrer earns 10% of the
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
-  The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Wallets, Layout.
+  The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
   Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
