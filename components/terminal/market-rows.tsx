@@ -150,16 +150,16 @@ export function Change({ value }: { value?: number }) {
 }
 
 /**
- * Every spot pair (plus the live search results for `query`), as rows; null until the pairs load. `only` keeps one
- * venue's tokens, every one of them, stablecoins included (the swap cards' pay token pickers: Jupiter or Uniswap).
+ * Every spot pair (plus the live search results for `query`), as rows; null until the pairs load. `only` keeps those
+ * venues' tokens, every one of them, stablecoins included (the swap cards' pay token pickers: Jupiter, or Uniswap + Jupiter).
  */
-export function useSpotRows(enabled: boolean, query = "", only?: "jupiter" | "uniswap") {
+export function useSpotRows(enabled: boolean, query = "", only?: Array<"jupiter" | "uniswap">) {
   const listings = useSpotListings(enabled);
   const searched = useSpotSearch(enabled ? query : "");
   const rows = useMemo(() => {
     if (!enabled || !listings) return null;
     return mergeListings(listings, searched ?? [])
-      .filter((listing) => !only || listing.venue === only)
+      .filter((listing) => !only || (only as string[]).includes(listing.venue))
       .flatMap((listing) => spotRow(listing, { anyToken: Boolean(only) }) ?? []);
   }, [enabled, listings, searched, only]);
   return { rows, searching: query.trim().length >= 2 && searched === undefined };

@@ -10,7 +10,7 @@ import { lighterIntentAddress, readUsdcBalance } from "@/lib/venues/deposit-clie
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
-import type { BridgeLegQuote } from "@/lib/venues/bridge-leg";
+import type { BridgeLegQuote, BridgeProvider } from "@/lib/venues/bridge-leg";
 import {
   BRIDGE_VENUES,
   WALLET_CHAINS,
@@ -36,6 +36,9 @@ import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
 import { useModalEnter } from "@/components/app/use-motion";
+
+/** Kept here so the dialog doesn't import the bridge clients up front. */
+const PROVIDER_NAMES: Record<BridgeProvider, string> = { across: "Across", relay: "Relay", lifi: "LI.FI" };
 
 const QUOTE_DEBOUNCE_MS = 600;
 
@@ -103,7 +106,7 @@ const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withd
 /**
  * Funds (Deposit / Withdraw / Bridge): "Move [amount] [token] from [endpoint] to [endpoint]" in one sentence, where an
  * endpoint is a venue or the wallet on a chain (USDC on Arbitrum, Base or Ethereum, USDG on Robinhood Chain). Every
- * bridge leg takes the better of Across and Relay (`bridge-leg.ts`). `fundsRoute` (`bridge-routes.ts`) turns the
+ * bridge leg takes the best of Across, Relay and LI.FI (`bridge-leg.ts`). `fundsRoute` (`bridge-routes.ts`) turns the
  * pair into steps (a Hyperliquid withdrawal, an Across bridge that also swaps USDC ↔ USDG, a transfer into a venue)
  * and this window runs them in order: every step is one wallet signature, waits (the withdrawal landing, the relayer
  * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
@@ -198,7 +201,7 @@ export function DepositDialog() {
     };
   }, [address, fromWallet, input]);
 
-  // Debounced bridge quotes (Across and Relay, the better one) for the preview line.
+  // Debounced bridge quotes (Across, Relay and LI.FI, the best one) for the preview line.
   useEffect(() => {
     if (!quoteKey || !acrossStep || !acrossInput || !address || locked) return setQuote(null);
     let isActive = true;
@@ -445,7 +448,7 @@ export function DepositDialog() {
                 {acrossStep && quoteLine?.error && <p className="text-[12px] text-app-down">{quoteLine.error}</p>}
                 {acrossStep && quoteLine?.summary && (
                   <p className="text-[11px] text-app-muted">
-                    {converted ? "Bridge and conversion" : "Bridge"} by {quoteLine.summary.provider === "relay" ? "Relay" : "Across"} (best of Across and Relay) · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
+                    {converted ? "Bridge and conversion" : "Bridge"} by {PROVIDER_NAMES[quoteLine.summary.provider]} (best of Across, Relay and LI.FI) · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
                     {steps[0].kind === "hlWithdraw" ? " · after Hyperliquid's 1 USDC withdrawal fee" : ""}
                   </p>
                 )}

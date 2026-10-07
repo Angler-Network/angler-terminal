@@ -2,7 +2,7 @@
  * Trade analytics, anonymous by design: events carry no wallet address and no IP, and the store keeps only daily
  * totals (trades, USD volume, estimated partner fees per venue), never a per-trade record.
  */
-export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "relay", "polymarket"] as const;
+export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "relay", "lifi", "polymarket"] as const;
 export type TradeVenue = (typeof TRADE_VENUES)[number];
 
 export interface TradeEvent {
@@ -51,6 +51,7 @@ export interface ServerFeeRates {
   arcusBps: number;
   uniswapBps: number;
   relayBps: number;
+  lifiBps: number;
 }
 
 /** Jupiter keeps 20% of the referral fee. */
@@ -67,6 +68,8 @@ export function readServerFeeRates(env: Record<string, string | undefined>): Ser
     arcusBps: bps(env.ARCUS_BUILDER_FEE_BPS, Boolean(env.ARCUS_API_KEY?.trim())),
     uniswapBps: bps(env.UNISWAP_FEE_BPS, Boolean(env.UNISWAP_API_KEY?.trim() && env.UNISWAP_FEE_RECIPIENT?.trim())),
     relayBps: bps(env.RELAY_FEE_BPS, Boolean(env.RELAY_FEE_RECIPIENT?.trim())),
+    // LI.FI may keep a share of integrator fees; this is the full rate.
+    lifiBps: bps(env.LIFI_FEE_BPS, Boolean(env.LIFI_INTEGRATOR?.trim())),
   };
 }
 
@@ -83,7 +86,9 @@ export function estimateFeeUsd(event: TradeEvent, rates: ServerFeeRates) {
             ? rates.uniswapBps
             : event.venue === "relay"
               ? rates.relayBps
-              : (event.feeBps ?? 0);
+              : event.venue === "lifi"
+                ? rates.lifiBps
+                : (event.feeBps ?? 0);
   return Math.round(event.usd * bps * 100) / 1_000_000;
 }
 

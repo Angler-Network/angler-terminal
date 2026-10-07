@@ -443,7 +443,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const viaRoute = hasQuotes ? routeText(selected?.route) : null;
   const canSwap = Boolean(owner) && sizeUsd > 0 && !error && !isPlacing && !locked && !needsAck;
 
-  // Debounced bridge quote (Across or Relay, the better one) for a cross-chain payment: what USDG lands on Robinhood for this USDC.
+  // Debounced bridge quote (Across, Relay or LI.FI, the best one) for a cross-chain payment: what USDG lands on Robinhood for this USDC.
   useEffect(() => {
     if (!crossKey || !acrossStep || !acrossInput || !evmAddress || locked) return setCrossQuote(null);
     let active = true;

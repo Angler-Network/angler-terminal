@@ -31,7 +31,7 @@ export interface TokenChoice {
 
 /**
  * The search opened as a token picker, `pinned` ones first: Solana tokens (the Solana card), or EVM tokens on every
- * Uniswap chain (the EVM card, `scope: "evm"`).
+ * Uniswap chain plus Solana tokens (the EVM card, `scope: "evm"`: cross-chain through Relay or LI.FI).
  */
 export interface TokenPickRequest {
   title: string;
@@ -139,7 +139,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   const isSpot = kind === "spot" || Boolean(pick);
 
   const perpRows = usePerpRows(!isSpot);
-  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? "uniswap" : "jupiter") : undefined);
+  const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : undefined);
 
   const watchlist = preferences.watchlist;
   const rows = useMemo(() => {
@@ -187,7 +187,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     const rest = sorted.filter((row) => !pinnedMints.has(row.mint));
     const address = query.trim();
     const pasted =
-      pick.scope !== "evm" && SOLANA_ADDRESS.test(address) && address !== pick.exclude && !pinnedMints.has(address) && !rest.some((row) => row.mint === address)
+      SOLANA_ADDRESS.test(address) && address !== pick.exclude && !pinnedMints.has(address) && !rest.some((row) => row.mint === address)
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
@@ -278,7 +278,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
             placeholder={
               pick
                 ? pick.scope === "evm"
-                  ? "Search any token on Base, Arbitrum or Ethereum by name, ticker or address"
+                  ? "Search any token on Base, Arbitrum, Ethereum or Solana by name, ticker or address"
                   : "Search any Solana token by name, ticker or paste an address"
                 : isSpot ? "Search any spot token by name, ticker or address" : "Search perp markets by ticker"
             }

@@ -337,9 +337,14 @@ dependency versions and design are free to diverge from angler-news.
     (`SwapRecord.chain`), counted in analytics as `uniswap`, not in profile points yet.
     Cross-chain: the card's other side is any token on any chain, picked in the market search's EVM pick mode
     (`pickToken({ scope: "evm" })`: Uniswap tokens of every chain, the chains' USDC/ETH, USDG on Robinhood and, buying,
-    the Hyperliquid balance pinned first). Same chain → Uniswap. Any token across chains → Relay in one go (`direct`:
-    `fetchRelayQuote` any pair, `sendRelayTxs` on the origin chain, `relayRequestState` until filled; analytics venue
-    `relay`). Another chain's dollar (USDC on Arbitrum/Base/Ethereum, USDG on Robinhood) or the Hyperliquid balance
+    the Hyperliquid balance pinned first, plus SOL and USDC on Solana; the list adds every Jupiter token). Same chain →
+    Uniswap. Any token across chains → Relay or LI.FI in one go (`direct`: `quoteDirectSwap` asks both, larger output
+    wins, Relay on a tie; Relay only between EVM chains; `sendDirectSwap` sends on the origin chain, `bridgeLegState`
+    until filled; analytics venue `relay` or `lifi`). A Solana token on the other side (`LIFI_SOLANA_CHAIN`, the mint
+    as address, native SOL as `LIFI_NATIVE_SOL` for LI.FI) goes through LI.FI only and needs a Solana wallet too: buying,
+    it signs LI.FI's base64 transaction, sent by `/api/solana/send` (`lib/solana/send-server.ts`, shared with Titan's
+    execute); selling, the Solana wallet is the recipient. Balances from `/api/solana/balances` (SOL keeps 0.01 back),
+    decimals from `/api/jup/token`. Another chain's dollar (USDC on Arbitrum/Base/Ethereum, USDG on Robinhood) or the Hyperliquid balance
     keeps the bridge path below. Buying runs `fundsRoute(… → wallet on the token's chain)`
     through `useFundsRun` (`waitForWithdrawal` makes a lone HL withdrawal wait for the USDC too), then asks for one
     more press to swap the USDC that landed (`bridged`); selling swaps to the chain's USDC, then bridges what it
@@ -354,6 +359,14 @@ dependency versions and design are free to diverge from angler-news.
     refund / failure. No key needed; the proxy (POST quote same origin, GET status) adds our app fee
     (`RELAY_FEE_BPS` whole bps ≤ 500 to `RELAY_FEE_RECIPIENT`) and, with `RELAY_API_KEY`, the referrer (quotes with a
     referrer but no key are refused). Relay checks no balance in its quote, so the client does before sending.
+  - LI.FI (`lib/venues/lifi*.ts`, `bridge-leg.ts`, `app/api/lifi/[...path]`): third quote in every bridge leg (Across,
+    Relay, LI.FI; the largest output runs) and the direct swaps' second route (Solana included). `GET /v1/quote` returns
+    one route (often another bridge such as Across or Mayan, plus LI.FI's own fixed 0.25% fee) as one transaction:
+    EVM = an exact ERC-20 approval to `approvalAddress` when the allowance is short, then `transactionRequest`
+    (`sendLifiEvm`); Solana = base64 versioned tx (`sendLifiSolana`). `/v1/status` by origin tx hash: DONE (also
+    PARTIAL) = filled, DONE/REFUNDED or FAILED = failed, NOT_FOUND (404, code 1003) = keep waiting. No key needed; the
+    proxy (GET quote same origin with whitelisted params, GET status) adds `LIFI_INTEGRATOR` and the fee
+    (`LIFI_FEE_BPS` whole bps ≤ 300, only with an integrator; fee wallets are set on portal.li.fi) and `LIFI_API_KEY`.
   - Across (`lib/venues/across*.ts`, `app/api/across/[...path]`): the intent bridge Robinhood lists as a partner and
     Uniswap's own bridging runs on (chosen over Uniswap's API: same bridge, no extra layer or key). Mainnet only.
     The browser calls our proxy (`swap/approval` → app.across.to/api, `deposit/status` → indexer.api.across.to; the

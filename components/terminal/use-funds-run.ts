@@ -18,7 +18,7 @@ const ARRIVAL_TIMEOUT_MS = 12 * 60_000;
 const FILL_POLL_MS = 4_000;
 const FILL_TIMEOUT_MS = 15 * 60_000;
 
-/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or the bridge (Across or Relay) filling. */
+/** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or the bridge (Across, Relay or LI.FI) filling. */
 export type Wait =
   | { kind: "arrival"; before: bigint; expected: bigint; since: number }
   | { kind: "fill"; leg: BridgeLegRef; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
@@ -46,7 +46,7 @@ export function stepLabel(step: FundsStep) {
   if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
   const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
   const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
-  return `Bridge to ${into} with Across or Relay, whichever pays more (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
+  return `Bridge to ${into} with Across, Relay or LI.FI, whichever pays most (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
 }
 
 export function continueLabel(step: FundsStep, carry: bigint) {
@@ -122,7 +122,7 @@ export function useFundsRun(callbacks: FundsRunOptions) {
       const recipient = step.recipient === "wallet" ? address : await lighterIntentAddress(lighterConfigs[step.recipient], step.to, address);
       const { quoteBridgeLeg, executeBridgeLeg } = await import("@/lib/venues/bridge-leg");
       // Always fresh quotes right before signing (their transactions carry the amounts and a deadline); the larger
-      // output of Across and Relay runs.
+      // output of Across, Relay and LI.FI runs.
       const quotes = await quoteBridgeLeg({ from: step.from, to: step.to, units: current.carry, depositor: address, recipient });
       const summary = quotes.best;
       if (!summary) throw new Error(noRouteReason(quotes));
