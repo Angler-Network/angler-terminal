@@ -285,8 +285,9 @@ dependency versions and design are free to diverge from angler-news.
   history is requested with `coin`.
 - SEO: both sites are indexed (`isIndexable` in `lib/site.ts`: any pinned `NEXT_PUBLIC_DEPLOYMENT`; dev builds stay
   `noindex`), each with its own canonical origin (`siteUrl`, `NEXT_PUBLIC_SITE_URL` overrides). `app/robots.ts` keeps
-  crawlers off `/api/`, `app/sitemap.ts` lists the terminal and Markets, and `app/opengraph-image.tsx` renders the
-  link preview at build time. Vercel marks preview deployments `noindex` itself.
+  crawlers off `/api/`, `app/sitemap.ts` lists the terminal and Markets. The link preview is the brand banner
+  (`app/opengraph-image.jpg` + `twitter-image.jpg`, angler-landing's `assets/og-banner.jpg`, used unchanged). Vercel
+  marks preview deployments `noindex` itself.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
 - First load stays light: the Hyperliquid SDK (`hyperliquid/clients.ts`), viem's wallet client (`getWalletClient`),
