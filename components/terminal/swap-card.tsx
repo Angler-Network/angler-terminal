@@ -28,6 +28,7 @@ import { useSpotHoldings } from "@/components/portfolio/use-spot-holdings";
 import type { OrderSide, SpotToken } from "@/lib/venues/types";
 import { useAssetSearch } from "./asset-search";
 import { Picker, type PickerOption } from "./inline-picker";
+import { TokenPicker, type TokenChoice } from "./token-picker";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { CoinIcon } from "./token-icon";
@@ -340,14 +341,14 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     ? { symbol: choice.token.symbol, icon: choice.token.icon, chain: "solana" as const, chainName: "Solana", kind: undefined }
     : { symbol: choice.arcusToken.symbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood", kind: "stock" as const };
   // Solana swaps pay with (or pay out in) any token: USDC by default, SOL, USDT or another priced token in the wallet.
-  const [pickedPay, setPickedPay] = useState(USDC_MINT);
-  const payMint = isSolana && pickedPay !== choice.token.mint ? pickedPay : USDC_MINT;
+  const [picked, setPicked] = useState<TokenChoice | null>(null);
+  const payMint = isSolana && picked && picked.mint !== choice.token.mint ? picked.mint : USDC_MINT;
   const solanaPay = usePayToken(isSolana ? payMint : null);
   const payIsDollar = !isSolana || DOLLARS.has(payMint);
   const sellIsSol = isSolana && (side === "buy" ? payMint === WSOL_MINT : choice.token.mint === WSOL_MINT);
   const payPrice = !isSolana || payMint === USDC_MINT ? 1 : solanaPay?.usdPrice;
   const stable = isSolana
-    ? { symbol: solanaPay?.symbol ?? COMMON_PAY.find((entry) => entry.mint === payMint)?.symbol ?? "USDC", icon: payMint === USDC_MINT ? undefined : solanaPay?.icon, chain: "solana" as const, chainName: "Solana" }
+    ? { symbol: solanaPay?.symbol ?? (payMint === picked?.mint ? picked.symbol : "USDC"), icon: payMint === USDC_MINT ? undefined : (solanaPay?.icon ?? picked?.icon), chain: "solana" as const, chainName: "Solana" }
     : { symbol: arcusConfig.quoteSymbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood" };
   const holdings = useSpotHoldings();
   const arcusPrice = useArcusPrice(isSolana ? null : choice.arcusToken);
@@ -580,31 +581,27 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       </span>
     </>
   );
-  // Solana: USDC, SOL, USDT, then the wallet's other priced tokens (not the one being traded).
-  const solanaPayOptions: Array<PickerOption<string>> = isSolana
-    ? [
-        ...COMMON_PAY,
-        ...(holdings.data?.holdings ?? [])
-          .filter((holding) => holding.usdPrice !== null && !COMMON_PAY.some((entry) => entry.mint === holding.mint))
-          .slice(0, 12)
-          .map((holding) => ({ mint: holding.mint, symbol: holding.symbol, icon: holding.icon ?? undefined })),
-      ]
-        .filter((entry) => entry.mint !== choice.token.mint)
-        .map((entry) => ({ value: entry.mint, label: entry.symbol, icon: <CoinIcon src={entry.icon} symbol={entry.symbol} chain="solana" size={20} /> }))
-    : [];
+  // Solana: any token. USDC, SOL, USDT and the wallet's tokens first, then the top pairs and a live search.
+  const pinnedPay: TokenChoice[] = [
+    ...COMMON_PAY.map((entry) => ({ ...entry, verified: true })),
+    ...(holdings.data?.holdings ?? [])
+      .filter((holding) => !COMMON_PAY.some((entry) => entry.mint === holding.mint))
+      .map((holding) => ({ mint: holding.mint, symbol: holding.symbol, icon: holding.icon ?? undefined, price: holding.usdPrice ?? undefined })),
+  ];
   const stablePill = isSolana ? (
-    <Picker
+    <TokenPicker
       label={side === "buy" ? "Pay with" : "Receive"}
       value={payMint}
-      options={solanaPayOptions}
-      onChange={(mint) => {
-        setPickedPay(mint);
+      pinned={pinnedPay}
+      exclude={choice.token.mint}
+      onChange={(token) => {
+        setPicked(token);
         setAmount("");
       }}
       buttonClassName={`${pillClass} hover:bg-app-selected`}
     >
       {stableFace}
-    </Picker>
+    </TokenPicker>
   ) : (
     <span className={pillClass} title={`${stable.symbol} on ${stable.chainName}, the dollar this venue trades against`}>
       {stableFace}

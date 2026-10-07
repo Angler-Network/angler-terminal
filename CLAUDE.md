@@ -232,8 +232,9 @@ dependency versions and design are free to diverge from angler-news.
     warning above 5% or under 0.1%. Under the card a summary like the venues' own: You sell, Est. amount, Est. out
     value, Min. received (quote's `minOutAmount`), Price impact, Max slippage (the quote's own when Auto), Platform
     fee (`feeBps`: Jupiter's total incl. our referral; Titan's our partner fee), Bridge fee for cross-chain buys.
-    Solana swaps pay with (or, selling, pay out in) any token: the stablecoin pill is a "Pay with" / "Receive" picker
-    (USDC, SOL, USDT, then the wallet's other priced tokens); `quoteMint` rides on the trade and quotes
+    Solana swaps pay with (or, selling, pay out in) any token: the stablecoin pill is a "Pay with" / "Receive" token picker
+    (`token-picker.tsx`: any Solana token. USDC, SOL, USDT and the wallet's tokens first, then the top 60 pairs, a live
+    `/api/spot/search` by ticker/name/address and "Use address" for a pasted mint; unverified tokens are marked); `quoteMint` rides on the trade and quotes
     (`jupiterVenue.quoteToken(mint)`, USD size = amount × the token's price; "Max" keeps 0.01 SOL for fees). Profile
     points count a swap's USDC change, so non-USDC swaps don't earn points yet.
     On /swap the panel under the chart is the traded token's activity (`swap-holdings.tsx`), not perp positions, from
