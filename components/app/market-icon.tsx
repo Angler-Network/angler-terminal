@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { TickerAvatar } from "@/components/news/ticker-avatar";
 import { assets } from "@/lib/data";
+import { ICON_MISSES_KEY, readIconMisses, serializeIconMisses } from "@/lib/icon-misses";
 
 const HYPERLIQUID_ICONS = "https://app.hyperliquid.xyz/coins";
 const BINANCE_ICONS = "https://bin.bnbstatic.com/static/assets/logos";
@@ -39,11 +40,35 @@ function symbolSources(symbol: string, kind: MarketIconProps["kind"]) {
   return kind === "stock" ? [...stock, ...lighter, ...crypto] : [...crypto, ...lighter, ...stock];
 }
 
-/** URLs that failed this session: every later icon skips them instead of requesting the same 404 again. */
-const failedSources = new Set<string>();
+/** URLs that failed this week (`lib/icon-misses.ts`): every later icon skips them instead of requesting them again. */
+let failedSources: Map<string, number> | null = null;
+
+function knownMisses() {
+  if (!failedSources) {
+    try {
+      failedSources = readIconMisses(localStorage.getItem(ICON_MISSES_KEY), Date.now());
+    } catch {
+      failedSources = new Map();
+    }
+  }
+  return failedSources;
+}
+
+function rememberMiss(source: string) {
+  const misses = knownMisses();
+  misses.set(source, Date.now());
+  try {
+    localStorage.setItem(ICON_MISSES_KEY, serializeIconMisses(misses));
+  } catch {}
+}
+
+const noSubscribe = () => () => {};
 
 export function MarketIcon({ symbol, kind, size = 24 }: MarketIconProps) {
-  const sources = iconSources(symbol, kind ?? assets[symbol]?.kind).filter((source) => !failedSources.has(source));
+  // The server can't know the stored misses: skip them only after hydration, so the first client render matches.
+  const isClient = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const all = iconSources(symbol, kind ?? assets[symbol]?.kind);
+  const sources = isClient ? all.filter((source) => !knownMisses().has(source)) : all;
   const sourceKey = sources.join(" ");
   const [failure, setFailure] = useState({ sourceKey, index: 0 });
   const index = failure.sourceKey === sourceKey ? failure.index : 0;
@@ -59,7 +84,7 @@ export function MarketIcon({ symbol, kind, size = 24 }: MarketIconProps) {
       height={size}
       loading="lazy"
       onError={() => {
-        failedSources.add(sources[index]);
+        rememberMiss(sources[index]);
         setFailure({ sourceKey, index: index + 1 });
       }}
       className="shrink-0 object-contain"
