@@ -243,3 +243,33 @@ export function pickBookSpotListing(listings: SpotListing[], asset: string, enab
   candidates.sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0));
   return candidates[0] ?? null;
 }
+
+/** A resting spot order on Hyperliquid or Lighter, as the spot card lists it. */
+export interface BookSpotOpenOrder {
+  oid: number;
+  side: "buy" | "sell";
+  price: number;
+  /** Base still open. */
+  size: number;
+  origSize: number;
+  /** Milliseconds. */
+  time: number;
+}
+
+/** Hyperliquid `openOrders` → the market's resting orders (spot coins: "@107", "PURR/USDC"), newest first. */
+export function readHlSpotOpenOrders(body: unknown, coin: string): BookSpotOpenOrder[] {
+  return (Array.isArray(body) ? (body as Array<Record<string, unknown>>) : [])
+    .filter((order) => order?.coin === coin && typeof order.oid === "number")
+    .map((order) => {
+      const size = finite(order.sz) ?? 0;
+      return {
+        oid: order.oid as number,
+        side: order.side === "A" ? ("sell" as const) : ("buy" as const),
+        price: finite(order.limitPx) ?? 0,
+        size,
+        origSize: finite(order.origSz) ?? size,
+        time: finite(order.timestamp) ?? 0,
+      };
+    })
+    .sort((a, b) => b.time - a.time);
+}

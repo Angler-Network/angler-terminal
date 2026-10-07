@@ -9,6 +9,7 @@ import {
   parseBookSpotRef,
   pickBookSpotListing,
   readHlSpotMarkets,
+  readHlSpotOpenOrders,
   readLighterSpotMarkets,
 } from "./book-spot";
 
@@ -173,5 +174,20 @@ describe("pickBookSpotListing", () => {
   it("is null when no book venue lists it", () => {
     expect(pickBookSpotListing(listings, "SOL", { hyperliquid: true, lighter: true })).toBeNull();
     expect(pickBookSpotListing(listings, "ETH", { hyperliquid: false, lighter: false })).toBeNull();
+  });
+});
+
+describe("Hyperliquid spot open orders", () => {
+  it("keeps the market's orders, newest first, sides as buy/sell", () => {
+    const body = [
+      { coin: "@107", side: "B", limitPx: "30.5", sz: "2", origSz: "3", oid: 11, timestamp: 1000 },
+      { coin: "BTC", side: "A", limitPx: "90000", sz: "0.1", origSz: "0.1", oid: 12, timestamp: 3000 },
+      { coin: "@107", side: "A", limitPx: "40", sz: "1", oid: 13, timestamp: 2000 },
+    ];
+    expect(readHlSpotOpenOrders(body, "@107")).toEqual([
+      { oid: 13, side: "sell", price: 40, size: 1, origSize: 1, time: 2000 },
+      { oid: 11, side: "buy", price: 30.5, size: 2, origSize: 3, time: 1000 },
+    ]);
+    expect(readHlSpotOpenOrders(null, "@107")).toEqual([]);
   });
 });

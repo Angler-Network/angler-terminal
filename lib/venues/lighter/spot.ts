@@ -1,14 +1,14 @@
 "use client";
 
-import { readLighterSpotMarkets, type BookSpotMarket } from "@/lib/spot/book-spot";
+import { readLighterSpotMarkets, type BookSpotMarket, type BookSpotOpenOrder } from "@/lib/spot/book-spot";
 import { VenueError } from "../types";
-import { readOrderOutcome } from "./account";
+import { readOpenOrder, readOrderOutcome } from "./account";
 import { accountOrders, bestPrices, getAccountIndex, lighterGet, txStatus } from "./api";
 import { DEFAULT_SLIPPAGE, lighterConfig } from "./config";
 import { humanizeLighterStatus, LighterApiError, toLighterVenueError } from "./errors";
 import { baseAmountFor, fromUnits, minimumSize, nextClientOrderIndex, toUnits, worstPrice } from "./pricing";
-import { authToken, requireSession, signAndSend, waitForTx } from "./session";
-import { ROUTE, signCreateOrder, signTransfer } from "./signer";
+import { authToken, loadSession, requireSession, signAndSend, waitForTx } from "./session";
+import { ROUTE, signCancelOrder, signCreateOrder, signTransfer } from "./signer";
 
 /**
  * Lighter spot (core Lighter only): the same account, trading key and nonces as perps, but spot balances live on the
@@ -22,6 +22,8 @@ const config = lighterConfig;
 const USDC_DECIMALS = 6;
 const CONFIRM_TIMEOUT_MS = 15_000;
 const CONFIRM_INTERVAL_MS = 600;
+/** Limit orders rest up to 28 days, like the perp ones. */
+const LIMIT_EXPIRY_MS = 28 * 24 * 3600 * 1000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -75,8 +77,11 @@ export interface BookSpotFill {
   avgPx: number;
 }
 
-/** `sendTx` 200 is only "accepted": polls the order by its client index until it filled or was canceled. */
-async function confirm(session: Awaited<ReturnType<typeof requireSession>>, clientIndex: number, hash: string, market: BookSpotMarket): Promise<BookSpotFill> {
+/**
+ * `sendTx` 200 is only "accepted": polls the order by its client index until it filled, rests (limit orders only;
+ * a market order never rests) or was canceled.
+ */
+async function confirm(session: Awaited<ReturnType<typeof requireSession>>, clientIndex: number, hash: string, market: BookSpotMarket, canRest = false): Promise<BookSpotPlaced> {
   const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
   const auth = await authToken(session);
   for (let attempt = 0; Date.now() < deadline; attempt += 1) {
@@ -84,7 +89,8 @@ async function confirm(session: Awaited<ReturnType<typeof requireSession>>, clie
     const [order] = await accountOrders(config, session.accountIndex, [clientIndex], auth).catch(() => []);
     if (order) {
       const outcome = readOrderOutcome(order);
-      if (outcome.state === "filled") return { filledSize: outcome.filledSize, avgPx: outcome.avgPx };
+      if (outcome.state === "filled") return { status: "filled", filledSize: outcome.filledSize, avgPx: outcome.avgPx };
+      if (outcome.state === "resting" && canRest) return { status: "resting", oid: outcome.orderIndex };
       if (outcome.state === "canceled") throw new VenueError(humanizeLighterStatus(outcome.status), outcome.status);
     } else if (attempt % 4 === 3) {
       const tx = await txStatus(config, hash).catch(() => null);
@@ -128,7 +134,70 @@ export async function placeLighterSpotOrder(user: string, market: BookSpotMarket
         nonce,
       ),
     );
-    return await confirm(session, clientIndex, hash, market);
+    const placed = await confirm(session, clientIndex, hash, market);
+    if (placed.status !== "filled") throw new VenueError(`Lighter left the ${market.base} order open.`);
+    return placed;
+  } catch (error) {
+    throw toLighterVenueError(error);
+  }
+}
+
+export type BookSpotPlaced = ({ status: "filled" } & BookSpotFill) | { status: "resting"; oid: number };
+
+/** Limit order (GTT, 28 days) at the price; it fills right away when it crosses the book. */
+export async function placeLighterSpotLimit(user: string, market: BookSpotMarket, order: { side: "buy" | "sell"; base: number; price: number }): Promise<BookSpotPlaced> {
+  if (market.venue !== "lighter" || market.priceDecimals === undefined) throw new VenueError(`${market.base} isn't a Lighter spot market.`);
+  try {
+    const session = await requireSession(config, user);
+    const baseAmount = baseAmountFor(order.base, market.szDecimals);
+    const minimum = minimumSize(market, order.price);
+    if (!(baseAmount > 0) || !(order.price > 0)) throw new VenueError("Enter a price and a size.");
+    if (fromUnits(baseAmount, market.szDecimals) < minimum) {
+      throw new VenueError(`Order is too small. Lighter's minimum for ${market.base} is ${minimum} (about ${Math.ceil(minimum * order.price)}).`);
+    }
+    lastClientOrderIndex = nextClientOrderIndex(Date.now(), lastClientOrderIndex);
+    const clientIndex = lastClientOrderIndex;
+    const hash = await signAndSend(session, (nonce) =>
+      signCreateOrder(
+        session.signer,
+        {
+          marketIndex: market.id,
+          clientOrderIndex: clientIndex,
+          baseAmount,
+          price: toUnits(order.price, market.priceDecimals!, "round"),
+          isAsk: order.side === "sell",
+          orderType: 0,
+          timeInForce: 1,
+          reduceOnly: false,
+          orderExpiry: Date.now() + LIMIT_EXPIRY_MS,
+        },
+        nonce,
+      ),
+    );
+    return await confirm(session, clientIndex, hash, market, true);
+  } catch (error) {
+    throw toLighterVenueError(error);
+  }
+}
+
+/** The market's resting orders; reading them needs the trading key's auth token, so none without a key here. */
+export async function loadLighterSpotOpenOrders(user: string, market: BookSpotMarket): Promise<BookSpotOpenOrder[]> {
+  const session = await loadSession(config, user).catch(() => null);
+  if (!session) return [];
+  const body = await lighterGet(config, "accountActiveOrders", { account_index: session.accountIndex, market_id: market.id }, await authToken(session));
+  const orders = Array.isArray(body.orders) ? body.orders : [];
+  return orders
+    .flatMap((value) => {
+      const order = readOpenOrder(value, (id) => (id === market.id ? market.coin : undefined));
+      return order ? [{ oid: order.oid, side: order.side, price: order.limitPx, size: order.size, origSize: order.origSize, time: order.timestamp }] : [];
+    })
+    .sort((a, b) => b.time - a.time);
+}
+
+export async function cancelLighterSpotOrder(user: string, market: BookSpotMarket, oid: number) {
+  try {
+    const session = await requireSession(config, user);
+    await signAndSend(session, (nonce) => signCancelOrder(session.signer, market.id, oid, nonce));
   } catch (error) {
     throw toLighterVenueError(error);
   }

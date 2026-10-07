@@ -396,11 +396,13 @@ dependency versions and design are free to diverge from angler-news.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance
     from the mark, a Venues tab (`lib/trading/portfolio.ts`: account value, uPnL, margin used, withdrawable per venue
     and in total), and close-all (all, per filter or per venue) behind a confirm press.
-- Routes: the terminal is `/perp` and `/swap`, both rendered by `app/(terminal)/layout.tsx` (the shell lives in the
-  layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/` redirects
-  to `/perp` and the old `/spot` to `/swap` (`next.config.mjs`). The spot view is named Swap everywhere the user sees
-  it (nav, titles, wallet tiles); inside the code the market kind stays `"spot"` (`TerminalKind`, `lib/spot/*`). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
-  (`StatusScreen`). Perp / Swap / Prediction lead every
+- Routes: the terminal is `/perp`, `/swap` and `/spot`, all rendered by `app/(terminal)/layout.tsx` (the shell lives
+  in the layout, so switching views keeps the chart, books and news feed mounted; the pages only set titles). `/`
+  redirects to `/perp` (`next.config.mjs`; the old `/spot` → `/swap` redirect is gone: /spot is the order-book view
+  now). Swap = pools and routers (Jupiter, Titan, Uniswap, Arcus, Relay, LI.FI); inside the code its market kind stays
+  `"spot"` (`TerminalKind`, `lib/spot/*`). Spot = order books (Hyperliquid, Lighter spot; centralized exchanges later),
+  kind `"book"` (see "Hyperliquid and Lighter spot" below). `/prediction` is the prediction page (below) and `app/not-found.tsx` the 404
+  (`StatusScreen`). Perp / Swap / Spot / Prediction lead every
   navigation from one list (`components/app/market-nav.ts`: sidebar, top bar, phone menu). /swap hides the order book
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
 - Prediction (`/prediction`, `components/prediction/*`, `lib/prediction/*`): Polymarket and Hyperliquid HIP-4
@@ -435,7 +437,14 @@ dependency versions and design are free to diverge from angler-news.
     `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
     there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume doesn't earn profile points yet.
 - Hyperliquid and Lighter spot (`lib/spot/book-spot.ts`, `lib/venues/hyperliquid/spot.ts`, `lib/venues/lighter/spot.ts`,
-  `components/terminal/book-spot-card.tsx`): order-book spot markets against USDC on both networks, so testnet /swap has
+  `components/terminal/book-spot-card.tsx`, the /spot view): order-book spot markets against USDC on both networks. /spot
+  (`spot-order-panel.tsx`, `use-book-spot.ts`: `useBookSpotRef` = the picked `book:` market, else the asset's busiest
+  one) shows the chart on the venue's candles, the order book (`OrderBook markets=…`, HL by spot coin `@N`, Lighter by
+  market id) and an exchange-style form: Buy/Sell, Market (IOC) or Limit (HL GTC; Lighter GTT 28 days, type 0), a
+  price clicked in the book fills the limit, size in base with % of available, then the market's open orders with
+  Cancel (HL `openOrders` by coin; Lighter `accountActiveOrders`, needs this browser's trading key). Its search and
+  watchlist list only these markets; /swap's no longer do (an asset only they list links to /spot). The positions bar
+  under the chart is still the perp one. Before /spot they lived in the swap card, so testnet /swap had
   real pairs (HL testnet: HYPE, PURR, UETH…; Lighter testnet: ETH, LIT). Listed with the spot pairs (HL pairs with ≥ $1k
   24h volume on mainnet, ≥ $10 on testnet, `HL_SPOT_MIN_VOLUME_USD`; Lighter's `spot_order_book_details`), following the
   `venueHyperliquid` / `venueLighter` switches. A market rides in the `mint` slot as `book:<venue>:<id>` (HL pair index,

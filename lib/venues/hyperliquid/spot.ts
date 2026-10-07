@@ -1,12 +1,12 @@
 "use client";
 
 import { readSpotUsdc } from "@/lib/prediction/hip4-trade";
-import { HL_SPOT_MIN_ORDER_USD, readHlSpotMarkets, type BookSpotMarket } from "@/lib/spot/book-spot";
+import { HL_SPOT_MIN_ORDER_USD, readHlSpotMarkets, readHlSpotOpenOrders, type BookSpotMarket, type BookSpotOpenOrder } from "@/lib/spot/book-spot";
 import { VenueError } from "../types";
 import { agentExchange } from "./clients";
 import { DEFAULT_SLIPPAGE, hlConfig } from "./config";
 import { toVenueError } from "./errors";
-import { roundSize, slippagePrice, toWire } from "./pricing";
+import { roundPrice, roundSize, slippagePrice, toWire } from "./pricing";
 import { requireTradingSetup } from "./venue";
 
 /**
@@ -101,6 +101,55 @@ export async function placeHlSpotOrder(user: `0x${string}`, market: BookSpotMark
       return { filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: builder.fee / 10 };
     }
     throw new VenueError("Hyperliquid accepted the order but returned no fill.");
+  } catch (error) {
+    throw toVenueError(error);
+  }
+}
+
+export interface BookSpotLimit {
+  side: "buy" | "sell";
+  /** Base size. */
+  base: number;
+  price: number;
+}
+
+export type BookSpotPlaced = ({ status: "filled" } & BookSpotFill) | { status: "resting"; oid: number };
+
+/** Limit order (GTC) at the price, rounded to the spot price rule; it fills right away when it crosses the book. */
+export async function placeHlSpotLimit(user: `0x${string}`, market: BookSpotMarket, order: BookSpotLimit): Promise<BookSpotPlaced> {
+  if (market.venue !== "hyperliquid") throw new VenueError(`${market.base} isn't a Hyperliquid spot market.`);
+  const { agent, builder } = requireTradingSetup(user);
+  const size = roundSize(order.base, market.szDecimals);
+  const price = roundPrice(order.price, market.szDecimals, true);
+  if (!(size > 0) || !(price > 0)) throw new VenueError("Enter a price and a size.");
+  if (size * price < HL_SPOT_MIN_ORDER_USD) throw new VenueError(`Order is too small. Hyperliquid's minimum is $${HL_SPOT_MIN_ORDER_USD}.`);
+  try {
+    const exchange = await agentExchange(agent.privateKey);
+    const result = await exchange.order({
+      orders: [{ a: market.assetId, b: order.side === "buy", p: toWire(price), s: toWire(size), r: false, t: { limit: { tif: "Gtc" } } }],
+      grouping: "na",
+      builder: { b: builder.address, f: builder.fee },
+    });
+    const status = result.response.data.statuses[0];
+    if (typeof status === "object" && "resting" in status) return { status: "resting", oid: status.resting.oid };
+    if (typeof status === "object" && "filled" in status) {
+      return { status: "filled", filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: builder.fee / 10 };
+    }
+    throw new VenueError("Hyperliquid accepted the order but didn't say whether it rests or filled.");
+  } catch (error) {
+    throw toVenueError(error);
+  }
+}
+
+/** The market's resting orders for the wallet. */
+export async function loadHlSpotOpenOrders(user: `0x${string}`, market: BookSpotMarket): Promise<BookSpotOpenOrder[]> {
+  return readHlSpotOpenOrders(await info<unknown>({ type: "openOrders", user }), market.coin);
+}
+
+export async function cancelHlSpotOrder(user: `0x${string}`, market: BookSpotMarket, oid: number) {
+  const { agent } = requireTradingSetup(user);
+  try {
+    await (await agentExchange(agent.privateKey)).cancel({ cancels: [{ a: market.assetId, o: oid }] });
   } catch (error) {
     throw toVenueError(error);
   }
