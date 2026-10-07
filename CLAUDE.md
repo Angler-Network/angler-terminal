@@ -259,6 +259,16 @@ dependency versions and design are free to diverge from angler-news.
     IOC at the best ask/bid ± 5¢ inside (0, 1), whole contracts, ≥ $10 per order. Outcomes spend spot USDC (shared on
     unified accounts); a standard account gets "Move $X from perps to spot" (`usdClassTransfer`, user-signed).
     Fills carry our builder fee, so profile points count them.
+  - Polymarket trading (`lib/venues/polymarket/*`, `components/prediction/polymarket-trade.tsx`): the official SDK
+    `@polymarket/client` (pinned, loaded on demand). The user's EVM wallet (switched to Polygon, chain 137) signs;
+    the account is a Deposit Wallet the SDK derives and deploys gaslessly through Polymarket's relayer. Builder
+    headers come from `/api/prediction/polymarket/sign` (`remoteBuilderSigning`; `POLYMARKET_BUILDER_*` stay on the
+    server; Origin must match, POST/DELETE to plain paths only, rate limited). Orders go straight from the browser to
+    Polymarket with `builderCode` (`NEXT_PUBLIC_POLYMARKET_BUILDER_CODE`): market orders with `maxSpend` and a 5¢
+    price cap, one wallet signature each. L2 credentials stay in sessionStorage for the tab. Polymarket's
+    `/api/geoblock` runs in the browser first; blocked or unreachable (Turkey's DNS block) means no trading. Funding:
+    `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
+    there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume doesn't earn profile points yet.
 - Spot pairs (`lib/spot/listings.ts`, `lib/spot/server.ts`, `GET /api/spot/listings` cached 2 min, `/api/spot/search`):
   live from the venues' pools, never a fixed list. Jupiter `toptraded/24h` + `toporganicscore/24h` + `tag=stocks`,
   Arcus stock/index/commodity tokens priced from the same asset's perp quote. Dollar tokens (Jupiter tags `stable`,

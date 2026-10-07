@@ -1,6 +1,5 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -13,6 +12,7 @@ import { contractsFor, outcomeOrderError } from "@/lib/prediction/hip4-trade";
 import { walkAsks, type PredictionBook } from "@/lib/prediction/market-data";
 import { formatChance, type PredictionEvent, type PredictionMarket } from "@/lib/prediction/types";
 import type { OutcomeAccount } from "@/lib/venues/hyperliquid/outcomes";
+import { PolymarketTrade } from "./polymarket-trade";
 
 const PRESETS = [10, 25, 50, 100];
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -41,7 +41,7 @@ function useOutcomeAccount(enabled: boolean) {
 
 /**
  * Buy panel for the selected market and side: a dollar amount, what it buys from the book (contracts, average price,
- * payout if right), then a two-press trade. HIP-4 trades with the Hyperliquid account; Polymarket opens next.
+ * payout if right), then a two-press trade: HIP-4 with the Hyperliquid account, Polymarket through `PolymarketTrade`.
  */
 export function PredictionTicket({
   event,
@@ -255,16 +255,7 @@ export function PredictionTicket({
           </p>
         </>
       ) : (
-        <>
-          <button type="button" disabled className="h-11 rounded-xl bg-app-chip text-[14px] font-semibold text-app-muted">
-            Polymarket trading is coming next
-          </button>
-          {event.url && (
-            <a href={event.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 text-[12px] text-app-muted hover:text-app-ink">
-              View on Polymarket <ExternalLink className="size-3.5" aria-hidden />
-            </a>
-          )}
-        </>
+        <PolymarketTrade event={event} outcome={outcome} spend={spend} problem={problem} book={book} tone={side === 0 ? "up" : "down"} />
       )}
     </section>
   );
