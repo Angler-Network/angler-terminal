@@ -74,7 +74,7 @@ async function waitForSwap(txHash: string) {
       `status?${new URLSearchParams({ venue: "arcus", id: txHash, chainId: String(arcusConfig.chainId) })}`,
     ).catch(() => null);
     if (status?.status === "confirmed") return;
-    if (status?.status === "failed") throw new ArcusSwapFailedError(arcusErrorMessage(status.errorCode, status.reason || "Arcus couldn't settle the swap."), txHash);
+    if (status?.status === "failed") throw new ArcusSwapFailedError(arcusErrorMessage(status.errorCode, status.reason || "Arcus couldn't settle the swap. No funds moved."), txHash);
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   throw new ArcusSwapFailedError("Arcus accepted the swap but hasn't confirmed it yet. Check the explorer.", txHash);
