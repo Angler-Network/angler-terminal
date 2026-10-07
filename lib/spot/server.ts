@@ -14,7 +14,7 @@ import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener"
 import { LLAMA_BATCH, llamaKey, readLlamaMarkets } from "./llama";
 import { GECKO_TOKENS_BATCH } from "./gecko-tokens";
 import { decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-memory";
-import { getOnchainTokenStats } from "./pool-candles-server";
+import { getOnchainTokenStats, getTopPoolTokens } from "./pool-candles-server";
 import type { PoolNetwork } from "./pool-candles";
 import { redisConfig, redisPipeline } from "@/lib/redis";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
@@ -235,16 +235,21 @@ async function uniswapListings(): Promise<SpotListing[]> {
   const { apiKey } = readUniswapServerConfig(process.env);
   if (!venueAvailable("uniswap") || !apiKey) return [];
   const lists = await Promise.allSettled(
-    EVM_SWAP_CHAINS.filter((chain) => chain.listTop !== false).map(async (chain) => {
+    EVM_SWAP_CHAINS.map(async (chain) => {
       const ranked = async (sort: "volume_24h" | "tvl", limit: number) => {
         const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort, limit: String(limit), chainId: String(chain.id) })}`, apiKey);
         if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}, ${sort}) responded ${response.status}`);
         return (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
       };
       // Volume first; the deepest pools add established tokens that trade less today. A failed TVL list only drops those.
-      const [byVolume, byTvl] = await Promise.all([ranked("volume_24h", UNISWAP_TOP_LIMIT), ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => [])]);
+      // A chain with busiest-pool tokens (Robinhood) keeps going when Uniswap ranks nothing there.
+      const [byVolume, byTvl, byPools] = await Promise.all([
+        chain.poolTop ? ranked("volume_24h", UNISWAP_TOP_LIMIT).catch(() => []) : ranked("volume_24h", UNISWAP_TOP_LIMIT),
+        ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => []),
+        chain.poolTop ? getTopPoolTokens(chain.pool, chain.id).catch(() => []) : [],
+      ]);
       const seen = new Set<string>();
-      const records = [...byVolume, ...byTvl].filter((record) => {
+      const records = [...byVolume, ...byTvl, ...byPools].filter((record) => {
         const key = String(record.address).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
@@ -334,10 +339,12 @@ async function bookSpotListings(): Promise<SpotListing[]> {
 async function loadSpotListings(): Promise<SpotListing[]> {
   const [jupiter, arcus, uniswap, book] = await Promise.allSettled([jupiterListings(), arcusListings(), uniswapListings(), bookSpotListings()]);
   if (arcus.status === "rejected") console.error("[spot] arcus listings failed:", arcus.reason);
+  // Robinhood stock tokens trade on Uniswap too: they stay listed once, as Arcus (the swap card quotes both anyway).
+  const arcusTokens = new Set((arcus.status === "fulfilled" ? arcus.value : []).map((listing) => listing.address.toLowerCase()));
   const listings = mergeListings(
     jupiter.status === "fulfilled" ? jupiter.value : [],
     arcus.status === "fulfilled" ? arcus.value : [],
-    uniswap.status === "fulfilled" ? uniswap.value : [],
+    uniswap.status === "fulfilled" ? uniswap.value.filter((listing) => !(listing.chainId === 4663 && arcusTokens.has(listing.address.toLowerCase()))) : [],
     book.status === "fulfilled" ? book.value : [],
   );
   // An all-empty load is an outage: throwing keeps the cache's last good list.

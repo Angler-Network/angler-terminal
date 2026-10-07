@@ -351,7 +351,9 @@ dependency versions and design are free to diverge from angler-news.
     delivered. Bridge stays its own window (the sidebar/top bar/phone "Bridge" opens the funds window on its Bridge
     tab, as before; tried and dropped: Bridge as a swap-page tab or a /bridge page, since a chart is no use there).
     Ethereum is a funds wallet chain too (`ETHEREUM` in `deposits.ts`). Robinhood Chain is an EVM swap chain as well
-    (USDG first, `listTop: false`: Arcus lists its stock tokens, so it only shows through search).
+    (USDG first). Its list (`poolTop`) adds the tokens of its busiest pools (GeckoTerminal `getTopPoolTokens`, three
+    pages, cached 15 min; `readGeckoPoolTokens`) to whatever Uniswap's `/tokens` ranks there, and drops Uniswap rows
+    for Arcus's stock tokens so they're listed once, as Arcus. Before this only Arcus showed on Robinhood.
   - Relay (`lib/venues/relay*.ts`, `bridge-leg.ts`, `app/api/relay/[...path]`): every bridge leg (`FundsStep` "across":
     funds window, both swap cards) quotes Across and Relay together (`quoteBridgeLeg`) and runs the larger output,
     Across on a tie; waits follow `BridgeLegRef` (Across deposit id or Relay request id). Relay's `/quote` lists the
@@ -463,7 +465,7 @@ dependency versions and design are free to diverge from angler-news.
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
-  a chain filter on the right of the tabs (spot only: Solana / Ethereum / Base / Arbitrum / Robinhood logos, several at once,
+  a chain filter on the right of the tabs (spot only: Solana / Ethereum / Base / Arbitrum / Robinhood logos, one at a time (press again for all),
   only chains present; `rowChain`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.

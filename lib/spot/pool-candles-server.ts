@@ -1,5 +1,6 @@
 import "server-only";
-import { readGeckoTokens } from "./gecko-tokens";
+import { readGeckoPoolTokens, readGeckoTokens } from "./gecko-tokens";
+import type { UniswapTokenRecord } from "./listings";
 import { unstable_cache } from "next/cache";
 import { takeDailyBudget } from "@/lib/analytics/store";
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
@@ -81,6 +82,21 @@ export async function getPoolTrades(network: PoolNetwork, address: string) {
   const trades = await poolTrades(network, pool.address, address);
   return { pool: pool.address, trades: [...trades].sort((a, b) => b.at - a.at) };
 }
+
+/** The tokens of a network's busiest pools (three pages, ~40 tokens), refetched every 15 minutes. */
+export const getTopPoolTokens = unstable_cache(
+  async (network: PoolNetwork, chainId: number): Promise<UniswapTokenRecord[]> => {
+    const pages = await Promise.all(
+      [1, 2, 3].map((page) => onchainJson(`/networks/${network}/pools?page=${page}&sort=h24_volume_usd_desc&include=base_token,quote_token`).catch(() => null)),
+    );
+    // Every page failing (429 included) throws, so the cache keeps the last good list.
+    if (pages.every((page) => page === null)) throw new Error(`Top pools for ${network} are unavailable`);
+    const seen = new Set<string>();
+    return pages.flatMap((page) => readGeckoPoolTokens(page, chainId)).filter((token) => !seen.has(token.address!.toLowerCase()) && Boolean(seen.add(token.address!.toLowerCase())));
+  },
+  ["spot-top-pool-tokens-v1"],
+  { revalidate: 15 * 60 },
+);
 
 /**
  * Price, 24h volume, liquidity and market cap for up to `GECKO_TOKENS_BATCH` tokens per call (`tokens/multi`), the

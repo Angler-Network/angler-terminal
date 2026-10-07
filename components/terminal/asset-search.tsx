@@ -133,7 +133,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
   const [tab, setTab] = useState<Tab>("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [sort, setSort] = useState<SortState>(null);
-  // Chains to show; empty = every chain. Several can be on at once.
+  // The one chain to show (a press again shows every chain); empty = every chain.
   const [chains, setChains] = useState<RowChain[]>([]);
   const [active, setActive] = useState(0);
   const isSpot = kind === "spot" || Boolean(pick);
@@ -212,7 +212,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
     const options = ROW_CHAINS.filter((chain) => present.has(chain.key));
     return options.length > 1 ? options : [];
   }, [isSpot, spotRows, pick]);
-  const toggleChain = (chain: RowChain) => setChains((current) => (current.includes(chain) ? current.filter((entry) => entry !== chain) : [...current, chain]));
+  const toggleChain = (chain: RowChain) => setChains((current) => (current.includes(chain) ? [] : [chain]));
 
   useEffect(() => setActive(0), [query, tab, verifiedOnly, sort, chains]);
   useEffect(() => inputRef.current?.focus(), []);

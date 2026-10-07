@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import gecko from "./fixtures/gecko-tokens-multi.json";
-import { readGeckoTokens } from "./gecko-tokens";
+import geckoPools from "./fixtures/gecko-pools-robinhood.json";
+import { readGeckoPoolTokens, readGeckoTokens } from "./gecko-tokens";
 import { MARKET_MEMORY_TTL_MS, decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-memory";
 
 describe("GeckoTerminal token stats", () => {
@@ -34,5 +35,14 @@ describe("market memory", () => {
     expect(fillMarket(undefined, null, { liquidity: 3 })).toEqual({ liquidity: 3 });
     expect(needsStats({ volume24h: 1, liquidity: 2 })).toBe(false);
     expect(needsStats({ volume24h: 1 })).toBe(true);
+  });
+});
+
+describe("GeckoTerminal top pools", () => {
+  it("lists the busiest pools' tokens once each, busiest first, in the token-list shape", () => {
+    const tokens = readGeckoPoolTokens(geckoPools, 4663);
+    expect(tokens.map((token) => token.symbol)).toEqual(["USDG", "WETH", "PONS", "SUSD", "NVDA"]);
+    expect(tokens[2]).toMatchObject({ address: "0xa9db6d3fb987257767b7227b7df5fad099004571", chainId: 4663, decimals: 18 });
+    expect(readGeckoPoolTokens({ data: [] }, 4663)).toEqual([]);
   });
 });

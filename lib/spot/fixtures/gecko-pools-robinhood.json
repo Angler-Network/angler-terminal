@@ -1,0 +1,150 @@
+{
+ "data": [
+  {
+   "id": "robinhood_0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+   "type": "pool",
+   "attributes": {
+    "name": "USDG / WETH 0.01%"
+   },
+   "relationships": {
+    "base_token": {
+     "data": {
+      "id": "robinhood_0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+      "type": "token"
+     }
+    },
+    "quote_token": {
+     "data": {
+      "id": "robinhood_0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "type": "token"
+     }
+    }
+   }
+  },
+  {
+   "id": "robinhood_0xc1a9ee78142fe666e8586351ed3c6d35eb92f38428716261536a4d9d44d61448",
+   "type": "pool",
+   "attributes": {
+    "name": "PONS / SUSD"
+   },
+   "relationships": {
+    "base_token": {
+     "data": {
+      "id": "robinhood_0xa9db6d3fb987257767b7227b7df5fad099004571",
+      "type": "token"
+     }
+    },
+    "quote_token": {
+     "data": {
+      "id": "robinhood_0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+      "type": "token"
+     }
+    }
+   }
+  },
+  {
+   "id": "robinhood_0x04e30fc2de821c43330d0264c134da23a527f433b31539895f4b5b29e5c181c4",
+   "type": "pool",
+   "attributes": {
+    "name": "NVDA / USDG"
+   },
+   "relationships": {
+    "base_token": {
+     "data": {
+      "id": "robinhood_0xd060f448de7bccb6e54b0cb8d5bc871c8d339eec",
+      "type": "token"
+     }
+    },
+    "quote_token": {
+     "data": {
+      "id": "robinhood_0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+      "type": "token"
+     }
+    }
+   }
+  },
+  {
+   "id": "robinhood_0x95d01aaeb884e62fda3d1f9b0b88f570c98cc7d8738195d83e3506db73513fd2",
+   "type": "pool",
+   "attributes": {
+    "name": "NVDA / SUSD"
+   },
+   "relationships": {
+    "base_token": {
+     "data": {
+      "id": "robinhood_0xd060f448de7bccb6e54b0cb8d5bc871c8d339eec",
+      "type": "token"
+     }
+    },
+    "quote_token": {
+     "data": {
+      "id": "robinhood_0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+      "type": "token"
+     }
+    }
+   }
+  }
+ ],
+ "included": [
+  {
+   "id": "robinhood_0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "type": "token",
+   "attributes": {
+    "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "name": "Global Dollar",
+    "symbol": "USDG",
+    "decimals": 6,
+    "image_url": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111",
+    "coingecko_coin_id": "global-dollar"
+   }
+  },
+  {
+   "id": "robinhood_0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "type": "token",
+   "attributes": {
+    "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+    "name": "WETH",
+    "symbol": "WETH",
+    "decimals": 18,
+    "image_url": "https://coin-images.coingecko.com/coins/images/102174283/large/weth-robinhood.jpeg?1782924507",
+    "coingecko_coin_id": "robinhood-wrapped-eth-robinhood-chain"
+   }
+  },
+  {
+   "id": "robinhood_0xa9db6d3fb987257767b7227b7df5fad099004571",
+   "type": "token",
+   "attributes": {
+    "address": "0xa9db6d3fb987257767b7227b7df5fad099004571",
+    "name": "Pons",
+    "symbol": "PONS",
+    "decimals": 18,
+    "image_url": "https://assets.geckoterminal.com/00bdmpprr05vb0kcyufa4qt09yaj",
+    "coingecko_coin_id": null
+   }
+  },
+  {
+   "id": "robinhood_0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+   "type": "token",
+   "attributes": {
+    "address": "0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+    "name": "Stable USD",
+    "symbol": "SUSD",
+    "decimals": 6,
+    "image_url": null,
+    "coingecko_coin_id": null
+   }
+  },
+  {
+   "id": "robinhood_0xd060f448de7bccb6e54b0cb8d5bc871c8d339eec",
+   "type": "token",
+   "attributes": {
+    "address": "0xd060f448de7bccb6e54b0cb8d5bc871c8d339eec",
+    "name": "NVIDIA • Robinhood Token",
+    "symbol": "NVDA",
+    "decimals": 18,
+    "image_url": null,
+    "coingecko_coin_id": null
+   }
+  }
+ ]
+}

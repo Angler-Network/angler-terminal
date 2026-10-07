@@ -18,8 +18,11 @@ export interface EvmSwapChain {
   name: string;
   /** GeckoTerminal network id (pool candles, trades). */
   pool: "eth" | "base" | "arbitrum" | "robinhood";
-  /** False keeps the chain out of the top-token list (Robinhood: Arcus lists its stock tokens already). */
-  listTop?: boolean;
+  /**
+   * Also list the tokens of the chain's busiest pools (GeckoTerminal), for chains Uniswap's `/tokens` may not rank
+   * (Robinhood). Arcus's stock tokens are listed once, as Arcus.
+   */
+  poolTop?: boolean;
   /** DexScreener chain id (volume, liquidity, search). */
   dexscreener: string;
   /** DefiLlama chain name (prices). */
@@ -98,7 +101,7 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     llama: "robinhood",
     explorer: "https://robinhoodchain.blockscout.com",
     rpc: "https://rpc.mainnet.chain.robinhood.com",
-    listTop: false,
+    poolTop: true,
     pay: [
       { address: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168", symbol: "USDG", decimals: 6 },
       eth,
