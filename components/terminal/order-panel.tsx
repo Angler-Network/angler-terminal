@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { venueAvailable } from "@/lib/deployment";
 import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
@@ -35,9 +36,12 @@ import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
 import { normalizeSpotSymbol } from "@/lib/spot/listings";
 
+type SolanaSpotSource = "best" | "jupiter" | "titan";
+
 type VenueChoice =
   | { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket }
-  | { id: "jupiter"; name: string; network: string; kind: "spot"; token: SpotToken }
+  // Solana spot: "best" asks Jupiter and Titan and takes the larger output; "jupiter" / "titan" use that one only.
+  | { id: SolanaSpotSource; name: string; network: string; kind: "spot"; token: SpotToken }
   | { id: "arcus"; name: string; network: string; kind: "spot"; arcusToken: ArcusToken };
 
 const ARM_MS = 5_000;
@@ -233,7 +237,15 @@ function useVenueChoices(symbol: string, mint?: string) {
         : { id: venue, name: "Lighter", network: lighterNetwork, kind: "perp", market },
     );
   }
-  if (preferences.venueJupiter && token) choices.push({ id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token });
+  if (preferences.venueJupiter && token) {
+    if (preferences.venueTitan && venueAvailable("titan")) {
+      choices.push(
+        { id: "best", name: "Best", network: "mainnet", kind: "spot", token },
+        { id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token },
+        { id: "titan", name: "Titan", network: "mainnet", kind: "spot", token },
+      );
+    } else choices.push({ id: "jupiter", name: "Jupiter", network: "mainnet", kind: "spot", token });
+  }
   if (arcusToken) choices.push({ id: "arcus", name: "Arcus", network: arcusConfig.network, kind: "spot", arcusToken });
   return { choices, isLoading: marketsByVenue.hyperliquid === undefined && marketsByVenue.lighter === undefined };
 }
@@ -285,8 +297,10 @@ export function OrderPanel() {
   const pickVenue = (id: VenueChoice["id"]) => {
     setVenueId(id);
     // Picking a perp venue by hand means the user wants that venue, not the router's.
-    if (preferences.autoRoute && id !== "jupiter" && id !== "arcus") updatePreference("autoRoute", false);
+    if (preferences.autoRoute && choices.find((entry) => entry.id === id)?.kind === "perp") updatePreference("autoRoute", false);
   };
+  // The Solana spot choice (Best, Jupiter or Titan): it needs a Solana wallet, not an EVM one.
+  const solanaChoice = choice?.kind === "spot" && choice.id !== "arcus" ? choice : null;
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
@@ -376,7 +390,7 @@ export function OrderPanel() {
 
   const submit = async () => {
     // "Connect wallet" must work before the form is valid (the size is still empty then).
-    if (!address && choice?.id !== "jupiter") return openWallets();
+    if (!address && !solanaChoice) return openWallets();
     if (!choice || !isValid || isPlacing) return;
     if (!armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
@@ -385,9 +399,10 @@ export function OrderPanel() {
       if (choice.kind === "spot") {
         await trade({
           symbol,
-          mint: choice.id === "jupiter" ? choice.token.mint : undefined,
+          mint: solanaChoice ? solanaChoice.token.mint : undefined,
+          spotSource: solanaChoice?.id,
           venue: "spot",
-          spotVenue: choice.id,
+          spotVenue: solanaChoice ? "jupiter" : "arcus",
           side,
           sizeUsd,
           oneClick: preferences.oneClickTrading,
@@ -423,8 +438,8 @@ export function OrderPanel() {
 
   const verb = sideLabel(isPerp ? "perp" : "spot", side);
   // A spot swap names the token it actually buys (cbBTC), not the asset.
-  const tradedSymbol = choice?.kind === "spot" && choice.id === "jupiter" ? choice.token.symbol : symbol;
-  const buttonText = !address && choice?.id !== "jupiter"
+  const tradedSymbol = solanaChoice ? solanaChoice.token.symbol : symbol;
+  const buttonText = !address && !solanaChoice
     ? "Connect wallet"
     : isPlacing
       ? "Placing…"
@@ -524,10 +539,10 @@ export function OrderPanel() {
               {choice!.network}
             </span>
           </div>
-          {choice?.kind === "spot" && choice.id === "jupiter" && normalizeSpotSymbol(choice.token.symbol) !== normalizeSpotSymbol(symbol) && (
+          {solanaChoice && normalizeSpotSymbol(solanaChoice.token.symbol) !== normalizeSpotSymbol(symbol) && (
             // The asset has no token of its own name on Solana: say which token the swap actually buys or sells.
             <p className="-mt-1 text-[11px] leading-snug text-app-faint">
-              Trades <span className="font-semibold text-app-muted">{choice.token.symbol}</span> ({choice.token.name}), the most traded {symbol} on
+              Trades <span className="font-semibold text-app-muted">{solanaChoice.token.symbol}</span> ({solanaChoice.token.name}), the most traded {symbol} on
               Solana right now.
             </p>
           )}
@@ -716,7 +731,11 @@ export function OrderPanel() {
               )}
             </div>
           )}
-          {choice?.id === "jupiter" && <p className="text-[11px] text-app-faint">Jupiter swaps are on Solana mainnet with real funds.</p>}
+          {solanaChoice && (
+            <p className="text-[11px] text-app-faint">
+              {solanaChoice.id === "best" ? "Best compares Jupiter and Titan and swaps on the better quote. " : ""}Solana mainnet swaps with real funds.
+            </p>
+          )}
           {choice?.id === "arcus" && (
             <p className="text-[11px] text-app-faint">
               {choice.arcusToken.name} on Robinhood Chain {arcusConfig.network}, paid in {arcusConfig.quoteSymbol}. Minimum $5.
@@ -724,10 +743,10 @@ export function OrderPanel() {
           )}
           <button
             type="button"
-            disabled={(address || choice?.id === "jupiter" ? !isValid : false) || isPlacing}
+            disabled={(address || solanaChoice ? !isValid : false) || isPlacing}
             onClick={() => void submit()}
             className={`h-10 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-50 ${
-              !address && choice?.id !== "jupiter"
+              !address && !solanaChoice
                 ? "bg-app-accent text-app-on-accent hover:opacity-90"
                 : isBuy(side)
                   ? "bg-app-up/90 text-black hover:bg-app-up"

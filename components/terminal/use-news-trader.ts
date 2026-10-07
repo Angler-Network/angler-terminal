@@ -37,6 +37,8 @@ export interface NewsTrade {
   perpVenue?: PerpVenueId;
   /** Spot venue; Jupiter when unset. */
   spotVenue?: SpotVenueId;
+  /** Solana swaps: "best" (default) compares Jupiter and Titan; "jupiter" or "titan" uses that one only. */
+  spotSource?: "best" | "jupiter" | "titan";
   side: OrderSide;
   sizeUsd: number;
   /** Perp leverage; defaults to the news leverage setting. */
@@ -129,13 +131,13 @@ export function useNewsTrader() {
         // Jupiter and Titan quote the same swap; the one with more output is executed.
         const [balances, jupiter, titan] = await Promise.all([
           jupiterVenue.getBalances(solanaAddress, [usdc.mint, token.mint]),
-          jupiterVenue.getQuote(input).catch((error: unknown) => error),
-          preferences.venueTitan ? getTitanQuote(input) : Promise.resolve(null),
+          trade.spotSource === "titan" ? Promise.resolve(null) : jupiterVenue.getQuote(input).catch((error: unknown) => error),
+          preferences.venueTitan && trade.spotSource !== "jupiter" ? getTitanQuote(input) : Promise.resolve(null),
         ]);
         const jupiterQuote = jupiter instanceof Error ? null : (jupiter as SpotQuote);
         const quote = pickBestSpotQuote([jupiterQuote, titan]);
         if (!quote) {
-          const reason = jupiter instanceof Error ? jupiter.message : jupiterQuote?.error;
+          const reason = trade.spotSource === "titan" ? "Titan found no route for this swap." : jupiter instanceof Error ? jupiter.message : jupiterQuote?.error;
           return fail(reason ?? "This swap can't be executed."), false;
         }
         const viaTitan = quote === titan;
