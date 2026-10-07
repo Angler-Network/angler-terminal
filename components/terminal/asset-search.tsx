@@ -27,6 +27,51 @@ export function useAssetSearch() {
 
 type Tab = "favorites" | "all" | MarketCategory;
 
+type SortKey = "name" | "price" | "change" | "volume" | "liquidity";
+type SortState = { key: SortKey; dir: "desc" | "asc" } | null;
+
+const sortValue: Record<Exclude<SortKey, "name">, (row: MarketRow) => number | undefined> = {
+  price: (row) => row.price,
+  change: (row) => row.change24h,
+  volume: (row) => row.volume24h,
+  liquidity: (row) => row.liquidity,
+};
+
+/** Sorts by a column; rows without a figure stay at the bottom either way. */
+function sortRows(rows: MarketRow[], sort: SortState) {
+  if (!sort) return rows;
+  const sign = sort.dir === "desc" ? -1 : 1;
+  if (sort.key === "name") return [...rows].sort((a, b) => sign * a.symbol.localeCompare(b.symbol));
+  const value = sortValue[sort.key];
+  return [...rows].sort((a, b) => {
+    const left = value(a);
+    const right = value(b);
+    if (left === undefined || right === undefined) return left === undefined ? (right === undefined ? 0 : 1) : -1;
+    return sign * (left - right);
+  });
+}
+
+/** Column header that sorts: high to low, then low to high, then back to the default order. */
+function SortHeader({ label, column, sort, onSort, className = "" }: { label: string; column: SortKey; sort: SortState; onSort: (sort: SortState) => void; className?: string }) {
+  const active = sort?.key === column;
+  const next: SortState = !active ? { key: column, dir: column === "name" ? "asc" : "desc" } : sort.dir === (column === "name" ? "asc" : "desc") ? { key: column, dir: sort.dir === "desc" ? "asc" : "desc" } : null;
+  return (
+    <span className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(next)}
+        aria-label={`${label}${active ? `, sorted ${sort.dir === "desc" ? "high to low" : "low to high"}` : ""}. Sort`}
+        className={`inline-flex items-center gap-1 uppercase tracking-[0.06em] transition-colors hover:text-app-ink ${active ? "text-app-ink" : ""}`}
+      >
+        {label}
+        <span aria-hidden className={`text-[9px] ${active ? "" : "opacity-0"}`}>
+          {active && sort.dir === "asc" ? "▲" : "▼"}
+        </span>
+      </button>
+    </span>
+  );
+}
+
 function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () => void }) {
   const { preferences, updatePreference } = usePreferences();
   const { selectAsset } = useSelectedAsset();
@@ -36,6 +81,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
+  const [sort, setSort] = useState<SortState>(null);
   const [active, setActive] = useState(0);
   const isSpot = kind === "spot";
 
@@ -66,13 +112,14 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
               watch: entry,
             }))
         : [];
-    return [...source, ...extra].filter(
+    const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
         (!isSpot || !verifiedOnly || row.verified) &&
         (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim()),
     );
-  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind]);
+    return sortRows(filtered, sort);
+  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort]);
 
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
@@ -80,7 +127,7 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
     return byCategory;
   }, [isSpot, spotRows, perpRows]);
 
-  useEffect(() => setActive(0), [query, tab, verifiedOnly]);
+  useEffect(() => setActive(0), [query, tab, verifiedOnly, sort]);
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
@@ -184,12 +231,14 @@ function AssetSearchDialog({ kind, onClose }: { kind: TerminalKind; onClose: () 
         </div>
 
         <div className={`grid shrink-0 ${columns} gap-3 border-b border-app-hairline px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint`}>
-          <span>Name</span>
-          <span className="text-right">Price</span>
-          <span className="text-right">24h</span>
-          <span className="hidden text-right md:block">24h vol.</span>
-          {isSpot && <span className="hidden text-right md:block">Liquidity</span>}
-          <span className="hidden text-right md:block">{isSpot ? "Venue" : "Venues"}</span>
+          <SortHeader label="Name" column="name" sort={sort} onSort={setSort} />
+          <SortHeader label="Price" column="price" sort={sort} onSort={setSort} className="text-right" />
+          <SortHeader label="24h" column="change" sort={sort} onSort={setSort} className="text-right" />
+          <SortHeader label="24h vol." column="volume" sort={sort} onSort={setSort} className="hidden text-right md:block" />
+          {isSpot && <SortHeader label="Liquidity" column="liquidity" sort={sort} onSort={setSort} className="hidden text-right md:block" />}
+          <span className="hidden text-right md:block">
+            {isSpot ? "Venue" : "Venues"}
+          </span>
         </div>
 
         <div ref={listRef} id="asset-search-list" role="listbox" aria-label="Markets" className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto py-1">
