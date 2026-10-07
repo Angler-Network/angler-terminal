@@ -70,7 +70,8 @@ dependency versions and design are free to diverge from angler-news.
   (preferences, wallet tiles, settings rows, account sections): testnet drops Jupiter/Titan/Uniswap; mainnet offers only
   venues whose required settings exist, from `NEXT_PUBLIC_CONFIGURED_VENUES`, which `next.config.mjs` derives at build
   time from env presence (names only: HL needs a real `NEXT_PUBLIC_HL_BUILDER_ADDRESS`, Jupiter `JUP_API_KEY`, Titan
-  `TITAN_API_KEY`, Arcus `ARCUS_API_KEY`, Uniswap `UNISWAP_API_KEY`; Lighter needs nothing). A Testnet badge in the top bar links to
+  `TITAN_API_KEY`, Uniswap `UNISWAP_API_KEY`; Lighter and Arcus need nothing: the Arcus router answers our proxy
+  without a key, which only adds the builder fee). A Testnet badge in the top bar links to
   `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL`. Unset, each venue follows its own `NEXT_PUBLIC_*_NETWORK` as before.
 - Venues (`lib/venues/*`): the `Venue` interface in `types.ts`; Hyperliquid in `hyperliquid/`, built on
   `@nktkas/hyperliquid`.

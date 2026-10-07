@@ -23,7 +23,9 @@ function readConfiguredVenues(env) {
     lighterRh: true,
     jupiter: set(env.JUP_API_KEY),
     titan: set(env.TITAN_API_KEY),
-    arcus: set(env.ARCUS_API_KEY),
+    // The Arcus router quotes and fills through our proxy without a key (checked on mainnet); ARCUS_API_KEY only adds
+    // our builder fee. Gating on it left mainnet stock swaps on Uniswap alone.
+    arcus: true,
     uniswap: set(env.UNISWAP_API_KEY),
   };
   return Object.keys(venues)
