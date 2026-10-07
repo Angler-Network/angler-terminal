@@ -56,7 +56,7 @@ function GeneralSettings() {
     <>
       <SettingRow
         title="Chart"
-        description="Angler chart (TradingView Lightweight Charts) marks headlines on the candles and uses Binance + Hyperliquid prices. The TradingView widget is TradingView's full chart with its own indicators and drawing tools."
+        description="Angler chart (TradingView Lightweight Charts) marks headlines on the candles. Perps chart the venue you trade on (Hyperliquid or Lighter, Binance as a fallback or by choice in the chart header); spot charts the traded token's own DEX pool. The TradingView widget is TradingView's full chart with its own indicators and drawing tools."
       >
         <SelectField
           label="Chart"
