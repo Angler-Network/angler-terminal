@@ -1,7 +1,7 @@
 /**
  * Spot pairs from the integrated spot venues' own pools: Jupiter (Solana tokens, including tokenized stocks) and
  * Arcus (stock, index and commodity tokens on Robinhood Chain). Nothing here is a fixed list: which token stands for
- * an asset (BTC → cbBTC or WBTC) is decided by live liquidity every time the list is read. Pure, unit-tested.
+ * an asset (BTC → cbBTC or WBTC) is decided by live trading volume every time the list is read. Pure, unit-tested.
  */
 
 export type SpotVenueKey = "jupiter" | "arcus";
@@ -137,12 +137,13 @@ export function assetSymbolOf(listing: Pick<SpotListing, "symbol" | "name" | "ca
 }
 
 /**
- * The listing to trade `base` with: verified listings that represent it, the most liquid first (listings without a
- * liquidity figure, like Arcus tokens, come after those with one). Null when no venue lists it.
+ * The listing to trade `base` with: verified listings that represent it, the most traded first (24h volume: where the
+ * market actually is; WBTC holds more pool liquidity, cbBTC trades several times more), pool liquidity breaking ties
+ * and ranking tokens without a volume figure. Listings with neither (Arcus tokens) come last. Null when none lists it.
  */
 export function pickSpotListing(listings: SpotListing[], base: string, venue?: SpotVenueKey): SpotListing | null {
   const candidates = listings.filter((listing) => listing.verified && (!venue || listing.venue === venue) && representsAsset(listing, base));
-  candidates.sort((a, b) => (b.liquidity ?? -1) - (a.liquidity ?? -1));
+  candidates.sort((a, b) => (b.volume24h ?? -1) - (a.volume24h ?? -1) || (b.liquidity ?? -1) - (a.liquidity ?? -1));
   return candidates[0] ?? null;
 }
 

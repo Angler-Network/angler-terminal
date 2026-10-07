@@ -13,6 +13,7 @@ import { toggleWatch } from "@/lib/watchlist";
 import { Change, TokenIcon, usePerpRows, useSpotRows, type MarketRow } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
+import { useSpotToken } from "./use-spot-token";
 
 type Tab = "all" | "yours" | "starred";
 type Sort = "volume" | "change";
@@ -68,7 +69,10 @@ function useYourRows(isSpot: boolean, rows: MarketRow[]): { rows: MarketRow[]; e
 export function WatchlistPanel() {
   const isSpot = terminalKindOf(usePathname()) === "spot";
   const { preferences, updatePreference } = usePreferences();
-  const { symbol, selectAsset } = useSelectedAsset();
+  const { symbol, mint, selectAsset } = useSelectedAsset();
+  // On /spot the highlighted row is the token actually traded (BTC → the busiest BTC token), not every BTC wrapper.
+  const tradedToken = useSpotToken(symbol, mint, isSpot);
+  const tradedMint = mint ?? tradedToken?.mint;
   const [tab, setTab] = useState<Tab>("starred");
   const [sort, setSort] = useState<Sort>("volume");
   const [query, setQuery] = useState("");
@@ -165,7 +169,7 @@ export function WatchlistPanel() {
           <li className="px-3 py-6 text-center text-[12px] leading-snug text-app-muted">{empty}</li>
         ) : (
           rows.map((row) => {
-            const active = row.asset === symbol;
+            const active = isSpot && tradedMint ? row.mint === tradedMint : row.asset === symbol;
             const watched = preferences.watchlist.some((entry) => entry.id === row.id);
             return (
               <li key={row.id} className={`group flex items-center rounded-lg pr-2 transition-colors ${active ? "bg-app-chip" : "hover:bg-app-chip/60"}`}>

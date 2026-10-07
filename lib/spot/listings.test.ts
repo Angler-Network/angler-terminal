@@ -93,7 +93,13 @@ describe("pickSpotListing", () => {
     expect(pickSpotListing(scams, "BTC")).toBeNull();
   });
 
-  it("picks the most liquid verified token for the asset, whatever its ticker", () => {
+  it("prefers where the trading is over parked liquidity", () => {
+    const wbtc = listing("WBTC", "Wrapped BTC (Portal)", 39_700_000, { volume24h: 18_300_000 });
+    const cbbtc = listing("cbBTC", "Coinbase Wrapped BTC", 29_300_000, { volume24h: 65_800_000 });
+    expect(pickSpotListing([wbtc, cbbtc], "BTC")?.symbol).toBe("cbBTC");
+  });
+
+  it("picks the most liquid verified token for the asset when volume is unknown", () => {
     const listings = [listing("WBTC", "Wrapped BTC (Portal)", 2_000_000), listing("cbBTC", "Coinbase Wrapped BTC", 30_000_000), listing("BTC", "Fake BTC", 99e9, { verified: false })];
     expect(pickSpotListing(listings, "BTC")?.symbol).toBe("cbBTC");
     // Tomorrow another wrapper is deeper: it wins without a code change.
@@ -120,13 +126,14 @@ describe("mergeListings", () => {
 });
 
 describe("real Jupiter search for BTC", () => {
-  it("resolves BTC to the most liquid verified wrapper, never a scam ticker", async () => {
+  it("resolves BTC to the most traded verified wrapper, never a scam ticker", async () => {
     const records = (await import("./fixtures/jup-search-btc.json")).default;
     const { pickVerifiedToken } = await import("@/lib/venues/jupiter/tokens");
     // What /api/jup/token does: no verified token is called "BTC", so the asset rule decides.
     expect(pickVerifiedToken(records, { symbol: "BTC" })).toBeNull();
     const picked = pickSpotListing(records.flatMap((record) => fromJupRecord(record) ?? []), "BTC", "jupiter");
-    expect(picked).toMatchObject({ symbol: "WBTC", name: "Wrapped BTC (Portal)", verified: true });
+    // WBTC holds more pool liquidity ($39.7M vs $29.4M) but cbBTC trades 4x more ($53.5M vs $12.2M a day).
+    expect(picked).toMatchObject({ symbol: "cbBTC", name: "Coinbase Wrapped BTC", verified: true });
   });
 });
 
