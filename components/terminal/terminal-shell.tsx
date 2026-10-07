@@ -16,6 +16,8 @@ import { PanelResizer } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
+import { usePathname } from "next/navigation";
+import { terminalKindOf } from "@/lib/terminal-kind";
 
 type Slot = { column: string; row: string };
 
@@ -66,8 +68,10 @@ export function TerminalShell() {
     [feed.items, symbol],
   );
 
+  // Spot venues (Jupiter, Arcus) route through AMMs and have no order book: /spot shows the trading card alone.
+  const isSpot = terminalKindOf(usePathname()) === "spot";
   const showTrading = panels.orderEntry || (panels.account && hasWallet);
-  const showSide = showTrading || panels.orderbook;
+  const showSide = showTrading || (panels.orderbook && !isSpot);
   const layout = useMemo(() => {
     const columns = ["minmax(0,1fr)"];
     const side = showSide ? columns.push("clamp(280px,20vw,340px)") : 0;
@@ -90,7 +94,7 @@ export function TerminalShell() {
   const placed = "min-h-0 lg:col-(--col) lg:row-(--row) lg:h-auto";
   // Phones and tablets show one view at a time (bottom tab bar), every panel available whatever the desktop layout.
   const mobileView = (name: MobileView) => `max-lg:h-full ${view === name ? "" : "max-lg:hidden"}`;
-  const shown = isMobile ? allPanels : panels;
+  const shown = { ...(isMobile ? allPanels : panels), ...(isSpot && { orderbook: false }) };
 
   return (
     <OrderDraftProvider>

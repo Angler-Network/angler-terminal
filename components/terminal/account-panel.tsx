@@ -21,6 +21,8 @@ import { useTrading } from "./trading-provider";
 import { useArcusToken } from "./use-arcus-token";
 import { useAssetVenues } from "./use-asset-venue";
 import { useWallet } from "./wallet-provider";
+import { usePathname } from "next/navigation";
+import { terminalKindOf } from "@/lib/terminal-kind";
 
 const BALANCE_REFRESH_MS = 15_000;
 
@@ -301,14 +303,16 @@ export function useHasWallet() {
 }
 
 /**
- * The trading card: the order panel on top, then balances and trading keys per venue (only once a wallet is
- * connected; wallets themselves are managed from the Connect button). Each part follows its panel setting. With the
- * order book below it (`grow` off) the card keeps its natural height and scrolls once the book needs the room.
+ * The trading card: the order panel on top, then balances and trading keys for the venues of the current view
+ * (perp accounts on /perp, Solana and Arcus balances on /spot), only once a wallet is connected; wallets themselves
+ * are managed from the Connect button. Each part follows its panel setting. With the order book below it (`grow`
+ * off) the card keeps its natural height and scrolls once the book needs the room.
  */
 export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry: boolean; account: boolean; grow?: boolean }) {
   const { address: evmAddress } = useWallet();
   const { address: solanaAddress } = useSolanaWallet();
   const { preferences } = usePreferences();
+  const kind = terminalKindOf(usePathname()) ?? "perp";
   const showAccount = account && Boolean(evmAddress || solanaAddress);
   if (!orderEntry && !showAccount) return null;
   return (
@@ -319,10 +323,10 @@ export function AccountPanel({ orderEntry, account, grow = true }: { orderEntry:
             <OrderPanel />
           </div>
         )}
-        {showAccount && evmAddress && preferences.venueHyperliquid && <HyperliquidSection />}
-        {showAccount && evmAddress && preferences.venueLighter && <LighterSection />}
-        {showAccount && solanaAddress && preferences.venueJupiter && <JupiterSection />}
-        {showAccount && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
+        {showAccount && kind === "perp" && evmAddress && preferences.venueHyperliquid && <HyperliquidSection />}
+        {showAccount && kind === "perp" && evmAddress && preferences.venueLighter && <LighterSection />}
+        {showAccount && kind === "spot" && solanaAddress && preferences.venueJupiter && <JupiterSection />}
+        {showAccount && kind === "spot" && evmAddress && preferences.venueArcus && <ArcusSection address={evmAddress} />}
       </div>
     </div>
   );
