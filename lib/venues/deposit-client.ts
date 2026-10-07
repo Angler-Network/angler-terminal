@@ -10,7 +10,7 @@ import type { SourceChain } from "./deposits";
 const RPC_URLS: Record<number, string> = {
   42161: "https://arb1.arbitrum.io/rpc",
   8453: "https://mainnet.base.org",
-  4663: "https://rpc.chain.robinhood.com",
+  4663: "https://rpc.mainnet.chain.robinhood.com",
   46630: "https://rpc.testnet.chain.robinhood.com",
 };
 

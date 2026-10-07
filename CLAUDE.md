@@ -248,6 +248,8 @@ dependency versions and design are free to diverge from angler-news.
     browser). Signing uses the official `@across-protocol/app-sdk` (pinned, loaded on demand): a fresh exactInput quote
     right before signing, approval + deposit on the origin chain, then the indexer status until `filled` (`expired` /
     `refunded` = funds back on origin). A Lighter recipient must clear its deposit minimum after fees (`minOutputAmount`).
+    Robinhood Chain's public mainnet RPC is `rpc.mainnet.chain.robinhood.com` (`rpc.chain.robinhood.com` never
+    answers); Lighter RH's `createIntentAddress` takes chain 4663 only, core Lighter's takes 42161/8453.
   - Pro order (`pro-order-dialog.tsx`, yellow "Pro order" in the sidebar/top bar/mobile menu; logic in
     `lib/trading/pro-order.ts`): hedge (same coin long on one perp venue, short on another, same base size at the
     coarser step) or multi (up to `MAX_PRO_LEGS` market orders on any venue and coin), sent together behind a confirm

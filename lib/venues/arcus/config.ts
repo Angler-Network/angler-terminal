@@ -29,10 +29,10 @@ export function readArcusNetwork(value: string | null | undefined): ArcusNetwork
   return value === "mainnet" ? "mainnet" : "testnet";
 }
 
-/** Robinhood Chain for viem. Mainnet has no documented public RPC, so NEXT_PUBLIC_ARCUS_RPC_URL can set one. */
+/** Robinhood Chain for viem: the public (rate-limited) RPCs; NEXT_PUBLIC_ARCUS_RPC_URL can set a dedicated one. */
 export function robinhoodChain(network: ArcusNetwork, rpcUrl?: string) {
   const isTestnet = network === "testnet";
-  const rpc = rpcUrl || (isTestnet ? "https://rpc.testnet.chain.robinhood.com" : "https://rpc.chain.robinhood.com");
+  const rpc = rpcUrl || (isTestnet ? "https://rpc.testnet.chain.robinhood.com" : "https://rpc.mainnet.chain.robinhood.com");
   const explorer = isTestnet ? "https://explorer.testnet.chain.robinhood.com" : "https://explorer.chain.robinhood.com";
   // A plain Chain object (not viem's defineChain) so this config doesn't pull viem into pages that only read it.
   const chain: Chain = {
