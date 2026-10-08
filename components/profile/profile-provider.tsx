@@ -38,6 +38,8 @@ interface ProfileContextValue {
   pendingReferral: string | null;
   /** Signs "Use referral code" and saves who referred this profile (once); resolves to an error message or null. */
   applyReferral: (code: string) => Promise<string | null>;
+  /** Forgets the `?ref=` code without applying it. */
+  dismissReferral: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -167,6 +169,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sign, evmAddress, load]);
 
+  const dismissReferral = useCallback(() => {
+    try {
+      window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
+    } catch {}
+    setPendingReferral(null);
+  }, []);
+
   const applyReferral = useCallback(
     async (code: string) => {
       try {
@@ -199,8 +208,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       // Nothing to apply once the profile has a referrer, or for the referrer's own link.
       pendingReferral: profile?.referrer || pendingReferral === profile?.username || pendingReferral === id ? null : pendingReferral,
       applyReferral,
+      dismissReferral,
     }),
-    [id, profile, loading, error, load, saveUsername, canLink, linkSolana, pendingReferral, applyReferral],
+    [id, profile, loading, error, load, saveUsername, canLink, linkSolana, pendingReferral, applyReferral, dismissReferral],
   );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }

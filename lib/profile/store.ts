@@ -262,7 +262,10 @@ export type ReferralResult = { ok: true; referrer: string } | { ok: false; error
  * an existing profile other than this one (and not one this profile referred).
  */
 export async function setReferrer(id: string, code: string): Promise<ReferralResult> {
-  if ((await getHash(id)).referrer) return { ok: false, error: "This profile already has a referrer." };
+  const own = await getHash(id);
+  if (own.referrer) return { ok: false, error: "This profile already has a referrer." };
+  // Referral links are for new traders: a profile that already traded through Angler can't pick a referrer later.
+  if (totalOf(volumeOf(own)) > 0) return { ok: false, error: "Referral links only apply to new profiles." };
   const referrer = profileIdOf(code)?.id ?? (await getKey(key("name", code.toLowerCase())));
   if (!referrer) return { ok: false, error: "No profile uses that referral code." };
   if (referrer === id) return { ok: false, error: "You can't refer yourself." };
