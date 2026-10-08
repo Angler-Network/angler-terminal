@@ -143,7 +143,8 @@ export function useNewsTrader() {
         const [balances, jupiter, titan] = await Promise.all([
           jupiterVenue.getBalances(solanaAddress, [payToken.mint, token.mint]),
           trade.spotSource === "titan" ? Promise.resolve(null) : jupiterVenue.getQuote(input).catch((error: unknown) => error),
-          preferences.venueTitan && trade.spotSource !== "jupiter" ? getTitanQuote(input) : Promise.resolve(null),
+          // Private (MEV-protected) swaps land through Jupiter's Beam only.
+          preferences.venueTitan && !preferences.privateSwap && trade.spotSource !== "jupiter" ? getTitanQuote(input) : Promise.resolve(null),
         ]);
         const jupiterQuote = jupiter instanceof Error ? null : (jupiter as SpotQuote);
         const quote = pickBestSpotQuote([jupiterQuote, titan]);
@@ -198,7 +199,7 @@ export function useNewsTrader() {
         return false;
       }
     },
-    [solanaAddress, signTransaction, fail, toast, openWallets, preferences.venueTitan],
+    [solanaAddress, signTransaction, fail, toast, openWallets, preferences.venueTitan, preferences.privateSwap],
   );
 
   const tradeArcus = useCallback(

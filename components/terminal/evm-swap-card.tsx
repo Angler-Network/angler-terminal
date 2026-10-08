@@ -25,7 +25,7 @@ import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { DetailRow, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
+import { DetailRow, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { useTrading } from "./trading-provider";
@@ -117,10 +117,15 @@ function useAggregators(): AggregatorProvider[] {
 /**
  * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, Odos) asked
  * together, the largest output wins. All carry the same fee, so the best price for the trader is the one that runs.
+ * Private swaps ask Uniswap for UniswapX orders only (the aggregators' transactions would go through the public mempool).
  */
 function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; amount: bigint | null; swapper: string | null; slippageBps: number | null }) {
-  const aggregators = useAggregators();
-  const key = input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(",")].join("|") : null;
+  const { preferences } = usePreferences();
+  const privateOnly = preferences.privateSwap;
+  const enabledAggregators = useAggregators();
+  const aggregators = privateOnly ? [] : enabledAggregators;
+  const key =
+    input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(","), privateOnly].join("|") : null;
   const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -131,7 +136,7 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
       try {
         const request = { ...input, amount: input.amount! };
         const results = await Promise.allSettled([
-          fetchUniswapQuote(request).then((quote): EvmSwapQuote => ({ ...quote, provider: "uniswap" })),
+          fetchUniswapQuote({ ...request, privateOnly }).then((quote): EvmSwapQuote => ({ ...quote, provider: "uniswap" })),
           ...aggregators.map((provider) => fetchAggregatorQuote(provider, request)),
         ]);
         const quotes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
@@ -591,6 +596,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     const sourceName = source === "uniswap" ? "Uniswap" : AGGREGATOR_NAMES[source];
     try {
       const [{ uniswapSwap }, { aggregatorSwap }, viem] = await Promise.all([import("@/lib/venues/uniswap/venue"), import("@/lib/venues/aggregators/venue"), viemChain(chain)]);
+      if (preferences.privateSwap && source !== "uniswap") throw new Error("Private swaps go through UniswapX only. Turn Private off to use " + AGGREGATOR_NAMES[source] + ".");
       const run = source === "uniswap" ? uniswapSwap : (args: Parameters<typeof uniswapSwap>[0]) => aggregatorSwap(source, args);
       const result = await run({
         provider: wallet.provider,
@@ -601,6 +607,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         amount: amountIn,
         slippageBps,
         maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
+        // A private swap is a UniswapX order or nothing: never a transaction in the public mempool.
+        privateOnly: preferences.privateSwap,
       });
       const bought = tokenOut.address === asset.address;
       const tokenAmount = fromBaseUnits(bought ? result.outAmount : result.inAmount, asset.decimals);
@@ -784,8 +792,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-app-ink">{pureBridge ? "Bridge" : "Swap"}</span>
+      <div className="flex items-center gap-1">
+        <span className="mr-auto text-[13px] font-semibold text-app-ink">{pureBridge ? "Bridge" : "Swap"}</span>
+        <PrivateToggle />
         <button
           type="button"
           aria-expanded={showSettings}
@@ -797,6 +806,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
+      {!pureBridge && <PrivateNote routes={direct ? "Relay or LI.FI intents (a solver fills them)" : "UniswapX orders (fillers settle them off the mempool)"} />}
       <div className="relative flex flex-col gap-1">
         <div className={box}>
           <div className="flex items-center justify-between text-[12px]">

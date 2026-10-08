@@ -255,6 +255,12 @@ dependency versions and design are free to diverge from angler-news.
     venue's (USDC on Solana, USDG on Robinhood). Execution is unchanged: `use-news-trader.ts`, sized in USD (sells:
     amount × price). Shared pieces: `inline-picker.tsx` (portaled dropdown), `token-icon.tsx` (`CoinIcon`: token or
     asset logo + chain badge, falls back to `MarketIcon` when an image fails).
+    "Private" in both swap cards' header (`PrivateToggle`, `privateSwap` preference, off by default) = MEV protection,
+    not anonymity (the card says the wallet and trade stay public): only routes whose swap never waits in a public
+    mempool. Solana: Jupiter only (its /execute lands through Beam), Titan skipped (here and in news trades). EVM: Uniswap
+    asked for `protocols: ["UNISWAPX_LATEST"]` only and a classic route refused (`fetchUniswapQuote({ privateOnly })`,
+    also in `uniswapSwap`), 0x/Odos skipped; cross-chain swaps stay on Relay/LI.FI intents. Robinhood stocks: Arcus only
+    (`robinhoodSources` drops Uniswap). With no protected route the card says so instead of sending publicly.
     A gear in the card's header opens Max slippage (`swapSlippageBps` preference, `lib/trading/slippage.ts`): Auto
     (null: Jupiter's real-time estimate, RTSE; Titan 0.5%, Arcus 0.5%) or a fixed 0.5 / 1 / 3 % / custom value sent as
     `slippageBps` to `/api/jup/order`, `/api/titan/order` and Arcus `/v1/quote` (also on the trade itself), with a

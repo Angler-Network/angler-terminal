@@ -210,6 +210,11 @@ export interface Preferences extends Appearance {
   venueUniswap: boolean;
   /** Robinhood stock swaps stay on Arcus (its points) unless Uniswap pays more than `PREFER_ARCUS_BPS` more. */
   preferArcus: boolean;
+  /**
+   * Private (MEV-protected) swaps: only routes that never wait in a public mempool (Jupiter's Beam landing on Solana,
+   * UniswapX orders on EVM chains, Arcus's gasless RFQ). Wallets and trades stay public on-chain.
+   */
+  privateSwap: boolean;
   /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
   venueTitan: boolean;
   /** EVM swaps (Ethereum, Base, Arbitrum) also ask 0x and Odos and take the best of them and Uniswap. */
@@ -301,6 +306,7 @@ export const defaultPreferences: Preferences = {
   venueArcus: venueAvailable("arcus"),
   venueUniswap: venueAvailable("uniswap"),
   preferArcus: true,
+  privateSwap: false,
   venueTitan: venueAvailable("titan"),
   venueZerox: venueAvailable("zerox"),
   venueOdos: venueAvailable("odos"),
@@ -448,6 +454,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
       venueUniswap: venueAvailable("uniswap") && readBoolean(stored.venueUniswap, defaultPreferences.venueUniswap),
       preferArcus: readBoolean(stored.preferArcus, defaultPreferences.preferArcus),
+      privateSwap: readBoolean(stored.privateSwap, defaultPreferences.privateSwap),
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueAvailable("zerox") && readBoolean(stored.venueZerox, defaultPreferences.venueZerox),
       venueOdos: venueAvailable("odos") && readBoolean(stored.venueOdos, defaultPreferences.venueOdos),

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
+import { ArrowDown, ChevronDown, Settings2, Shield, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -269,6 +269,43 @@ function SpotRoutes({
 
 /** Long amounts shrink so the token pill keeps its place in the narrow trading column. */
 export const amountSize = (text: string) => (text.length > 9 ? "text-[16px]" : text.length > 6 ? "text-[19px]" : "text-[22px]");
+/**
+ * The "Private" switch in the swap cards' header (`privateSwap`): MEV protection, i.e. only routes whose swap never
+ * waits in a public mempool where bots can front-run or sandwich it. It doesn't hide the wallet or the trade on-chain.
+ */
+export function PrivateToggle() {
+  const { preferences, updatePreference } = usePreferences();
+  const on = preferences.privateSwap;
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => updatePreference("privateSwap", !on)}
+      title={
+        on
+          ? "Private: MEV-protected routes only. Press to allow every route."
+          : "Private swap: use only MEV-protected routes, never the public mempool where bots can front-run or sandwich a swap"
+      }
+      className={`flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-semibold transition-colors ${on ? "bg-app-up/15 text-app-up" : "text-app-muted hover:text-app-ink"}`}
+    >
+      {on ? <ShieldCheck className="size-4" aria-hidden /> : <Shield className="size-4" aria-hidden />}
+      Private
+    </button>
+  );
+}
+
+/** What Private does on this card, shown while it's on. */
+export function PrivateNote({ routes }: { routes: string }) {
+  const { preferences } = usePreferences();
+  if (!preferences.privateSwap) return null;
+  return (
+    <p className="rounded-lg bg-app-up/10 px-2.5 py-1.5 text-[11px] leading-snug text-app-muted">
+      <span className="font-semibold text-app-up">Private swap.</span> Only MEV-protected routes: {routes}. Bots can&apos;t front-run or sandwich it; your
+      wallet and the trade are still public on-chain.
+    </p>
+  );
+}
+
 /** Max slippage: Auto (each venue's own estimate) or a fixed percentage, saved as the `swapSlippageBps` preference. */
 export function SlippageSettings() {
   const { preferences, updatePreference } = usePreferences();
@@ -446,7 +483,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     side,
     sizeUsd,
     taker: solanaAddress,
-    titan: preferences.venueTitan && venueAvailable("titan"),
+    // Private swaps land through Jupiter (Beam) only: Titan's transaction would go out through a public RPC.
+    titan: preferences.venueTitan && venueAvailable("titan") && !preferences.privateSwap,
     slippageBps,
     quoteMint: payMint === USDC_MINT ? undefined : payMint,
   });
@@ -465,7 +503,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const routeQuotes = isSolana ? quotes : rh.quotes;
   const routesLoading = isSolana ? loading : rh.loading;
   const hasQuotes = isSolana || compareRh;
-  const routeSources: SpotSource[] = isSolana ? ["jupiter", ...(preferences.venueTitan && venueAvailable("titan") ? (["titan"] as const) : [])] : compareRh ? rhSources : [];
+  const routeSources: SpotSource[] = isSolana ? ["jupiter", ...(preferences.venueTitan && venueAvailable("titan") && !preferences.privateSwap ? (["titan"] as const) : [])] : compareRh ? rhSources : [];
   const selected = pick ? routeQuotes.find((quote) => quote.source === pick) : routeQuotes.find((quote) => quote.outAmount !== null);
   // The Robinhood source the swap goes to: the pinned or best quote, else the first enabled one.
   const rhSource = isSolana ? null : ((selected?.source as RobinhoodSource | undefined) ?? rhSources[0] ?? "arcus");
@@ -820,8 +858,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-app-ink">Swap</span>
+      <div className="flex items-center gap-1">
+        <span className="mr-auto text-[13px] font-semibold text-app-ink">Swap</span>
+        <PrivateToggle />
         <button
           type="button"
           aria-expanded={showSettings}
@@ -833,6 +872,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
+      <PrivateNote routes={isSolana ? "Jupiter (Beam landing)" : "Arcus (gasless RFQ)"} />
       <div className="relative flex flex-col gap-1">
         <div className={box}>
           <div className="flex items-center justify-between text-[12px]">

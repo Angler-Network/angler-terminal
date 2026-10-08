@@ -12,10 +12,11 @@ export const ROBINHOOD_SOURCE_NAMES: Record<RobinhoodSource, string> = { arcus: 
 /** Uniswap has no testnet, so it only joins when this build's Robinhood Chain is mainnet. */
 export const uniswapOnRobinhood = (available = venueAvailable("uniswap"), network = arcusConfig.network) => available && network === "mainnet";
 
-export function robinhoodSources(preferences: { venueArcus: boolean; venueUniswap: boolean }): RobinhoodSource[] {
+/** Private (MEV-protected) swaps keep Arcus only: its gasless RFQ never waits in the mempool, a Uniswap pool swap does. */
+export function robinhoodSources(preferences: { venueArcus: boolean; venueUniswap: boolean; privateSwap?: boolean }): RobinhoodSource[] {
   const sources: RobinhoodSource[] = [];
   if (preferences.venueArcus) sources.push("arcus");
-  if (preferences.venueUniswap && uniswapOnRobinhood()) sources.push("uniswap");
+  if (preferences.venueUniswap && uniswapOnRobinhood() && !preferences.privateSwap) sources.push("uniswap");
   return sources;
 }
 

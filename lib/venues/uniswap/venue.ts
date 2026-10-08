@@ -29,6 +29,8 @@ export interface UniswapSwapInput {
   slippageBps?: number | null;
   /** Refuse classic routes with a larger price impact (percent). */
   maxPriceImpactPct: number;
+  /** MEV-protected only (UniswapX); the swap fails rather than going out as a public transaction. */
+  privateOnly?: boolean;
 }
 
 export interface UniswapSwapResult {
@@ -65,7 +67,7 @@ export async function uniswapSwap(input: UniswapSwapInput): Promise<UniswapSwapR
   }
 }
 
-async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slippageBps, maxPriceImpactPct }: UniswapSwapInput): Promise<UniswapSwapResult> {
+async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slippageBps, maxPriceImpactPct, privateOnly = false }: UniswapSwapInput): Promise<UniswapSwapResult> {
   const publicClient = createPublicClient({ chain, transport: http() });
   // Native ETH is sent as the transaction's value: no allowance, and the balance is the account's own.
   const native = isNativeToken(tokenIn.address);
@@ -93,7 +95,7 @@ async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slipp
   }
 
   // Always a fresh quote for this wallet: the card's quotes are price-only and may be stale.
-  const quote = await fetchUniswapQuote({ chainId: chain.id, tokenIn: tokenIn.address, tokenOut: tokenOut.address, amount, swapper: account, slippageBps });
+  const quote = await fetchUniswapQuote({ chainId: chain.id, tokenIn: tokenIn.address, tokenOut: tokenOut.address, amount, swapper: account, slippageBps, privateOnly });
   if (quote.priceImpactPct !== null && quote.priceImpactPct > maxPriceImpactPct) {
     throw new VenueError(`Price impact is ${quote.priceImpactPct.toFixed(2)}%, above the ${maxPriceImpactPct}% limit. Try a smaller size.`);
   }

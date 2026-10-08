@@ -39,10 +39,12 @@ export interface UniswapQuoteInput {
   swapper?: string | null;
   /** Fixed tolerance in bps; unset lets Uniswap pick (auto slippage). */
   slippageBps?: number | null;
+  /** MEV-protected only: UniswapX orders (fillers settle them; nothing waits in the public mempool). */
+  privateOnly?: boolean;
 }
 
 /** An exact-input quote with our fee included (the server adds it). */
-export async function fetchUniswapQuote({ chainId, tokenIn, tokenOut, amount, swapper, slippageBps }: UniswapQuoteInput) {
+export async function fetchUniswapQuote({ chainId, tokenIn, tokenOut, amount, swapper, slippageBps, privateOnly = false }: UniswapQuoteInput) {
   const body = await callUniswap<unknown>("quote", {
     type: "EXACT_INPUT",
     amount: amount.toString(),
@@ -53,8 +55,11 @@ export async function fetchUniswapQuote({ chainId, tokenIn, tokenOut, amount, sw
     swapper: swapper || QUOTE_ONLY_SWAPPER,
     ...(slippageBps ? { slippageTolerance: slippageBps / 100 } : { autoSlippage: "DEFAULT" }),
     routingPreference: "BEST_PRICE",
+    ...(privateOnly ? { protocols: ["UNISWAPX_LATEST"] } : {}),
   });
   const quote = readUniswapQuote(body);
-  if (!quote) throw new VenueError("Uniswap has no route this terminal can execute for this swap.");
+  if (!quote) throw new VenueError(privateOnly ? "No MEV-protected (UniswapX) route for this swap right now." : "Uniswap has no route this terminal can execute for this swap.");
+  // A private swap never falls back to a transaction the wallet broadcasts publicly.
+  if (privateOnly && quote.settle !== "order") throw new VenueError("No MEV-protected (UniswapX) route for this swap right now.");
   return quote;
 }
