@@ -448,8 +448,11 @@ dependency versions and design are free to diverge from angler-news.
   market id) and an exchange-style form: Buy/Sell, Market (IOC) or Limit (HL GTC; Lighter GTT 28 days, type 0), a
   price clicked in the book fills the limit, size in base with % of available, then the market's open orders with
   Cancel (HL `openOrders` by coin; Lighter `accountActiveOrders`, needs this browser's trading key). Its search and
-  watchlist list only these markets; /swap's no longer do (an asset only they list links to /spot). The positions bar
-  under the chart is still the perp one. Before /spot they lived in the swap card, so testnet /swap had
+  watchlist list only these markets; /swap's no longer do (an asset only they list links to /spot). Under the
+  chart: `spot-book-panel.tsx`, the wallet's whole HL + Lighter spot account (`lib/venues/book-spot-account.ts`, parsers
+  in `lib/spot/book-spot-account.ts`): Balances (USD at the market price; a row opens its market), Open orders on every
+  spot market with Cancel, Order history (HL `historicalOrders` and Lighter `accountInactiveOrders`, spot markets only,
+  through the perp history mappers); Lighter orders need this browser's trading key. Before /spot they lived in the swap card, so testnet /swap had
   real pairs (HL testnet: HYPE, PURR, UETH…; Lighter testnet: ETH, LIT). Listed with the spot pairs (HL pairs with ≥ $1k
   24h volume on mainnet, ≥ $10 on testnet, `HL_SPOT_MIN_VOLUME_USD`; Lighter's `spot_order_book_details`), following the
   `venueHyperliquid` / `venueLighter` switches. A market rides in the `mint` slot as `book:<venue>:<id>` (HL pair index,

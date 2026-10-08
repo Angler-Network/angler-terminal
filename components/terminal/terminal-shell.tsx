@@ -17,6 +17,7 @@ import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
 import { PanelResizer, type ResizeEdge } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
+import { SpotBookPanel } from "./spot-book-panel";
 import { SwapHoldings } from "./swap-holdings";
 import { useBookVenueMarket, useSpotView } from "./use-book-spot";
 import { useSelectedAsset } from "./selected-asset";
@@ -314,7 +315,7 @@ export function TerminalShell() {
               />
             )}
             {/* /swap trades tokens, not positions: the wallet's tokens sit under the chart there. */}
-            {isSpot ? <SwapHoldings /> : <PositionsBar />}
+            {isSpot ? <SwapHoldings /> : kind === "book" ? <SpotBookPanel /> : <PositionsBar />}
           </div>
         )}
       </div>
