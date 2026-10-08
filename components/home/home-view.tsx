@@ -56,7 +56,7 @@ function PairDrift({ rows }: { rows: AssetRow[] }) {
   const half = Math.ceil(pairs.length / 2);
   const lanes = [pairs.slice(0, half), pairs.slice(half)];
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl [mask-image:linear-gradient(to_right,transparent_30%,black_75%)]">
+    <div aria-hidden className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-2xl [mask-image:linear-gradient(to_right,transparent_30%,black_75%)] sm:block">
       <div className="absolute -right-24 top-1/2 flex w-[150%] -translate-y-1/2 -rotate-6 flex-col gap-3 opacity-40">
         {lanes.map((lane, index) => (
           <div key={index} className={`pair-drift flex w-max gap-3 ${index === 1 ? "pair-drift-reverse" : ""}`}>
@@ -183,16 +183,16 @@ function ReferralBanner() {
   return (
     <Link
       href="/profile#referrals"
-      className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-app-accent/30 bg-app-accent/[0.07] px-4 py-3 transition-colors hover:bg-app-accent/[0.12]"
+      className="group flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border border-app-accent/30 bg-app-accent/[0.07] px-4 py-3 transition-colors hover:bg-app-accent/[0.12] sm:gap-x-4"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-accent/15 text-app-accent">
         <Gift className="size-[18px]" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their fees</span>
-        <span className="block text-[12px] text-app-muted">Every $10K you trade on perps and spot earns a single-use invite. Each trader you bring in pays you 10% of their Angler fees, for good.</span>
+        <span className="hidden text-[12px] text-app-muted sm:block">Every $10K you trade on perps and spot earns a single-use invite. Each trader you bring in pays you 10% of their Angler fees, for good.</span>
       </span>
-      <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-app-accent px-3 text-[12px] font-semibold text-app-on-accent">
+      <span className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-app-accent px-3 text-[13px] font-semibold text-app-on-accent sm:h-8 sm:w-auto sm:text-[12px]">
         My invites
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
@@ -240,16 +240,17 @@ export function HomeView() {
 
         <nav aria-label="Trade" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {marketNav.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className={`${panel} group flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:border-app-hairline-strong`}>
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink">
-                <Icon className="size-[22px]" strokeWidth={1.75} aria-hidden />
+            <Link key={href} href={href} className={`${panel} group flex items-center gap-2.5 px-3 py-3 transition-colors hover:border-app-hairline-strong sm:gap-3.5 sm:px-4 sm:py-3.5`}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink sm:size-11">
+                <Icon className="size-[18px] sm:size-[22px]" strokeWidth={1.75} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-[16px] font-semibold text-app-ink">
+                <span className="flex items-center gap-1.5 whitespace-nowrap text-[14px] font-semibold text-app-ink sm:text-[16px]">
                   {label}
-                  <ArrowRight className="size-4 text-app-faint transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  <ArrowRight className="hidden size-4 text-app-faint transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden />
                 </span>
-                <span className="mt-0.5 block truncate text-[12px] text-app-muted">{TAGLINES[href]}</span>
+                {/* Phones have room for the name only. */}
+                <span className="mt-0.5 hidden truncate text-[12px] text-app-muted sm:block">{TAGLINES[href]}</span>
               </span>
             </Link>
           ))}

@@ -222,10 +222,12 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
             <span aria-hidden className="pointer-events-none absolute inset-y-0 left-[42px] right-3.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[14px] text-app-faint">
               {HINTS[scope].prompt}
               {HINTS[scope].examples.map((example, index) => (
-                <span key={example.symbol} className="inline-flex items-center gap-1">
+                // Phones show the first example only; the rest would run past the field.
+                <span key={example.symbol} className={`items-center gap-1 ${index === 0 ? "inline-flex" : "hidden sm:inline-flex"}`}>
                   <MarketIcon symbol={example.symbol} kind={example.kind} size={16} />
                   {example.label}
-                  {index < HINTS[scope].examples.length - 1 ? "," : "…"}
+                  <span className={index === 0 ? "sm:hidden" : "hidden"}>…</span>
+                  <span className={index === 0 ? "hidden sm:inline" : "hidden sm:inline"}>{index < HINTS[scope].examples.length - 1 ? "," : "…"}</span>
                 </span>
               ))}
             </span>
