@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { ROW_CHAINS, TokenIcon, rowChain, useSpotRows, type MarketRow, type RowChain } from "@/components/terminal/market-rows";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
@@ -86,6 +86,17 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
   const [scope, setScope] = useState<Scope>("perp");
   const [filter, setFilter] = useState<string | null>(null);
   const typed = query.trim().length > 0;
+  // The results close on a click outside the search and reopen when the field is used again.
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: PointerEvent) => {
+      if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
 
   // Perps: names come from the spot listings (perp venues send tickers only), loaded once someone types.
   const listings = useSpotListings(typed && scope === "perp");
@@ -146,7 +157,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
 
   return (
     <div className="flex max-w-[640px] flex-col gap-2.5">
-      <div className="scrollbar-none flex items-center gap-2 overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Market type" className="flex shrink-0 gap-0.5 rounded-lg bg-app-chip p-0.5">
           {SCOPES.map((option) => (
             <button
@@ -163,41 +174,46 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
           ))}
         </div>
         {filters.length > 1 && (
-          <div key={scope} role="group" aria-label="Venue" className="home-slide flex shrink-0 gap-1.5">
+          <div key={scope} role="group" aria-label="Venue" className="home-slide flex flex-wrap gap-1.5">
             {filters.map((option) => (
               <button
                 key={option.id}
                 type="button"
                 aria-pressed={filter === option.id}
+                aria-label={option.label}
+                title={option.label}
                 onClick={() => setFilter((current) => (current === option.id ? null : option.id))}
-                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2 text-[12px] font-semibold transition-colors ${
-                  filter === option.id ? "border-app-ink/60 bg-app-card text-app-ink" : "border-app-hairline text-app-muted hover:text-app-ink"
+                className={`inline-flex size-7 shrink-0 items-center justify-center rounded-lg border transition-[border-color,background-color,opacity] ${
+                  filter === option.id ? "border-app-ink/60 bg-app-card" : filter ? "border-app-hairline opacity-50 hover:opacity-100" : "border-app-hairline hover:border-app-hairline-strong"
                 }`}
               >
                 {option.icon}
-                {option.label}
               </button>
             ))}
           </div>
         )}
       </div>
-      <div className="relative">
+      <div ref={boxRef} className="relative">
         <label className="flex h-11 items-center gap-2.5 rounded-xl border border-app-field-border bg-app-field px-3.5">
           <Search className="size-[18px] text-app-faint" aria-hidden />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
             onKeyDown={(event) => {
               if (event.key === "Enter") openFirst();
-              if (event.key === "Escape") setQuery("");
+              if (event.key === "Escape") setOpen(false);
             }}
             placeholder={scope === "perp" ? "Find a perp: BTC, Tesla, GOLD…" : scope === "book" ? "Find a spot market: HYPE, NVDA…" : "Find a token by name, ticker or address"}
             aria-label="Find a market"
             className="min-w-0 flex-1 bg-transparent text-[14px] text-app-ink outline-hidden placeholder:text-app-faint"
           />
         </label>
-        {typed && (
-          <ul className="absolute inset-x-0 top-full z-20 mt-1.5 max-h-[380px] overflow-y-auto rounded-xl border border-app-hairline-strong bg-app-card py-1 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
+        {typed && open && (
+          <ul className="scrollbar-subtle absolute inset-x-0 top-full z-20 mt-1.5 max-h-[380px] overflow-y-auto rounded-xl border border-app-hairline-strong bg-app-card py-1 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
             {scope === "perp"
               ? perpResults.map((row) => (
                   <ResultLine
