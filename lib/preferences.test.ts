@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APPEARANCE_VERSION, navModeChange, parsePreferences } from "./preferences";
+import { APPEARANCE_VERSION, VENUES_VERSION, navModeChange, parsePreferences } from "./preferences";
 
 describe("appearance defaults", () => {
   it("defaults to the OLED theme with the Liquid surface", () => {
@@ -55,5 +55,14 @@ describe("navModeChange", () => {
     expect(navModeChange("top", "top")).toEqual({ navMode: "top", tapePosition: "bottom" });
     expect(navModeChange("top", "off")).toEqual({ navMode: "top", tapePosition: "off" });
     expect(navModeChange("sidebar", "bottom")).toEqual({ navMode: "sidebar", tapePosition: "bottom" });
+  });
+});
+
+describe("venue switches reset", () => {
+  it("turns Aster and Arcus back on once for switches saved before the version, then keeps the user's choice", () => {
+    const old = parsePreferences(JSON.stringify({ venueAster: false, venueArcus: false, venueTitan: false }));
+    expect(old).toMatchObject({ venueAster: true, venueArcus: true, venueTitan: false, venuesVersion: VENUES_VERSION });
+    const chosen = parsePreferences(JSON.stringify({ venueAster: false, venueArcus: false, venuesVersion: VENUES_VERSION }));
+    expect(chosen).toMatchObject({ venueAster: false, venueArcus: false });
   });
 });

@@ -195,6 +195,8 @@ export interface Preferences extends Appearance {
   /** With positions or orders on more than one venue: grouped under a header per venue, or one list. */
   positionsLayout: "grouped" | "list";
   appearanceVersion: number;
+  /** Saved venue switches older than `VENUES_VERSION` are reset to the defaults once (see there). */
+  venuesVersion: number;
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
   venueLighter: boolean;
@@ -237,6 +239,14 @@ export const PREFERENCES_STORAGE_KEY = "angler-terminal:preferences:v1";
  * moves to the new default (OLED + Liquid); every other preference is kept.
  */
 export const APPEARANCE_VERSION = 2;
+
+/**
+ * Bumped when venues should come back on for everyone. Browsers that saved their settings while a venue was off or
+ * unavailable kept "off" for good (Arcus before it was offered without an API key; Aster before it was on by default);
+ * a saved switch from an older version is dropped once, then the user's own choice sticks again.
+ */
+export const VENUES_VERSION = 1;
+const RESET_VENUES = ["venueAster", "venueArcus"] as const;
 
 export const defaultPreferences: Preferences = {
   chart: "angler",
@@ -295,11 +305,12 @@ export const defaultPreferences: Preferences = {
   arrangement: defaultArrangement,
   positionsLayout: "grouped",
   appearanceVersion: APPEARANCE_VERSION,
+  venuesVersion: VENUES_VERSION,
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
   venueLighterRh: venueAvailable("lighterRh"),
-  // On by default once our builder fee is set up (NEXT_PUBLIC_ASTER_BUILDER); before that, only for those who turn it on.
-  venueAster: venueAvailable("aster") && Boolean(process.env.NEXT_PUBLIC_ASTER_BUILDER?.trim()),
+  // On by default wherever Aster is offered (our builder fee applies once NEXT_PUBLIC_ASTER_BUILDER is set).
+  venueAster: venueAvailable("aster"),
   // On by default once our broker id is set; before that (testnet's demo broker), only for those who turn it on.
   venueOrderly: venueAvailable("orderly") && Boolean(process.env.NEXT_PUBLIC_ORDERLY_BROKER_ID?.trim()),
   venueJupiter: venueAvailable("jupiter"),
@@ -366,7 +377,12 @@ function readNewsFilters(value: unknown): NewsFilters {
 
 export function parsePreferences(raw: string | null): Preferences {
   try {
-    const stored = JSON.parse(raw ?? "{}");
+    const parsed = JSON.parse(raw ?? "{}");
+    // Venue switches saved before VENUES_VERSION fall back to the defaults once.
+    const stored =
+      parsed && typeof parsed === "object" && parsed.venuesVersion !== VENUES_VERSION
+        ? Object.fromEntries(Object.entries(parsed as Record<string, unknown>).filter(([key]) => !(RESET_VENUES as readonly string[]).includes(key)))
+        : parsed;
     const primary = readDataSource(stored.chartPrimarySource) ?? defaultPreferences.chartPrimarySource;
     const fallback =
       stored.chartFallbackSource === "none" ? "none" : readDataSource(stored.chartFallbackSource);
@@ -444,6 +460,7 @@ export function parsePreferences(raw: string | null): Preferences {
       arrangement: readArrangement(stored.arrangement),
       positionsLayout: stored.positionsLayout === "list" ? "list" : "grouped",
       appearanceVersion: APPEARANCE_VERSION,
+      venuesVersion: VENUES_VERSION,
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueLighterRh: venueAvailable("lighterRh") && readBoolean(stored.venueLighterRh, defaultPreferences.venueLighterRh),

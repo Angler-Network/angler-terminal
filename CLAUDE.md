@@ -31,7 +31,9 @@ dependency versions and design are free to diverge from angler-news.
   carry a content hash (`next.config.mjs` caches `/fonts/*` for a year); rename the file when replacing it.
   Never put two display utilities on one element (`inline-flex hidden lg:inline-flex`): Tailwind 4's stylesheet order
   differs from 3's, so set the display per breakpoint instead. Default look is the `oled` theme with the `liquid`
-  surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once).
+  surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once). Likewise `VENUES_VERSION` drops saved
+  Aster/Arcus switches older than it once (they had stuck at "off" from when those venues were unavailable or off by
+  default); Aster is on by default wherever it's offered.
 - Code that began as copies of angler-news (`components/news/*`, `components/chart/*`, `components/app/ticker-*`,
   `market-icon`, `preferences-provider`, `searchable-select`, `lib/markets/*`, `lib/chart/candles.ts`,
   `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`) is owned here now: change it freely, nothing is ported
