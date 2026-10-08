@@ -212,7 +212,7 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
     <>
       <div className="flex items-center gap-2">
         <h2 className="text-[15px] font-semibold text-app-ink">Platform {metric === "fee" ? "revenue" : "volume"}</h2>
-        <span className="rounded-md bg-[#f5c97b]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f5c97b]">Admin</span>
+        <span className="rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-app-accent">Admin</span>
         {status === "error" && <span className="text-[12px] text-app-down">Couldn&apos;t load the numbers.</span>}
         <div role="group" aria-label="Metric" className="ml-auto flex gap-0.5 rounded-lg bg-app-chip p-0.5">
           {METRICS.map((option) => (
@@ -260,7 +260,7 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
                 <span className="text-[10px] tabular-nums text-app-muted opacity-0 transition-opacity group-hover:opacity-100">{value > 0 ? compactUsd.format(value) : ""}</span>
                 <div
                   title={month ? `${name} ${report?.year}: ${usd.format(month.fee)} revenue, ${compactUsd.format(month.usd)} volume` : name}
-                  className={`w-full rounded-t-md transition-[height] ${value > 0 ? (metric === "fee" ? "bg-[#f5c97b]/80 group-hover:bg-[#f5c97b]" : "bg-app-accent/70 group-hover:bg-app-accent") : "bg-app-chip"}`}
+                  className={`w-full rounded-t-md transition-[height] ${value > 0 ? (metric === "fee" ? "bg-app-accent/80 group-hover:bg-app-accent" : "bg-app-accent/70 group-hover:bg-app-accent") : "bg-app-chip"}`}
                   style={{ height: `${Math.max(2, (value / max) * 100)}%` }}
                 />
                 <span className="text-[10px] text-app-faint">{name}</span>

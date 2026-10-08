@@ -20,7 +20,7 @@ const NEWS_SITE = "https://news.angler.network";
 const MOVER_ROWS = 6;
 
 const MOVERS: Array<{ sort: AssetSort; title: string; icon: LucideIcon; tone: string }> = [
-  { sort: "volume", title: "Most traded", icon: Flame, tone: "text-[#f5c97b]" },
+  { sort: "volume", title: "Most traded", icon: Flame, tone: "text-app-accent" },
   { sort: "gainers", title: "Gainers", icon: TrendingUp, tone: "text-app-up" },
   { sort: "losers", title: "Losers", icon: TrendingDown, tone: "text-app-down" },
 ];
@@ -183,16 +183,16 @@ function ReferralBanner() {
   return (
     <Link
       href="/profile#referrals"
-      className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#f5c97b]/30 bg-[#f5c97b]/[0.07] px-4 py-3 transition-colors hover:bg-[#f5c97b]/[0.12]"
+      className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-app-accent/30 bg-app-accent/[0.07] px-4 py-3 transition-colors hover:bg-app-accent/[0.12]"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#f5c97b]/15 text-[#f5c97b]">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-accent/15 text-app-accent">
         <Gift className="size-[18px]" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their fees</span>
         <span className="block text-[12px] text-app-muted">Every $10K you trade on perps and spot earns a single-use invite. Each trader you bring in pays you 10% of their Angler fees, for good.</span>
       </span>
-      <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#f5c97b] px-3 text-[12px] font-semibold text-black">
+      <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-app-accent px-3 text-[12px] font-semibold text-app-on-accent">
         My invites
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
@@ -220,7 +220,7 @@ export function HomeView() {
     <div className="scrollbar-subtle h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-6 lg:px-8 lg:py-10">
         <section className="surface-panel relative z-10 rounded-2xl border border-app-card/80 bg-app-card/55 p-5 sm:p-7">
-          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(60%_80%_at_100%_0%,rgb(var(--app-accent)/0.10),transparent_60%)]" />
           <PairDrift rows={rows} />
           <div className="relative">
             <div className="flex flex-col gap-4">

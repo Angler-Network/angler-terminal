@@ -27,14 +27,14 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 function navItemClass(active: boolean) {
   return `relative flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-xl px-1 py-[clamp(0.25rem,1vh,0.625rem)] text-[11px] transition-colors ${
     active
-      ? "bg-app-card text-app-ink shadow-[inset_0_0_0_1px_rgb(var(--app-hairline-strong)),0_2px_8px_rgba(19,35,58,0.08)] before:absolute before:-left-1.5 before:top-1/4 before:bottom-1/4 before:w-[3px] before:rounded-r-full before:bg-[#f5c97b]"
+      ? "bg-app-card text-app-ink shadow-[inset_0_0_0_1px_rgb(var(--app-hairline-strong)),0_2px_8px_rgba(19,35,58,0.08)] before:absolute before:-left-1.5 before:top-1/4 before:bottom-1/4 before:w-[3px] before:rounded-r-full before:bg-app-accent"
       : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
   }`;
 }
 
 /** The open page's icon: Solar's bold duotone in gold. */
 function iconClass(active: boolean) {
-  return `size-[22px] transition-colors ${active ? "text-[#f5c97b]" : ""}`;
+  return `size-[22px] transition-colors ${active ? "text-app-accent" : ""}`;
 }
 
 function NavButton({ label, icon: Icon, active = false, onClick }: { label: string; icon: NavIcon; active?: boolean; onClick: () => void }) {
@@ -70,7 +70,7 @@ export function Sidebar() {
           <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
             <span className="relative">
               <Icon className={iconClass(isActive(pathname))} active={isActive(pathname)} />
-              {soon && <span aria-hidden className="absolute -right-1 -top-0.5 size-1.5 rounded-full bg-[#f5c97b]" />}
+              {soon && <span aria-hidden className="absolute -right-1 -top-0.5 size-1.5 rounded-full bg-app-accent" />}
             </span>
             <NavLabel>{label}</NavLabel>
           </Link>
@@ -95,7 +95,7 @@ export function Sidebar() {
           title="Pro order: multi and hedge orders across venues"
           aria-haspopup="dialog"
           aria-expanded={isProOrderOpen}
-          className={`${navItemClass(false)} text-[#f5c97b] hover:text-[#f5c97b] ${isProOrderOpen ? "bg-[#f5c97b]/15" : "hover:bg-[#f5c97b]/10"}`}
+          className={`${navItemClass(false)} text-app-accent hover:text-app-accent ${isProOrderOpen ? "bg-app-accent/15" : "hover:bg-app-accent/10"}`}
         >
           <ProOrderIcon className="size-[22px]" active={isProOrderOpen} />
           <NavLabel>Pro order</NavLabel>

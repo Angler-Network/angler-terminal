@@ -24,7 +24,7 @@ import { SelectField } from "@/components/app/select-field";
 type Mode = "hedge" | "multi";
 
 const ARM_MS = 5_000;
-const PRO = "#f5c97b";
+const PRO = "rgb(var(--app-accent))";
 
 const field =
   "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
@@ -251,7 +251,7 @@ export function ProOrderDialog() {
           <div className="min-w-0 flex-1">
             <h2 id="pro-order-title" className="flex items-center gap-2 text-[16px] font-semibold text-app-ink">
               Pro order
-              <span className="rounded-sm px-1.5 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-black" style={{ background: PRO }}>
+              <span className="rounded-sm px-1.5 py-[2px] text-[10px] font-bold uppercase tracking-[0.08em] text-app-on-accent" style={{ background: PRO }}>
                 Pro
               </span>
             </h2>
@@ -386,7 +386,7 @@ export function ProOrderDialog() {
           type="button"
           disabled={isPlacing || (Boolean(address) && !notReady && Boolean(problem))}
           onClick={() => void submit()}
-          className={`h-10 rounded-lg text-[13px] font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50 ${armed ? "ring-2 ring-app-ink" : ""}`}
+          className={`h-10 rounded-lg text-[13px] font-semibold text-app-on-accent transition-opacity hover:opacity-90 disabled:opacity-50 ${armed ? "ring-2 ring-app-ink" : ""}`}
           style={{ background: PRO }}
         >
           {buttonText}

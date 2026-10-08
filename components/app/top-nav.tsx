@@ -28,14 +28,14 @@ export function TopNav() {
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
       {marketNav.map(({ href, label: text, title, icon: Icon, soon, isActive }) => (
         <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={itemClass(isActive(pathname))}>
-          <Icon className={`size-[18px] ${isActive(pathname) ? "text-[#f5c97b]" : ""}`} active={isActive(pathname)} />
+          <Icon className={`size-[18px] ${isActive(pathname) ? "text-app-accent" : ""}`} active={isActive(pathname)} />
           <span className={label}>{text}</span>
-          {soon && <span className="hidden rounded bg-[#f5c97b]/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-[#f5c97b] xl:inline">Soon</span>}
+          {soon && <span className="hidden rounded bg-app-accent/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-app-accent xl:inline">Soon</span>}
         </Link>
       ))}
       <span aria-hidden className="mx-1 h-5 w-px bg-app-hairline" />
       <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
-        <MarketsIcon className={`size-[18px] ${pathname === "/markets" ? "text-[#f5c97b]" : ""}`} active={pathname === "/markets"} />
+        <MarketsIcon className={`size-[18px] ${pathname === "/markets" ? "text-app-accent" : ""}`} active={pathname === "/markets"} />
         <span className={label}>Markets</span>
       </Link>
       <LayoutMenu placement="below" className={itemClass(false)} iconClassName="size-[18px]" labelNode={<span className={label}>Layout</span>} />
@@ -47,7 +47,7 @@ export function TopNav() {
         type="button"
         title="Pro order: multi and hedge orders across venues"
         onClick={openProOrder}
-        className={`${itemClass(false)} text-[#f5c97b] hover:bg-[#f5c97b]/10 hover:text-[#f5c97b]`}
+        className={`${itemClass(false)} text-app-accent hover:bg-app-accent/10 hover:text-app-accent`}
       >
         <ProOrderIcon className="size-[18px]" />
         <span className={label}>Pro order</span>
@@ -57,7 +57,7 @@ export function TopNav() {
         <span className={label}>Bridge</span>
       </button>
       <Link href="/settings" title="Settings" aria-current={isSettingsOpen ? "page" : undefined} className={itemClass(isSettingsOpen)}>
-        <SettingsIcon className={`size-[18px] ${isSettingsOpen ? "text-[#f5c97b]" : ""}`} active={isSettingsOpen} />
+        <SettingsIcon className={`size-[18px] ${isSettingsOpen ? "text-app-accent" : ""}`} active={isSettingsOpen} />
         <span className={label}>Settings</span>
       </Link>
     </nav>

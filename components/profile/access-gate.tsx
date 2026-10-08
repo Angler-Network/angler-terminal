@@ -20,7 +20,7 @@ function Step({ index, label, state }: { index: number; label: string; state: "d
     <span className={`flex items-center gap-2 text-[12px] font-semibold ${state === "next" ? "text-app-faint" : "text-app-ink"}`}>
       <span
         className={`flex size-5 items-center justify-center rounded-full text-[11px] ${
-          state === "done" ? "bg-[#f5c97b] text-black" : state === "current" ? "bg-[#f5c97b]/15 text-[#f5c97b] ring-1 ring-[#f5c97b]/60" : "bg-app-chip text-app-faint"
+          state === "done" ? "bg-app-accent text-app-on-accent" : state === "current" ? "bg-app-accent/15 text-app-accent ring-1 ring-app-accent/60" : "bg-app-chip text-app-faint"
         }`}
       >
         {state === "done" ? <Check className="size-3" strokeWidth={3} aria-hidden /> : index}
@@ -63,12 +63,12 @@ export function AccessGate() {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-xl">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="gate-aurora absolute -left-1/4 -top-1/3 h-[80vh] w-[80vw] rounded-full bg-[radial-gradient(closest-side,rgba(245,201,123,0.16),transparent)]" />
+        <div className="gate-aurora absolute -left-1/4 -top-1/3 h-[80vh] w-[80vw] rounded-full bg-[radial-gradient(closest-side,rgb(var(--app-accent)/0.16),transparent)]" />
         <div className="gate-aurora absolute -bottom-1/3 -right-1/4 h-[70vh] w-[70vw] rounded-full bg-[radial-gradient(closest-side,rgba(95,180,217,0.10),transparent)] [animation-delay:-9s]" />
       </div>
 
       <div role="dialog" aria-modal="true" aria-labelledby="access-gate-title" className="gate-rise relative flex w-full max-w-[460px] flex-col items-center text-center text-app-ink">
-        <h2 id="access-gate-title" className="bg-linear-to-b from-white via-white to-[#f5c97b] bg-clip-text text-[38px] font-semibold leading-[1.05] tracking-tight text-transparent sm:text-[46px]">
+        <h2 id="access-gate-title" className="bg-linear-to-b from-white via-white to-app-accent bg-clip-text text-[38px] font-semibold leading-[1.05] tracking-tight text-transparent sm:text-[46px]">
           Trading, by invitation.
         </h2>
         <p className="mt-3 max-w-[380px] text-[14px] text-app-muted">Every perp DEX on one screen. Seats open one invite at a time.</p>
@@ -87,7 +87,7 @@ export function AccessGate() {
               <button
                 type="button"
                 onClick={wallets.open}
-                className="group mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-black transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                className="group mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-app-on-accent transition-transform hover:scale-[1.01] active:scale-[0.99]"
               >
                 Connect wallet
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -105,7 +105,7 @@ export function AccessGate() {
                   value={code}
                   onChange={setCode}
                   autoFocus
-                  accentColor="#f5c97b"
+                  accentColor="rgb(var(--app-accent))"
                   status={message ? "error" : "idle"}
                   slotSize={44}
                   gap={8}
@@ -117,7 +117,7 @@ export function AccessGate() {
                 <button
                   type="submit"
                   disabled={busy || !REFERRAL_CODE.test(code.trim())}
-                  className="group mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f5c97b] text-[15px] font-semibold text-black transition-all hover:shadow-[0_0_32px_rgba(245,201,123,0.35)] disabled:opacity-40 disabled:shadow-none"
+                  className="group mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-app-accent text-[15px] font-semibold text-app-on-accent transition-all hover:shadow-[0_0_32px_rgb(var(--app-accent)/0.35)] disabled:opacity-40 disabled:shadow-none"
                 >
                   {busy ? "Sign in your wallet…" : "Join Angler"}
                   {!busy && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />}

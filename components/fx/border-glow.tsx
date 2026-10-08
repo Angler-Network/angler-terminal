@@ -2,7 +2,7 @@
 
 /**
  * From React Bits (https://reactbits.dev, github.com/DavidHDev/react-bits) by David Haz, MIT + Commons Clause
- * (components/fx/LICENSE-react-bits.md). Kept close to upstream; changes are noted where they matter.
+ * (components/fx/LICENSE-react-bits.md). Changed for Angler: glowColor "accent" follows the theme accent.
  */
 
 import { useRef, useCallback, useState, useEffect, type ReactNode } from 'react';
@@ -29,7 +29,9 @@ function parseHSL(hslStr: string): { h: number; s: number; l: number } {
 }
 
 function buildBoxShadow(glowColor: string, intensity: number): string {
-  const { h, s, l } = parseHSL(glowColor);
+  // Angler change: "accent" glows in the theme's accent color (the --app-accent channels).
+  const accent = glowColor === 'accent';
+  const { h, s, l } = accent ? { h: 0, s: 0, l: 0 } : parseHSL(glowColor);
   const base = `${h}deg ${s}% ${l}%`;
   const layers: [number, number, number, number, number, boolean][] = [
     [0, 0, 0, 1, 100, true], [0, 0, 1, 0, 60, true], [0, 0, 3, 0, 50, true],
@@ -40,7 +42,8 @@ function buildBoxShadow(glowColor: string, intensity: number): string {
   ];
   return layers.map(([x, y, blur, spread, alpha, inset]) => {
     const a = Math.min(alpha * intensity, 100);
-    return `${inset ? 'inset ' : ''}${x}px ${y}px ${blur}px ${spread}px hsl(${base} / ${a}%)`;
+    const color = accent ? `rgb(var(--app-accent) / ${a}%)` : `hsl(${base} / ${a}%)`;
+    return `${inset ? 'inset ' : ''}${x}px ${y}px ${blur}px ${spread}px ${color}`;
   }).join(', ');
 }
 

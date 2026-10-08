@@ -241,11 +241,11 @@ function VipCard({ profile }: { profile: ProfileData }) {
   const progress = next ? Math.min(1, (volume - vip.minVolume) / (next.minVolume - vip.minVolume)) : 1;
   return (
     // The top tier's card glows on its own; the others light up toward the pointer.
-    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="40 85 70" glowRadius={28} colors={["#f5c97b", "#e9b45a", "#fff1cf"]} fillOpacity={0.35} animated={!next}>
+    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="accent" glowRadius={28} colors={["rgb(var(--app-accent))", "#e9b45a", "#fff1cf"]} fillOpacity={0.35} animated={!next}>
     <section className="flex h-full flex-col p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-[13px] font-semibold text-app-ink">VIP</h2>
-        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-[#f5c97b]/15 text-[#f5c97b]" : "bg-app-chip text-app-muted"}`}>
+        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-app-accent/15 text-app-accent" : "bg-app-chip text-app-muted"}`}>
           VIP {vip.level}
         </span>
       </div>
@@ -256,14 +256,14 @@ function VipCard({ profile }: { profile: ProfileData }) {
           : "Top tier: the biggest fee discount."}
       </p>
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
-        <div className="h-full rounded-full bg-[#f5c97b] transition-[width]" style={{ width: `${Math.max(2, progress * 100)}%` }} />
+        <div className="h-full rounded-full bg-app-accent transition-[width]" style={{ width: `${Math.max(2, progress * 100)}%` }} />
       </div>
       <ol className="mt-auto grid grid-cols-5 gap-1.5 pt-3 text-center text-[10px]">
         {VIP_TIERS.map((tier) => (
           <li
             key={tier.level}
             title={`${compactUsd.format(tier.minVolume)}+ in 30 days`}
-            className={`rounded-lg px-1 py-1.5 ${tier.level === vip.level ? "bg-[#f5c97b]/15 text-app-ink" : tier.level < vip.level ? "text-app-ink" : "text-app-faint"}`}
+            className={`rounded-lg px-1 py-1.5 ${tier.level === vip.level ? "bg-app-accent/15 text-app-ink" : tier.level < vip.level ? "text-app-ink" : "text-app-faint"}`}
           >
             <span className="block font-semibold">VIP {tier.level}</span>
             <span className="block">{tier.level === 0 ? "—" : `-${discountOf(tier.rate)}%`}</span>
@@ -408,7 +408,7 @@ function ReferralCard() {
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-app-ink">
           Invites
-          {profile.admin && <span className="rounded-md bg-[#f5c97b]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f5c97b]">Admin</span>}
+          {profile.admin && <span className="rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-app-accent">Admin</span>}
         </h2>
         <span className="ml-auto rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
         {profile.admin && (
@@ -424,7 +424,7 @@ function ReferralCard() {
               setCreating(false);
             }}
             title="Admins invite people into the closed beta; the new code's link is copied"
-            className="h-7 rounded-lg bg-[#f5c97b] px-2.5 text-[12px] font-semibold text-black hover:opacity-90 disabled:opacity-60"
+            className="h-7 rounded-lg bg-app-accent px-2.5 text-[12px] font-semibold text-app-on-accent hover:opacity-90 disabled:opacity-60"
           >
             {creating ? "Creating…" : "Create invite"}
           </button>
@@ -553,7 +553,7 @@ function Leaderboard() {
               const mine = entry.id === profile?.id;
               return (
                 <tr key={entry.id} className={`border-t border-app-hairline first:border-t-0 ${mine ? "bg-app-accent/10" : ""}`}>
-                  <td className={`${td} font-semibold ${entry.rank <= 3 ? "text-[#f5c97b]" : "text-app-muted"}`}>{entry.rank}</td>
+                  <td className={`${td} font-semibold ${entry.rank <= 3 ? "text-app-accent" : "text-app-muted"}`}>{entry.rank}</td>
                   <td className={td}>
                     <span className="flex items-center gap-2 text-app-ink">
                       <ProfileAvatar id={entry.id} size={20} image={entry.ens?.avatar} />

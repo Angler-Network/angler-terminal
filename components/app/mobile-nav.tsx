@@ -123,7 +123,7 @@ export function MobileNav() {
             </Link>
             <button
               type="button"
-              className={`${sheetItem} w-full text-[#f5c97b]`}
+              className={`${sheetItem} w-full text-app-accent`}
               onClick={() => {
                 setMenuOpen(false);
                 openProOrder();

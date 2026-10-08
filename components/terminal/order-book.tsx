@@ -105,9 +105,9 @@ function Levels({
               ? `${Object.entries(row.byVenue).map(([venue, size]) => `${VENUE_SHORT[venue as PerpVenueId]} ${formatSize(size)}`).join(" · ")} · use as limit price`
               : "Use as limit price"
           }${own ? ` · your orders: ${formatSize(own)}` : ""}`}
-          className={`relative grid h-[18px] shrink-0 grid-cols-3 px-2 text-[11px] tabular-nums hover:bg-app-chip ${own ? "bg-[#f5c97b]/10" : ""}`}
+          className={`relative grid h-[18px] shrink-0 grid-cols-3 px-2 text-[11px] tabular-nums hover:bg-app-chip ${own ? "bg-app-accent/10" : ""}`}
         >
-          {own && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-[#f5c97b]" />}
+          {own && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-app-accent" />}
           {row.byVenue && maxSize ? (
             <span aria-hidden className="absolute inset-y-[3px] right-0 flex flex-row-reverse opacity-30" style={{ width: `${(row.size / maxSize) * 100}%` }}>
               {Object.entries(row.byVenue).map(([venue, size]) => (
@@ -119,7 +119,7 @@ function Levels({
           )}
           <span className={`relative text-left ${color}`}>{row.price.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</span>
           <span className="relative text-right text-app-ink">
-            {own && <span className="mr-1 rounded bg-[#f5c97b]/20 px-1 text-[10px] font-semibold text-[#f5c97b]">{formatSize(own)}</span>}
+            {own && <span className="mr-1 rounded bg-app-accent/20 px-1 text-[10px] font-semibold text-app-accent">{formatSize(own)}</span>}
             {formatSize(row.size)}
           </span>
           <span className="relative text-right text-app-muted">{formatSize(row.total)}</span>

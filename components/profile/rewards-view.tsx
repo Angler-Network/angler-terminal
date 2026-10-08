@@ -13,7 +13,7 @@ const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
 /** Angler gold, for the cards' edge glow. */
-const GOLD = ["#f5c97b", "#e9b45a", "#fff1cf"];
+const GOLD = ["rgb(var(--app-accent))", "#e9b45a", "#fff1cf"];
 
 function SourceCard({
   icon,
@@ -30,14 +30,14 @@ function SourceCard({
 }) {
   return (
     // The edge lights up in gold toward the pointer (only while hovered, so it costs nothing otherwise).
-    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="40 85 70" glowRadius={28} colors={GOLD} fillOpacity={0.35}>
+    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="accent" glowRadius={28} colors={GOLD} fillOpacity={0.35}>
     <section className="group relative flex h-full flex-col overflow-hidden p-5">
-      <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[#f5c97b]/[0.06] blur-2xl" />
-      <span className="flex size-10 items-center justify-center rounded-xl bg-[#f5c97b]/12 text-[#f5c97b] ring-1 ring-[#f5c97b]/20">{icon}</span>
+      <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-app-accent/[0.06] blur-2xl" />
+      <span className="flex size-10 items-center justify-center rounded-xl bg-app-accent/12 text-app-accent ring-1 ring-app-accent/20">{icon}</span>
       <h3 className="mt-4 text-[13px] font-semibold text-app-muted">{title}</h3>
       <p className="mt-0.5 text-[26px] font-semibold tabular-nums tracking-tight text-app-ink">{value}</p>
       <p className="mt-1 text-[12px] leading-relaxed text-app-muted">{detail}</p>
-      <Link href={cta.href} className="mt-auto inline-flex items-center gap-1 pt-4 text-[12px] font-semibold text-app-ink hover:text-[#f5c97b]">
+      <Link href={cta.href} className="mt-auto inline-flex items-center gap-1 pt-4 text-[12px] font-semibold text-app-ink hover:text-app-accent">
         {cta.label}
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </Link>
@@ -65,10 +65,10 @@ export function RewardsView() {
   return (
     <>
       <section className={`${card} relative overflow-hidden p-6 sm:p-8`}>
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_120%_at_0%_0%,rgba(245,201,123,0.14),transparent_55%),radial-gradient(50%_90%_at_100%_100%,rgba(245,201,123,0.06),transparent_60%)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_120%_at_0%_0%,rgb(var(--app-accent)/0.14),transparent_55%),radial-gradient(50%_90%_at_100%_100%,rgb(var(--app-accent)/0.06),transparent_60%)]" />
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#f5c97b]">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-app-accent">
               <Sparkles className="size-3.5" aria-hidden />
               Total points
             </p>
@@ -84,7 +84,7 @@ export function RewardsView() {
             <div className="rounded-xl border border-app-hairline bg-app-card/60 px-4 py-3 text-center">
               <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">Rank</p>
               <p className="mt-1 flex items-center justify-center gap-1.5 text-[20px] font-semibold tabular-nums text-app-ink">
-                <Trophy className="size-4 text-[#f5c97b]" aria-hidden />
+                <Trophy className="size-4 text-app-accent" aria-hidden />
                 {profile.rank ? `#${profile.rank}` : "—"}
               </p>
             </div>
@@ -96,7 +96,7 @@ export function RewardsView() {
         </div>
         <div className="relative mt-6">
           <div className="h-1.5 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}>
-            <div className="h-full rounded-full bg-linear-to-r from-[#f5c97b]/60 to-[#f5c97b]" style={{ width: `${Math.max(2, level.progress * 100)}%` }} />
+            <div className="h-full rounded-full bg-linear-to-r from-app-accent/60 to-app-accent" style={{ width: `${Math.max(2, level.progress * 100)}%` }} />
           </div>
           <p className="mt-2 text-[12px] tabular-nums text-app-muted">
             {level.next === null ? "Top level reached." : `${number.format(level.next - profile.points)} points to ${level.nextName}`}
@@ -139,7 +139,7 @@ export function RewardsView() {
               <div key={day.date} className="group relative flex h-full flex-1 items-end">
                 <div
                   title={`${day.date}: ${number.format(day.points)} points (${compactUsd.format(day.usd)} traded)`}
-                  className={`w-full rounded-t-sm ${day.points > 0 ? "bg-[#f5c97b]/70 group-hover:bg-[#f5c97b]" : "bg-app-chip"}`}
+                  className={`w-full rounded-t-sm ${day.points > 0 ? "bg-app-accent/70 group-hover:bg-app-accent" : "bg-app-chip"}`}
                   style={{ height: `${Math.max(3, (day.points / max) * 100)}%` }}
                 />
               </div>

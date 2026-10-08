@@ -59,11 +59,11 @@ export function ProfileButton() {
         <ProfileAvatar id={shownId} size={22} image={profile?.ens?.avatar} />
         <span className="hidden max-w-[120px] truncate sm:inline">{profile?.username ?? profile?.ens?.name ?? shortAddress(shownId)}</span>
         {profile && (
-          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 2 })} points`} className="hidden rounded-md bg-[#f5c97b]/25 px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00] sm:inline [html[data-tone=dark]_&]:bg-[#f5c97b]/20 [html[data-tone=dark]_&]:text-[#f5c97b]">
+          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 2 })} points`} className="hidden rounded-md bg-app-accent/25 px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00] sm:inline [html[data-tone=dark]_&]:bg-app-accent/20 [html[data-tone=dark]_&]:text-app-accent">
             Lv {profile.level.level}
           </span>
         )}
-        {pendingReferral && <span title="A referral code is waiting on your profile" className="size-1.5 rounded-full bg-[#f5c97b]" />}
+        {pendingReferral && <span title="A referral code is waiting on your profile" className="size-1.5 rounded-full bg-app-accent" />}
         <ChevronDown className={`hidden size-3.5 text-app-muted transition-transform sm:block ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
       {open && (
