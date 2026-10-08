@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pinnedNetwork, readConfiguredVenues, readDeployment, venueAvailable } from "./deployment";
+import { pinnedNetwork, readConfiguredVenues, readDeployment, swapViewAvailable, venueAvailable } from "./deployment";
 
 describe("deployment", () => {
   it("reads the deployment", () => {
@@ -26,6 +26,16 @@ describe("deployment", () => {
     expect(venueAvailable("titan", null, new Set())).toBe(true);
     expect(venueAvailable("uniswap", "testnet", new Set(["uniswap"]))).toBe(false);
     expect(venueAvailable("uniswap", "mainnet", new Set(["uniswap"]))).toBe(true);
+    // EVM aggregators only quote mainnet chains: never on the testnet site, even when configured.
+    expect(venueAvailable("zerox", "testnet", new Set(["zerox"]))).toBe(false);
+    expect(venueAvailable("odos", "testnet", new Set(["odos"]))).toBe(false);
+    expect(venueAvailable("zerox", "mainnet", new Set(["zerox"]))).toBe(true);
     expect(readConfiguredVenues(undefined).size).toBe(0);
+  });
+
+  it("has no Swap view on the testnet site", () => {
+    expect(swapViewAvailable("testnet")).toBe(false);
+    expect(swapViewAvailable("mainnet")).toBe(true);
+    expect(swapViewAvailable(null)).toBe(true);
   });
 });

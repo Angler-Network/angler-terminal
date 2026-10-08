@@ -11,6 +11,7 @@ import { useSpotListings } from "@/components/terminal/use-spot-listings";
 import { formatPrice } from "@/lib/format";
 import { assetNames, matchesQuery, sortAssetRows, type AssetRow } from "@/lib/markets/rows";
 import type { SpotListing } from "@/lib/spot/listings";
+import { swapViewAvailable } from "@/lib/deployment";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -29,7 +30,7 @@ type Scope = "perp" | "book" | "spot";
 const SCOPES: Array<{ value: Scope; label: string }> = [
   { value: "perp", label: "Perp Dex" },
   { value: "book", label: "Spot Dex" },
-  { value: "spot", label: "Swap" },
+  ...(swapViewAvailable() ? [{ value: "spot" as const, label: "Swap" }] : []),
 ];
 
 /** The spot venues each spot view searches (same as the terminal's own search). */

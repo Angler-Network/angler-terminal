@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
-import { venueAvailable } from "@/lib/deployment";
+import { swapViewAvailable, venueAvailable } from "@/lib/deployment";
 import { useBookSpotFallback } from "./book-spot-card";
 import { EvmSwapCard } from "./evm-swap-card";
 import { SwapCard, type SpotChoice } from "./swap-card";
@@ -609,7 +609,7 @@ export function OrderPanel() {
               </button>
             </div>
           )}
-          {hasKind(otherKind) && (
+          {hasKind(otherKind) && (otherKind !== "spot" || swapViewAvailable()) && (
             <Link
               href={TERMINAL_PATHS[otherKind]}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-app-chip text-[13px] font-semibold text-app-ink transition-colors hover:bg-app-card"

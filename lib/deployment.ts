@@ -32,16 +32,26 @@ export function readConfiguredVenues(value: string | undefined) {
   return new Set((value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean));
 }
 
+/** Swap venues with no testnet: on the testnet site they'd trade real funds on mainnet, so they stay off there. */
+const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "odos"]);
+
 /**
  * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a
  * builder address for Hyperliquid, API keys for Jupiter, Titan, Arcus and Uniswap); the testnet site has no
- * mainnet-only venues (Jupiter, Titan, Uniswap); unpinned builds offer everything.
+ * mainnet-only venues (Jupiter, Titan, Uniswap, 0x, Odos); unpinned builds offer everything.
  */
 export function venueAvailable(venue: VenueKey, pinned: Deployment | null = deployment, configured: Set<string> = configuredVenues) {
   if (pinned === "mainnet") return configured.has(venue);
-  // Jupiter, Titan and the Uniswap Trading API have no testnet.
-  if (pinned === "testnet") return venue !== "jupiter" && venue !== "titan" && venue !== "uniswap";
+  if (pinned === "testnet") return !MAINNET_ONLY.has(venue);
   return true;
+}
+
+/**
+ * Whether this build has the Swap view. Not on the testnet site: its swap venues are mainnet-only and Arcus's testnet
+ * quotes a single token, so the view would be empty; Robinhood stock tokens stay on Spot Dex there.
+ */
+export function swapViewAvailable(pinned: Deployment | null = deployment) {
+  return pinned !== "testnet";
 }
 
 function readUrl(value: string | undefined) {
