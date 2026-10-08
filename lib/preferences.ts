@@ -222,6 +222,7 @@ export interface Preferences extends Appearance {
   /** EVM swaps (Ethereum, Base, Arbitrum) also ask 0x and Odos and take the best of them and Uniswap. */
   venueZerox: boolean;
   venueOdos: boolean;
+  venueKyberswap: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
   /** Bridges quoted for deposits, moves and cross-chain swaps (the best enabled quote runs). */
@@ -321,6 +322,7 @@ export const defaultPreferences: Preferences = {
   venueTitan: venueAvailable("titan"),
   venueZerox: venueAvailable("zerox"),
   venueOdos: venueAvailable("odos"),
+  venueKyberswap: venueAvailable("kyberswap"),
   preferredPerpVenue: "hyperliquid",
   bridgeAcross: true,
   bridgeRelay: true,
@@ -475,6 +477,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueAvailable("zerox") && readBoolean(stored.venueZerox, defaultPreferences.venueZerox),
       venueOdos: venueAvailable("odos") && readBoolean(stored.venueOdos, defaultPreferences.venueOdos),
+      venueKyberswap: venueAvailable("kyberswap") && readBoolean(stored.venueKyberswap, defaultPreferences.venueKyberswap),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" || stored.preferredPerpVenue === "orderly" ? stored.preferredPerpVenue : "hyperliquid",
       bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
       bridgeRelay: readBoolean(stored.bridgeRelay, defaultPreferences.bridgeRelay),

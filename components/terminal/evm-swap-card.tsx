@@ -20,7 +20,7 @@ import { WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { LIFI_NATIVE_SOL, LIFI_SOLANA_CHAIN } from "@/lib/venues/lifi";
 import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
 import { fetchAggregatorQuote, type EvmSwapQuote } from "@/lib/venues/aggregators/client";
-import { AGGREGATOR_NAMES, type AggregatorProvider } from "@/lib/venues/aggregators/types";
+import { AGGREGATOR_NAMES, AGGREGATOR_PROVIDERS, type AggregatorProvider } from "@/lib/venues/aggregators/types";
 import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
@@ -44,7 +44,7 @@ const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
 const DOLLARS = new Set(["USDC", "USDT", "USDG"]);
 /** ETH a "Max" keeps back for gas: mainnet gas costs more than an L2's. */
-const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n, 4663: 300_000_000_000_000n };
+const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 56: 2_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n, 4663: 300_000_000_000_000n };
 
 /** A side of the swap: an EVM token (0x address) or, across chains, a Solana mint. */
 type Side = { address: string; symbol: string; decimals: number; icon?: string };
@@ -109,13 +109,12 @@ function useBalances(rpc: string | null, owner: `0x${string}` | null, tokens: st
 function useAggregators(): AggregatorProvider[] {
   const { preferences } = usePreferences();
   const { off } = useOffServices();
-  return (["zerox", "odos"] as const).filter(
-    (provider) => venueAvailable(provider) && (provider === "zerox" ? preferences.venueZerox : preferences.venueOdos) && !off.includes(`swap:${provider}`),
-  );
+  const switchedOn: Record<AggregatorProvider, boolean> = { zerox: preferences.venueZerox, odos: preferences.venueOdos, kyberswap: preferences.venueKyberswap };
+  return AGGREGATOR_PROVIDERS.filter((provider) => venueAvailable(provider) && switchedOn[provider] && !off.includes(`swap:${provider}`));
 }
 
 /**
- * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, Odos) asked
+ * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, Odos, KyberSwap) asked
  * together, the largest output wins. All carry the same fee, so the best price for the trader is the one that runs.
  * Private swaps ask Uniswap for UniswapX orders only (the aggregators' transactions would go through the public mempool).
  */
@@ -259,8 +258,8 @@ async function viemChain(chain: EvmSwapChain) {
     const { robinhoodChain } = await import("@/lib/venues/arcus/config");
     return robinhoodChain("mainnet");
   }
-  const { arbitrum, base, mainnet } = await import("viem/chains");
-  const known = [mainnet, base, arbitrum].find((entry) => entry.id === chain.id)!;
+  const { arbitrum, base, bsc, mainnet } = await import("viem/chains");
+  const known = [mainnet, base, arbitrum, bsc].find((entry) => entry.id === chain.id)!;
   return { ...known, rpcUrls: { default: { http: [chain.rpc] } } };
 }
 
@@ -300,6 +299,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const chainUsdc = chain.pay[0];
   const tokenIsUsdc = sameAddress(token.address, chainUsdc.address);
   const localOptions = chain.pay.filter((entry) => !sameAddress(entry.address, token.address));
+  // The bridge path (Across, Hyperliquid withdrawals) serves the wallet chains only; on BNB Chain another chain's dollar
+  // goes through Relay or LI.FI like any other token.
+  const bridgeable = (WALLET_CHAINS as readonly string[]).includes(chain.key);
   const remoteChains = WALLET_CHAINS.filter((entry) => entry !== chain.key);
   const remoteDollar = (from: WalletChain): Counter => {
     const source = walletChainSource(from);
@@ -307,7 +309,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   };
   // A dollar token starts on another chain's dollar (a bridge); anything else on this chain's first pay token.
   const [counter, setCounter] = useState<Counter>(() => {
-    return DOLLARS.has(token.symbol) ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
+    return DOLLARS.has(token.symbol) && bridgeable ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
   const [side, setSide] = useState<OrderSide>("buy");
   const [amount, setAmount] = useState("");
@@ -382,20 +384,20 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   // Another chain's dollar (USDC, or USDG on Robinhood) goes the bridge way; any other token there (or on Solana) goes
   // through Relay or LI.FI.
   const dollarRemote =
-    counter.kind === "token" && !sameChain
+    counter.kind === "token" && !sameChain && bridgeable
       ? (WALLET_CHAINS.find((entry) => {
           const source = walletChainSource(entry);
           return source.chainId === counter.chainId && sameAddress(source.usdc, counter.address);
         }) ?? null)
       : null;
-  const remote = counter.kind === "hyperliquid" ? "hyperliquid" : dollarRemote;
+  const remote = counter.kind === "hyperliquid" && bridgeable ? "hyperliquid" : dollarRemote;
   // Selling into another chain can't land in a venue account (that's Deposit): it falls back to this chain's USDC.
   const effectiveRemote = remote === "hyperliquid" && side === "sell" ? null : remote;
   const direct = counter.kind === "token" && !sameChain && !dollarRemote;
   const localToken: Side =
     counter.kind === "token" && sameChain
       ? { address: counter.address, symbol: counter.symbol, decimals: counterDecimals ?? 18, icon: counter.icon }
-      : { ...chainUsdc, icon: stableLogo("USDC") };
+      : { ...chainUsdc, icon: stableLogo(chainUsdc.symbol) };
   const remoteSource = effectiveRemote && effectiveRemote !== "hyperliquid" ? walletChainSource(effectiveRemote) : null;
   const remoteSide: Side | null = effectiveRemote
     ? { address: remoteSource?.usdc ?? chainUsdc.address, symbol: remoteSource?.symbol ?? "USDC", decimals: 6, icon: stableLogo(remoteSource?.symbol ?? "USDC") }
@@ -411,8 +413,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const route = !cross
     ? null
     : crossBuy
-      ? fundsRoute(effectiveRemote === "hyperliquid" ? "hyperliquid" : "wallet", "wallet", { from: effectiveRemote === "hyperliquid" ? "arbitrum" : effectiveRemote!, to: chain.key }, () => hlNetwork)
-      : fundsRoute("wallet", "wallet", { from: chain.key, to: effectiveRemote as WalletChain }, () => "mainnet");
+      ? // `cross` needs `bridgeable`, so this chain is a wallet chain here.
+        fundsRoute(effectiveRemote === "hyperliquid" ? "hyperliquid" : "wallet", "wallet", { from: effectiveRemote === "hyperliquid" ? "arbitrum" : effectiveRemote!, to: chain.key as WalletChain }, () => hlNetwork)
+      : fundsRoute("wallet", "wallet", { from: chain.key as WalletChain, to: effectiveRemote as WalletChain }, () => "mainnet");
   const steps = route?.kind === "steps" ? route.steps : [];
   const acrossIndex = steps.findIndex((step) => step.kind === "across");
   const acrossStep = acrossIndex >= 0 ? (steps[acrossIndex] as Extract<FundsStep, { kind: "across" }>) : null;
@@ -751,7 +754,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       { mint: WSOL_MINT, symbol: "SOL", name: "SOL on Solana", icon: "/chains/solana.svg", decimals: 9 },
       { mint: SOLANA_USDC, symbol: "USDC", name: "USDC on Solana", icon: stableLogo("USDC"), decimals: 6 },
     ].map((entry) => ({ ...entry, verified: true, source: "Solana" })),
-    ...(side === "buy" && hlNetwork === "mainnet"
+    ...(side === "buy" && hlNetwork === "mainnet" && bridgeable
       ? [{ mint: HL_PICK, symbol: "USDC", name: "Your Hyperliquid balance (withdrawal)", icon: stableLogo("USDC"), decimals: 6, verified: true, source: "Hyperliquid" }]
       : []),
   ];

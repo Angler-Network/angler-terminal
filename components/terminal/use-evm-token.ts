@@ -31,7 +31,7 @@ const erc20Meta = [
 async function readTokenMeta(chain: EvmSwapChain, address: `0x${string}`) {
   // The chain's own pay tokens (USDC, ETH, WETH, USDT) are known; no contract call.
   const known = chain.pay.find((entry) => entry.address.toLowerCase() === address.toLowerCase());
-  if (known) return { decimals: known.decimals, symbol: known.symbol, name: isNativeToken(address) ? "Ether" : known.symbol };
+  if (known) return { decimals: known.decimals, symbol: known.symbol, name: isNativeToken(address) ? chain.nativeName : known.symbol };
   const { createPublicClient, http } = await import("viem");
   const client = createPublicClient({ transport: http(chain.rpc) });
   const [decimals, symbol, name] = await Promise.all(

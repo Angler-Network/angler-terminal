@@ -13,7 +13,7 @@ describe("Relay token search", () => {
   });
 
   it("drops other chains and bad entries", () => {
-    expect(readRelayCurrencies([{ chainId: 56, address: "0x532f27101965dd16442E59d40670FaF5eBB142E4", symbol: "X", decimals: 18 }])).toEqual([]);
+    expect(readRelayCurrencies([{ chainId: 10, address: "0x532f27101965dd16442E59d40670FaF5eBB142E4", symbol: "X", decimals: 18 }])).toEqual([]);
     expect(readRelayCurrencies([{ chainId: 8453, address: "nope", symbol: "X", decimals: 18 }])).toEqual([]);
     expect(readRelayCurrencies(null)).toEqual([]);
   });

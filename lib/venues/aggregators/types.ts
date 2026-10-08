@@ -1,7 +1,8 @@
-/** EVM swap aggregators quoted next to Uniswap on Ethereum, Base and Arbitrum. */
-export type AggregatorProvider = "zerox" | "odos";
+/** EVM swap aggregators quoted next to Uniswap on the EVM swap chains. */
+export const AGGREGATOR_PROVIDERS = ["zerox", "odos", "kyberswap"] as const;
+export type AggregatorProvider = (typeof AGGREGATOR_PROVIDERS)[number];
 
-export const AGGREGATOR_NAMES: Record<AggregatorProvider, string> = { zerox: "0x", odos: "Odos" };
+export const AGGREGATOR_NAMES: Record<AggregatorProvider, string> = { zerox: "0x", odos: "Odos", kyberswap: "KyberSwap" };
 
 export interface AggregatorQuoteRequest {
   provider: AggregatorProvider;

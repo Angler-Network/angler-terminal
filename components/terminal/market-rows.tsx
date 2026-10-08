@@ -53,6 +53,7 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> =
   { key: "ethereum", name: "Ethereum" },
   { key: "base", name: "Base" },
   { key: "arbitrum", name: "Arbitrum" },
+  { key: "bsc", name: "BNB Chain" },
   { key: "robinhood", name: "Robinhood Chain" },
   { key: "arcus", name: "Arcus (stock tokens on Robinhood Chain)", logo: "/api/favicon?domain=arcus.xyz" },
   { key: "hyperliquid", name: "Hyperliquid" },

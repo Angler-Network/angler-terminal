@@ -9,6 +9,7 @@ const CHAIN_LOGOS: Record<string, string> = {
   1: "/chains/ethereum.svg",
   42161: "/chains/arbitrum.svg",
   8453: "/chains/base.svg",
+  56: "/chains/bsc.svg",
   4663: "/chains/robinhood.svg",
   46630: "/chains/robinhood.svg",
   solana: "/chains/solana.svg",

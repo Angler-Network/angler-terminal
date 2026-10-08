@@ -1,18 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { aggregatorEnabled, quoteAggregator, readAggregatorConfig } from "@/lib/venues/aggregators/server";
-import type { AggregatorQuoteRequest } from "@/lib/venues/aggregators/types";
+import { AGGREGATOR_PROVIDERS, type AggregatorProvider, type AggregatorQuoteRequest } from "@/lib/venues/aggregators/types";
 import { EVM_SWAP_CHAINS } from "@/lib/venues/uniswap/chains";
 import { sameOrigin } from "@/lib/same-origin";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** A 0x or Odos quote for an EVM swap, with our fee added here (never by the browser). */
+/** A 0x, Odos or KyberSwap quote for an EVM swap, with our fee added here (never by the browser). */
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = (await request.json().catch(() => null)) as Partial<AggregatorQuoteRequest> | null;
   const config = readAggregatorConfig(process.env);
-  if (!body || (body.provider !== "zerox" && body.provider !== "odos")) return NextResponse.json({ error: "Unknown aggregator." }, { status: 400 });
-  if (!aggregatorEnabled(body.provider, config)) return NextResponse.json({ error: "This aggregator isn't set up here." }, { status: 503 });
+  if (!body || !AGGREGATOR_PROVIDERS.includes(body.provider as AggregatorProvider)) return NextResponse.json({ error: "Unknown aggregator." }, { status: 400 });
+  if (!aggregatorEnabled(body.provider as AggregatorProvider, config)) return NextResponse.json({ error: "This aggregator isn't set up here." }, { status: 503 });
   if (
     !EVM_SWAP_CHAINS.some((chain) => chain.id === body.chainId) ||
     typeof body.sellToken !== "string" || !ADDRESS.test(body.sellToken) ||

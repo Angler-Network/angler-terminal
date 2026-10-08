@@ -4,7 +4,7 @@
  * caller.
  */
 
-export const SWAP_CHAINS = ["solana", "robinhood", "ethereum", "base", "arbitrum"] as const;
+export const SWAP_CHAINS = ["solana", "robinhood", "ethereum", "base", "arbitrum", "bsc"] as const;
 export type SwapChain = (typeof SWAP_CHAINS)[number];
 
 export interface SwapRecord {

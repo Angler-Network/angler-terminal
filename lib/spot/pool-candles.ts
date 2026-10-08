@@ -5,7 +5,7 @@
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
 
 /** GeckoTerminal networks for the spot venues' chains: Jupiter on Solana, Arcus on Robinhood Chain, Uniswap on EVM. */
-export type PoolNetwork = "solana" | "robinhood" | "eth" | "base" | "arbitrum";
+export type PoolNetwork = "solana" | "robinhood" | "eth" | "base" | "arbitrum" | "bsc";
 
 export interface PoolInfo {
   address: string;
@@ -123,6 +123,7 @@ const ADDRESS: Record<PoolNetwork, RegExp> = {
   eth: /^0x[0-9a-fA-F]{40}$/,
   base: /^0x[0-9a-fA-F]{40}$/,
   arbitrum: /^0x[0-9a-fA-F]{40}$/,
+  bsc: /^0x[0-9a-fA-F]{40}$/,
 };
 
 export function isPoolNetwork(value: unknown): value is PoolNetwork {

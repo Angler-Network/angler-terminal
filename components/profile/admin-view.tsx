@@ -53,6 +53,7 @@ const SERVICES: Array<{ id: string; name: string }> = [
   { id: "bridge:lifi", name: "LI.FI" },
   { id: "swap:zerox", name: "0x" },
   { id: "swap:odos", name: "Odos" },
+  { id: "swap:kyberswap", name: "KyberSwap" },
 ];
 
 /** Kill switches: turn a service off for everyone at once (a hacked or failing bridge); browsers drop it within a minute. */
