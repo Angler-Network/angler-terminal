@@ -208,7 +208,7 @@ const VOLUME_RANGES: Array<{ value: VolumeRange; label: string }> = [
   { value: "all", label: "All" },
 ];
 
-/** A VIP tier's discount on Angler fees, in whole percent. */
+/** A VIP tier's discount on Angler's perp fees (Hyperliquid, Lighter, Aster), in whole percent. */
 const discountOf = (rate: number) => Math.round((1 - rate) * 100);
 
 /** Volume through Angler on every venue together, over the last 7 or 30 days or all time. */
@@ -254,11 +254,11 @@ function VipCard({ profile }: { profile: ProfileData }) {
           VIP {vip.level}
         </span>
       </div>
-      <p className="mt-1 text-[20px] font-semibold tracking-tight text-app-ink">{vip.level > 0 ? `${discountOf(vip.rate)}% off Angler fees` : "Trade more, pay less"}</p>
+      <p className="mt-1 text-[20px] font-semibold tracking-tight text-app-ink">{vip.level > 0 ? `${discountOf(vip.rate)}% off Angler perp fees` : "Trade more, pay less"}</p>
       <p className="mt-0.5 text-[12px] text-app-muted">
         {next
-          ? `Trade ${compactUsd.format(Math.max(0, next.minVolume - volume))} more in 30 days to earn a ${discountOf(next.rate)}% fee discount.`
-          : "Top tier: the biggest fee discount."}
+          ? `Trade ${compactUsd.format(Math.max(0, next.minVolume - volume))} more in 30 days to earn a ${discountOf(next.rate)}% perp fee discount.`
+          : "Top tier: the biggest perp fee discount."}
       </p>
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
         <div className="h-full rounded-full bg-app-accent transition-[width]" style={{ width: `${Math.max(2, progress * 100)}%` }} />
@@ -275,6 +275,7 @@ function VipCard({ profile }: { profile: ProfileData }) {
           </li>
         ))}
       </ol>
+      <p className="mt-2 text-[11px] text-app-faint">On Hyperliquid, Lighter and Aster. Swaps and bridges charge everyone the same fee.</p>
     </section>
     </BorderGlow>
   );

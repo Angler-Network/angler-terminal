@@ -659,6 +659,11 @@ dependency versions and design are free to diverge from angler-news.
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
   Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+  VIP (`lib/profile/vip.ts`): the 30-day volume sets a share of the configured fee (base 3.5 bps: VIP 1-4 pay 3.25 / 3 /
+  2.75 / 2.5). It applies only where the order carries our fee and the browser signs it: the Hyperliquid builder fee
+  (perps, spot, HIP-4), the Lighter and Lighter RH integrator fees and the Aster builder fee. Swaps, bridges, Orderly
+  (one broker rate) and Polymarket charge everyone their fixed rate; the user chose to keep it that way, and the
+  profile says the discount is on perp fees.
 - Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
   `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
   under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in

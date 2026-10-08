@@ -141,7 +141,7 @@ export function RewardsView() {
           icon={<Sparkles className="size-5" strokeWidth={1.75} aria-hidden />}
           title="VIP"
           value={`VIP ${vip.level}`}
-          detail={`${compactUsd.format(profile.recentVolume.d30)} traded in the last 30 days. More volume, a bigger discount on Angler fees.`}
+          detail={`${compactUsd.format(profile.recentVolume.d30)} traded in the last 30 days. More volume, a bigger discount on Angler's perp fees (Hyperliquid, Lighter, Aster).`}
           cta={{ label: "See VIP tiers", href: "/profile" }}
         />
       </div>
