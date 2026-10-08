@@ -13,7 +13,7 @@ import { UpdateNotice } from "@/components/app/update-notice";
 import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { ProfileProvider } from "@/components/profile/profile-provider";
-import { ReferralInvite } from "@/components/profile/referral-invite";
+import { AccessGate } from "@/components/profile/access-gate";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
 import { WalletModalProvider } from "@/components/terminal/wallet-modal";
@@ -83,7 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <AlphaNotice />
                     <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
                     <UpdateNotice />
-                    <ReferralInvite />
+                    <AccessGate />
                   </ProfileProvider>
                   </TradeTicketProvider>
                   </WalletModalProvider>

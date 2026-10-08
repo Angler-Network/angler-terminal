@@ -49,3 +49,27 @@ describe("invites", () => {
     expect((await readProfile(inviter)).referralEarnings).toBe(3.5);
   });
 });
+
+describe("closed beta", () => {
+  it("lets in invited, admin and earlier traders, and gives admins codes at will", async () => {
+    const admin = "0x00000000000000000000000000000000000000ad";
+    const stranger = "0x0000000000000000000000000000000000000a11";
+    const veteran = "0x0000000000000000000000000000000000000b22";
+    process.env.ANGLER_ADMINS = ` ${admin.toUpperCase().replace("0X", "0x")} `;
+    try {
+      const { createAdminInvite } = await import("./store");
+      expect(await readProfile(admin)).toMatchObject({ access: true, admin: true });
+      expect(await readProfile(stranger)).toMatchObject({ access: false, admin: false });
+      await creditVolume(veteran, "hyperliquid", 10);
+      expect((await readProfile(veteran)).access).toBe(true);
+
+      expect(await createAdminInvite(stranger)).toBeNull();
+      const code = await createAdminInvite(admin);
+      expect(code).toMatch(/^[A-Z2-9]{8}$/);
+      expect(await setReferrer(stranger, code!)).toEqual({ ok: true, referrer: admin });
+      expect((await readProfile(stranger)).access).toBe(true);
+    } finally {
+      delete process.env.ANGLER_ADMINS;
+    }
+  });
+});

@@ -345,10 +345,11 @@ function Overview() {
   );
 }
 
-/** Your invite codes (one per INVITE_VOLUME traded, single use) and referral stats; a referrer is set only through one (`ReferralInvite`). */
+/** Your invite codes (one per INVITE_VOLUME traded, single use) and referral stats; a referrer is set only through one (`AccessGate`). */
 function ReferralCard() {
-  const { id, profile, signIn } = useProfile();
+  const { id, profile, signIn, refresh } = useProfile();
   const [copied, setCopied] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   // Opened from the account menu's Referrals: scroll here once the card has rendered.
@@ -394,8 +395,29 @@ function ReferralCard() {
   return (
     <section id="referrals" className={`${card} flex h-full scroll-mt-4 flex-col p-4`}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[13px] font-semibold text-app-ink">Invites</h2>
-        <span className="rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
+        <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-app-ink">
+          Invites
+          {profile.admin && <span className="rounded-md bg-[#f5c97b]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#f5c97b]">Admin</span>}
+        </h2>
+        <span className="ml-auto rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
+        {profile.admin && (
+          <button
+            type="button"
+            disabled={creating}
+            onClick={async () => {
+              setCreating(true);
+              const response = await fetch("/api/profile/invites", { method: "POST" });
+              const body = (await response.json().catch(() => ({}))) as { code?: string };
+              if (body.code) void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${body.code}`).then(() => setCopied(body.code!));
+              refresh();
+              setCreating(false);
+            }}
+            title="Admins invite people into the closed beta; the new code's link is copied"
+            className="h-7 rounded-lg bg-[#f5c97b] px-2.5 text-[12px] font-semibold text-black hover:opacity-90 disabled:opacity-60"
+          >
+            {creating ? "Creating…" : "Create invite"}
+          </button>
+        )}
       </div>
       <p className="mt-1 text-[12px] text-app-muted">
         Every {compactUsd.format(INVITE_VOLUME)} you trade on perps and spot earns an invite. Each one brings in one trader: you earn 10% of the

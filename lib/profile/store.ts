@@ -1,6 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
+import { isAdmin } from "./admin";
 import { dayKey, volumeOverDays } from "./days";
 import { INVITE_VOLUME } from "./invites";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
@@ -149,6 +150,13 @@ export interface ProfileView {
   linkedTo: string | null;
   /** The profile that referred this one, if any. */
   referrer: string | null;
+  /**
+   * Closed beta: in through an invite (a referrer), an admin, or a profile that traded through Angler before the beta.
+   * Everyone else is asked for an invite code.
+   */
+  access: boolean;
+  /** An admin wallet (`ANGLER_ADMINS`): creates invite codes at will. */
+  admin: boolean;
   /** Profiles this one referred, and the points their volume earned it. */
   referrals: number;
   referralPoints: number;
@@ -217,6 +225,8 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
+    access: isAdmin(id) || Boolean(hash.referrer) || totalOf(volume) > 0,
+    admin: isAdmin(id),
     referrals: referred.length,
     referralEarnings: Math.round(Math.max(0, Number(hash.refFeeUsd) || 0) * 100) / 100,
     invites,
@@ -318,17 +328,29 @@ async function setInvite(id: string, code: string, usedBy: string) {
   await run([["HSET", key("inv", id), code, usedBy]]);
 }
 
+/** One new invite code owned by `id`. */
+async function mintInvite(id: string) {
+  for (;;) {
+    const code = newInviteCode();
+    // A code is claimed for good; a clash just draws another one.
+    if (!(await takeKey(key("invite", code), INVITE_TTL_SECONDS, id))) continue;
+    await setInvite(id, code, "");
+    return code;
+  }
+}
+
+/** An admin's extra invite code (admins aren't limited by volume). Null for everyone else. */
+export async function createAdminInvite(id: string) {
+  return isAdmin(id) ? mintInvite(id) : null;
+}
+
 /** Tops a profile up to the invite codes its volume earned, and lists them (unused first). */
 async function syncInvites(id: string, volume: number): Promise<ProfileView["invites"]> {
   const earned = Math.floor(volume / INVITE_VOLUME);
   const codes = await readInvites(id);
   let missing = Math.min(MAX_NEW_INVITES, earned - Object.keys(codes).length);
   while (missing > 0) {
-    const code = newInviteCode();
-    // A code is claimed for good (no expiry); a clash just draws another one.
-    if (!(await takeKey(key("invite", code), INVITE_TTL_SECONDS, id))) continue;
-    await setInvite(id, code, "");
-    codes[code] = "";
+    codes[await mintInvite(id)] = "";
     missing--;
   }
   const list = Object.entries(codes).map(([code, usedBy]) => ({ code, usedBy: usedBy || null }));
