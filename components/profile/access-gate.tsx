@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { DISCORD, SocialIcon } from "@/components/app/social-links";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { deployment } from "@/lib/deployment";
 import { REFERRAL_CODE } from "@/lib/profile/identity";
@@ -130,7 +131,20 @@ export function AccessGate() {
           </div>
         </div>
 
-        <p className="mt-6 text-[12px] text-app-muted">No invite yet? Traders on Angler earn one for every $10K they trade. Ask one.</p>
+        <p className="mt-6 text-[12px] text-app-muted">
+          No invite yet? Traders on Angler earn one for every $10K they trade. {DISCORD ? "Ask for one on our Discord." : "Ask one."}
+        </p>
+        {DISCORD && (
+          <a
+            href={DISCORD.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink transition-colors hover:bg-white/5"
+          >
+            <SocialIcon id="discord" />
+            Get an invite on Discord
+          </a>
+        )}
         <Link href="/" className="mt-3 text-[12px] font-semibold text-app-faint hover:text-app-ink">
           Back to home
         </Link>

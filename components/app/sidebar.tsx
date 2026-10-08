@@ -10,6 +10,7 @@ import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
+import { SOCIALS, SocialIcons } from "./social-links";
 import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
@@ -105,6 +106,13 @@ export function Sidebar() {
           <SettingsIcon className={iconClass(isSettingsOpen)} active={isSettingsOpen} />
           <NavLabel>{t("nav.settings")}</NavLabel>
         </Link>
+        {SOCIALS.length > 0 && (
+          <>
+            <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
+            {/* Community links: three small marks fit the rail's width side by side. */}
+            <SocialIcons className="justify-center gap-0.5" itemClassName="flex size-6 items-center justify-center rounded-md text-app-faint transition-colors hover:bg-app-card/60 hover:text-app-ink" iconClassName="size-3.5" />
+          </>
+        )}
       </nav>
     </aside>
   );

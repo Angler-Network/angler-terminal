@@ -11,6 +11,7 @@ import { shortAddress, usernameError } from "@/lib/profile/identity";
 import { INVITE_VOLUME } from "@/lib/profile/invites";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import BorderGlow from "@/components/fx/border-glow";
+import { DISCORD } from "@/components/app/social-links";
 import { AdminView } from "./admin-view";
 import { AlertsView } from "./alerts-view";
 import { PortfolioCard } from "./portfolio-card";
@@ -40,7 +41,7 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
 /** Angler's Discord (`NEXT_PUBLIC_DISCORD_URL`): referral earnings are withdrawn through a ticket there. */
-const DISCORD_URL = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() || null;
+const DISCORD_URL = DISCORD?.url ?? null;
 // Points carry two decimals (0.01 per dollar).
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });

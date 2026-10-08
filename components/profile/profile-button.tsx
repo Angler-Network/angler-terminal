@@ -9,6 +9,7 @@ import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { shortAddress } from "@/lib/profile/identity";
+import { SOCIALS, SocialIcons } from "@/components/app/social-links";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
 
@@ -92,6 +93,12 @@ export function ProfileButton() {
             <Wallet className="size-5" strokeWidth={1.75} aria-hidden />
             Wallets
           </button>
+          {SOCIALS.length > 0 && (
+            <SocialIcons
+              className="col-span-2 justify-center gap-1 border-t border-app-hairline pt-1.5"
+              itemClassName="flex size-8 items-center justify-center rounded-lg text-app-muted transition-colors hover:bg-app-chip hover:text-app-ink"
+            />
+          )}
           {/* Disconnects every wallet so another one can sign in. */}
           <button
             type="button"

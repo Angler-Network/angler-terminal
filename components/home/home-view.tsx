@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { marketNav } from "@/components/app/market-nav";
+import { SOCIALS, SocialIcon } from "@/components/app/social-links";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useNewsFeed } from "@/lib/angler/use-news-feed";
@@ -269,6 +270,26 @@ export function HomeView() {
           Every market, with funding and spreads
           <ArrowRight className="size-3.5" aria-hidden />
         </Link>
+
+        {SOCIALS.length > 0 && (
+          <footer className="flex flex-col items-center gap-3 border-t border-app-hairline pt-6">
+            <p className="text-[12px] text-app-faint">Questions, invites and updates</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {SOCIALS.map((social) => (
+                <a
+                  key={social.id}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-app-hairline bg-app-card/55 px-3.5 text-[13px] font-semibold text-app-muted transition-colors hover:border-app-hairline-strong hover:text-app-ink"
+                >
+                  <SocialIcon id={social.id} />
+                  {social.label}
+                </a>
+              ))}
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );

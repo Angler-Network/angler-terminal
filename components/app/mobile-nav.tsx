@@ -11,6 +11,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { marketNav } from "./market-nav";
+import { SOCIALS, SocialIcon } from "./social-links";
 import {
   BridgeIcon,
   ChartIcon,
@@ -102,7 +103,7 @@ export function MobileNav() {
             aria-modal="true"
             aria-label="Menu"
             onClick={(event) => event.stopPropagation()}
-            className="surface-menu w-full rounded-t-3xl border border-b-0 border-app-hairline-strong bg-app-dialog p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            className="surface-menu scrollbar-subtle max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-3xl border border-b-0 border-app-hairline-strong bg-app-dialog p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           >
             <div className="flex items-center justify-between px-3 pb-2 pt-1">
               <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-app-muted">Menu</span>
@@ -171,6 +172,22 @@ export function MobileNav() {
               Angler News
               <ExternalLink className="ml-auto size-4 text-app-faint" aria-hidden />
             </a>
+            {SOCIALS.length > 0 && (
+              <div className="mt-2 grid gap-1.5 border-t border-app-hairline pt-3" style={{ gridTemplateColumns: `repeat(${SOCIALS.length}, minmax(0, 1fr))` }}>
+                {SOCIALS.map((social) => (
+                  <a
+                    key={social.id}
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl border border-app-hairline text-[13px] font-semibold text-app-muted hover:bg-app-chip hover:text-app-ink"
+                  >
+                    <SocialIcon id={social.id} />
+                    {social.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

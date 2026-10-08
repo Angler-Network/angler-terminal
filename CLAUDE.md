@@ -642,6 +642,10 @@ dependency versions and design are free to diverge from angler-news.
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
   Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+- Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
+  `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
+  under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in
+  the home page footer, and on the invite gate as "Get an invite on Discord".
 - Closed beta gate (`components/profile/access-gate.tsx`, root layout): every page but `/` needs a wallet with
   `access` (admin, accepted invite or referral, or past volume). Mainnet only: on the testnet site the gate never shows
   and `readProfile` reports `access: true`. Profiles, invites and referrals are stored per deployment (Redis prefix
