@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
-import { ROW_CHAINS, TokenIcon, rowChain, useSpotRows, type MarketRow, type RowChain } from "@/components/terminal/market-rows";
+import { ROW_CHAINS, TokenIcon, rowChain, rowHasAddress, useSpotRows, type MarketRow, type RowChain } from "@/components/terminal/market-rows";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { CoinIcon } from "@/components/terminal/token-icon";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
@@ -137,7 +137,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
     const matched = spotRows.filter(
       (row) =>
         (!filter || rowChain(row) === filter) &&
-        (row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.asset.includes(wanted) || row.mint === query.trim()),
+        (row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.asset.includes(wanted) || rowHasAddress(row, query)),
     );
     // Verified tokens first, then the busiest.
     return matched.sort((a, b) => Number(b.verified) - Number(a.verified) || (b.volume24h ?? 0) - (a.volume24h ?? 0)).slice(0, RESULTS);

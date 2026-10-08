@@ -66,6 +66,13 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> =
   { key: "lighter", name: "Lighter", logo: "/api/favicon?domain=lighter.xyz" },
 ];
 
+/** Whether a pasted address is the row's token: a Solana mint as is, an EVM token by the address in its ref (any case). */
+export function rowHasAddress(row: MarketRow, query: string) {
+  const address = query.trim();
+  if (!address || !row.mint) return false;
+  return row.mint === address || (address.startsWith("0x") && parseEvmRef(row.mint)?.address.toLowerCase() === address.toLowerCase());
+}
+
 /** A row's chain: its own, else read from the mint (an EVM ref, or a Solana mint). */
 export function rowChain(row: MarketRow): RowChain | undefined {
   if (row.chain) return row.chain;

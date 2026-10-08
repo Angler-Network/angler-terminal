@@ -12,7 +12,7 @@ import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
 import { onSpotView } from "@/lib/spot/book-spot";
 import { evmSwapChain } from "@/lib/venues/uniswap/chains";
-import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
+import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, rowHasAddress, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 
 /** A token picked to pay with (or receive) in a swap card: a Solana mint, or an EVM ref ("evm:<chain>:<address>"). */
@@ -170,7 +170,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
         : [];
     const onChain = (row: MarketRow) => chains.length === 0 || chains.includes(rowChain(row) as RowChain);
     const matches = (row: MarketRow) =>
-      onChain(row) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.mint === query.trim());
+      onChain(row) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || rowHasAddress(row, query));
     const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
