@@ -198,6 +198,12 @@ const VENUE_MARKS: Record<string, { domain: string; chain?: number | string }> =
   Bybit: { domain: "bybit.com" },
 };
 
+/** A venue's logo, served by our own favicon proxy (same origin, so a canvas can draw it); null without one. */
+export function venueLogoUrl(name: string) {
+  const mark = VENUE_MARKS[name];
+  return mark ? `/api/favicon?domain=${mark.domain}` : null;
+}
+
 /** One venue's logo (with its chain badge), the name on hover; the name as text when it has no logo. */
 export function VenueLogo({ name, size = 18 }: { name: string; size?: number }) {
   const mark = VENUE_MARKS[name];

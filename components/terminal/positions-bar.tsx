@@ -1,5 +1,6 @@
 "use client";
 
+import { Share2 } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -21,6 +22,7 @@ import { perpNetwork } from "@/lib/venues/perp-network";
 
 // History loads its venue code on demand (the Hyperliquid SDK, Lighter's signer for the auth token).
 const OrderHistoryTable = dynamic(() => import("./history-tables").then((module) => module.OrderHistoryTable), { ssr: false });
+const SharePositionDialog = dynamic(() => import("./share-position-dialog").then((module) => module.SharePositionDialog), { ssr: false });
 const PositionHistoryTable = dynamic(() => import("./history-tables").then((module) => module.PositionHistoryTable), { ssr: false });
 
 type Tab = "positions" | "orders" | "orderHistory" | "positionHistory" | "venues";
@@ -204,6 +206,7 @@ function useGrouped(rows: Array<{ venue: PerpVenueId }>) {
 
 export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<string | null>(null);
   const { closePosition, marketsByVenue } = useTrading();
   const closeAll = useCloseAll();
   const grouped = useGrouped(positions);
@@ -286,8 +289,18 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
                   >
                     TP/SL
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setSharing(key)}
+                    title="Share PnL card"
+                    aria-label={`Share ${position.symbol} PnL card`}
+                    className="grid h-7 w-7 place-items-center rounded-md border border-app-hairline-strong text-app-muted hover:text-app-ink"
+                  >
+                    <Share2 className="size-3.5" />
+                  </button>
                   <RowButton onClick={() => closePosition(position)}>Close</RowButton>
                 </span>
+                {sharing === key && <SharePositionDialog position={position} onClose={() => setSharing(null)} />}
               </td>
             </tr>
             {editing === key && (
