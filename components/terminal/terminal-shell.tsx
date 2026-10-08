@@ -11,7 +11,6 @@ import { useNewsFeed } from "@/lib/angler/use-news-feed";
 import { durations, ease, ENTER_PROPS, motion } from "@/lib/motion";
 import { AccountPanel, useHasWallet } from "./account-panel";
 import { AssetSearchProvider } from "./asset-search";
-import { WatchlistPanel } from "./watchlist-panel";
 import { NewsRulesRunner } from "./news-rules-runner";
 import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
@@ -29,6 +28,8 @@ import { dropOnto, positionsSpanRail, type ArrangeTarget, type ColumnId, type St
 // The panels under the chart on /swap and /spot load with their view, not with the perp terminal.
 const SpotBookPanel = dynamic(() => import("./spot-book-panel").then((module) => module.SpotBookPanel));
 const SwapHoldings = dynamic(() => import("./swap-holdings").then((module) => module.SwapHoldings));
+// Off by default (on in the Pro preset).
+const WatchlistPanel = dynamic(() => import("./watchlist-panel").then((module) => module.WatchlistPanel));
 
 type Slot = { column: string; row: string };
 

@@ -12,13 +12,16 @@ import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
-import { ClosePositionDialog, TpslDialog } from "./position-dialogs";
-import { VenueLogo } from "./market-rows";
+import { VenueLogo } from "./venue-logo";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
 import dynamic from "next/dynamic";
 import { perpNetwork } from "@/lib/venues/perp-network";
+
+// Opened from a position row: they load on the first press.
+const TpslDialog = dynamic(() => import("./position-dialogs").then((module) => module.TpslDialog), { ssr: false });
+const ClosePositionDialog = dynamic(() => import("./position-dialogs").then((module) => module.ClosePositionDialog), { ssr: false });
 
 // History loads its venue code on demand (the Hyperliquid SDK, Lighter's signer for the auth token).
 const OrderHistoryTable = dynamic(() => import("./history-tables").then((module) => module.OrderHistoryTable), { ssr: false });

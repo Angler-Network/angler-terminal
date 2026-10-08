@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
-import { VenueLogo } from "@/components/terminal/market-rows";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useFunding } from "@/components/terminal/use-funding";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";

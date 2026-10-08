@@ -13,6 +13,7 @@ import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { ProfileProvider } from "@/components/profile/profile-provider";
 import { AccessGate } from "@/components/profile/access-gate";
+import { NavIconSprite } from "@/components/app/nav-icon-sprite";
 import { ServiceStatus } from "@/components/app/service-status";
 import { TooltipLayer } from "@/components/app/tooltip-layer";
 import { TradingProvider } from "@/components/terminal/trading-provider";
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
       </head>
       <body className="app-frame h-dvh overflow-hidden font-sans antialiased">
+        <NavIconSprite />
         <I18nProvider>
           <PreferencesProvider initial={chart ? { chartSymbol: chart.symbol, chartMarket: chart.market, tapeSource: chart.source } : undefined}>
             <ToastProvider>

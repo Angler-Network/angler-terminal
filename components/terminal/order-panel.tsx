@@ -41,7 +41,12 @@ import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
-import HoldButton from "@/components/fx/hold-button";
+
+// Shown only once a wallet is connected (the hold-to-place button), so it loads then.
+const HoldButton = dynamic(() => import("@/components/fx/hold-button"), {
+  ssr: false,
+  loading: () => <div aria-hidden className="h-10 w-full rounded-lg bg-app-chip/40" />,
+});
 
 // The swap cards (Jupiter, Titan, Uniswap, bridges) load on /swap and /spot only, never with the perp terminal.
 const swapLoading = () => <div aria-hidden className="h-[420px] animate-pulse rounded-xl bg-app-chip/60" />;

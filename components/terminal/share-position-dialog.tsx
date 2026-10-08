@@ -11,7 +11,7 @@ import { PALETTES, type PaletteId } from "@/lib/share-card/palettes";
 import { ASSET_BASE, exportCard, renderCard } from "@/lib/share-card/render";
 import { siteUrl } from "@/lib/site";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import { venueLogoUrl } from "./market-rows";
+import { venueLogoUrl } from "./venue-logo";
 import type { VenuePosition } from "@/lib/venues/types";
 
 const STORAGE_KEY = "angler.share-card";

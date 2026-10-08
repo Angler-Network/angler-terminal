@@ -692,12 +692,17 @@ dependency versions and design are free to diverge from angler-news.
   Orderly's signing code (`onboarding.ts`, viem accounts / secp256k1 / keccak / ed25519; the first screen reads setup
   state from each venue's `store.ts`), the news socket client (`centrifuge`, imported with the first ticket), and the
   panels of the other views (`next/dynamic` in `order-panel.tsx`, `account-panel.tsx`, `terminal-shell.tsx`: the swap
-  cards, the Dex Spot form, the panels under the chart on /swap and /spot), so /perp doesn't download them. Aster's
+  cards, the Dex Spot form, the panels under the chart on /swap and /spot), so /perp doesn't download them. Also
+  loaded when first needed: the market search window (`asset-search-dialog.tsx`; `asset-search.tsx` keeps the provider,
+  hook and types), the wallet window (`wallet-modal-window.tsx`), the hold-to-place button (only with a wallet), the
+  position TP/SL and close dialogs and the watchlist panel. `VenueLogo` lives in `venue-logo.tsx` so the positions bar
+  doesn't pull in the market lists. The navigation icons' paths are a sprite the root layout puts in the HTML
+  (`nav-icon-sprite.tsx`, server component); `nav-icons.tsx` draws them with `<use>` (12 KB gzipped out of the JS). Aster's
   market list comes from `/api/aster/markets` (Aster's three lists fetched server-side, revalidated every 30s; the
   browser calls Aster directly only when the route fails). The Markets table renders 60 rows and adds 60 per scroll
   (`PAGE_ROWS`), and waits up to `SETTLE_MS` for every venue so rows don't land above the ones shown.
-  Measured with Lighthouse on a production build (`npm run build` + `npm start`, mobile): Markets 42 → 83, /perp first
-  JS 452 → 379 KB; the invite gate sits first in the body (on mainnet, a first visit's largest paint) and it rises without fading in (a paint at opacity 0 doesn't count).
+  Measured with Lighthouse on a production build (`npm run build` + `npm start`, mobile): Markets 42 → 99, Swap 71 →
+  ~79, Prediction 71 → 80, /perp 68 → ~75 with its JS 452 → 344 KB (775 KB uncompressed; Next and React are 214 KB of it); the invite gate sits first in the body (on mainnet, a first visit's largest paint) and it rises without fading in (a paint at opacity 0 doesn't count).
 - Security headers (`next.config.mjs`, every path): `frame-ancestors 'none'` + `X-Frame-Options: DENY` (a trading
   screen with one-click orders must never load in another site's frame), `nosniff`, `Referrer-Policy`,
   `Permissions-Policy` (no camera, microphone, geolocation, payment, USB) and HSTS. `htmlLimitedBots: /.*/` keeps
