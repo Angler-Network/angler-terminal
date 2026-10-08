@@ -686,7 +686,23 @@ dependency versions and design are free to diverge from angler-news.
 - First load stays light: the Hyperliquid SDK (`hyperliquid/clients.ts`), viem's wallet client (`getWalletClient`),
   the Arcus SDK (`arcus/venue.ts`; lookups in `arcus/catalog.ts`) and the settings/setup dialogs (`lazy-dialogs.tsx`)
   load on demand. Don't import them statically from components on the first screen. The ticker bar streams its
-  server-fetched prices through Suspense so the page shell never waits on market APIs.
+  server-fetched prices through Suspense so the page shell never waits on market APIs. Also on demand: Aster's and
+  Orderly's signing code (`onboarding.ts`, viem accounts / secp256k1 / keccak / ed25519; the first screen reads setup
+  state from each venue's `store.ts`), the news socket client (`centrifuge`, imported with the first ticket), and the
+  panels of the other views (`next/dynamic` in `order-panel.tsx`, `account-panel.tsx`, `terminal-shell.tsx`: the swap
+  cards, the Dex Spot form, the panels under the chart on /swap and /spot), so /perp doesn't download them. Aster's
+  market list comes from `/api/aster/markets` (Aster's three lists fetched server-side, revalidated every 30s; the
+  browser calls Aster directly only when the route fails). The Markets table renders 60 rows and adds 60 per scroll
+  (`PAGE_ROWS`), and waits up to `SETTLE_MS` for every venue so rows don't land above the ones shown.
+  Measured with Lighthouse on a production build (`npm run build` + `npm start`, mobile): Markets 42 → 83, /perp first
+  JS 452 → 379 KB; the welcome dialog and invite gate sit first in the body (a first visit's largest paint) and the
+  gate rises without fading in (a paint at opacity 0 doesn't count).
+- Security headers (`next.config.mjs`, every path): `frame-ancestors 'none'` + `X-Frame-Options: DENY` (a trading
+  screen with one-click orders must never load in another site's frame), `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy` (no camera, microphone, geolocation, payment, USB) and HSTS. `htmlLimitedBots: /.*/` keeps
+  title/description/robots in `<head>` for every visitor (Next streams them into the body otherwise, Googlebot
+  included); all metadata is static or reads only the URL, so blocking on it costs nothing. `/api/favicon` asks
+  Google's 64px icon first (a few hundred bytes) and DuckDuckGo's .ico second (lighter.xyz's is 60 KB).
 - Server-rendered chart price (the mobile LCP element): preferences mirror the chart's asset, market type and price
   source into the `angler_chart` cookie (`CHART_COOKIE`, next to the tape's `angler_tape`). `app/layout.tsx` seeds
   `PreferencesProvider` with it so the server and the first client render show the same asset, and `app/page.tsx`
