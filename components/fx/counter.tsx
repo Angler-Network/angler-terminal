@@ -58,12 +58,12 @@ interface DigitProps {
 }
 
 function Digit({ place, value, height, digitStyle }: DigitProps) {
-  // Decimal point digit
+  // Decimal point digit. Changed from upstream: it keeps its own width when digitStyle sizes the digits.
   if (place === '.') {
     return (
       <span
         className="relative inline-flex items-center justify-center"
-        style={{ height, width: 'fit-content', ...digitStyle }}
+        style={{ height, ...digitStyle, width: 'fit-content' }}
       >
         .
       </span>

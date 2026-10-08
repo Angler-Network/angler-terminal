@@ -73,7 +73,16 @@ export function RewardsView() {
             </p>
             {/* Digits roll to each new total. */}
             <div className="mt-1 -ml-2 font-semibold tracking-tight text-app-ink">
-              <Counter value={Math.round(profile.points * 100) / 100} fontSize={44} gap={2} horizontalPadding={8} gradientHeight={0} fontWeight={600} />
+              {/* Slots as wide as Sora's tabular digits (0.676em); Counter's default 1ch is the wider proportional "0". */}
+              <Counter
+                value={Math.round(profile.points * 100) / 100}
+                fontSize={44}
+                gap={0}
+                horizontalPadding={8}
+                gradientHeight={0}
+                fontWeight={600}
+                digitStyle={{ width: "0.68em" }}
+              />
             </div>
             <p className="mt-1.5 text-[13px] text-app-muted">
               <span className="font-semibold text-app-ink">+{number.format(earned30)}</span> trading points in the last 30 days
