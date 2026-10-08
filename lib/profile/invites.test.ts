@@ -47,6 +47,15 @@ describe("invites", () => {
     await creditVolume(newcomer, "hyperliquid", 100_000, 35);
     await creditVolume(newcomer, "jupiter", 100_000, 500);
     expect((await readProfile(inviter)).referralEarnings).toBe(3.5);
+
+    // Payouts: an admin pays part of it, then the rest; nothing more than is claimable.
+    const { readPayables, readPayouts, recordPayout } = await import("./store");
+    expect((await readPayables()).find((row) => row.id === inviter)).toMatchObject({ earned: 3.5, paid: 0, claimable: 3.5 });
+    expect(await recordPayout(inviter, 2, "0xabc", "0xadmin", 1_000)).toMatchObject({ ok: true, claimable: 1.5 });
+    expect(await recordPayout(inviter, 5, "", "0xadmin")).toMatchObject({ ok: false });
+    expect(await recordPayout(inviter, 1.5, "", "0xadmin", 2_000)).toMatchObject({ ok: true, claimable: 0 });
+    expect(await readProfile(inviter)).toMatchObject({ referralEarnings: 3.5, referralPaid: 3.5, referralClaimable: 0 });
+    expect((await readPayouts(inviter)).map((payout) => payout.usd)).toEqual([1.5, 2]);
   });
 });
 

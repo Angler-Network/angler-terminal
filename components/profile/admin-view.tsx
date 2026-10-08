@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { RevenueReport, RevenueSummary } from "@/lib/analytics/revenue";
+import { shortAddress } from "@/lib/profile/identity";
+import type { Payable } from "@/lib/profile/store";
 import { useProfile } from "./profile-provider";
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
@@ -41,6 +43,114 @@ function Stat({ label, value, metric }: { label: string; value: RevenueSummary |
         {value ? `${metric === "fee" ? `${compactUsd.format(value.usd)} volume` : `${usd.format(value.fee)} revenue`} · ${value.trades.toLocaleString("en-US")} trades` : " "}
       </p>
     </div>
+  );
+}
+
+/**
+ * Referral payouts: who is owed what. After sending someone their claimable fees (their Discord ticket), the admin
+ * records it here; their claimable balance drops by that amount and the payout stays in the history.
+ */
+function PayoutsPanel() {
+  const [rows, setRows] = useState<Payable[] | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [reference, setReference] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/payouts", { cache: "no-store" })
+      .then(async (response) => (response.ok ? ((await response.json()) as { payables: Payable[] }).payables : []))
+      .then((next) => !cancelled && setRows(next))
+      .catch(() => !cancelled && setRows([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [version]);
+
+  const owed = (rows ?? []).reduce((sum, row) => sum + row.claimable, 0);
+
+  return (
+    <section className={`${card} p-4`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[13px] font-semibold text-app-ink">Referral payouts</h3>
+        <span className="text-[12px] tabular-nums text-app-muted">
+          Owed in total <span className="font-semibold text-app-up">{usd.format(owed)}</span>
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] text-app-faint">Send the claimable USDC to the wallet from their Discord ticket, then mark it paid here.</p>
+      <ul className="mt-3 divide-y divide-app-hairline">
+        {(rows ?? []).map((row) => (
+          <li key={row.id} className="py-2.5">
+            <div className="flex flex-wrap items-center gap-3 text-[13px] tabular-nums">
+              <button type="button" onClick={() => void navigator.clipboard?.writeText(row.id)} title={`Copy ${row.id}`} className="font-semibold text-app-ink hover:underline">
+                {row.username ?? shortAddress(row.id)}
+              </button>
+              <span className="text-[12px] text-app-faint">
+                {usd.format(row.earned)} earned · {usd.format(row.paid)} paid
+              </span>
+              <span className={`ml-auto font-semibold ${row.claimable > 0 ? "text-app-up" : "text-app-faint"}`}>{usd.format(row.claimable)}</span>
+              {row.claimable > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(open === row.id ? null : row.id);
+                    setAmount(row.claimable.toFixed(2));
+                    setReference("");
+                    setMessage(null);
+                  }}
+                  className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
+                >
+                  Mark paid
+                </button>
+              )}
+            </div>
+            {open === row.id && (
+              <form
+                className="mt-2 flex flex-wrap items-center gap-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setBusy(true);
+                  const response = await fetch("/api/admin/payouts", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ profile: row.id, usd: Number(amount), reference }),
+                  });
+                  const body = (await response.json().catch(() => ({}))) as { error?: string };
+                  setBusy(false);
+                  if (!response.ok) return setMessage(body.error ?? "Couldn't record the payout.");
+                  setOpen(null);
+                  setVersion((value) => value + 1);
+                }}
+              >
+                <input
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  inputMode="decimal"
+                  aria-label="Amount paid in USD"
+                  className="h-8 w-28 rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-none focus:border-app-ink"
+                />
+                <input
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  placeholder="Transfer hash or note"
+                  aria-label="Transfer hash or note"
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] text-app-ink outline-none focus:border-app-ink"
+                />
+                <button type="submit" disabled={busy} className="h-8 rounded-lg bg-app-up px-3 text-[12px] font-semibold text-black disabled:opacity-60">
+                  {busy ? "Saving…" : "Confirm paid"}
+                </button>
+                {message && <span className="basis-full text-[12px] text-app-down">{message}</span>}
+              </form>
+            )}
+          </li>
+        ))}
+        {rows !== null && rows.length === 0 && <li className="py-3 text-[12px] text-app-muted">Nobody has referral earnings yet.</li>}
+        {rows === null && <li className="py-3 text-[12px] text-app-muted">Loading…</li>}
+      </ul>
+    </section>
   );
 }
 
@@ -178,6 +288,7 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
         </section>
         {invites}
       </div>
+      {status === "ready" && <PayoutsPanel />}
     </>
   );
 }

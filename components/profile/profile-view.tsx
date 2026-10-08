@@ -461,15 +461,23 @@ function ReferralCard() {
           <p className="text-[11px] text-app-muted">Referral points</p>
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{number.format(profile.referralPoints)}</p>
         </div>
-        <div className="rounded-xl bg-app-chip/60 px-3 py-2.5" title="10% of the Angler fees your referrals paid on perp and spot trades">
-          <p className="text-[11px] text-app-muted">Earned</p>
-          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-up">{usd2.format(profile.referralEarnings)}</p>
+        <div
+          className="rounded-xl bg-app-chip/60 px-3 py-2.5"
+          title={`10% of the Angler fees your referrals paid on perp and spot trades: ${usd2.format(profile.referralEarnings)} earned, ${usd2.format(profile.referralPaid)} paid out`}
+        >
+          <p className="text-[11px] text-app-muted">Claimable</p>
+          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-up">{usd2.format(profile.referralClaimable)}</p>
         </div>
       </div>
       {profile.referralEarnings > 0 && (
+        <p className="mt-1.5 text-[11px] tabular-nums text-app-faint">
+          {usd2.format(profile.referralEarnings)} earned all time · {usd2.format(profile.referralPaid)} paid out
+        </p>
+      )}
+      {profile.referralClaimable > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-app-up/25 bg-app-up/[0.06] px-3 py-2.5">
           <p className="min-w-0 flex-1 text-[12px] text-app-muted">
-            To withdraw your <span className="font-semibold text-app-up">{usd2.format(profile.referralEarnings)}</span>, open a ticket on our Discord.
+            To withdraw your <span className="font-semibold text-app-up">{usd2.format(profile.referralClaimable)}</span>, open a ticket on our Discord with your wallet address.
           </p>
           {DISCORD_URL && (
             <a

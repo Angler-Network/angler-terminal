@@ -14,6 +14,8 @@ import { profileIdOf, type ProfileChain } from "./identity";
  *   d:{id}          hash: UTC day → volume credited that day (7 and 30 day totals)
  *   inv:{id}        hash: invite code → the profile that used it ("" while unused)
  *   invite:{code}   the profile that owns an invite code; invite-used:{code} the profile that used it
+ *   earners         set: profiles that earned referral fees (the admin payout list)
+ *   payouts:{id}    hash: payout id → JSON record of a referral payout an admin made
  *   points          sorted set: id → points (the leaderboard)
  *   name:{lower}    the id holding a username
  *   claim:{tx}      a Solana swap already credited
@@ -164,6 +166,9 @@ export interface ProfileView {
   referralPoints: number;
   /** USD a referrer earned: REFERRAL_FEE_SHARE of the fees its referrals paid on perp and spot trades. */
   referralEarnings: number;
+  /** Paid out so far by admins (Discord tickets), and what's left to claim. */
+  referralPaid: number;
+  referralClaimable: number;
   /**
    * Single-use invite codes, one per INVITE_VOLUME of perp and spot volume; a referrer is set only through one. Only
    * sent to the signed-in owner (`readProfile(id, { owner: true })`), else null.
@@ -204,6 +209,15 @@ async function rankOf(id: string): Promise<number | null> {
   return typeof result === "number" ? result + 1 : null;
 }
 
+const cents = (value: number) => Math.round(value * 100) / 100;
+
+/** Referral fees earned (all time), paid out, and still claimable. */
+function referralBalance(hash: Record<string, string>) {
+  const earned = Math.max(0, Number(hash.refFeeUsd) || 0);
+  const paid = Math.max(0, Number(hash.refPaidUsd) || 0);
+  return { referralEarnings: cents(earned), referralPaid: cents(paid), referralClaimable: cents(Math.max(0, earned - paid)) };
+}
+
 export async function readProfile(id: string, { owner = false }: { owner?: boolean } = {}): Promise<ProfileView> {
   const chain = profileIdOf(id)?.chain ?? "evm";
   const [hash, days, linked, referred] = await Promise.all([
@@ -231,7 +245,7 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     access: isAdmin(id) || Boolean(hash.referrer) || totalOf(volume) > 0,
     admin: isAdmin(id),
     referrals: referred.length,
-    referralEarnings: Math.round(Math.max(0, Number(hash.refFeeUsd) || 0) * 100) / 100,
+    ...referralBalance(hash),
     invites,
     referralPoints: pointsFor(referralUsdOf(hash)),
   };
@@ -296,11 +310,12 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number,
     if (redisConfig()) {
       await run([
         ["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", amount],
-        ...(share > 0 ? [["HINCRBYFLOAT", key("p", hash.referrer), "refFeeUsd", share] as RedisCommand] : []),
+        ...(share > 0 ? [["HINCRBYFLOAT", key("p", hash.referrer), "refFeeUsd", share] as RedisCommand, ["SADD", key("earners"), hash.referrer] as RedisCommand] : []),
       ]);
     } else {
       const referrer = await getHash(hash.referrer);
       await setFields(hash.referrer, { refUsd: String(Number(referrer.refUsd ?? 0) + amount), refFeeUsd: String(Number(referrer.refFeeUsd ?? 0) + share) });
+      if (share > 0) await addToSet(key("earners"), hash.referrer);
     }
     await setPoints(hash.referrer, pointsOf(await getHash(hash.referrer)));
   }
@@ -470,4 +485,73 @@ export async function readLeaderboard(limit = LEADERBOARD_SIZE): Promise<Leaderb
     const level = levelFor(points);
     return { rank: index + 1, id, username: names[index], points, level: level.level, levelName: level.name };
   });
+}
+
+// ---------- referral payouts ----------
+
+export interface Payable {
+  id: string;
+  username: string | null;
+  earned: number;
+  paid: number;
+  claimable: number;
+}
+
+export interface Payout {
+  id: string;
+  /** The profile paid. */
+  profile: string;
+  usd: number;
+  /** Transfer hash or a note, as the admin entered it. */
+  reference: string;
+  /** The admin who recorded it. */
+  by: string;
+  at: number;
+}
+
+/** Everyone with referral fees, most owed first (the admin payout list). */
+export async function readPayables(): Promise<Payable[]> {
+  const ids = await members(key("earners"));
+  const rows = await Promise.all(
+    ids.map(async (id) => {
+      const hash = await getHash(id);
+      const balance = referralBalance(hash);
+      return { id, username: hash.username || null, earned: balance.referralEarnings, paid: balance.referralPaid, claimable: balance.referralClaimable };
+    }),
+  );
+  return rows.sort((a, b) => b.claimable - a.claimable || b.earned - a.earned);
+}
+
+export async function readPayouts(id: string): Promise<Payout[]> {
+  const hash: Record<string, string> = !redisConfig() ? { ...(memory.hashes.get(key("payouts", id)) ?? {}) } : toHash((await run([["HGETALL", key("payouts", id)]]))[0]);
+  return Object.values(hash)
+    .flatMap((value) => {
+      try {
+        return [JSON.parse(value) as Payout];
+      } catch {
+        return [];
+      }
+    })
+    .sort((a, b) => b.at - a.at);
+}
+
+export type PayoutResult = { ok: true; payout: Payout; claimable: number } | { ok: false; error: string };
+
+/** Records a referral payout an admin sent (never more than is claimable, a cent of rounding aside). */
+export async function recordPayout(id: string, usd: number, reference: string, by: string, now = Date.now()): Promise<PayoutResult> {
+  const amount = cents(usd);
+  if (!(amount > 0)) return { ok: false, error: "Enter an amount above $0." };
+  const { referralClaimable } = referralBalance(await getHash(id));
+  if (amount > referralClaimable + 0.01) return { ok: false, error: `Only $${referralClaimable.toFixed(2)} is claimable.` };
+  const payout: Payout = { id: `${now}-${randomInt(1e9)}`, profile: id, usd: amount, reference: reference.trim().slice(0, 200), by, at: now };
+  if (redisConfig()) {
+    await run([
+      ["HINCRBYFLOAT", key("p", id), "refPaidUsd", amount],
+      ["HSET", key("payouts", id), payout.id, JSON.stringify(payout)],
+    ]);
+  } else {
+    await setFields(id, { refPaidUsd: String(Number((await getHash(id)).refPaidUsd ?? 0) + amount) });
+    memory.hashes.set(key("payouts", id), { ...(memory.hashes.get(key("payouts", id)) ?? {}), [payout.id]: JSON.stringify(payout) });
+  }
+  return { ok: true, payout, claimable: referralBalance(await getHash(id)).referralClaimable };
 }
