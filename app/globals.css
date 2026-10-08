@@ -771,6 +771,28 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
+/* Home hero: the busiest pairs drift behind it; each lane holds its list twice and loops at -50%. */
+@keyframes pair-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.pair-drift {
+  animation: pair-drift 70s linear infinite;
+}
+
+.pair-drift-reverse {
+  animation-direction: reverse;
+  animation-duration: 85s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pair-drift {
+    animation: none;
+  }
+}
+
 /* Home search: the venue filters slide in next to the market type they belong to. */
 @keyframes home-slide {
   from {

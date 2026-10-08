@@ -33,6 +33,44 @@ const TAGLINES: Record<string, string> = {
   "/prediction": "Trade on what happens next",
 };
 
+const BAND_PAIRS = 16;
+
+function PairChip({ row }: { row: AssetRow }) {
+  const change = row.change24hPct;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-app-hairline-strong bg-app-card/70 py-1.5 pl-1.5 pr-3.5 text-[14px] font-semibold text-app-ink">
+      <MarketIcon symbol={row.symbol} kind={row.kind} size={22} />
+      {row.symbol}/USD
+      {change !== undefined && <span className={change >= 0 ? "text-app-up" : "text-app-down"}>{`${change >= 0 ? "+" : ""}${change.toFixed(2)}%`}</span>}
+    </span>
+  );
+}
+
+/**
+ * The busiest pairs drifting behind the hero in two tilted rows, faded toward the headline. Pure CSS transforms (the
+ * compositor moves them; no JavaScript per frame), and still for reduced motion.
+ */
+function PairDrift({ rows }: { rows: AssetRow[] }) {
+  const pairs = useMemo(() => sortAssetRows(rows, "volume").slice(0, BAND_PAIRS), [rows]);
+  if (pairs.length === 0) return null;
+  const half = Math.ceil(pairs.length / 2);
+  const lanes = [pairs.slice(0, half), pairs.slice(half)];
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl [mask-image:linear-gradient(to_right,transparent_30%,black_75%)]">
+      <div className="absolute -right-24 top-1/2 flex w-[150%] -translate-y-1/2 -rotate-6 flex-col gap-3 opacity-40">
+        {lanes.map((lane, index) => (
+          <div key={index} className={`pair-drift flex w-max gap-3 ${index === 1 ? "pair-drift-reverse" : ""}`}>
+            {/* Twice over, so the lane loops seamlessly at -50%. */}
+            {[...lane, ...lane].map((row, position) => (
+              <PairChip key={`${row.symbol}-${position}`} row={row} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const panel = "surface-panel overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55";
 
 function Change({ value }: { value: number | undefined }) {
@@ -183,6 +221,7 @@ export function HomeView() {
       <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-4 py-6 lg:px-8 lg:py-10">
         <section className="surface-panel relative z-10 rounded-2xl border border-app-card/80 bg-app-card/55 p-5 sm:p-7">
           <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(60%_80%_at_100%_0%,rgba(245,201,123,0.10),transparent_60%)]" />
+          <PairDrift rows={rows} />
           <div className="relative">
             <div className="flex flex-col gap-4">
               <div>
