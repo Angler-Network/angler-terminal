@@ -642,6 +642,22 @@ dependency versions and design are free to diverge from angler-news.
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
   Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+- Alerts (Profile → Alerts, `components/profile/alerts-view.tsx`; `lib/alerts/settings.ts`, `rules.ts`, `sources.ts`,
+  `channels.ts`, `store.ts`, `tick.ts`; routes `app/api/alerts/*`): Telegram and/or Discord messages for positions
+  (opened, added, reduced, flipped, closed; TP/SL and liquidations read as closes), liquidation distance (5/10/20%,
+  once, re-armed past 1.5×), price levels (Hyperliquid mids, main + HIP-3 dexes, each fires once) and news at or above
+  an impact on the positions' coins and a coin list. Settings need the profile session cookie (sign in once); the
+  Telegram chat is only set by the bot (`/start <code>` from a t.me link made by `/api/alerts/telegram/link`, `/stop`
+  unlinks), never from the page. Discord webhooks are checked against Discord's hosts (the server posts to them),
+  mentions are off. `GET /api/alerts/tick` (Bearer `CRON_SECRET`, Redis lock, 60s) runs once a minute from a scheduler
+  (Vercel Cron on Pro, else a free one like cron-job.org; no always-on worker): one HGETALL each for settings and
+  state whatever the user count (Upstash free tier), shared reads (mids, one news page with a cursor; the first tick
+  only seeds it), then per EVM profile public position reads (HL `clearinghouseState` per dex, Lighter/Lighter RH
+  `account?by=index`, account index cached, unknown ones looked up hourly). A venue read that fails keeps its last
+  positions so a timeout never reads as a close; the first look after enabling only records. Aster/Orderly need signed
+  reads, so they aren't watched. Env: `CRON_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`,
+  `TELEGRAM_WEBHOOK_SECRET` (setWebhook once per deployment, `.env.example`). Hyperliquid's and Lighter's per-IP limits
+  cap this at a few hundred watched wallets per tick; beyond that, rotate profiles across ticks.
 - Out of scope: Supabase auth, memberships, payments, admin, referrals, Telegram. The terminal has no login.
 
 - First load stays light: the Hyperliquid SDK (`hyperliquid/clients.ts`), viem's wallet client (`getWalletClient`),
