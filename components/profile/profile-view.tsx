@@ -10,16 +10,18 @@ import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import { INVITE_VOLUME } from "@/lib/profile/invites";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
+import { AdminView } from "./admin-view";
 import { PortfolioCard } from "./portfolio-card";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
 
-export type ProfileTab = "overview" | "portfolio" | "leaderboard";
+export type ProfileTab = "overview" | "portfolio" | "leaderboard" | "admin";
 
 const tabs: Array<{ id: ProfileTab; label: string; href: string }> = [
   { id: "overview", label: "Overview", href: "/profile" },
   { id: "portfolio", label: "Portfolio", href: "/profile/portfolio" },
   { id: "leaderboard", label: "Leaderboard", href: "/profile/leaderboard" },
+  { id: "admin", label: "Admin", href: "/profile/admin" },
 ];
 
 const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
@@ -139,7 +141,7 @@ function ProfileHeader({ tab }: { tab: ProfileTab }) {
         )}
       </div>
       <nav aria-label="Profile" className="-mb-px flex gap-5">
-        {tabs.map((entry) => (
+        {tabs.filter((entry) => entry.id !== "admin" || profile?.admin).map((entry) => (
           <Link
             key={entry.id}
             href={entry.href}
@@ -540,7 +542,7 @@ export function ProfileView({ tab }: { tab: ProfileTab }) {
         </div>
       ) : (
         <section className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col gap-4 overflow-auto *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
-          {tab === "leaderboard" ? <Leaderboard /> : <Overview />}
+          {tab === "leaderboard" ? <Leaderboard /> : tab === "admin" ? <AdminView invites={<ReferralCard />} /> : <Overview />}
         </section>
       )}
     </div>

@@ -70,7 +70,11 @@ export interface StatsSnapshot {
 }
 
 export async function readStats(dayCount = 30, now = new Date()): Promise<StatsSnapshot> {
-  const dates = lastDays(now, dayCount);
+  return readDates(lastDays(now, dayCount));
+}
+
+/** All-time totals and the given UTC days (oldest first), e.g. a calendar year for the admin revenue chart. */
+export async function readDates(dates: string[]): Promise<StatsSnapshot> {
   if (!redisConfig()) {
     return {
       backend: "memory",

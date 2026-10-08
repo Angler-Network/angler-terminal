@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProfileView, type ProfileTab } from "@/components/profile/profile-view";
 
-const titles: Record<ProfileTab, string> = { overview: "Profile", portfolio: "Portfolio", leaderboard: "Leaderboard" };
+const titles: Record<ProfileTab, string> = { overview: "Profile", portfolio: "Portfolio", leaderboard: "Leaderboard", admin: "Admin" };
 
 function readTab(segments: string[] | undefined): ProfileTab | null {
   if (!segments?.length) return "overview";
-  if (segments.length === 1 && (segments[0] === "portfolio" || segments[0] === "leaderboard")) return segments[0];
+  if (segments.length === 1 && (segments[0] === "portfolio" || segments[0] === "leaderboard" || segments[0] === "admin")) return segments[0];
   return null;
 }
 
 export function generateStaticParams() {
-  return [{ tab: [] }, { tab: ["portfolio"] }, { tab: ["leaderboard"] }];
+  return [{ tab: [] }, { tab: ["portfolio"] }, { tab: ["leaderboard"] }, { tab: ["admin"] }];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ tab?: string[] }> }): Promise<Metadata> {
