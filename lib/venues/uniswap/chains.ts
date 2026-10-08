@@ -1,6 +1,6 @@
 /**
  * EVM chains the swap card trades any token on (Ethereum, Base, Arbitrum, BNB Chain, HyperEVM, Polygon, Optimism,
- * Avalanche, Unichain, Monad, Robinhood Chain): Uniswap (where it trades) and the aggregators (0x, KyberSwap) quote
+ * Avalanche, Unichain, Monad, Linea, Sonic, Berachain, Plasma, Ronin, MegaETH, Etherlink, Robinhood Chain): Uniswap (where it trades) and the aggregators (0x, KyberSwap) quote
  * each swap and the largest output runs. Adding a chain is one entry here, its logo in `public/chains`, its viem chain
  * in the swap card and its name in each aggregator's chain map. Every address and service name below was checked
  * against the chain and the services (DefiLlama, DexScreener, GeckoTerminal) when added. Robinhood
@@ -8,7 +8,7 @@
  * light on the first screen.
  */
 
-export type EvmSwapChainKey = "ethereum" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon" | "optimism" | "avalanche" | "unichain" | "monad" | "robinhood";
+export type EvmSwapChainKey = "ethereum" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon" | "optimism" | "avalanche" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood";
 
 export interface EvmSwapToken {
   address: `0x${string}`;
@@ -21,7 +21,7 @@ export interface EvmSwapChain {
   id: number;
   name: string;
   /** GeckoTerminal network id (pool candles, trades). */
-  pool: "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad" | "robinhood";
+  pool: "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood";
   /**
    * Also list the tokens of the chain's busiest pools (GeckoTerminal), for chains Uniswap's `/tokens` may not rank
    * (Robinhood). Arcus's stock tokens are listed once, as Arcus.
@@ -251,6 +251,149 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
       { address: NATIVE_TOKEN, symbol: "MON", decimals: 18 },
       { address: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A", symbol: "WMON", decimals: 18 },
       { address: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D", symbol: "USDT0", decimals: 6 },
+    ],
+  },
+  {
+    key: "linea",
+    id: 59144,
+    name: "Linea",
+    pool: "linea",
+    dexscreener: "linea",
+    llama: "linea",
+    explorer: "https://lineascan.build",
+    rpc: "https://rpc.linea.build",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "Ether",
+    wrapped: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "ETH", decimals: 18 },
+      { address: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f", symbol: "WETH", decimals: 18 },
+      { address: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", symbol: "USDT", decimals: 6 },
+    ],
+  },
+  {
+    key: "sonic",
+    id: 146,
+    name: "Sonic",
+    pool: "sonic",
+    dexscreener: "sonic",
+    llama: "sonic",
+    explorer: "https://sonicscan.org",
+    rpc: "https://rpc.soniclabs.com",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "Sonic",
+    wrapped: "0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38",
+    gasReserve: 5_000_000_000_000_000_000n,
+    pay: [
+      { address: "0x29219dd400f2Bf60E5a23d13Be72B486D4038894", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "S", decimals: 18 },
+      { address: "0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38", symbol: "wS", decimals: 18 },
+    ],
+  },
+  {
+    key: "berachain",
+    id: 80094,
+    name: "Berachain",
+    pool: "berachain",
+    dexscreener: "berachain",
+    llama: "berachain",
+    explorer: "https://berascan.com",
+    rpc: "https://rpc.berachain.com",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "BERA",
+    wrapped: "0x6969696969696969696969696969696969696969",
+    gasReserve: 2_000_000_000_000_000_000n,
+    pay: [
+      { address: "0x549943e04f40284185054145c6E4e9568C1D3241", symbol: "USDC.e", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "BERA", decimals: 18 },
+      { address: "0x6969696969696969696969696969696969696969", symbol: "WBERA", decimals: 18 },
+      { address: "0x779Ded0c9e1022225f8E0630b35a9b54bE713736", symbol: "USDT0", decimals: 6 },
+    ],
+  },
+  {
+    key: "plasma",
+    id: 9745,
+    name: "Plasma",
+    pool: "plasma",
+    dexscreener: "plasma",
+    llama: "plasma",
+    explorer: "https://plasmascan.to",
+    rpc: "https://rpc.plasma.to",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "XPL",
+    wrapped: "0x6100E367285b01F48D07953803A2d8dCA5D19873",
+    gasReserve: 5_000_000_000_000_000_000n,
+    pay: [
+      { address: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", symbol: "USDT0", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "XPL", decimals: 18 },
+      { address: "0x6100E367285b01F48D07953803A2d8dCA5D19873", symbol: "WXPL", decimals: 18 },
+    ],
+  },
+  {
+    key: "ronin",
+    id: 2020,
+    name: "Ronin",
+    pool: "ronin",
+    dexscreener: "ronin",
+    llama: "ronin",
+    explorer: "https://app.roninchain.com",
+    rpc: "https://api.roninchain.com/rpc",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "RON",
+    wrapped: "0xe514d9DEB7966c8BE0ca922de8a064264eA6bcd4",
+    gasReserve: 5_000_000_000_000_000_000n,
+    pay: [
+      { address: "0x0B7007c13325C48911F73A2daD5FA5dCBf808aDc", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "RON", decimals: 18 },
+      { address: "0xe514d9DEB7966c8BE0ca922de8a064264eA6bcd4", symbol: "WRON", decimals: 18 },
+    ],
+  },
+  {
+    key: "megaeth",
+    id: 4326,
+    name: "MegaETH",
+    pool: "megaeth",
+    dexscreener: "megaeth",
+    llama: "megaeth",
+    explorer: "https://megaexplorer.xyz",
+    rpc: "https://mainnet.megaeth.com/rpc",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "Ether",
+    wrapped: "0x4200000000000000000000000000000000000006",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7", symbol: "USDm", decimals: 18 },
+      { address: NATIVE_TOKEN, symbol: "ETH", decimals: 18 },
+      { address: "0x4200000000000000000000000000000000000006", symbol: "WETH", decimals: 18 },
+      { address: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb", symbol: "USDT0", decimals: 6 },
+    ],
+  },
+  {
+    key: "etherlink",
+    id: 42793,
+    name: "Etherlink",
+    pool: "etherlink",
+    dexscreener: "etherlink",
+    llama: "etherlink",
+    explorer: "https://explorer.etherlink.com",
+    rpc: "https://node.mainnet.etherlink.com",
+    // No Uniswap here: 0x and KyberSwap quote; the token list comes from the busiest pools.
+    poolTop: true,
+    nativeName: "Tezos",
+    wrapped: "0xc9B53AB2679f573e480d01e0f49e2B5CFB7a3EAb",
+    gasReserve: 1_000_000_000_000_000_000n,
+    pay: [
+      { address: "0x796Ea11Fa2dD751eD01b53C372fFDB4AAa8f00F9", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "XTZ", decimals: 18 },
+      { address: "0xc9B53AB2679f573e480d01e0f49e2B5CFB7a3EAb", symbol: "WXTZ", decimals: 18 },
     ],
   },
   {

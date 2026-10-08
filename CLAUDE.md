@@ -382,7 +382,13 @@ dependency versions and design are free to diverge from angler-news.
     balance) reaches it through Relay / LI.FI like any token (`bridgeable` in `evm-swap-card.tsx`), not the Across path.
     Same for HyperEVM (999, HYPE/WHYPE, no Uniswap there: aggregators only, `poolTop`), Polygon (137, POL/WPOL, RPC
     drpc: publicnode and polygon-rpc.com failed reads), Optimism (10), Avalanche (43114, AVAX/WAVAX), Unichain (130,
-    USDC only: its USDT is too thin) and Monad (143, MON/WMON, `poolTop`). Service names differ per chain (GeckoTerminal
+    USDC only: its USDT is too thin) and Monad (143, MON/WMON, `poolTop`). Also Linea (59144), Sonic (146), Berachain (80094), Plasma
+    (9745, USDT0 first), Ronin (2020), MegaETH (4326, USDm first) and Etherlink (42793): KyberSwap-supported chains
+    without Uniswap, so 0x and KyberSwap quote and the list is `poolTop` only; addresses read on-chain, each
+    chain's KyberSwap route checked with a live $10 quote. Their logos are KyberSwap's, PNGs wrapped in an SVG so the
+    `/chains/<key>.svg` path holds. DexScreener barely covers Ronin and Etherlink; GeckoTerminal fills their stats. A
+    native coin listed by a pool source keeps the chain's own symbol and name (`nativeName`), not the wrapped token's
+    (Robinhood's ETH once showed as a second "WETH"). Service names differ per chain (GeckoTerminal
     `polygon_pos`/`avax`, DefiLlama `hyperliquid`/`avax`, DexScreener `avalanche`): check each against the live API when
     adding a chain, and the token addresses on-chain (symbol, decimals, supply). A chain = one `EVM_SWAP_CHAINS` entry
     (with `gasReserve`), its logo `public/chains/<key>.svg` (the search filter builds the path from the key, the token

@@ -257,8 +257,8 @@ async function viemChain(chain: EvmSwapChain) {
     const { robinhoodChain } = await import("@/lib/venues/arcus/config");
     return robinhoodChain("mainnet");
   }
-  const { arbitrum, avalanche, base, bsc, hyperEvm, mainnet, monad, optimism, polygon, unichain } = await import("viem/chains");
-  const known = [mainnet, base, arbitrum, bsc, hyperEvm, polygon, optimism, avalanche, unichain, monad].find((entry) => entry.id === chain.id)!;
+  const { arbitrum, avalanche, base, berachain, bsc, etherlink, hyperEvm, linea, mainnet, megaeth, monad, optimism, plasma, polygon, ronin, sonic, unichain } = await import("viem/chains");
+  const known = [mainnet, base, arbitrum, bsc, hyperEvm, polygon, optimism, avalanche, unichain, monad, linea, sonic, berachain, plasma, ronin, megaeth, etherlink].find((entry) => entry.id === chain.id)!;
   return { ...known, rpcUrls: { default: { http: [chain.rpc] } } };
 }
 

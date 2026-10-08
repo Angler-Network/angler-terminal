@@ -5,7 +5,7 @@
 import type { Candle, ChartInterval } from "@/lib/chart/candles";
 
 /** GeckoTerminal networks for the spot venues' chains: Jupiter on Solana, Arcus on Robinhood Chain, Uniswap on EVM. */
-export type PoolNetwork = "solana" | "robinhood" | "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad";
+export type PoolNetwork = "solana" | "robinhood" | "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink";
 
 export interface PoolInfo {
   address: string;
@@ -130,6 +130,13 @@ const ADDRESS: Record<PoolNetwork, RegExp> = {
   avax: /^0x[0-9a-fA-F]{40}$/,
   unichain: /^0x[0-9a-fA-F]{40}$/,
   monad: /^0x[0-9a-fA-F]{40}$/,
+  linea: /^0x[0-9a-fA-F]{40}$/,
+  sonic: /^0x[0-9a-fA-F]{40}$/,
+  berachain: /^0x[0-9a-fA-F]{40}$/,
+  plasma: /^0x[0-9a-fA-F]{40}$/,
+  ronin: /^0x[0-9a-fA-F]{40}$/,
+  megaeth: /^0x[0-9a-fA-F]{40}$/,
+  etherlink: /^0x[0-9a-fA-F]{40}$/,
 };
 
 export function isPoolNetwork(value: unknown): value is PoolNetwork {
