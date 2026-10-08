@@ -94,7 +94,7 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
 
 /**
  * The venue picker as icon chips: one small chip per venue (its name in the tooltip) plus "Auto", which routes each
- * market order to the best price. Stays one row however many venues join; the chosen venue's name sits beside it.
+ * market order to the best price. Stays one row however many venues join; no name beside it (the icons say which).
  */
 function VenueChips({
   choices,
@@ -109,7 +109,6 @@ function VenueChips({
   onPick: (id: string) => void;
   onAuto: () => void;
 }) {
-  const chosen = choices.find((entry) => entry.id === value);
   const chip = (active: boolean) =>
     `flex size-8 shrink-0 items-center justify-center rounded-lg border transition-all ${
       active ? "border-app-accent/70 bg-app-accent/10 shadow-[0_0_0_2px_rgb(var(--app-accent)/0.12)]" : "border-transparent bg-app-chip hover:border-app-field-border"
@@ -128,7 +127,7 @@ function VenueChips({
         Auto
       </button>
       <span aria-hidden className="h-5 w-px shrink-0 bg-app-hairline" />
-      <div className="scrollbar-none flex max-w-[75%] shrink-0 gap-1.5 overflow-x-auto">
+      <div className="scrollbar-none flex min-w-0 gap-1.5 overflow-x-auto">
         {choices.map((entry) => {
           const icon = VENUE_ICONS[entry.id];
           const active = entry.id === value;
@@ -148,11 +147,6 @@ function VenueChips({
           );
         })}
       </div>
-      {chosen && (
-        <span className="ml-auto min-w-0 truncate pl-1 text-[12px] font-semibold text-app-ink" title={auto ? `Best price right now is on ${chosen.name}` : undefined}>
-          {auto ? `Best: ${chosen.name}` : chosen.name}
-        </span>
-      )}
     </div>
   );
 }
@@ -369,6 +363,7 @@ export function OrderPanel() {
   const [stopLoss, setStopLoss] = useState("");
   // Share of the entry the TP/SL closes; the rest stays open without one.
   const [tpslPercent, setTpslPercent] = useState(100);
+  const [tpslPercentText, setTpslPercentText] = useState("100");
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
@@ -760,28 +755,55 @@ export function OrderPanel() {
                 </div>
               )}
               {tpslActive && (
-                <div className="-mt-1 flex items-center gap-1 text-[11px]">
-                  <span className="mr-auto text-app-muted" title="How much of this order the TP/SL closes; the rest stays open without one">
-                    TP/SL amount
-                    {partialTpsl && tpslBase ? (
-                      <span className="ml-1 tabular-nums text-app-faint">
-                        {tpslBase} {symbol}
-                      </span>
-                    ) : null}
-                  </span>
-                  {PERCENTS.map((stop) => (
-                    <button
-                      key={stop}
-                      type="button"
-                      aria-pressed={tpslPercent === stop}
-                      onClick={() => setTpslPercent(stop)}
-                      className={`h-6 rounded-md px-1.5 font-semibold tabular-nums transition-colors ${
-                        tpslPercent === stop ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"
+                <div className="-mt-1 flex flex-col gap-0.5 text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <span className="mr-auto whitespace-nowrap text-app-muted" title="How much of this order the TP/SL closes; the rest stays open without one">
+                      TP/SL amount
+                    </span>
+                    {PERCENTS.map((stop) => (
+                      <button
+                        key={stop}
+                        type="button"
+                        aria-pressed={tpslPercent === stop}
+                        onClick={() => {
+                          setTpslPercent(stop);
+                          setTpslPercentText(String(stop));
+                        }}
+                        className={`h-6 rounded-md px-1.5 font-semibold tabular-nums transition-colors ${
+                          tpslPercent === stop ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"
+                        }`}
+                      >
+                        {stop}%
+                      </button>
+                    ))}
+                    {/* Any other share, typed: 1-100. */}
+                    <label
+                      className={`flex h-6 w-12 shrink-0 items-center rounded-md border px-1.5 focus-within:border-app-ink ${
+                        PERCENTS.includes(tpslPercent) ? "border-app-hairline" : "border-app-ink/60 bg-app-chip"
                       }`}
                     >
-                      {stop}%
-                    </button>
-                  ))}
+                      <input
+                        aria-label="Custom TP/SL amount in percent"
+                        inputMode="numeric"
+                        placeholder="—"
+                        value={tpslPercentText}
+                        onChange={(event) => {
+                          const text = event.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+                          setTpslPercentText(text);
+                          const value = Number(text);
+                          if (text && value >= 1 && value <= 100) setTpslPercent(value);
+                        }}
+                        onBlur={() => setTpslPercentText(String(tpslPercent))}
+                        className="w-full min-w-0 bg-transparent text-right font-semibold tabular-nums text-app-ink outline-hidden"
+                      />
+                      <span className="text-app-faint">%</span>
+                    </label>
+                  </div>
+                  {partialTpsl && tpslBase ? (
+                    <span className="tabular-nums text-app-faint">
+                      Closes {tpslBase} {symbol}, the rest stays open without TP/SL.
+                    </span>
+                  ) : null}
                 </div>
               )}
               {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}
