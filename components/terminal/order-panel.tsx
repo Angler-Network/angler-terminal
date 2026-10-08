@@ -180,11 +180,21 @@ function FieldBox({ label, children }: { label: string; children: React.ReactNod
 }
 
 /** Share of the available margin (× leverage) to use, with stops at every quarter. */
-function PercentSlider({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (percent: number) => void }) {
+function PercentSlider({
+  value,
+  disabled = false,
+  label = "Percent of available",
+  onChange,
+}: {
+  value: number;
+  disabled?: boolean;
+  label?: string;
+  onChange: (percent: number) => void;
+}) {
   return (
     <div className={`flex items-center gap-2 ${disabled ? "opacity-50" : ""}`}>
       <div className="range-slider relative flex-1 pb-3.5" style={{ "--p": 0 } as React.CSSProperties}>
-        <RangeSlider label="Percent of available" min={0} max={100} value={value} disabled={disabled} marks={[0, ...PERCENTS]} onChange={onChange} />
+        <RangeSlider label={label} min={0} max={100} value={value} disabled={disabled} marks={[0, ...PERCENTS]} onChange={onChange} />
         {/* Each stop sits under the thumb's position for that value (same formula as the slider's fill). */}
         <div className="absolute inset-x-0 bottom-0 h-3 text-[9px] tabular-nums text-app-faint">
           {[0, ...PERCENTS].map((stop) => (
@@ -370,7 +380,6 @@ export function OrderPanel() {
   const [stopLoss, setStopLoss] = useState("");
   // Share of the entry the TP/SL closes; the rest stays open without one.
   const [tpslPercent, setTpslPercent] = useState(100);
-  const [tpslPercentText, setTpslPercentText] = useState("100");
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
@@ -762,55 +771,19 @@ export function OrderPanel() {
                 </div>
               )}
               {tpslActive && (
-                <div className="-mt-1 flex flex-col gap-0.5 text-[11px]">
-                  <div className="flex items-center gap-1">
-                    <span className="mr-auto whitespace-nowrap text-app-muted" title="How much of this order the TP/SL closes; the rest stays open without one">
+                // Same slider as the size: any share from 1 to 100%, the rest stays open without a TP/SL.
+                <div className="-mt-1 flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-app-muted" title="How much of this order the TP/SL closes; the rest stays open without one">
                       TP/SL amount
                     </span>
-                    {PERCENTS.map((stop) => (
-                      <button
-                        key={stop}
-                        type="button"
-                        aria-pressed={tpslPercent === stop}
-                        onClick={() => {
-                          setTpslPercent(stop);
-                          setTpslPercentText(String(stop));
-                        }}
-                        className={`h-6 rounded-md px-1.5 font-semibold tabular-nums transition-colors ${
-                          tpslPercent === stop ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"
-                        }`}
-                      >
-                        {stop}%
-                      </button>
-                    ))}
-                    {/* Any other share, typed: 1-100. */}
-                    <label
-                      className={`flex h-6 w-12 shrink-0 items-center rounded-md border px-1.5 focus-within:border-app-ink ${
-                        PERCENTS.includes(tpslPercent) ? "border-app-hairline" : "border-app-ink/60 bg-app-chip"
-                      }`}
-                    >
-                      <input
-                        aria-label="Custom TP/SL amount in percent"
-                        inputMode="numeric"
-                        placeholder="—"
-                        value={tpslPercentText}
-                        onChange={(event) => {
-                          const text = event.target.value.replace(/[^0-9]/g, "").slice(0, 3);
-                          setTpslPercentText(text);
-                          const value = Number(text);
-                          if (text && value >= 1 && value <= 100) setTpslPercent(value);
-                        }}
-                        onBlur={() => setTpslPercentText(String(tpslPercent))}
-                        className="w-full min-w-0 bg-transparent text-right font-semibold tabular-nums text-app-ink outline-hidden"
-                      />
-                      <span className="text-app-faint">%</span>
-                    </label>
+                    {partialTpsl && tpslBase ? (
+                      <span className="tabular-nums text-app-faint">
+                        {tpslBase} {symbol}
+                      </span>
+                    ) : null}
                   </div>
-                  {partialTpsl && tpslBase ? (
-                    <span className="tabular-nums text-app-faint">
-                      Closes {tpslBase} {symbol}, the rest stays open without TP/SL.
-                    </span>
-                  ) : null}
+                  <PercentSlider label="TP/SL amount" value={tpslPercent} onChange={(next) => setTpslPercent(Math.max(1, next))} />
                 </div>
               )}
               {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}
