@@ -393,9 +393,10 @@ function ReferralCard() {
   const available = codes.filter((entry) => !entry.usedBy).length;
   // Invites come from perp and spot volume only (not swaps).
   const ownVolume = profile.volume.hyperliquid + profile.volume.lighter + profile.volume.lighterRh;
-  const copy = (code: string) =>
-    void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${code}`).then(() => {
-      setCopied(code);
+  // `copied` is "link:CODE" or "code:CODE", so each button says "Copied" on its own.
+  const copy = (code: string, what: "link" | "code") =>
+    void navigator.clipboard?.writeText(what === "link" ? `${window.location.origin}/?ref=${code}` : code).then(() => {
+      setCopied(`${what}:${code}`);
       window.setTimeout(() => setCopied(null), 1500);
     });
   return (
@@ -414,7 +415,7 @@ function ReferralCard() {
               setCreating(true);
               const response = await fetch("/api/profile/invites", { method: "POST" });
               const body = (await response.json().catch(() => ({}))) as { code?: string };
-              if (body.code) void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${body.code}`).then(() => setCopied(body.code!));
+              if (body.code) void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${body.code}`).then(() => setCopied(`link:${body.code}`));
               refresh();
               setCreating(false);
             }}
@@ -437,13 +438,22 @@ function ReferralCard() {
               {entry.usedBy ? (
                 <span className="ml-auto text-[11px] text-app-faint">Used by {shortAddress(entry.usedBy)}</span>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => copy(entry.code)}
-                  className="ml-auto h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
-                >
-                  {copied === entry.code ? "Copied" : "Copy link"}
-                </button>
+                <span className="ml-auto flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => copy(entry.code, "code")}
+                    className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
+                  >
+                    {copied === `code:${entry.code}` ? "Copied" : "Copy code"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copy(entry.code, "link")}
+                    className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
+                  >
+                    {copied === `link:${entry.code}` ? "Copied" : "Copy link"}
+                  </button>
+                </span>
               )}
             </li>
           ))}
