@@ -642,6 +642,10 @@ dependency versions and design are free to diverge from angler-news.
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
   Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+- Closed beta gate (`components/profile/access-gate.tsx`, root layout): every page but `/` needs a wallet with
+  `access` (admin, accepted invite or referral, or past volume). Mainnet only: on the testnet site the gate never shows
+  and `readProfile` reports `access: true`. Profiles, invites and referrals are stored per deployment (Redis prefix
+  `angler:profile:<deployment>`), so a testnet code never unlocks mainnet and the two never collide.
 - Alerts (Profile → Alerts, `components/profile/alerts-view.tsx`; `lib/alerts/settings.ts`, `rules.ts`, `sources.ts`,
   `channels.ts`, `store.ts`, `tick.ts`; routes `app/api/alerts/*`): Telegram and/or Discord messages for positions
   (opened, added, reduced, flipped, closed; TP/SL and liquidations read as closes), liquidation distance (5/10/20%,

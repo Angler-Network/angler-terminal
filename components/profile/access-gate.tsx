@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
+import { deployment } from "@/lib/deployment";
 import { REFERRAL_CODE } from "@/lib/profile/identity";
 import { useProfile } from "./profile-provider";
 
@@ -33,7 +34,8 @@ function Step({ index, label, state }: { index: number; label: string; state: "d
 /**
  * Closed beta: every page but the home page asks for a connected wallet with access (an accepted invite, an admin, or
  * a profile that traded before the beta). A wallet without access joins with an invite code here, prefilled from a
- * `?ref=` link. If the profile can't be read the gate stays open rather than locking everyone out.
+ * `?ref=` link. If the profile can't be read the gate stays open rather than locking everyone out. The testnet site has
+ * no gate: anyone can try it there.
  */
 export function AccessGate() {
   const pathname = usePathname();
@@ -47,7 +49,7 @@ export function AccessGate() {
   }, [pendingReferral]);
 
   // The wallet picker (and its signature prompts) open over the gate.
-  if (pathname === "/" || wallets.isOpen) return null;
+  if (deployment === "testnet" || pathname === "/" || wallets.isOpen) return null;
   const needsWallet = !id;
   const needsInvite = Boolean(id && profile && !profile.access);
   if (!needsWallet && !needsInvite) return null;

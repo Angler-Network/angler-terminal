@@ -1,5 +1,6 @@
 import "server-only";
 import { randomInt } from "node:crypto";
+import { deployment } from "@/lib/deployment";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
 import { isAdmin } from "./admin";
 import { dailyVolume, dayKey, volumeOverDays } from "./days";
@@ -242,7 +243,8 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
-    access: isAdmin(id) || Boolean(hash.referrer) || totalOf(volume) > 0,
+    // The testnet site is open to everyone (no real funds); the closed beta gates mainnet only.
+    access: deployment === "testnet" || isAdmin(id) || Boolean(hash.referrer) || totalOf(volume) > 0,
     admin: isAdmin(id),
     referrals: referred.length,
     ...referralBalance(hash),
