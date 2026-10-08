@@ -33,7 +33,10 @@ dependency versions and design are free to diverge from angler-news.
   differs from 3's, so set the display per breakpoint instead. Default look is the `oled` theme with the `liquid`
   surface (`APPEARANCE_VERSION` in `lib/preferences.ts` moves older saved looks to it once). Likewise `VENUES_VERSION` drops saved
   Aster/Arcus switches older than it once (they had stuck at "off" from when those venues were unavailable or off by
-  default); Aster is on by default wherever it's offered.
+  default); Aster is on by default wherever it's offered. Saved preferences also carry `venuesSeen` (the venues the site offered when
+  they were saved): a venue switch saved while its venue wasn't offered (its key not set yet) is ignored, so a venue
+  configured later comes on for every returning visitor, while one the user turned off stays off. Saves without it
+  fall back to the default switches once.
 - Code that began as copies of angler-news (`components/news/*`, `components/chart/*`, `components/app/ticker-*`,
   `market-icon`, `preferences-provider`, `searchable-select`, `lib/markets/*`, `lib/chart/candles.ts`,
   `lib/preferences.ts`, `lib/appearance.ts`, `lib/format.ts`) is owned here now: change it freely, nothing is ported

@@ -23,7 +23,7 @@ describe("perp venue preferences", () => {
   });
 
   it("reads a stored Lighter preference and rejects unknown venues", () => {
-    expect(parsePreferences(JSON.stringify({ preferredPerpVenue: "lighter", venueLighter: false }))).toMatchObject({
+    expect(parsePreferences(JSON.stringify({ preferredPerpVenue: "lighter", venueLighter: false, venuesSeen: ["lighter"] }))).toMatchObject({
       preferredPerpVenue: "lighter",
       venueLighter: false,
     });
@@ -58,11 +58,20 @@ describe("navModeChange", () => {
   });
 });
 
-describe("venue switches reset", () => {
-  it("turns Aster and Arcus back on once for switches saved before the version, then keeps the user's choice", () => {
+describe("venue switches", () => {
+  it("drops switches saved before venuesSeen existed, once", () => {
     const old = parsePreferences(JSON.stringify({ venueAster: false, venueArcus: false, venueTitan: false }));
-    expect(old).toMatchObject({ venueAster: true, venueArcus: true, venueTitan: false, venuesVersion: VENUES_VERSION });
-    const chosen = parsePreferences(JSON.stringify({ venueAster: false, venueArcus: false, venuesVersion: VENUES_VERSION }));
-    expect(chosen).toMatchObject({ venueAster: false, venueArcus: false });
+    expect(old).toMatchObject({ venueAster: true, venueArcus: true, venueTitan: true, venuesVersion: VENUES_VERSION });
+    expect(old.venuesSeen).toContain("titan");
+  });
+
+  it("keeps a switch the user turned off while the venue was offered", () => {
+    const chosen = parsePreferences(JSON.stringify({ venueAster: false, venueTitan: false, venuesVersion: VENUES_VERSION, venuesSeen: ["aster", "titan"] }));
+    expect(chosen).toMatchObject({ venueAster: false, venueTitan: false });
+  });
+
+  it("ignores an off saved while the venue wasn't offered yet (its key came later)", () => {
+    const later = parsePreferences(JSON.stringify({ venueTitan: false, venueJupiter: false, venuesVersion: VENUES_VERSION, venuesSeen: ["jupiter"] }));
+    expect(later).toMatchObject({ venueTitan: true, venueJupiter: false });
   });
 });

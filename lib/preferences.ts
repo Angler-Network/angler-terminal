@@ -27,7 +27,7 @@ import { DEFAULT_FAVORITE_INTERVALS, isChartInterval, type ChartInterval } from 
 import { defaultNewsFilters, sentiments, severities, type NewsFilters } from "./news/filter";
 import { readNewsRules, type NewsRule } from "./news/rules";
 import { readWatchlist, type WatchlistEntry } from "./watchlist";
-import { venueAvailable } from "./deployment";
+import { VENUE_KEYS, venueAvailable, type VenueKey } from "./deployment";
 import { defaultPanelSizes, readPanelSizes, type PanelSizes } from "./layout/panel-sizes";
 import { defaultArrangement, readArrangement, type Arrangement } from "./layout/arrangement";
 import { readSlippageBps } from "./trading/slippage";
@@ -197,6 +197,12 @@ export interface Preferences extends Appearance {
   appearanceVersion: number;
   /** Saved venue switches older than `VENUES_VERSION` are reset to the defaults once (see there). */
   venuesVersion: number;
+  /**
+   * Venues this site offered when the switches were saved. A switch saved while its venue wasn't offered (its key
+   * not set yet) is ignored, so a venue switched on later on the server comes on for everyone; a venue the user
+   * turned off while it was offered stays off.
+   */
+  venuesSeen: VenueKey[];
   /** Venues the terminal routes trades to; a disabled venue never shows trade buttons. */
   venueHyperliquid: boolean;
   venueLighter: boolean;
@@ -246,6 +252,10 @@ export const APPEARANCE_VERSION = 2;
  * a saved switch from an older version is dropped once, then the user's own choice sticks again.
  */
 export const VENUES_VERSION = 1;
+
+function offeredVenues(): VenueKey[] {
+  return VENUE_KEYS.filter((venue) => venueAvailable(venue));
+}
 const RESET_VENUES = ["venueAster", "venueArcus"] as const;
 
 export const defaultPreferences: Preferences = {
@@ -306,6 +316,7 @@ export const defaultPreferences: Preferences = {
   positionsLayout: "grouped",
   appearanceVersion: APPEARANCE_VERSION,
   venuesVersion: VENUES_VERSION,
+  venuesSeen: offeredVenues(),
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
   venueLighterRh: venueAvailable("lighterRh"),
@@ -383,6 +394,9 @@ export function parsePreferences(raw: string | null): Preferences {
       parsed && typeof parsed === "object" && parsed.venuesVersion !== VENUES_VERSION
         ? Object.fromEntries(Object.entries(parsed as Record<string, unknown>).filter(([key]) => !(RESET_VENUES as readonly string[]).includes(key)))
         : parsed;
+    // Saves from before `venuesSeen` existed count as having seen nothing: their venue switches fall back to the defaults once.
+    const seen = new Set(Array.isArray(stored.venuesSeen) ? (stored.venuesSeen as unknown[]).filter((venue): venue is string => typeof venue === "string") : []);
+    const venueSwitch = (venue: VenueKey, saved: unknown, fallback: boolean) => venueAvailable(venue) && (seen.has(venue) ? readBoolean(saved, fallback) : fallback);
     const primary = readDataSource(stored.chartPrimarySource) ?? defaultPreferences.chartPrimarySource;
     const fallback =
       stored.chartFallbackSource === "none" ? "none" : readDataSource(stored.chartFallbackSource);
@@ -461,20 +475,21 @@ export function parsePreferences(raw: string | null): Preferences {
       positionsLayout: stored.positionsLayout === "list" ? "list" : "grouped",
       appearanceVersion: APPEARANCE_VERSION,
       venuesVersion: VENUES_VERSION,
-      venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
-      venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
-      venueLighterRh: venueAvailable("lighterRh") && readBoolean(stored.venueLighterRh, defaultPreferences.venueLighterRh),
-      venueAster: venueAvailable("aster") && readBoolean(stored.venueAster, defaultPreferences.venueAster),
-      venueOrderly: venueAvailable("orderly") && readBoolean(stored.venueOrderly, defaultPreferences.venueOrderly),
+      venuesSeen: offeredVenues(),
+      venueHyperliquid: venueSwitch("hyperliquid", stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
+      venueLighter: venueSwitch("lighter", stored.venueLighter, defaultPreferences.venueLighter),
+      venueLighterRh: venueSwitch("lighterRh", stored.venueLighterRh, defaultPreferences.venueLighterRh),
+      venueAster: venueSwitch("aster", stored.venueAster, defaultPreferences.venueAster),
+      venueOrderly: venueSwitch("orderly", stored.venueOrderly, defaultPreferences.venueOrderly),
       // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
-      venueJupiter: venueAvailable("jupiter") && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
-      venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
-      venueUniswap: venueAvailable("uniswap") && readBoolean(stored.venueUniswap, defaultPreferences.venueUniswap),
+      venueJupiter: venueSwitch("jupiter", stored.venueJupiter, defaultPreferences.venueJupiter),
+      venueArcus: venueSwitch("arcus", stored.venueArcus, defaultPreferences.venueArcus),
+      venueUniswap: venueSwitch("uniswap", stored.venueUniswap, defaultPreferences.venueUniswap),
       preferArcus: readBoolean(stored.preferArcus, defaultPreferences.preferArcus),
       privateSwap: readBoolean(stored.privateSwap, defaultPreferences.privateSwap),
-      venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
-      venueZerox: venueAvailable("zerox") && readBoolean(stored.venueZerox, defaultPreferences.venueZerox),
-      venueKyberswap: venueAvailable("kyberswap") && readBoolean(stored.venueKyberswap, defaultPreferences.venueKyberswap),
+      venueTitan: venueSwitch("titan", stored.venueTitan, defaultPreferences.venueTitan),
+      venueZerox: venueSwitch("zerox", stored.venueZerox, defaultPreferences.venueZerox),
+      venueKyberswap: venueSwitch("kyberswap", stored.venueKyberswap, defaultPreferences.venueKyberswap),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" || stored.preferredPerpVenue === "orderly" ? stored.preferredPerpVenue : "hyperliquid",
       bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
       bridgeRelay: readBoolean(stored.bridgeRelay, defaultPreferences.bridgeRelay),
