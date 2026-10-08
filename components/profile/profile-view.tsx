@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { LEVELS } from "@/lib/profile/levels";
-import { nextVip, vipFor } from "@/lib/profile/vip";
+import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import { PortfolioCard } from "./portfolio-card";
@@ -201,27 +201,11 @@ const discountOf = (rate: number) => Math.round((1 - rate) * 100);
 function VolumeCard({ profile }: { profile: ProfileData }) {
   const [range, setRange] = useState<VolumeRange>("all");
   const total = range === "all" ? VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0) : profile.recentVolume[range];
-  const vip = vipFor(profile.recentVolume.d30);
-  const next = nextVip(vip);
   return (
     <section className={`${card} flex h-full flex-col justify-between gap-3 p-4`}>
       <div>
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
-          <span
-            title="Your 30-day volume sets your VIP tier: a discount on Angler fees for Hyperliquid and Lighter trades"
-            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-[#f5c97b]/15 text-[#f5c97b]" : "bg-app-chip text-app-muted"}`}
-          >
-            VIP {vip.level}
-          </span>
-        </div>
+        <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
         <p className="mt-1 text-[26px] font-semibold tabular-nums tracking-tight text-app-ink">{total >= 1_000_000 ? compactUsd.format(total) : usd.format(total)}</p>
-        <p className="mt-0.5 text-[11px] text-app-faint">
-          {vip.level > 0 && <span className="font-semibold text-[#f5c97b]">{discountOf(vip.rate)}% fee discount. </span>}
-          {next
-            ? `Trade ${compactUsd.format(Math.max(0, next.minVolume - profile.recentVolume.d30))} more in 30 days to earn a ${discountOf(next.rate)}% fee discount.`
-            : "Top tier: the biggest fee discount."}
-        </p>
       </div>
       <div role="group" aria-label="Period" className="flex gap-0.5 self-start rounded-lg bg-app-chip p-0.5">
         {VOLUME_RANGES.map((option) => (
@@ -236,6 +220,45 @@ function VolumeCard({ profile }: { profile: ProfileData }) {
           </button>
         ))}
       </div>
+    </section>
+  );
+}
+
+/** VIP tiers: the tier your 30-day volume reached, the way to the next one, and the whole ladder. */
+function VipCard({ profile }: { profile: ProfileData }) {
+  const volume = profile.recentVolume.d30;
+  const vip = vipFor(volume);
+  const next = nextVip(vip);
+  const progress = next ? Math.min(1, (volume - vip.minVolume) / (next.minVolume - vip.minVolume)) : 1;
+  return (
+    <section className={`${card} flex h-full flex-col p-4`}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-[13px] font-semibold text-app-ink">VIP</h2>
+        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-[#f5c97b]/15 text-[#f5c97b]" : "bg-app-chip text-app-muted"}`}>
+          VIP {vip.level}
+        </span>
+      </div>
+      <p className="mt-1 text-[20px] font-semibold tracking-tight text-app-ink">{vip.level > 0 ? `${discountOf(vip.rate)}% off Angler fees` : "Trade more, pay less"}</p>
+      <p className="mt-0.5 text-[12px] text-app-muted">
+        {next
+          ? `Trade ${compactUsd.format(Math.max(0, next.minVolume - volume))} more in 30 days to earn a ${discountOf(next.rate)}% fee discount.`
+          : "Top tier: the biggest fee discount."}
+      </p>
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+        <div className="h-full rounded-full bg-[#f5c97b] transition-[width]" style={{ width: `${Math.max(2, progress * 100)}%` }} />
+      </div>
+      <ol className="mt-auto grid grid-cols-5 gap-1.5 pt-3 text-center text-[10px]">
+        {VIP_TIERS.map((tier) => (
+          <li
+            key={tier.level}
+            title={`${compactUsd.format(tier.minVolume)}+ in 30 days`}
+            className={`rounded-lg px-1 py-1.5 ${tier.level === vip.level ? "bg-[#f5c97b]/15 text-app-ink" : tier.level < vip.level ? "text-app-ink" : "text-app-faint"}`}
+          >
+            <span className="block font-semibold">VIP {tier.level}</span>
+            <span className="block">{tier.level === 0 ? "—" : `-${discountOf(tier.rate)}%`}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -262,44 +285,47 @@ function Overview() {
 
   return (
     <>
-      {/* Level, volume and linked wallets side by side on wide screens. */}
-      <div className="grid gap-4 lg:grid-cols-[repeat(auto-fit,minmax(0,1fr))]">
+      {/* Level, volume and VIP side by side on wide screens. */}
+      <div className="grid gap-4 lg:grid-cols-3">
         <LevelCard />
         <VolumeCard profile={profile} />
-        {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
-          <section className={`${card} h-full p-4`}>
-            <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>
-            <p className="mt-1 text-[12px] text-app-muted">Swaps from a linked Solana wallet count toward this profile.</p>
-            {profile.linkedWallets.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {profile.linkedWallets.map((wallet) => (
-                  <li key={wallet} className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip px-2 py-1 text-[12px] tabular-nums text-app-ink">
-                    <Link2 className="size-3.5 text-app-muted" aria-hidden />
-                    {shortAddress(wallet)}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {linkSolana && (
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={linking}
-                  onClick={async () => {
-                    setLinking(true);
-                    setLinkError(await linkSolana());
-                    setLinking(false);
-                  }}
-                  className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70 disabled:opacity-60"
-                >
-                  {linking ? "Sign in your Solana wallet…" : "Link connected Solana wallet"}
-                </button>
-                {linkError && <span className="text-[12px] text-app-down">{linkError}</span>}
-              </div>
-            )}
-          </section>
-        )}
+        <VipCard profile={profile} />
       </div>
+      {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
+        <section className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>
+            <p className="mt-0.5 text-[12px] text-app-muted">Swaps from a linked Solana wallet count toward this profile.</p>
+          </div>
+          {profile.linkedWallets.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {profile.linkedWallets.map((wallet) => (
+                <li key={wallet} className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip px-2 py-1 text-[12px] tabular-nums text-app-ink">
+                  <Link2 className="size-3.5 text-app-muted" aria-hidden />
+                  {shortAddress(wallet)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {linkSolana && (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={linking}
+                onClick={async () => {
+                  setLinking(true);
+                  setLinkError(await linkSolana());
+                  setLinking(false);
+                }}
+                className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70 disabled:opacity-60"
+              >
+                {linking ? "Sign in your Solana wallet…" : "Link connected Solana wallet"}
+              </button>
+              {linkError && <span className="text-[12px] text-app-down">{linkError}</span>}
+            </div>
+          )}
+        </section>
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
         <ReferralCard />
         <PortfolioCard className={`${card} h-full`} />
@@ -317,16 +343,10 @@ function Overview() {
   );
 }
 
-/** Your referral link and stats; when a `?ref=` link brought you here (or you have a code), apply it with a signature. */
+/** Your referral link, code and stats. A referrer is set only by joining through a link (`ReferralInvite`). */
 function ReferralCard() {
-  const { id, profile, pendingReferral, applyReferral } = useProfile();
-  const [code, setCode] = useState(pendingReferral ?? "");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { id, profile } = useProfile();
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
-  useEffect(() => {
-    if (pendingReferral) setCode(pendingReferral);
-  }, [pendingReferral]);
   // Opened from the account menu's Referrals: scroll here once the card has rendered.
   useEffect(() => {
     if (profile && window.location.hash === "#referrals") document.getElementById("referrals")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -369,36 +389,7 @@ function ReferralCard() {
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{number.format(profile.referralPoints)}</p>
         </div>
       </div>
-      {profile.referrer ? (
-        <p className="mt-3 text-[12px] text-app-muted">Referred by {shortAddress(profile.referrer)}.</p>
-      ) : (
-        <form
-          className="mt-3 flex flex-wrap items-center gap-2"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            setBusy(true);
-            setMessage(await applyReferral(code.trim()));
-            setBusy(false);
-          }}
-        >
-          <input
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="Referral code"
-            aria-label="Referral code"
-            className="h-9 w-48 rounded-xl border border-app-field-border bg-app-field px-3 text-[13px] text-app-ink outline-none focus:border-app-ink"
-          />
-          <button
-            type="submit"
-            disabled={busy || !code.trim()}
-            className="h-9 rounded-xl bg-app-accent px-3.5 text-[13px] font-semibold text-app-on-accent disabled:opacity-50"
-          >
-            {busy ? "Sign in your wallet…" : "Use code"}
-          </button>
-          <span className="basis-full text-[11px] text-app-faint">Once per profile; it can&apos;t be changed later.</span>
-          {message && <span className="text-[12px] text-app-down">{message}</span>}
-        </form>
-      )}
+      {profile.referrer && <p className="mt-3 text-[12px] text-app-muted">Referred by {shortAddress(profile.referrer)}.</p>}
     </section>
   );
 }
