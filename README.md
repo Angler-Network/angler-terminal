@@ -32,7 +32,7 @@ and can act on it in two taps.
 ### Swap: any token, any chain
 
 - Swap Solana tokens through **Jupiter** and **Titan**, and EVM tokens on Ethereum, Base, Arbitrum and Robinhood Chain
-  through **Uniswap, 0x and Odos**. The terminal asks several sources and executes the best quote.
+  through **Uniswap, 0x and KyberSwap**. The terminal asks several sources and executes the best quote.
 - Go **cross-chain in one step** with Relay, LI.FI and Across: pay with USDC on one chain, receive a token on another.
 - An optional **Private** mode only uses routes that skip the public mempool, to protect you from front-running.
 

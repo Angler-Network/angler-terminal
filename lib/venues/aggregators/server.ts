@@ -4,19 +4,17 @@ import { QUOTE_ONLY_SWAPPER } from "../uniswap/config";
 import type { AggregatorProvider, AggregatorQuoteBody, AggregatorQuoteRequest } from "./types";
 
 /**
- * EVM swap aggregators next to Uniswap: 0x Swap API v2 (allowance-holder), Odos SOR v3 and KyberSwap Aggregator v1.
- * Server only: the API keys and our fee never reach the browser. One fee for all (AGGREGATOR_FEE_BPS to
- * AGGREGATOR_FEE_RECIPIENT), so none wins a comparison by charging less; Odos keeps 20% of it, KyberSwap none.
+ * EVM swap aggregators next to Uniswap: 0x Swap API v2 (allowance-holder) and KyberSwap Aggregator v1 (Odos was
+ * removed when it shut down its API). Server only: the API keys and our fee never reach the browser. One fee for both
+ * (AGGREGATOR_FEE_BPS to AGGREGATOR_FEE_RECIPIENT), so neither wins a comparison by charging less.
  *
  *   ZEROX_API_KEY         dashboard.0x.org
- *   ODOS_API_KEY          Odos enterprise API (partner fees need it)
  *   KYBERSWAP_CLIENT_ID   a name for our app (KyberSwap needs no key; the id turns it on and identifies us)
  *   AGGREGATOR_FEE_BPS, AGGREGATOR_FEE_RECIPIENT
  */
 
 const TIMEOUT_MS = 15_000;
 const ZEROX_URL = "https://api.0x.org";
-const ODOS_URL = "https://enterprise-api.odos.xyz";
 const KYBER_URL = "https://aggregator-api.kyberswap.com";
 /** KyberSwap's chain names (aggregator-api.kyberswap.com/{chain}; list: common-service.kyberswap.com/api/v1/aggregator/supported-chains). */
 const KYBER_CHAINS: Record<number, string> = {
@@ -32,7 +30,7 @@ const KYBER_CHAINS: Record<number, string> = {
   42161: "arbitrum",
   43114: "avalanche",
 };
-/** 0x and KyberSwap name the native coin this way; Odos uses the zero address like the terminal. */
+/** 0x and KyberSwap name the native coin this way (the terminal uses the zero address). */
 const ZEROX_NATIVE = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const MAX_FEE_BPS = 100;
 
@@ -40,13 +38,13 @@ export function readAggregatorConfig(env: Record<string, string | undefined>) {
   const bps = Number(env.AGGREGATOR_FEE_BPS);
   const recipient = env.AGGREGATOR_FEE_RECIPIENT?.trim() ?? "";
   const fee = Number.isInteger(bps) && bps > 0 && bps <= MAX_FEE_BPS && /^0x[0-9a-fA-F]{40}$/.test(recipient) ? { bps, recipient } : null;
-  return { zeroxKey: env.ZEROX_API_KEY?.trim() || null, odosKey: env.ODOS_API_KEY?.trim() || null, kyberClientId: env.KYBERSWAP_CLIENT_ID?.trim() || null, fee };
+  return { zeroxKey: env.ZEROX_API_KEY?.trim() || null, kyberClientId: env.KYBERSWAP_CLIENT_ID?.trim() || null, fee };
 }
 
 type Config = ReturnType<typeof readAggregatorConfig>;
 
 export function aggregatorEnabled(provider: AggregatorProvider, config: Config) {
-  return provider === "zerox" ? Boolean(config.zeroxKey) : provider === "odos" ? Boolean(config.odosKey) : Boolean(config.kyberClientId);
+  return provider === "zerox" ? Boolean(config.zeroxKey) : Boolean(config.kyberClientId);
 }
 
 async function json(response: Response) {
@@ -103,57 +101,6 @@ async function zerox(request: AggregatorQuoteRequest, config: Config): Promise<A
     route: [...new Set(fills)].slice(0, 4),
     tx: readTx(body.transaction),
     allowanceTarget: typeof issues.allowance?.spender === "string" ? issues.allowance.spender : typeof body.allowanceTarget === "string" ? body.allowanceTarget : undefined,
-  };
-}
-
-async function odos(request: AggregatorQuoteRequest, config: Config): Promise<AggregatorQuoteBody> {
-  const headers = { "content-type": "application/json", "x-api-key": config.odosKey! };
-  const userAddr = request.taker ?? QUOTE_ONLY_SWAPPER;
-  const slippagePct = (request.slippageBps ?? 50) / 100;
-  const quoteResponse = await fetch(`${ODOS_URL}/sor/quote/v3`, {
-    method: "POST",
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-    body: JSON.stringify({
-      chainId: request.chainId,
-      inputTokens: [{ tokenAddress: request.sellToken, amount: request.sellAmount }],
-      outputTokens: [{ tokenAddress: request.buyToken, proportion: 1 }],
-      userAddr,
-      slippageLimitPercent: slippagePct,
-      compact: true,
-      ...(config.fee ? { partnerFeePercent: config.fee.bps / 10_000, feeRecipient: config.fee.recipient } : {}),
-    }),
-  });
-  const quote = await json(quoteResponse);
-  const outAmount = big((quote.outAmounts as unknown[] | undefined)?.[0]);
-  if (!quoteResponse.ok || !outAmount || typeof quote.pathId !== "string") throw new Error(typeof quote.detail === "string" ? quote.detail : "Odos has no route for this swap.");
-  const minOut = (outAmount * BigInt(Math.round((100 - slippagePct) * 100))) / 10_000n;
-  const priceImpact = Number(quote.priceImpact);
-  let tx: AggregatorQuoteBody["tx"];
-  if (request.execute && request.taker) {
-    const assembleResponse = await fetch(`${ODOS_URL}/sor/assemble`, {
-      method: "POST",
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      body: JSON.stringify({ userAddr, pathId: quote.pathId, simulate: false }),
-    });
-    const assembled = await json(assembleResponse);
-    tx = readTx(assembled.transaction);
-    if (!assembleResponse.ok || !tx) throw new Error("Odos couldn't build the swap transaction.");
-  }
-  return {
-    provider: "odos",
-    outAmount: outAmount.toString(),
-    minOutAmount: minOut.toString(),
-    feeBps: config.fee?.bps ?? 0,
-    priceImpactPct: Number.isFinite(priceImpact) ? Math.abs(priceImpact) : null,
-    gasFeeUsd: Number.isFinite(Number(quote.gasEstimateValue)) ? Number(quote.gasEstimateValue) : null,
-    route: ["Odos"],
-    // Odos routes through its router: that's the contract to approve.
-    tx,
-    allowanceTarget: tx?.to,
   };
 }
 
@@ -228,5 +175,5 @@ async function kyberswap(request: AggregatorQuoteRequest, config: Config): Promi
 }
 
 export function quoteAggregator(request: AggregatorQuoteRequest, config: Config) {
-  return request.provider === "zerox" ? zerox(request, config) : request.provider === "odos" ? odos(request, config) : kyberswap(request, config);
+  return request.provider === "zerox" ? zerox(request, config) : kyberswap(request, config);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-/** 0x and Odos swap execution: loaded on demand (viem). */
+/** 0x and KyberSwap swap execution: loaded on demand (viem). */
 
 import { createPublicClient, erc20Abi, http, parseEventLogs, type EIP1193Provider } from "viem";
 import { walletMessage, walletOnChain } from "../evm-wallet";
@@ -13,7 +13,7 @@ import { AGGREGATOR_NAMES, type AggregatorProvider } from "./types";
 const explorerTx = (chain: UniswapSwapInput["chain"], hash: string) => `${chain.blockExplorers?.default.url ?? ""}/tx/${hash}`;
 
 /**
- * Exact-input swap through 0x or Odos: a fresh firm quote for this wallet, an exact ERC-20 approval of the router the
+ * Exact-input swap through 0x or KyberSwap: a fresh firm quote for this wallet, an exact ERC-20 approval of the router the
  * quote names (when the allowance is short), then the swap transaction. Resolves with what actually arrived.
  */
 export async function aggregatorSwap(provider: AggregatorProvider, input: UniswapSwapInput & { provider: EIP1193Provider }): Promise<UniswapSwapResult> {

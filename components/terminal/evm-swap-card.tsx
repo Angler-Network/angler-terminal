@@ -108,12 +108,12 @@ function useBalances(rpc: string | null, owner: `0x${string}` | null, tokens: st
 function useAggregators(): AggregatorProvider[] {
   const { preferences } = usePreferences();
   const { off } = useOffServices();
-  const switchedOn: Record<AggregatorProvider, boolean> = { zerox: preferences.venueZerox, odos: preferences.venueOdos, kyberswap: preferences.venueKyberswap };
+  const switchedOn: Record<AggregatorProvider, boolean> = { zerox: preferences.venueZerox, kyberswap: preferences.venueKyberswap };
   return AGGREGATOR_PROVIDERS.filter((provider) => venueAvailable(provider) && switchedOn[provider] && !off.includes(`swap:${provider}`));
 }
 
 /**
- * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, Odos, KyberSwap) asked
+ * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, KyberSwap) asked
  * together, the largest output wins. All carry the same fee, so the best price for the trader is the one that runs.
  * Private swaps ask Uniswap for UniswapX orders only (the aggregators' transactions would go through the public mempool).
  */
@@ -590,7 +590,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   }, [directPending, owner]);
 
   /**
-   * One swap on this chain through the source whose quote won (Uniswap, 0x or Odos); resolves to what it delivered,
+   * One swap on this chain through the source whose quote won (Uniswap, 0x or KyberSwap); resolves to what it delivered,
    * or null when it failed (a toast says why).
    */
   const swapOnChain = async (tokenIn: Side, tokenOut: Side, amountIn: bigint, source: EvmSwapQuote["provider"] = "uniswap") => {

@@ -14,7 +14,6 @@ export const VENUE_MARKS: Record<string, { domain: string; chain?: number | stri
   Orderly: { domain: "orderly.network" },
   Titan: { domain: "titan.exchange", chain: "solana" },
   "0x": { domain: "0x.org" },
-  Odos: { domain: "odos.xyz" },
   KyberSwap: { domain: "kyberswap.com" },
   Binance: { domain: "binance.com" },
   Bybit: { domain: "bybit.com" },

@@ -537,9 +537,9 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", odos: "Odos", kyberswap: "KyberSwap", aster: "Aster", orderly: "Orderly" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", aster: "Aster", orderly: "Orderly" };
 
-type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueOdos" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
 interface VenueTile {
   key: VenueKey | BridgeProvider;
@@ -589,7 +589,6 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
         shown: () => arcusConfig.network === "mainnet",
       },
       { key: "zerox", preference: "venueZerox", domain: "0x.org", serviceOff: "swap:zerox", description: "EVM swap aggregator: swaps on Ethereum, Base, Arbitrum and BNB Chain ask every source and take the best quote." },
-      { key: "odos", preference: "venueOdos", domain: "odos.xyz", serviceOff: "swap:odos", description: "EVM swap aggregator with multi-path routing, compared with the other sources on every EVM swap." },
       { key: "kyberswap", preference: "venueKyberswap", domain: "kyberswap.com", serviceOff: "swap:kyberswap", description: "EVM swap aggregator, strong on BNB Chain (PancakeSwap pools), compared with the other sources on every EVM swap." },
     ],
   },

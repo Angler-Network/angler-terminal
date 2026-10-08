@@ -1,6 +1,6 @@
 /**
  * EVM chains the swap card trades any token on (Ethereum, Base, Arbitrum, BNB Chain, HyperEVM, Polygon, Optimism,
- * Avalanche, Unichain, Monad, Robinhood Chain): Uniswap (where it trades) and the aggregators (0x, Odos, KyberSwap) quote
+ * Avalanche, Unichain, Monad, Robinhood Chain): Uniswap (where it trades) and the aggregators (0x, KyberSwap) quote
  * each swap and the largest output runs. Adding a chain is one entry here, its logo in `public/chains`, its viem chain
  * in the swap card and its name in each aggregator's chain map. Every address and service name below was checked
  * against the chain and the services (DefiLlama, DexScreener, GeckoTerminal) when added. Robinhood

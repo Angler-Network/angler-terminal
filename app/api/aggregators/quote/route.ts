@@ -7,7 +7,7 @@ import { rateLimited } from "@/lib/rate-limit";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** A 0x, Odos or KyberSwap quote for an EVM swap, with our fee added here (never by the browser). */
+/** A 0x or KyberSwap quote for an EVM swap, with our fee added here (never by the browser). */
 export async function POST(request: NextRequest) {
   const limited = rateLimited(request, "aggregators");
   if (limited) return limited;

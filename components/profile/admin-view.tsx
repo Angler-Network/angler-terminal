@@ -22,7 +22,6 @@ const VENUE_NAMES: Record<string, string> = {
   arcus: "Arcus",
   uniswap: "Uniswap",
   zerox: "0x",
-  odos: "Odos",
   kyberswap: "KyberSwap",
   relay: "Relay",
   lifi: "LI.FI",
@@ -58,7 +57,6 @@ const SERVICES: Array<{ id: string; name: string }> = [
   { id: "bridge:relay", name: "Relay" },
   { id: "bridge:lifi", name: "LI.FI" },
   { id: "swap:zerox", name: "0x" },
-  { id: "swap:odos", name: "Odos" },
   { id: "swap:kyberswap", name: "KyberSwap" },
 ];
 

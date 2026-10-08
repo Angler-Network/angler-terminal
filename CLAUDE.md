@@ -273,7 +273,7 @@ dependency versions and design are free to diverge from angler-news.
     not anonymity (the card says the wallet and trade stay public): only routes whose swap never waits in a public
     mempool. Solana: Jupiter only (its /execute lands through Beam), Titan skipped (here and in news trades). EVM: Uniswap
     asked for `protocols: ["UNISWAPX_LATEST"]` only and a classic route refused (`fetchUniswapQuote({ privateOnly })`,
-    also in `uniswapSwap`), 0x/Odos skipped; cross-chain swaps stay on Relay/LI.FI intents. Robinhood stocks: Arcus only
+    also in `uniswapSwap`), 0x/KyberSwap skipped; cross-chain swaps stay on Relay/LI.FI intents. Robinhood stocks: Arcus only
     (`robinhoodSources` drops Uniswap). With no protected route the card says so instead of sending publicly.
     A gear in the card's header opens Max slippage (`swapSlippageBps` preference, `lib/trading/slippage.ts`): Auto
     (null: Jupiter's real-time estimate, RTSE; Titan 0.5%, Arcus 0.5%) or a fixed 0.5 / 1 / 3 % / custom value sent as
@@ -383,7 +383,7 @@ dependency versions and design are free to diverge from angler-news.
     (with `gasReserve`), its logo `public/chains/<key>.svg` (the search filter builds the path from the key, the token
     badge reads `CHAIN_LOGOS` by id), its viem chain in `viemChain`, `UNISWAP_CHAIN_IDS` when Uniswap trades there, and
     the aggregators' chain maps.
-    Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x, Odos and KyberSwap (`KYBERSWAP_CLIENT_ID`, no
+    Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x and KyberSwap (Odos was removed when it shut down; `KYBERSWAP_CLIENT_ID`, no
     key; GET `/{chain}/api/v1/routes` with our fee as `feeAmount`/`isInBps`/`chargeFeeBy=currency_out`/`feeReceiver`,
     then POST `route/build` right before signing; `KYBER_CHAINS` maps every swap chain), all quoted with
     Uniswap on every EVM swap and the largest output runs. Each has a Settings switch and an admin off-switch. the spot list adds Uniswap's 300 most traded + 150 deepest (TVL) tokens per chain (Trading API `/tokens?sort=`, max 1000, server

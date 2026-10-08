@@ -219,9 +219,8 @@ export interface Preferences extends Appearance {
   privateSwap: boolean;
   /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
   venueTitan: boolean;
-  /** EVM swaps (Ethereum, Base, Arbitrum) also ask 0x and Odos and take the best of them and Uniswap. */
+  /** EVM swaps also ask 0x and KyberSwap and take the best of them and Uniswap. */
   venueZerox: boolean;
-  venueOdos: boolean;
   venueKyberswap: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
@@ -321,7 +320,6 @@ export const defaultPreferences: Preferences = {
   privateSwap: false,
   venueTitan: venueAvailable("titan"),
   venueZerox: venueAvailable("zerox"),
-  venueOdos: venueAvailable("odos"),
   venueKyberswap: venueAvailable("kyberswap"),
   preferredPerpVenue: "hyperliquid",
   bridgeAcross: true,
@@ -476,7 +474,6 @@ export function parsePreferences(raw: string | null): Preferences {
       privateSwap: readBoolean(stored.privateSwap, defaultPreferences.privateSwap),
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueAvailable("zerox") && readBoolean(stored.venueZerox, defaultPreferences.venueZerox),
-      venueOdos: venueAvailable("odos") && readBoolean(stored.venueOdos, defaultPreferences.venueOdos),
       venueKyberswap: venueAvailable("kyberswap") && readBoolean(stored.venueKyberswap, defaultPreferences.venueKyberswap),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" || stored.preferredPerpVenue === "orderly" ? stored.preferredPerpVenue : "hyperliquid",
       bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
