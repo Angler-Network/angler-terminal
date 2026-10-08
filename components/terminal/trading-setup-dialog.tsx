@@ -71,11 +71,13 @@ function HyperliquidSteps() {
   const builderDone = Boolean(onboarding?.builderApproved);
   const agentDone = Boolean(onboarding?.agentAddress);
   const builder = hlConfig.builder;
+  const referralCode = hlConfig.referralCode;
+  const [useReferral, setUseReferral] = useState(true);
 
   const run = async (step: 1 | 2) => {
     setBusy(step);
     try {
-      await (step === 1 ? approveBuilder() : createAgent());
+      await (step === 1 ? approveBuilder() : createAgent({ referral: Boolean(referralCode) && useReferral }));
     } finally {
       setBusy(null);
     }
@@ -104,6 +106,23 @@ function HyperliquidSteps() {
         busy={busy === 2}
         action="Create key"
         onRun={() => void run(2)}
+        extra={
+          referralCode &&
+          !agentDone && (
+            <label className="flex basis-full items-start gap-2 text-[12px] leading-snug text-app-muted">
+              <input
+                type="checkbox"
+                checked={useReferral}
+                onChange={(event) => setUseReferral(event.target.checked)}
+                className="mt-0.5 accent-[rgb(var(--app-accent))]"
+              />
+              <span>
+                Also use Angler&apos;s Hyperliquid referral code <span className="font-semibold text-app-ink">{referralCode}</span>: 4% off
+                Hyperliquid&apos;s fees on your first $25M. Skipped if this account already has a referral code.
+              </span>
+            </label>
+          )
+        }
       />
     </ol>
   );

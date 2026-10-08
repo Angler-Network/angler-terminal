@@ -38,3 +38,12 @@ describe("feeToPercent", () => {
     expect(feeToPercent(100)).toBe("0.1%");
   });
 });
+
+describe("referral code", () => {
+  it("keeps a valid code and drops a malformed or missing one", () => {
+    expect(readHlConfig({ NEXT_PUBLIC_HL_REFERRAL_CODE: " ANGLER " }).referralCode).toBe("ANGLER");
+    expect(readHlConfig({ NEXT_PUBLIC_HL_REFERRAL_CODE: "has space" }).referralCode).toBeNull();
+    expect(readHlConfig({ NEXT_PUBLIC_HL_REFERRAL_CODE: "X".repeat(21) }).referralCode).toBeNull();
+    expect(readHlConfig({}).referralCode).toBeNull();
+  });
+});

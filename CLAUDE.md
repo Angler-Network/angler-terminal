@@ -84,6 +84,11 @@ dependency versions and design are free to diverge from angler-news.
   - Onboarding: `approveBuilderFee` (user wallet, max fee from config), then `approveAgent` with a key generated in
     the browser. The agent key is stored per network and user in localStorage (`agent-store.ts`), used only to sign
     locally, and must never be logged or sent anywhere. Revoke = approveAgent with the zero address and the same name.
+    Referral: with `NEXT_PUBLIC_HL_REFERRAL_CODE` the "Create trading key" step offers an opt-in checkbox (on by default);
+    `applyHlReferral` sends `setReferrer` signed by the new agent (no wallet popup) unless `info.referral` shows the
+    account already has a referrer (Hyperliquid never replaces one). Users get 4% off Hyperliquid's fees (first $25M),
+    the code owner 10% of them (first $1B); a failure is an info toast. Aster has no API to apply a referral code (its
+    web app only), and an Orderly referral would be paid out of our own broker fee, so neither is wired.
   - Market orders are IOC limits at mid ± 5% slippage, rounded to 5 significant figures and 6 - szDecimals
     decimals. Every order carries `builder: { b, f }` (f in tenths of a bp). Leverage is updated before an order
     only when it changed.

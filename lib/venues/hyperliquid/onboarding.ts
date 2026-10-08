@@ -3,7 +3,7 @@
 import type { AbstractWallet } from "@nktkas/hyperliquid/signing";
 import { VenueError } from "../types";
 import { browserStorage, readOnboarding, writeOnboarding, type OnboardingRecord } from "./agent-store";
-import { infoClient, userExchange } from "./clients";
+import { agentExchange, infoClient, userExchange } from "./clients";
 import { AGENT_NAME, feeToPercent, hlConfig } from "./config";
 import { toVenueError } from "./errors";
 
@@ -82,6 +82,26 @@ export async function approveAgent(wallet: AbstractWallet, user: `0x${string}`) 
   }
   update(user, (record) => ({ ...record, agent: { address: agentAddress, privateKey, name: AGENT_NAME, createdAt: Date.now() } }));
   return agentAddress;
+}
+
+/**
+ * Sets our referral code (NEXT_PUBLIC_HL_REFERRAL_CODE) on the account, signed by the trading key, so no wallet popup.
+ * The user gets 4% off Hyperliquid's own fees on their first $25M and the code's owner earns 10% of those fees (first
+ * $1B), on top of the builder fee. Hyperliquid keeps one referrer per account and never replaces it, so an account
+ * that already has one is left as it is.
+ */
+export async function applyHlReferral(user: `0x${string}`): Promise<"applied" | "already" | "skipped"> {
+  const code = hlConfig.referralCode;
+  const store = browserStorage();
+  const agent = store ? readOnboarding(store, hlConfig.network, user).agent : undefined;
+  if (!code || !agent) return "skipped";
+  try {
+    if ((await (await infoClient()).referral({ user })).referredBy) return "already";
+    await (await agentExchange(agent.privateKey)).setReferrer({ code });
+  } catch (error) {
+    throw toVenueError(error);
+  }
+  return "applied";
 }
 
 /** Revoking approves the zero address under the same agent name, then forgets the key locally. */

@@ -5,6 +5,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import {
+  applyHlReferral,
   approveAgent,
   approveBuilderFee,
   getOnboardingStatus,
@@ -76,7 +77,8 @@ interface TradingContextValue {
   openSetup: (venue?: PerpVenueId) => void;
   closeSetup: () => void;
   approveBuilder: () => Promise<boolean>;
-  createAgent: () => Promise<boolean>;
+  /** Creates the trading key; with `referral`, also sets our Hyperliquid referral code (the user opted in). */
+  createAgent: (options?: { referral?: boolean }) => Promise<boolean>;
   revoke: () => Promise<void>;
   /** Re-reads a Lighter exchange's setup state (core by default); resolves to it, or null when it couldn't be read. */
   refreshLighter: (venue?: LighterVenueId) => Promise<LighterOnboarding | null>;
@@ -468,12 +470,20 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
   }, [address, getWalletClient, fail]);
 
-  const createAgent = useCallback(async () => {
+  const createAgent = useCallback(async (options?: { referral?: boolean }) => {
     if (!address || !getWalletClient) return false;
     try {
       const agentAddress = await approveAgent(await getWalletClient(), address);
       setOnboarding((current) => ({ builderApproved: current?.builderApproved ?? false, agentAddress }));
       toast({ tone: "success", title: "Trading key active", message: "Orders now sign in the browser without a wallet popup." });
+      // The referral is a bonus: a failure here never blocks trading.
+      if (options?.referral) {
+        await applyHlReferral(address)
+          .then((result) => {
+            if (result === "applied") toast({ tone: "success", title: "Referral code applied", message: "4% off Hyperliquid's fees on your first $25M of volume." });
+          })
+          .catch((error: unknown) => toast({ tone: "info", title: "Referral code not applied", message: toVenueError(error).message }));
+      }
       return true;
     } catch (error) {
       fail("hyperliquid", "Couldn't create the trading key", error);
