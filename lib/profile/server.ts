@@ -12,6 +12,7 @@ import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
 import { tierFee, tierFees, vipFor } from "./vip";
+import { syncAster } from "./aster-volume";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -92,10 +93,11 @@ export async function syncProfile(id: string) {
   // Lighter trades don't list our integrator fee: it's the configured fee at the trader's VIP tier.
   const rate = vipFor(await volume30d(id)).rate;
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
-  const [hl, lighter, lighterRh] = await Promise.allSettled([
+  const [hl, lighter, lighterRh, aster] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl),
     syncLighter(lighterConfig, id, cursors.lighter),
     syncLighter(lighterRhConfig, id, cursors.lighterRh),
+    syncAster(id, cursors.aster),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
     await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee);
@@ -109,6 +111,11 @@ export async function syncProfile(id: string) {
     await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd));
     await saveCursors(id, { lighterRh: lighterRh.value.cursor });
   } else if (lighterRh.status === "rejected") console.warn(`[profile] Lighter RH sync failed: ${String(lighterRh.reason)}`);
+  if (aster.status === "fulfilled" && aster.value) {
+    // Aster reports the builder fee each trade paid: our exact revenue on it.
+    await creditVolume(id, "aster", aster.value.usd, aster.value.fee);
+    await saveCursors(id, { aster: aster.value.cursor });
+  } else if (aster.status === "rejected") console.warn(`[profile] Aster sync failed: ${String(aster.reason)}`);
 }
 
 async function referralAccounts(referral: string, mints: string[]) {

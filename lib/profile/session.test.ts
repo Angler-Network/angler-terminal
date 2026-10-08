@@ -15,7 +15,8 @@ describe("profile sessions", () => {
     const [payload, signature] = token.split(".");
     const other = Buffer.from(JSON.stringify({ id: "0x00000000000000000000000000000000000000b2", exp: now + 1e9 })).toString("base64url");
     expect(await sessionId(`${other}.${signature}`, now)).toBeNull();
-    expect(await sessionId(`${payload}.x${signature.slice(1)}`, now)).toBeNull();
+    // Always a different first character, so the signature really changes.
+    expect(await sessionId(`${payload}.${signature[0] === "A" ? "B" : "A"}${signature.slice(1)}`, now)).toBeNull();
     expect(await sessionId(undefined, now)).toBeNull();
   });
 });

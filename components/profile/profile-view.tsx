@@ -31,6 +31,7 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
   { id: "hyperliquid", name: "Hyperliquid", kind: "Perps" },
   { id: "lighter", name: "Lighter", kind: "Perps" },
   { id: "lighterRh", name: "Lighter RH", kind: "Stock perps" },
+  { id: "aster", name: "Aster", kind: "Perps" },
   { id: "jupiter", name: "Jupiter", kind: "Swap" },
   { id: "titan", name: "Titan", kind: "Swap" },
 ];
@@ -396,7 +397,7 @@ function ReferralCard() {
   const { codes, nextAt } = profile.invites;
   const available = codes.filter((entry) => !entry.usedBy).length;
   // Invites come from perp and spot volume only (not swaps).
-  const ownVolume = profile.volume.hyperliquid + profile.volume.lighter + profile.volume.lighterRh;
+  const ownVolume = profile.volume.hyperliquid + profile.volume.lighter + profile.volume.lighterRh + profile.volume.aster;
   // `copied` is "link:CODE" or "code:CODE", so each button says "Copied" on its own.
   const copy = (code: string, what: "link" | "code") =>
     void navigator.clipboard?.writeText(what === "link" ? `${window.location.origin}/?ref=${code}` : code).then(() => {
