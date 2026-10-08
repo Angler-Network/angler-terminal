@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, Play, X } from "lucide-react";
+import { Check, ExternalLink, Lock, Play, X } from "lucide-react";
+import { CoinIcon } from "@/components/terminal/token-icon";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
@@ -535,28 +536,102 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-function VenueRow({ name, description, badge, children }: { name: string; description: string; badge?: string; children: React.ReactNode }) {
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap" };
+
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap";
+
+interface VenueTile {
+  key: VenueKey;
+  preference: VenuePreference;
+  /** Site icon through /api/favicon, with the chain badge in its corner. */
+  domain: string;
+  chain?: number | string;
+  description: string;
+  solana?: boolean;
+  /** Only where this holds (e.g. Uniswap's stock swaps exist on mainnet only). */
+  shown?: () => boolean;
+}
+
+/**
+ * Every venue, grouped, as icon tiles: a tap switches one on or off and the description sits in its tooltip, so the
+ * list stays one compact grid however many aggregators and bridges join. A new venue is one entry here.
+ */
+const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
+  {
+    title: "Perps",
+    tiles: [
+      { key: "hyperliquid", preference: "venueHyperliquid", domain: "hyperliquid.xyz", description: "Perpetuals and HIP-3 equity perps. Orders sign with a browser trading key after a one-time setup." },
+      { key: "lighter", preference: "venueLighter", domain: "lighter.xyz", description: "Perpetuals on the Lighter zk-rollup. Needs a Lighter account (first deposit), then a browser trading key." },
+      { key: "lighterRh", preference: "venueLighterRh", domain: "lighter.xyz", chain: 4663, description: "Lighter on Robinhood Chain: USDG margin and mostly stock perps, with its own account and trading key." },
+    ],
+  },
+  {
+    title: "Swaps & aggregators",
+    tiles: [
+      { key: "jupiter", preference: "venueJupiter", domain: "jup.ag", chain: "solana", solana: true, description: "Verified Solana tokens through Jupiter Swap V2. Mainnet only: real funds, signed by your wallet." },
+      { key: "titan", preference: "venueTitan", domain: "titan.exchange", chain: "solana", solana: true, description: "Solana meta-aggregator: every Solana swap asks Titan and Jupiter and takes the better quote." },
+      { key: "arcus", preference: "venueArcus", domain: "arcus.xyz", chain: 4663, description: "24/7 stock and index tokens with USDG on Robinhood Chain. Gasless: your wallet signs, Arcus settles." },
+      {
+        key: "uniswap",
+        preference: "venueUniswap",
+        domain: "uniswap.org",
+        chain: 4663,
+        description: "Robinhood Chain stock swaps quote Uniswap and Arcus and take the better one. Pool swaps need a little ETH for gas.",
+        shown: () => arcusConfig.network === "mainnet",
+      },
+    ],
+  },
+];
+
+function VenueToggleTile({ tile, checked, locked, onChange }: { tile: VenueTile; checked: boolean; locked: string | undefined; onChange: (checked: boolean) => void }) {
+  const name = venueNames[tile.key];
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-app-line py-4">
-      <div className="min-w-0 flex-1 basis-[180px]">
-        <p className="flex items-center gap-2 text-[15px] font-semibold text-app-ink">
-          {name}
-          {badge && <span className="rounded-sm bg-app-chip px-1.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.08em] text-app-muted">{badge}</span>}
-        </p>
-        <p className="mt-1 text-[13px] leading-relaxed text-app-muted">{description}</p>
-      </div>
-      {children}
-    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={name}
+      disabled={Boolean(locked)}
+      title={locked ?? `${name}: ${tile.description}`}
+      onClick={() => onChange(!checked)}
+      className={`group relative flex flex-col items-center gap-2 rounded-2xl border px-2 pb-2.5 pt-3.5 transition-all ${
+        checked
+          ? "border-app-accent/60 bg-app-accent/[0.07] shadow-[0_0_0_3px_rgb(var(--app-accent)/0.08)]"
+          : "border-app-line bg-app-chip/30 hover:border-app-field-border"
+      } disabled:cursor-not-allowed disabled:opacity-40`}
+    >
+      <span className={`absolute right-2 top-2 flex size-4 items-center justify-center rounded-full transition-colors ${checked ? "bg-app-accent text-app-on-accent" : "bg-app-chip text-transparent"}`}>
+        {locked ? <Lock className="size-2.5 text-app-faint" aria-hidden /> : <Check className="size-2.5" strokeWidth={3} aria-hidden />}
+      </span>
+      <span className={`transition-[filter,opacity] ${checked ? "" : "opacity-55 grayscale group-hover:opacity-80"}`}>
+        <CoinIcon src={`/api/favicon?domain=${tile.domain}`} symbol={name} chain={tile.chain} size={34} />
+      </span>
+      <span className={`max-w-full truncate text-[12px] font-semibold ${checked ? "text-app-ink" : "text-app-muted"}`}>{name}</span>
+    </button>
   );
 }
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap" };
+function NetworkRow({ name, network, fallback, value, storageKey, onChange }: { name: string; network: string; fallback: string; value: NetworkChoice; storageKey: string; onChange: (value: NetworkChoice) => void }) {
+  return (
+    <SettingRow title={`${name} network`} description={`Currently ${network}; changing it reloads the page. The deployment default is ${fallback}.`}>
+      <SegmentedControl
+        label={`${name} network`}
+        value={value}
+        options={networkOptions}
+        onChange={(next) => {
+          if (next === value) return;
+          onChange(next);
+          changeNetwork(storageKey, next);
+        }}
+      />
+    </SettingRow>
+  );
+}
 
 function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
-  // Solana venues need a Solana wallet: until one is connected their switches show off and can't be changed.
+  // Solana venues need a Solana wallet: until one is connected their tiles show off and can't be changed.
   const solanaConnected = Boolean(useSolanaWallet().address);
-  const solanaLock = solanaConnected ? undefined : "Connect a Solana wallet to use this venue";
   const unavailable = (Object.keys(venueNames) as VenueKey[]).filter((venue) => !venueAvailable(venue)).map((venue) => venueNames[venue]);
   const [choice, setChoice] = useState<NetworkChoice>("default");
   const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
@@ -575,12 +650,6 @@ function VenueSettings() {
 
   return (
     <>
-      {unavailable.length > 0 && (
-        <p className="border-b border-app-line py-4 text-[13px] leading-relaxed text-app-muted">
-          Not available on this site: {unavailable.join(", ")}.
-          {deployment === "mainnet" ? " They switch on once their settings are added to the deployment." : ""}
-        </p>
-      )}
       {deployment && (
         <SettingRow
           title={deployment === "mainnet" ? "Mainnet site" : "Testnet site"}
@@ -601,76 +670,38 @@ function VenueSettings() {
           )}
         </SettingRow>
       )}
-      {venueAvailable("hyperliquid") && (
-      <VenueRow name="Hyperliquid" badge="Perps · EVM" description="Perpetuals and HIP-3 equity perps. Orders sign with a browser trading key after a one-time setup.">
-        <Toggle label="Hyperliquid" checked={preferences.venueHyperliquid} onChange={(checked) => updatePreference("venueHyperliquid", checked)} />
-      </VenueRow>
-      )}
-      {preferences.venueHyperliquid && !deployment && (
-        <div className="ml-4 border-l-2 border-app-line pl-4">
-          <SettingRow
-            title="Network"
-            description={`Testnet uses mock USDC from the faucet. Currently ${hlConfig.network}; changing it reloads the page. The deployment default is ${defaultHlNetwork}.`}
-          >
-            <SegmentedControl
-              label="Hyperliquid network"
-              value={choice}
-              options={networkOptions}
-              onChange={(value) => value !== choice && changeNetwork(HL_NETWORK_OVERRIDE_KEY, value)}
-            />
-          </SettingRow>
-        </div>
-      )}
-      <VenueRow
-        name="Lighter"
-        badge="Perps · EVM"
-        description="Perpetuals on Lighter's zk-rollup. Needs a Lighter account (first deposit), then a browser trading key registered with one wallet signature."
-      >
-        <Toggle label="Lighter" checked={preferences.venueLighter} onChange={(checked) => updatePreference("venueLighter", checked)} />
-      </VenueRow>
-      {preferences.venueLighter && !deployment && (
-        <div className="ml-4 border-l-2 border-app-line pl-4">
-          <SettingRow
-            title="Network"
-            description={`Testnet trades with test funds. Currently ${lighterConfig.network}; changing it reloads the page. The deployment default is ${defaultLighterNetwork}.`}
-          >
-            <SegmentedControl
-              label="Lighter network"
-              value={lighterChoice}
-              options={networkOptions}
-              onChange={(value) => value !== lighterChoice && changeNetwork(LIGHTER_NETWORK_OVERRIDE_KEY, value)}
-            />
-          </SettingRow>
-        </div>
-      )}
-      {venueAvailable("lighterRh") && (
-        <VenueRow
-          name="Lighter RH"
-          badge="Perps · Robinhood Chain"
-          description="Lighter on Robinhood Chain: a separate Lighter exchange with USDG margin and mostly stock perps (the venue behind Robinhood Wallet's perps). Its own account (first USDG deposit on Robinhood Chain) and its own browser trading key."
-        >
-          <Toggle label="Lighter RH" checked={preferences.venueLighterRh} onChange={(checked) => updatePreference("venueLighterRh", checked)} />
-        </VenueRow>
-      )}
-      {preferences.venueLighterRh && !deployment && (
-        <div className="ml-4 border-l-2 border-app-line pl-4">
-          <SettingRow
-            title="Network"
-            description={`Currently ${lighterRhConfig.network}; changing it reloads the page. The deployment default is ${defaultLighterRhNetwork}.`}
-          >
-            <SegmentedControl
-              label="Lighter RH network"
-              value={lighterRhChoice}
-              options={networkOptions}
-              onChange={(value) => value !== lighterRhChoice && changeNetwork(LIGHTER_RH_NETWORK_OVERRIDE_KEY, value)}
-            />
-          </SettingRow>
-        </div>
+      {VENUE_GROUPS.map((group) => {
+        const tiles = group.tiles.filter((tile) => venueAvailable(tile.key) && (tile.shown?.() ?? true));
+        if (tiles.length === 0) return null;
+        return (
+          <section key={group.title} className="border-b border-app-line py-4">
+            <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-app-faint">{group.title}</h3>
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+              {tiles.map((tile) => {
+                const locked = tile.solana && !solanaConnected ? "Connect a Solana wallet to use this venue" : undefined;
+                return (
+                  <VenueToggleTile
+                    key={tile.key}
+                    tile={tile}
+                    checked={!locked && preferences[tile.preference]}
+                    locked={locked}
+                    onChange={(checked) => updatePreference(tile.preference, checked)}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+      {unavailable.length > 0 && (
+        <p className="border-b border-app-line py-3 text-[12px] leading-relaxed text-app-faint">
+          Not available on this site: {unavailable.join(", ")}.{deployment === "mainnet" ? " They switch on once their settings are added to the deployment." : ""}
+        </p>
       )}
       {perpChoices.length > 1 && (
         <SettingRow
           title="Preferred perp venue"
-          description="News perp trades go here first. When it doesn't list the asset, the next enabled perp venue is used."
+          description="News perp trades go here first. When it does not list the asset, the next enabled perp venue is used."
         >
           <SegmentedControl
             label="Preferred perp venue"
@@ -680,49 +711,15 @@ function VenueSettings() {
           />
         </SettingRow>
       )}
-      {venueAvailable("jupiter") && (
-        <VenueRow name="Jupiter" badge="Spot · Solana" description="Verified Solana tokens through Jupiter Swap V2. Mainnet only: every swap uses real funds and asks your wallet to sign.">
-          <Toggle
-            label="Jupiter"
-            checked={solanaConnected && preferences.venueJupiter}
-            disabled={!solanaConnected}
-            title={solanaLock}
-            onChange={(checked) => updatePreference("venueJupiter", checked)}
-          />
-        </VenueRow>
+      {/* Local builds only: switch a venue between testnet and mainnet. */}
+      {!deployment && preferences.venueHyperliquid && (
+        <NetworkRow name="Hyperliquid" network={hlConfig.network} fallback={defaultHlNetwork} value={choice} storageKey={HL_NETWORK_OVERRIDE_KEY} onChange={setChoice} />
       )}
-      {venueAvailable("arcus") && (
-      <VenueRow
-        name="Arcus"
-        badge={`Stock tokens · Robinhood Chain ${arcusConfig.network}`}
-        description="24/7 stock and index tokens, bought and sold with USDG. Used for stocks that no perp venue lists, and in the test order form. Gasless: your wallet signs, Arcus settles."
-      >
-        <Toggle label="Arcus" checked={preferences.venueArcus} onChange={(checked) => updatePreference("venueArcus", checked)} />
-      </VenueRow>
+      {!deployment && preferences.venueLighter && (
+        <NetworkRow name="Lighter" network={lighterConfig.network} fallback={defaultLighterNetwork} value={lighterChoice} storageKey={LIGHTER_NETWORK_OVERRIDE_KEY} onChange={setLighterChoice} />
       )}
-      {venueAvailable("uniswap") && arcusConfig.network === "mainnet" && (
-      <VenueRow
-        name="Uniswap"
-        badge="Stock tokens · Robinhood Chain"
-        description="Every Robinhood Chain stock swap asks Uniswap and Arcus for a quote and takes the one that pays more. UniswapX fills are gasless; pool swaps need a little ETH on Robinhood Chain for gas."
-      >
-        <Toggle label="Uniswap" checked={preferences.venueUniswap} onChange={(checked) => updatePreference("venueUniswap", checked)} />
-      </VenueRow>
-      )}
-{venueAvailable("titan") && (
-      <VenueRow
-        name="Titan"
-        badge="Spot · Solana"
-        description="Solana meta-aggregator. Every Solana spot trade asks Titan and Jupiter for a quote and executes the one that pays more. Active once the server has a Titan API key."
-      >
-        <Toggle
-          label="Titan"
-          checked={solanaConnected && preferences.venueTitan}
-          disabled={!solanaConnected}
-          title={solanaLock}
-          onChange={(checked) => updatePreference("venueTitan", checked)}
-        />
-      </VenueRow>
+      {!deployment && preferences.venueLighterRh && (
+        <NetworkRow name="Lighter RH" network={lighterRhConfig.network} fallback={defaultLighterRhNetwork} value={lighterRhChoice} storageKey={LIGHTER_RH_NETWORK_OVERRIDE_KEY} onChange={setLighterRhChoice} />
       )}
     </>
   );
