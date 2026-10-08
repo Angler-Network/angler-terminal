@@ -32,4 +32,18 @@ describe("invites", () => {
     expect(after.referrals).toBe(1);
     expect(after.invites.codes.find((entry) => entry.code === first.code)?.usedBy).toBe(newcomer);
   });
+
+  it("pays referrers 10% of the fees on perp and spot trades only, and swaps earn no invites", async () => {
+    const inviter = "0x00000000000000000000000000000000000000e5";
+    const newcomer = "0x00000000000000000000000000000000000000f6";
+    await creditVolume(inviter, "jupiter", 50_000);
+    expect((await readProfile(inviter)).invites.codes).toEqual([]);
+    await creditVolume(inviter, "lighter", 10_000);
+    const [code] = (await readProfile(inviter)).invites.codes;
+    expect(await setReferrer(newcomer, code.code)).toMatchObject({ ok: true });
+
+    await creditVolume(newcomer, "hyperliquid", 100_000, 35);
+    await creditVolume(newcomer, "jupiter", 100_000, 500);
+    expect((await readProfile(inviter)).referralEarnings).toBe(3.5);
+  });
 });

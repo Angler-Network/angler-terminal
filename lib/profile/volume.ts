@@ -33,15 +33,18 @@ export function isAnglerFill(fill: HlFill, fees: number | number[]) {
   });
 }
 
-/** Our volume in a batch of fills, and the newest fill time seen (the next sync starts after it). */
+/** Our volume in a batch of fills, the builder fees they paid us, and the newest fill time seen (the next sync starts after it). */
 export function hlAnglerVolume(fills: HlFill[], builderFeeTenthsBp: number | number[]) {
   let usd = 0;
+  let fee = 0;
   let lastTime = 0;
   for (const fill of fills) {
     lastTime = Math.max(lastTime, fill.time);
-    if (isAnglerFill(fill, builderFeeTenthsBp)) usd += Math.abs(Number(fill.px) * Number(fill.sz));
+    if (!isAnglerFill(fill, builderFeeTenthsBp)) continue;
+    usd += Math.abs(Number(fill.px) * Number(fill.sz));
+    fee += Number(fill.builderFee) || 0;
   }
-  return { usd, lastTime };
+  return { usd, fee, lastTime };
 }
 
 /** A Lighter trade from `/api/v1/trades` (only the fields used here). */

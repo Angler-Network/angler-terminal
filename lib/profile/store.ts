@@ -24,6 +24,12 @@ const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
+/** Perp and order-book spot venues: only their volume earns invites and referral rewards (not swaps or bridges). */
+const TRADING_VENUES: ProfileVenue[] = ["hyperliquid", "lighter", "lighterRh"];
+
+/** A referrer's cash share of the Angler fees its referrals pay on perp and spot trades. */
+export const REFERRAL_FEE_SHARE = 0.1;
+
 const CLAIM_TTL_SECONDS = 400 * 86_400;
 /** Daily buckets outlive the longest window shown; the hash expires after this long without volume. */
 const DAYS_TTL_SECONDS = 400 * 86_400;
@@ -146,6 +152,8 @@ export interface ProfileView {
   /** Profiles this one referred, and the points their volume earned it. */
   referrals: number;
   referralPoints: number;
+  /** USD a referrer earned: REFERRAL_FEE_SHARE of the fees its referrals paid on perp and spot trades. */
+  referralEarnings: number;
   /** Single-use invite codes, one per INVITE_VOLUME of own volume; a referrer is set only through one. */
   invites: { codes: Array<{ code: string; usedBy: string | null }>; nextAt: number };
   /** Primary ENS name and avatar (EVM), added by the API route. */
@@ -162,6 +170,7 @@ function volumeOf(hash: Record<string, string>) {
 }
 
 const totalOf = (volume: Record<ProfileVenue, number>) => PROFILE_VENUES.reduce((sum, venue) => sum + volume[venue], 0);
+const tradingVolumeOf = (volume: Record<ProfileVenue, number>) => TRADING_VENUES.reduce((sum, venue) => sum + volume[venue], 0);
 
 /** Referred volume (`refUsd`: what referred profiles traded after joining) that counts toward points. */
 function referralUsdOf(hash: Record<string, string>) {
@@ -190,7 +199,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
-  const invites = await syncInvites(id, totalOf(volumeOf(hash)));
+  const invites = await syncInvites(id, tradingVolumeOf(volumeOf(hash)));
   const volume = volumeOf(hash);
   const points = pointsOf(hash);
   return {
@@ -206,6 +215,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
     referrals: referred.length,
+    referralEarnings: Math.round(Math.max(0, Number(hash.refFeeUsd) || 0) * 100) / 100,
     invites,
     referralPoints: pointsFor(referralUsdOf(hash)),
   };
@@ -234,8 +244,16 @@ async function readDays(id: string): Promise<Record<string, string>> {
   return toHash(result);
 }
 
-/** Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. */
-export async function creditVolume(id: string, venue: ProfileVenue, usd: number) {
+/** The profile's volume over the last 30 days (its VIP tier). */
+export async function volume30d(id: string) {
+  return volumeOverDays(await readDays(id), 30);
+}
+
+/**
+ * Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. On perp and spot
+ * venues the referrer, if any, earns a share of the points and REFERRAL_FEE_SHARE of `feeUsd`, the Angler fee paid.
+ */
+export async function creditVolume(id: string, venue: ProfileVenue, usd: number, feeUsd = 0) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
   const today = dayKey(Date.now());
@@ -255,10 +273,19 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number)
   }
   const hash = await getHash(id);
   await setPoints(id, pointsOf(hash));
-  // The referrer earns a share of this volume (only volume traded after the referral, never a referrer's bonus).
-  if (hash.referrer) {
-    if (redisConfig()) await run([["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", amount]]);
-    else await setFields(hash.referrer, { refUsd: String(Number((await getHash(hash.referrer)).refUsd ?? 0) + amount) });
+  // The referrer earns a share of this volume and of our fee on it (only perp and spot volume traded after the
+  // referral, never a referrer's bonus or swaps).
+  if (hash.referrer && TRADING_VENUES.includes(venue)) {
+    const share = Math.round(Math.max(0, feeUsd) * REFERRAL_FEE_SHARE * 1e6) / 1e6;
+    if (redisConfig()) {
+      await run([
+        ["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", amount],
+        ...(share > 0 ? [["HINCRBYFLOAT", key("p", hash.referrer), "refFeeUsd", share] as RedisCommand] : []),
+      ]);
+    } else {
+      const referrer = await getHash(hash.referrer);
+      await setFields(hash.referrer, { refUsd: String(Number(referrer.refUsd ?? 0) + amount), refFeeUsd: String(Number(referrer.refFeeUsd ?? 0) + share) });
+    }
     await setPoints(hash.referrer, pointsOf(await getHash(hash.referrer)));
   }
 }

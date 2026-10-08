@@ -9,9 +9,9 @@ import { readAccountIndex } from "@/lib/venues/lighter/account";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
-import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot } from "./store";
+import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
-import { tierFees } from "./vip";
+import { tierFee, tierFees, vipFor } from "./vip";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -30,10 +30,11 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 /** Hyperliquid fills since the cursor that paid our builder fee (10,000 most recent fills at most, per the API). */
 async function syncHyperliquid(user: string, cursor: number | null) {
-  const fee = hlConfig.builder?.fee ?? 0;
-  if (!fee) return null;
+  const builderFee = hlConfig.builder?.fee ?? 0;
+  if (!builderFee) return null;
   let start = cursor === null ? 0 : cursor + 1;
   let usd = 0;
+  let paid = 0;
   let last = cursor ?? 0;
   const seen = new Set<number>();
   for (let page = 0; page < HL_MAX_PAGES; page++) {
@@ -44,14 +45,15 @@ async function syncHyperliquid(user: string, cursor: number | null) {
     });
     const fresh = fills.filter((fill) => !seen.has(fill.tid));
     for (const fill of fresh) seen.add(fill.tid);
-    const batch = hlAnglerVolume(fresh, tierFees(fee));
+    const batch = hlAnglerVolume(fresh, tierFees(builderFee));
     usd += batch.usd;
+    paid += batch.fee;
     last = Math.max(last, batch.lastTime);
     if (fills.length < HL_PAGE) break;
     // The next page starts at the last fill's time; fills already seen at that millisecond are skipped.
     start = batch.lastTime;
   }
-  return { usd, cursor: last };
+  return { usd, fee: paid, cursor: last };
 }
 
 /** Lighter trades of the wallet's account since the cursor whose own side carries the terminal tag. */
@@ -87,21 +89,24 @@ async function syncLighter(config: LighterConfig, l1Address: string, cursor: num
 export async function syncProfile(id: string) {
   if (profileIdOf(id)?.chain !== "evm" || !(await takeSyncSlot(id))) return;
   const cursors = await readCursors(id);
+  // Lighter trades don't list our integrator fee: it's the configured fee at the trader's VIP tier.
+  const rate = vipFor(await volume30d(id)).rate;
+  const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
   const [hl, lighter, lighterRh] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl),
     syncLighter(lighterConfig, id, cursors.lighter),
     syncLighter(lighterRhConfig, id, cursors.lighterRh),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
-    await creditVolume(id, "hyperliquid", hl.value.usd);
+    await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee);
     await saveCursors(id, { hl: hl.value.cursor });
   } else if (hl.status === "rejected") console.warn(`[profile] Hyperliquid sync failed: ${String(hl.reason)}`);
   if (lighter.status === "fulfilled" && lighter.value) {
-    await creditVolume(id, "lighter", lighter.value.usd);
+    await creditVolume(id, "lighter", lighter.value.usd, lighterFee(lighterConfig, lighter.value.usd));
     await saveCursors(id, { lighter: lighter.value.cursor });
   } else if (lighter.status === "rejected") console.warn(`[profile] Lighter sync failed: ${String(lighter.reason)}`);
   if (lighterRh.status === "fulfilled" && lighterRh.value) {
-    await creditVolume(id, "lighterRh", lighterRh.value.usd);
+    await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd));
     await saveCursors(id, { lighterRh: lighterRh.value.cursor });
   } else if (lighterRh.status === "rejected") console.warn(`[profile] Lighter RH sync failed: ${String(lighterRh.reason)}`);
 }

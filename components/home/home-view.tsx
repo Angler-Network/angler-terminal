@@ -151,8 +151,8 @@ function ReferralBanner() {
         <Gift className="size-[18px]" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their points</span>
-        <span className="block text-[12px] text-app-muted">Every $10K you trade earns a single-use invite. Each trader you bring in earns you points on every trade, for good.</span>
+        <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their fees</span>
+        <span className="block text-[12px] text-app-muted">Every $10K you trade on perps and spot earns a single-use invite. Each trader you bring in pays you 10% of their Angler fees, for good.</span>
       </span>
       <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#f5c97b] px-3 text-[12px] font-semibold text-black">
         My invites

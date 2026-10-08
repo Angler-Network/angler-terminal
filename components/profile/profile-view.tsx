@@ -35,6 +35,7 @@ const card = "rounded-2xl border border-app-hairline bg-app-card/60";
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
+const usd2 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function UsernameEditor({ current, onDone }: { current: string | null; onDone: () => void }) {
   const { saveUsername } = useProfile();
@@ -337,7 +338,7 @@ function Overview() {
           <li>0.01 point per dollar (a point per $100) traded through Angler, on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
-          <li>Invites: every $10K you trade earns a single-use invite. You earn 10% of the points of everyone who joins with one, from their volume after they join. Their own points stay the same.</li>
+          <li>Invites: every $10K you trade on perps and spot earns a single-use invite. You earn 10% of the Angler fees and 10% of the points of everyone who joins with one, from their perp and spot trades after they join (swaps and bridges don't count). Their own fees and points stay the same.</li>
         </ul>
       </section>
     </>
@@ -355,7 +356,8 @@ function ReferralCard() {
   if (!id || !profile) return null;
   const { codes, nextAt } = profile.invites;
   const available = codes.filter((entry) => !entry.usedBy).length;
-  const ownVolume = VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0);
+  // Invites come from perp and spot volume only (not swaps).
+  const ownVolume = profile.volume.hyperliquid + profile.volume.lighter + profile.volume.lighterRh;
   const copy = (code: string) =>
     void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${code}`).then(() => {
       setCopied(code);
@@ -368,7 +370,8 @@ function ReferralCard() {
         <span className="rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
       </div>
       <p className="mt-1 text-[12px] text-app-muted">
-        Every {compactUsd.format(INVITE_VOLUME)} you trade earns an invite. Each one brings in one trader, and you earn 10% of their points.
+        Every {compactUsd.format(INVITE_VOLUME)} you trade on perps and spot earns an invite. Each one brings in one trader: you earn 10% of the
+        fees they pay and of their points on perp and spot trades.
       </p>
       {codes.length > 0 ? (
         <ul className="scrollbar-subtle mt-3 flex max-h-[168px] flex-col gap-1.5 overflow-y-auto">
@@ -392,8 +395,8 @@ function ReferralCard() {
       ) : (
         <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">No invites yet.</p>
       )}
-      <p className="mt-1.5 text-[11px] text-app-faint">Next invite at {compactUsd.format(nextAt)} traded ({compactUsd.format(Math.max(0, nextAt - ownVolume))} to go).</p>
-      <div className="mt-auto grid grid-cols-2 gap-3 pt-3">
+      <p className="mt-1.5 text-[11px] text-app-faint">Next invite at {compactUsd.format(nextAt)} of perp and spot volume ({compactUsd.format(Math.max(0, nextAt - ownVolume))} to go).</p>
+      <div className="mt-auto grid grid-cols-3 gap-3 pt-3">
         <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
           <p className="text-[11px] text-app-muted">Referred</p>
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.referrals}</p>
@@ -401,6 +404,10 @@ function ReferralCard() {
         <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
           <p className="text-[11px] text-app-muted">Referral points</p>
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{number.format(profile.referralPoints)}</p>
+        </div>
+        <div className="rounded-xl bg-app-chip/60 px-3 py-2.5" title="10% of the Angler fees your referrals paid on perp and spot trades">
+          <p className="text-[11px] text-app-muted">Earned</p>
+          <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-up">{usd2.format(profile.referralEarnings)}</p>
         </div>
       </div>
       {profile.referrer && <p className="mt-3 text-[12px] text-app-muted">Invited by {shortAddress(profile.referrer)}.</p>}
