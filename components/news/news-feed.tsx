@@ -21,6 +21,11 @@ import { useNewsSound } from "./use-news-sound";
 
 const IMPORTANCE_FILTERS = [0, 40, 60, 80];
 const FLASH_MS = 4_000;
+/**
+ * Cards rendered at a time. The feed keeps up to 600 items and every tradable card carries a live trade grid, so
+ * rendering them all made the page slower the longer it stayed open; older ones show on "Show more".
+ */
+const FEED_PAGE = 60;
 
 const statusLabels: Record<FeedStatus, { label: string; dot: string; hint: string }> = {
   connecting: { label: "Connecting", dot: "bg-app-faint animate-pulse", hint: "Opening the realtime connection." },
@@ -104,9 +109,13 @@ export function NewsFeed({ feed }: NewsFeedProps) {
   );
   const minImportance = filters.minImpact;
   const shown = useMemo(() => filterNews(items, filters, newsFocus), [items, filters, newsFocus]);
+  const [limit, setLimit] = useState(FEED_PAGE);
+  useEffect(() => setLimit(FEED_PAGE), [filters, newsFocus]);
+  const visible = useMemo(() => shown.slice(0, limit), [shown, limit]);
+  const moreLoaded = shown.length > limit;
   // Terminal-only: realtime arrivals unfold into the list (cards are the list's direct <article> children).
   const listRef = useRef<HTMLDivElement>(null);
-  const shownIds = useMemo(() => shown.map((item) => item.id), [shown]);
+  const shownIds = useMemo(() => visible.map((item) => item.id), [visible]);
   useListEnter(listRef, shownIds, ":scope > article", (gsap, elements) =>
     gsap.from(elements, {
       height: 0,
@@ -294,7 +303,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             ))}
           </div>
         )}
-        {shown.map((item) => (
+        {visible.map((item) => (
           <NewsCard
             key={item.id}
             item={item}
@@ -312,15 +321,15 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             }
           />
         ))}
-        {hasMore && (
+        {(moreLoaded || hasMore) && (
           <div className="py-3 text-center">
             <button
               type="button"
-              onClick={() => void loadMore()}
-              disabled={isLoadingMore}
+              onClick={() => (moreLoaded ? setLimit((current) => current + FEED_PAGE) : void loadMore().then(() => setLimit((current) => current + FEED_PAGE)))}
+              disabled={!moreLoaded && isLoadingMore}
               className="h-8 rounded-lg border border-app-hairline-strong bg-app-chip px-3 text-[12px] font-semibold text-app-ink transition-colors hover:bg-app-card disabled:opacity-60"
             >
-              {isLoadingMore ? "Loading…" : "Load older"}
+              {moreLoaded ? "Show more" : isLoadingMore ? "Loading…" : "Load older"}
             </button>
           </div>
         )}
