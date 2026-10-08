@@ -1,6 +1,6 @@
 "use client";
 
-import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionTpsl, type VenueMarket, type VenueOpenOrder, type VenuePosition } from "../types";
+import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionRef, type PositionTpsl, type VenueMarket, type VenueOpenOrder } from "../types";
 import { ORDERLY_BASE_TAKER_FEE, orderlyConfig } from "./config";
 import { readOrderlyAccount, readOrderlyCandles, readOrderlyMarkets, roundToTick, type OrderlyFuturesRow, type OrderlyInfoRow, type OrderlyOrderRow, type OrderlyPositionsData, type OrderlySteps } from "./markets";
 import { orderlyKey } from "./onboarding";
@@ -120,10 +120,12 @@ function createOrderlyVenue(): PerpVenue {
 
   /**
    * TP/SL on the whole position: Orderly's `POSITIONAL_TP_SL` algo order, one child per level, each closing the
-   * position at market when the mark price crosses it.
+   * position at market when the mark price crosses it. With `levels.size` it's a `TP_SL` order for that quantity.
    */
   async function placePositionTpsl(user: `0x${string}`, market: VenueMarket, closeSide: "BUY" | "SELL", levels: PositionTpsl) {
     const steps = await stepsOf(market.coin);
+    const quantity = levels.size === undefined ? undefined : roundToTick(levels.size, steps.baseTick);
+    if (quantity !== undefined && !(quantity > 0)) throw new VenueError(`TP/SL size is below ${market.symbol}'s lot on Orderly (${steps.baseTick}).`);
     const children = (
       [
         ["TAKE_PROFIT", levels.takeProfit],
@@ -131,11 +133,26 @@ function createOrderlyVenue(): PerpVenue {
       ] as const
     ).flatMap(([type, price]) =>
       price
-        ? [{ symbol: market.coin, algo_type: type, side: closeSide, type: "CLOSE_POSITION", trigger_price_type: "MARK_PRICE", trigger_price: roundToTick(price, steps.quoteTick), reduce_only: true }]
+        ? [
+            {
+              symbol: market.coin,
+              algo_type: type,
+              side: closeSide,
+              type: quantity === undefined ? "CLOSE_POSITION" : "MARKET",
+              trigger_price_type: "MARK_PRICE",
+              trigger_price: roundToTick(price, steps.quoteTick),
+              reduce_only: true,
+            },
+          ]
         : [],
     );
     if (children.length === 0) return;
-    await signed(user, "POST", "/v1/algo/order", { symbol: market.coin, algo_type: "POSITIONAL_TP_SL", trigger_price_type: "MARK_PRICE", child_orders: children });
+    await signed(user, "POST", "/v1/algo/order", {
+      symbol: market.coin,
+      ...(quantity === undefined ? { algo_type: "POSITIONAL_TP_SL" } : { algo_type: "TP_SL", quantity }),
+      trigger_price_type: "MARK_PRICE",
+      child_orders: children,
+    });
   }
 
   async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
@@ -170,16 +187,18 @@ function createOrderlyVenue(): PerpVenue {
     await signed(user, "DELETE", `/v1/order?order_id=${order.oid}&symbol=${order.coin}`);
   }
 
-  async function closePosition(user: `0x${string}`, position: VenuePosition): Promise<OrderResult> {
+  async function closePosition(user: `0x${string}`, position: PositionRef, size?: number): Promise<OrderResult> {
     const market = (await listMarkets()).find((entry) => entry.coin === position.coin);
     if (!market) throw new VenueError(`Orderly doesn't list ${position.symbol} anymore.`);
-    return placeOrder(user, { market, side: position.size > 0 ? "sell" : "buy", kind: "market", size: Math.abs(position.size), reduceOnly: true });
+    const amount = Math.min(size ?? Infinity, Math.abs(position.size));
+    return placeOrder(user, { market, side: position.size > 0 ? "sell" : "buy", kind: "market", size: amount, reduceOnly: true });
   }
 
-  async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+  async function setPositionTpsl(user: `0x${string}`, position: PositionRef, levels: PositionTpsl) {
     const market = (await listMarkets()).find((entry) => entry.coin === position.coin);
     if (!market) throw new VenueError(`Orderly doesn't list ${position.symbol} anymore.`);
-    await placePositionTpsl(user, market, position.size > 0 ? "SELL" : "BUY", levels);
+    const partial = levels.size !== undefined && levels.size < Math.abs(position.size);
+    await placePositionTpsl(user, market, position.size > 0 ? "SELL" : "BUY", { ...levels, size: partial ? levels.size : undefined });
   }
 
   /** Positions, open orders and collateral every few seconds (before setup the account is empty). */

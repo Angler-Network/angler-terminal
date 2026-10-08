@@ -33,6 +33,7 @@ import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/ven
 import type {
   AccountSnapshot,
   OrderResult,
+  PositionRef,
   PositionTpsl,
   PerpVenue,
   PerpVenueId,
@@ -94,8 +95,9 @@ interface TradingContextValue {
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
   placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
-  closePosition: (position: VenuePosition) => Promise<void>;
-  setPositionTpsl: (position: VenuePosition, levels: PositionTpsl) => Promise<boolean>;
+  /** Closes `size` (base units) at market, or the whole position when unset. */
+  closePosition: (position: VenuePosition, size?: number) => Promise<void>;
+  setPositionTpsl: (position: PositionRef, levels: PositionTpsl) => Promise<boolean>;
   /** Venue the deposit window is open for, or null. */
   depositVenue: PerpVenueId | null;
   /** Tab the funds window opens on. */
@@ -504,8 +506,20 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         setSetupVenue(venue);
         return null;
       }
+      // A TP/SL for part of the entry can't ride with it: the entry goes out alone and the TP/SL follows the fill.
+      const partialTpsl = input.tpslSize !== undefined && input.tpslSize < input.size && Boolean(input.takeProfit || input.stopLoss);
       try {
-        const result = await venues[venue].placeOrder(address, input);
+        const result = await venues[venue].placeOrder(
+          address,
+          partialTpsl ? { ...input, takeProfit: undefined, stopLoss: undefined, tpslSize: undefined } : input,
+        );
+        if (partialTpsl && result.status === "filled") {
+          const position = { venue, coin: input.market.coin, symbol: input.market.symbol, size: input.side === "buy" ? result.filledSize : -result.filledSize };
+          const levels = { takeProfit: input.takeProfit, stopLoss: input.stopLoss, size: Math.min(input.tpslSize!, result.filledSize) };
+          await venues[venue].setPositionTpsl(address, position, levels).catch((error) =>
+            fail(venue, "The order filled, but the TP/SL was rejected", error),
+          );
+        }
         const verb = input.side === "buy" ? "Bought" : "Sold";
         toast(
           result.status === "filled"
@@ -539,7 +553,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setPositionTpsl = useCallback(
-    async (position: VenuePosition, levels: PositionTpsl) => {
+    async (position: PositionRef, levels: PositionTpsl) => {
       if (!address) return false;
       if (!isVenueReady(position.venue)) {
         setSetupVenue(position.venue);
@@ -548,7 +562,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       try {
         await venues[position.venue].setPositionTpsl(address, position, levels);
         const parts = [levels.takeProfit && `TP ${formatPrice(levels.takeProfit)}`, levels.stopLoss && `SL ${formatPrice(levels.stopLoss)}`].filter(Boolean);
-        toast({ tone: "success", title: `${position.symbol} TP/SL set`, message: `${parts.join(" · ")} on ${PERP_VENUE_NAMES[position.venue]}` });
+        const amount = levels.size !== undefined && levels.size < Math.abs(position.size) ? ` for ${levels.size} ${position.symbol}` : "";
+        toast({ tone: "success", title: `${position.symbol} TP/SL set`, message: `${parts.join(" · ")}${amount} on ${PERP_VENUE_NAMES[position.venue]}` });
         return true;
       } catch (error) {
         fail(position.venue, "TP/SL rejected", error);
@@ -574,15 +589,16 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const closePosition = useCallback(
-    async (position: VenuePosition) => {
+    async (position: VenuePosition, size?: number) => {
       if (!address) return;
       if (!isVenueReady(position.venue)) return setSetupVenue(position.venue);
+      const partial = size !== undefined && size < Math.abs(position.size);
       try {
-        const result = await venues[position.venue].closePosition(address, position);
+        const result = await venues[position.venue].closePosition(address, position, partial ? size : undefined);
         trackPerpOrder(result, { venue: position.venue, side: position.size > 0 ? "sell" : "buy", newsId: null, oneClick: false });
         toast({
           tone: "success",
-          title: `Closed ${position.symbol}`,
+          title: partial ? `Closed ${result.status === "filled" ? result.filledSize : size} of ${Math.abs(position.size)} ${position.symbol}` : `Closed ${position.symbol}`,
           message: result.status === "filled" ? `Average price ${formatPrice(result.avgPx)}` : undefined,
         });
       } catch (error) {

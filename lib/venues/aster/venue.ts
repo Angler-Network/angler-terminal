@@ -1,7 +1,7 @@
 "use client";
 
 import { vipFee } from "@/lib/profile/vip";
-import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionTpsl, type VenueMarket, type VenueOpenOrder, type VenuePosition } from "../types";
+import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionRef, type PositionTpsl, type VenueMarket, type VenueOpenOrder } from "../types";
 import { asterConfig } from "./config";
 import { readAsterAccount, readAsterCandles, readAsterMarkets, type AsterAccountInfo, type AsterOrderRow, type AsterPositionRow } from "./markets";
 import { asterAgent, asterOnboarding } from "./onboarding";
@@ -88,6 +88,7 @@ async function applySettings(user: `0x${string}`, market: VenueMarket, input: Pl
   lastSettings.set(key, last);
 }
 
+/** Trigger orders closing the whole position, or `levels.size` of it as reduce-only orders of that quantity. */
 async function placeTriggers(user: `0x${string}`, market: VenueMarket, closeSide: "BUY" | "SELL", levels: PositionTpsl) {
   const decimals = market.priceDecimals ?? 2;
   for (const [type, price] of [
@@ -100,7 +101,7 @@ async function placeTriggers(user: `0x${string}`, market: VenueMarket, closeSide
       side: closeSide,
       type,
       stopPrice: fixed(price, decimals),
-      closePosition: "true",
+      ...(levels.size === undefined ? { closePosition: "true" } : { quantity: fixed(levels.size, market.szDecimals), reduceOnly: "true" }),
       workingType: "MARK_PRICE",
       ...builderFields(user),
     });
@@ -153,7 +154,7 @@ function createAsterVenue(): PerpVenue {
     await signed(user, "DELETE", "/fapi/v3/order", { symbol: order.coin, orderId: order.oid });
   }
 
-  async function closePosition(user: `0x${string}`, position: VenuePosition): Promise<OrderResult> {
+  async function closePosition(user: `0x${string}`, position: PositionRef, size?: number): Promise<OrderResult> {
     const market = (await listMarkets()).find((entry) => entry.coin === position.coin);
     if (!market) throw new VenueError(`Aster doesn't list ${position.symbol} anymore.`);
     const fee = builderFields(user);
@@ -161,7 +162,7 @@ function createAsterVenue(): PerpVenue {
       symbol: market.coin,
       side: position.size > 0 ? "SELL" : "BUY",
       type: "MARKET",
-      quantity: fixed(Math.abs(position.size), market.szDecimals),
+      quantity: fixed(Math.min(size ?? Infinity, Math.abs(position.size)), market.szDecimals),
       reduceOnly: "true",
       newOrderRespType: "RESULT",
       ...fee,
@@ -169,10 +170,11 @@ function createAsterVenue(): PerpVenue {
     return toResult(order, Number(fee.feeRate ?? 0));
   }
 
-  async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+  async function setPositionTpsl(user: `0x${string}`, position: PositionRef, levels: PositionTpsl) {
     const market = (await listMarkets()).find((entry) => entry.coin === position.coin);
     if (!market) throw new VenueError(`Aster doesn't list ${position.symbol} anymore.`);
-    await placeTriggers(user, market, position.size > 0 ? "SELL" : "BUY", levels);
+    const partial = levels.size !== undefined && levels.size < Math.abs(position.size);
+    await placeTriggers(user, market, position.size > 0 ? "SELL" : "BUY", { ...levels, size: partial ? levels.size : undefined });
   }
 
   /** Positions, orders and balance every few seconds (signed reads need the agent; before setup the account is empty). */

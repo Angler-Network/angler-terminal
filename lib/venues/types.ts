@@ -61,13 +61,23 @@ export interface PlaceOrderInput {
   /** Reduce-only trigger orders attached to the entry (market when triggered). */
   takeProfit?: number;
   stopLoss?: number;
+  /**
+   * Base size the TP/SL closes when it covers only part of the entry. The entry then goes out alone and the TP/SL
+   * follows on the filled position (market entries only); unset covers the whole entry.
+   */
+  tpslSize?: number;
 }
 
 /** TP/SL trigger prices for an open position; an unset level is left as is. */
 export interface PositionTpsl {
   takeProfit?: number;
   stopLoss?: number;
+  /** Base size (unsigned) the triggers close; unset closes the whole position. */
+  size?: number;
 }
+
+/** What closing or protecting a position needs: its market and signed size. */
+export type PositionRef = Pick<VenuePosition, "venue" | "coin" | "symbol" | "size">;
 
 export type OrderResult =
   /** `partnerFeeBps`: our builder (Hyperliquid) or integrator (Lighter) fee on this fill, in bps. */
@@ -136,9 +146,10 @@ export interface PerpVenue {
   resolveMarket(symbol: string): Promise<VenueMarket | null>;
   placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult>;
   cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coin" | "oid">): Promise<void>;
-  closePosition(user: `0x${string}`, position: VenuePosition): Promise<OrderResult>;
-  /** Places reduce-only take-profit and/or stop-loss trigger orders for the whole position. */
-  setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl): Promise<void>;
+  /** Closes `size` (base units, unsigned) at market, or the whole position when unset. */
+  closePosition(user: `0x${string}`, position: PositionRef, size?: number): Promise<OrderResult>;
+  /** Places reduce-only take-profit and/or stop-loss trigger orders for `levels.size` or the whole position. */
+  setPositionTpsl(user: `0x${string}`, position: PositionRef, levels: PositionTpsl): Promise<void>;
   /** Live positions and open orders. Returns an unsubscribe function. */
   subscribeAccount(user: `0x${string}`, handlers: AccountHandlers): () => void;
   loadCandles(market: VenueMarket, interval: string, startTime: number): Promise<Candle[]>;

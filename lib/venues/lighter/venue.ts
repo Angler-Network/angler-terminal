@@ -7,10 +7,10 @@ import type {
   OrderResult,
   PerpVenue,
   PlaceOrderInput,
+  PositionRef,
   PositionTpsl,
   VenueMarket,
   VenueOpenOrder,
-  VenuePosition,
 } from "../types";
 import { VenueError } from "../types";
 import {
@@ -151,10 +151,12 @@ export function createLighterVenue(config: LighterConfig): PerpVenue {
     return [...(levels.takeProfit ? [order(levels.takeProfit, 4)] : []), ...(levels.stopLoss ? [order(levels.stopLoss, 2)] : [])];
   }
 
-  async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+  async function setPositionTpsl(user: `0x${string}`, position: PositionRef, levels: PositionTpsl) {
     const market = findLighterMarket(await listMarkets(), position.coin);
     if (!market) throw new VenueError(`Unknown ${config.name} market ${position.coin}.`);
-    const orders = triggerOrders(market, position.size > 0, baseAmountFor(Math.abs(position.size), market.szDecimals), levels);
+    const baseAmount = baseAmountFor(Math.min(levels.size ?? Infinity, Math.abs(position.size)), market.szDecimals);
+    if (baseAmount <= 0) throw new VenueError(`TP/SL size is below ${market.symbol}'s size step (${10 ** -market.szDecimals}).`);
+    const orders = triggerOrders(market, position.size > 0, baseAmount, levels);
     if (orders.length === 0) throw new VenueError("Set a take profit or a stop loss.");
     try {
       const session = await requireSession(config, user);
@@ -240,10 +242,11 @@ export function createLighterVenue(config: LighterConfig): PerpVenue {
     }
   }
 
-  async function closePosition(user: `0x${string}`, position: VenuePosition) {
+  async function closePosition(user: `0x${string}`, position: PositionRef, size?: number) {
     const market = findLighterMarket(await listMarkets(), position.coin);
     if (!market) throw new VenueError(`Unknown ${config.name} market ${position.coin}.`);
-    return placeOrder(user, { market, side: position.size > 0 ? "sell" : "buy", kind: "market", size: Math.abs(position.size), reduceOnly: true });
+    const amount = Math.min(size ?? Infinity, Math.abs(position.size));
+    return placeOrder(user, { market, side: position.size > 0 ? "sell" : "buy", kind: "market", size: amount, reduceOnly: true });
   }
 
   const PING_MS = 60_000;

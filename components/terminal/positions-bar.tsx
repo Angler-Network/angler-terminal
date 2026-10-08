@@ -9,11 +9,11 @@ import { formatPrice } from "@/lib/format";
 import { durations, ease, ENTER_PROPS } from "@/lib/motion";
 import { liquidationDistancePct } from "@/lib/trading/order-math";
 import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
-import { optionalPrice, pnlAt, tpslError } from "@/lib/trading/tpsl";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
+import { ClosePositionDialog, TpslDialog } from "./position-dialogs";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
@@ -115,60 +115,6 @@ function useCloseAll() {
   };
 }
 
-/** Inline TP/SL editor for an open position: reduce-only trigger orders for its whole size. */
-function TpslEditor({ position, mark, onDone }: { position: VenuePosition; mark?: number; onDone: () => void }) {
-  const { setPositionTpsl } = useTrading();
-  const [takeProfit, setTakeProfit] = useState("");
-  const [stopLoss, setStopLoss] = useState("");
-  const [busy, setBusy] = useState(false);
-  const side = position.size > 0 ? "buy" : "sell";
-  const tp = optionalPrice(takeProfit);
-  const sl = optionalPrice(stopLoss);
-  // Levels are checked against the current price: a TP below the mark on a long would trigger at once.
-  const error = tpslError({ side, reference: mark ?? position.entryPx, takeProfit: tp, stopLoss: sl });
-  const hint = (level: number | undefined) => {
-    if (level === undefined || !Number.isFinite(level)) return null;
-    const pnl = pnlAt(side, position.entryPx, level, Math.abs(position.size));
-    return <span className={pnl >= 0 ? "text-app-up" : "text-app-down"}>{signed(pnl)}</span>;
-  };
-  const input = "h-7 w-28 rounded-md border border-app-field-border bg-app-field px-2 text-[12px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
-  return (
-    <div className="flex flex-wrap items-center gap-3 px-3 py-2 text-[12px] text-app-muted">
-      <span className="font-semibold text-app-ink">TP/SL for {position.symbol}</span>
-      <label className="flex items-center gap-1.5">
-        TP
-        <input className={input} inputMode="decimal" placeholder="Price" value={takeProfit} onChange={(event) => setTakeProfit(event.target.value.replace(/[^0-9.]/g, ""))} />
-        {hint(tp)}
-      </label>
-      <label className="flex items-center gap-1.5">
-        SL
-        <input className={input} inputMode="decimal" placeholder="Price" value={stopLoss} onChange={(event) => setStopLoss(event.target.value.replace(/[^0-9.]/g, ""))} />
-        {hint(sl)}
-      </label>
-      {mark && <span className="text-app-faint">Mark {formatPrice(mark)}</span>}
-      {error && <span className="text-app-down">{error}</span>}
-      <span className="ml-auto flex gap-2">
-        <button type="button" onClick={onDone} className="h-7 rounded-md px-2.5 font-semibold text-app-muted hover:text-app-ink">
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={busy || Boolean(error) || (tp === undefined && sl === undefined)}
-          onClick={async () => {
-            setBusy(true);
-            const ok = await setPositionTpsl(position, { takeProfit: tp, stopLoss: sl });
-            setBusy(false);
-            if (ok) onDone();
-          }}
-          className="h-7 rounded-md bg-app-accent px-3 font-semibold text-app-on-accent disabled:opacity-50"
-        >
-          {busy ? "Placing…" : "Place TP/SL"}
-        </button>
-      </span>
-    </div>
-  );
-}
-
 /** Header row for one venue's group: name, count, unrealized PnL and a close-all for that venue. */
 function VenueGroupRow({ venue, count, noun, pnl, onCloseAll, colSpan }: { venue: PerpVenueId; count: number; noun: string; pnl?: number; onCloseAll?: () => Promise<void>; colSpan: number }) {
   return (
@@ -205,9 +151,10 @@ function useGrouped(rows: Array<{ venue: PerpVenueId }>) {
 }
 
 export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  // The position whose TP/SL or close dialog is open (a dialog, so the table doesn't shift under it).
+  const [dialog, setDialog] = useState<{ kind: "tpsl" | "close"; key: string } | null>(null);
   const [sharing, setSharing] = useState<string | null>(null);
-  const { closePosition, marketsByVenue } = useTrading();
+  const { marketsByVenue } = useTrading();
   const closeAll = useCloseAll();
   const grouped = useGrouped(positions);
   const tableRef = useRowEnter(positions.map((position) => `${position.venue}:${position.coin}`));
@@ -283,8 +230,8 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
                 <span className="inline-flex gap-1.5">
                   <button
                     type="button"
-                    aria-expanded={editing === key}
-                    onClick={() => setEditing(editing === key ? null : key)}
+                    aria-haspopup="dialog"
+                    onClick={() => setDialog({ kind: "tpsl", key })}
                     className="h-7 rounded-md border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-muted hover:text-app-ink"
                   >
                     TP/SL
@@ -298,18 +245,24 @@ export function PositionsTable({ positions }: { positions: VenuePosition[] }) {
                   >
                     <Share2 className="size-3.5" />
                   </button>
-                  <RowButton onClick={() => closePosition(position)}>Close</RowButton>
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setDialog({ kind: "close", key })}
+                    className="h-7 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card"
+                  >
+                    Close
+                  </button>
                 </span>
                 {sharing === key && <SharePositionDialog position={position} onClose={() => setSharing(null)} />}
               </td>
             </tr>
-            {editing === key && (
-              <tr className="bg-app-chip/40">
-                <td colSpan={7}>
-                  <TpslEditor position={position} mark={markOf(position)} onDone={() => setEditing(null)} />
-                </td>
-              </tr>
-            )}
+            {dialog?.key === key &&
+              (dialog.kind === "tpsl" ? (
+                <TpslDialog position={position} onClose={() => setDialog(null)} />
+              ) : (
+                <ClosePositionDialog position={position} onClose={() => setDialog(null)} />
+              ))}
             </Fragment>
           );
         })}

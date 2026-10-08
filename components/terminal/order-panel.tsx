@@ -18,7 +18,7 @@ import { formatPrice } from "@/lib/format";
 import { estimateLiquidationPrice, marginRequired, sizeFromPercent } from "@/lib/trading/order-math";
 import { TERMINAL_PATHS, terminalKindOf } from "@/lib/terminal-kind";
 import { sideLabel } from "@/lib/trading/presets";
-import { optionalPrice, percentFrom, pnlAt, tpslError } from "@/lib/trading/tpsl";
+import { optionalPrice, percentFrom, pnlAt, portionOf, tpslError } from "@/lib/trading/tpsl";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
@@ -367,6 +367,8 @@ export function OrderPanel() {
   const [withTpsl, setWithTpsl] = useState(false);
   const [takeProfit, setTakeProfit] = useState("");
   const [stopLoss, setStopLoss] = useState("");
+  // Share of the entry the TP/SL closes; the rest stays open without one.
+  const [tpslPercent, setTpslPercent] = useState(100);
   const [armed, setArmed] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
 
@@ -423,7 +425,17 @@ export function OrderPanel() {
   const tpslActive = isPerp && withTpsl && !reduceOnly;
   const tp = tpslActive ? optionalPrice(takeProfit) : undefined;
   const sl = tpslActive ? optionalPrice(stopLoss) : undefined;
-  const levelsError = tpslActive && price ? tpslError({ side, reference: price, takeProfit: tp, stopLoss: sl }) : null;
+  const partialTpsl = tpslActive && tpslPercent < 100;
+  const tpslBase = partialTpsl && market ? portionOf(baseSize, tpslPercent, market.szDecimals) : baseSize;
+  const levelsError = !tpslActive
+    ? null
+    : partialTpsl && orderKind === "limit"
+      ? "A partial TP/SL needs a market entry. Set it on the position once the limit order fills."
+      : partialTpsl && baseSize > 0 && !tpslBase
+        ? "The TP/SL part is below the market's lot size."
+        : price
+          ? tpslError({ side, reference: price, takeProfit: tp, stopLoss: sl })
+          : null;
   // Splitting pays off only when it saves more than noise: at least $0.25 and 0.5 bp of the order.
   const splitWorth = split !== null && preferences.autoRoute && routable && !tpslActive && split.savingsUsd >= Math.max(0.25, sizeUsd * 0.00005);
   const splitActive = splitWorth && splitOn && isPerp;
@@ -445,7 +457,7 @@ export function OrderPanel() {
     setTakeProfit("");
     setStopLoss("");
   }, [symbol, choice?.id]);
-  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl, splitActive]);
+  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl, tpslPercent, splitActive]);
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
@@ -511,6 +523,7 @@ export function OrderPanel() {
         isCross: cross,
         takeProfit: tp,
         stopLoss: sl,
+        tpslSize: partialTpsl ? tpslBase : undefined,
       });
       if (placed) trackPerpOrder(placed, { venue: choice.market.venue, side, newsId: null, oneClick: preferences.oneClickTrading });
     } finally {
@@ -627,29 +640,15 @@ export function OrderPanel() {
               </button>
             ))}
           </div>
-          {/* A venue picker only when there's a choice; the network only shows when it isn't mainnet. */}
-          {(kindChoices.length > 1 || choice!.network !== "mainnet") && (
-            <div className="flex items-center gap-2">
-              {kindChoices.length > 1 && (
-                <div className="min-w-0 flex-1">
-                  <VenueChips
-                    choices={kindChoices}
-                    value={choice!.id}
-                    auto={Boolean(routed)}
-                    onPick={(id) => pickVenue(id as VenueChoice["id"])}
-                    onAuto={() => updatePreference("autoRoute", true)}
-                  />
-                </div>
-              )}
-              {choice!.network !== "mainnet" && (
-                <span
-                  title={`${choice!.name} ${choice!.network}`}
-                  className="ml-auto shrink-0 rounded bg-[#f5c97b]/15 px-1.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.08em] text-[#f5c97b]"
-                >
-                  {choice!.network}
-                </span>
-              )}
-            </div>
+          {/* A venue picker only when there's a choice. No network tag: the top bar already marks testnet. */}
+          {kindChoices.length > 1 && (
+            <VenueChips
+              choices={kindChoices}
+              value={choice!.id}
+              auto={Boolean(routed)}
+              onPick={(id) => pickVenue(id as VenueChoice["id"])}
+              onAuto={() => updatePreference("autoRoute", true)}
+            />
           )}
           {isPerp && (
             <div className="grid grid-cols-2 gap-2">
@@ -737,7 +736,7 @@ export function OrderPanel() {
                     ] as const
                   ).map((field) => {
                     const valid = field.level !== undefined && Number.isFinite(field.level) && price;
-                    const pnl = valid ? pnlAt(side, price!, field.level!, baseSize) : null;
+                    const pnl = valid ? pnlAt(side, price!, field.level!, tpslBase ?? 0) : null;
                     return (
                       <div key={field.label} className="flex flex-col gap-1">
                         <FieldBox label={field.label.slice(0, 2)}>
@@ -758,6 +757,31 @@ export function OrderPanel() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+              {tpslActive && (
+                <div className="-mt-1 flex items-center gap-1 text-[11px]">
+                  <span className="mr-auto text-app-muted" title="How much of this order the TP/SL closes; the rest stays open without one">
+                    TP/SL amount
+                    {partialTpsl && tpslBase ? (
+                      <span className="ml-1 tabular-nums text-app-faint">
+                        {tpslBase} {symbol}
+                      </span>
+                    ) : null}
+                  </span>
+                  {PERCENTS.map((stop) => (
+                    <button
+                      key={stop}
+                      type="button"
+                      aria-pressed={tpslPercent === stop}
+                      onClick={() => setTpslPercent(stop)}
+                      className={`h-6 rounded-md px-1.5 font-semibold tabular-nums transition-colors ${
+                        tpslPercent === stop ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"
+                      }`}
+                    >
+                      {stop}%
+                    </button>
+                  ))}
                 </div>
               )}
               {levelsError && <p className="text-[11px] text-app-down">{levelsError}</p>}

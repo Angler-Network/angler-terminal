@@ -41,3 +41,14 @@ export function optionalPrice(text: string) {
   const value = Number(trimmed);
   return Number.isFinite(value) ? value : Number.NaN;
 }
+
+/**
+ * `percent` of a position's `size` (base units, unsigned) for a partial close or TP/SL, rounded down to the lot so it
+ * never exceeds the position. 100% (or more) is the whole size, unrounded; undefined when nothing is left.
+ */
+export function portionOf(size: number, percent: number, szDecimals: number) {
+  if (percent >= 100) return size;
+  const factor = 10 ** szDecimals;
+  const portion = Math.floor(((size * percent) / 100) * factor + 1e-9) / factor;
+  return portion > 0 ? portion : undefined;
+}

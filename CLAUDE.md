@@ -301,6 +301,10 @@ dependency versions and design are free to diverge from angler-news.
     triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,
     expiry -1 (28 days), grouped with the entry via `SignCreateGroupedOrders` (OTO, or OTOCO for both) and as an
     OCO pair for open positions. Set from the order panel or the TP/SL button on a position row.
+    Partial TP/SL (`PositionTpsl.size`, `portionOf`): HL plain triggers (grouping `na`), Lighter sized triggers, Aster
+    `quantity` + reduceOnly instead of `closePosition`, Orderly `TP_SL` with `quantity`. At entry (`tpslSize`, market
+    only) the provider sends the entry alone, then the sized TP/SL on the fill. Position rows open dialogs
+    (`position-dialogs.tsx`): Close (market or reduce-only limit, any share) and TP/SL (any share, active triggers).
   - Order book (`order-book.tsx` + `use-order-book.ts`): plain WebSockets (HL `l2Book`/`trades`, Lighter
     `order_book/{id}`/`trade/{id}` with deltas), parsers and grouping in `lib/trading/orderbook.ts`. Clicking a price
     hands it to the order panel through `order-draft.tsx`.

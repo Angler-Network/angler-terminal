@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { optionalPrice, percentFrom, pnlAt, tpslError } from "./tpsl";
+import { optionalPrice, percentFrom, pnlAt, portionOf, tpslError } from "./tpsl";
 
 describe("tpslError", () => {
   it("accepts levels on the right side of the entry", () => {
@@ -25,5 +25,18 @@ describe("helpers", () => {
     expect(optionalPrice("")).toBeUndefined();
     expect(optionalPrice(" 12.5 ")).toBe(12.5);
     expect(optionalPrice("abc")).toBeNaN();
+  });
+});
+
+describe("portionOf", () => {
+  it("rounds a partial size down to the lot", () => {
+    expect(portionOf(1.2345, 50, 3)).toBe(0.617);
+    expect(portionOf(10, 25, 0)).toBe(2);
+    expect(portionOf(0.3, 10, 2)).toBe(0.03);
+  });
+
+  it("keeps the whole size at 100% and drops sizes below one lot", () => {
+    expect(portionOf(1.2345, 100, 3)).toBe(1.2345);
+    expect(portionOf(0.001, 25, 3)).toBeUndefined();
   });
 });

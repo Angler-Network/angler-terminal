@@ -9,6 +9,7 @@ import type {
   VenueMarket,
   VenueOpenOrder,
   VenuePosition,
+  PositionRef,
   PositionTpsl,
 } from "../types";
 import { VenueError } from "../types";
@@ -98,16 +99,21 @@ function triggerOrders(market: VenueMarket, closeIsBuy: boolean, size: number, l
   ];
 }
 
-async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+async function setPositionTpsl(user: `0x${string}`, position: PositionRef, levels: PositionTpsl) {
   const { agent, builder } = requireTradingSetup(user);
   const market = findMarket(await listMarkets(), position.coin);
   if (!market) throw new VenueError(`Unknown market ${position.coin}.`);
-  const orders = triggerOrders(market, position.size < 0, roundSize(Math.abs(position.size), market.szDecimals), levels);
+  const whole = Math.abs(position.size);
+  const partial = levels.size !== undefined && levels.size < whole;
+  const size = roundSize(partial ? levels.size! : whole, market.szDecimals);
+  if (!(size > 0)) throw new VenueError(`TP/SL size is below ${market.symbol}'s lot size (${10 ** -market.szDecimals}).`);
+  const orders = triggerOrders(market, position.size < 0, size, levels);
   if (orders.length === 0) throw new VenueError("Set a take profit or a stop loss.");
   try {
     const exchange = await agentExchange(agent.privateKey);
-    // positionTpsl: tied to the position, resized with it and canceled when it closes.
-    const result = await exchange.order({ orders, grouping: "positionTpsl", builder: { b: builder.address, f: vipFee(builder.fee) } });
+    // positionTpsl: tied to the position, resized with it and canceled when it closes. A partial TP/SL is plain
+    // reduce-only triggers for its own size.
+    const result = await exchange.order({ orders, grouping: partial ? "na" : "positionTpsl", builder: { b: builder.address, f: vipFee(builder.fee) } });
     for (const status of result.response.data.statuses) {
       if (typeof status === "object" && status && "error" in status) throw new VenueError(String((status as { error: unknown }).error));
     }
@@ -193,14 +199,14 @@ async function cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coi
   }
 }
 
-async function closePosition(user: `0x${string}`, position: VenuePosition) {
+async function closePosition(user: `0x${string}`, position: PositionRef, size?: number) {
   const market = findMarket(await listMarkets(), position.coin);
   if (!market) throw new VenueError(`Unknown market ${position.coin}.`);
   return placeOrder(user, {
     market,
     side: position.size > 0 ? "sell" : "buy",
     kind: "market",
-    size: Math.abs(position.size),
+    size: Math.min(size ?? Infinity, Math.abs(position.size)),
     reduceOnly: true,
   });
 }
