@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { VenueLogo } from "@/components/terminal/market-rows";
@@ -57,6 +57,11 @@ function Change({ value }: { value: number | undefined }) {
  * without changes here), with mainnet funding and the funding spread between Hyperliquid and Lighter (long where
  * funding is lowest, short where it's highest).
  */
+/** Rows rendered at first and added per scroll: every market at once (hundreds) cost a second of main thread on phones. */
+const PAGE_ROWS = 60;
+/** How long the table waits for the slowest venue before showing what it has (rows landing later would push it down). */
+const SETTLE_MS = 2500;
+
 export function MarketsTable() {
   const router = useRouter();
   const { selectAsset } = useSelectedAsset();
@@ -67,6 +72,15 @@ export function MarketsTable() {
   const [sort, setSort] = useState<SortKey>("volume");
   const [category, setCategory] = useState<MarketCategory | "all">("all");
   const [arbRow, setArbRow] = useState<Row | null>(null);
+  const [limit, setLimit] = useState(PAGE_ROWS);
+  const [waited, setWaited] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setWaited(true), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  // Every venue answered (a list, or [] when off or failed): no more rows will land above the ones shown.
+  const settled = waited || Object.values(marketsByVenue).every((markets) => markets !== undefined);
 
   const rows = useMemo<Row[]>(
     () =>
@@ -98,6 +112,14 @@ export function MarketsTable() {
     };
     return filtered.sort((a, b) => (sort === "symbol" ? a.symbol.localeCompare(b.symbol) : value(b) - value(a)));
   }, [rows, query, names, venue, sort, category]);
+  useEffect(() => setLimit(PAGE_ROWS), [query, venue, sort, category]);
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || limit >= shown.length) return;
+    const observer = new IntersectionObserver((entries) => entries.some((entry) => entry.isIntersecting) && setLimit((current) => current + PAGE_ROWS), { rootMargin: "600px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [limit, shown.length, settled]);
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
     for (const row of rows) byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
@@ -203,7 +225,7 @@ export function MarketsTable() {
             </tr>
           </thead>
           <tbody>
-            {shown.map((row) => (
+            {(settled ? shown.slice(0, limit) : []).map((row) => (
               <tr key={row.symbol} className="border-t border-app-hairline hover:bg-app-chip/40">
                 <td className="px-3 py-1.5">
                   <button type="button" onClick={() => open(row.symbol)} className="inline-flex items-center gap-2 font-semibold text-app-ink hover:underline">
@@ -260,7 +282,10 @@ export function MarketsTable() {
             ))}
           </tbody>
         </table>
-        {shown.length === 0 && <p className="p-6 text-center text-[12px] text-app-muted">{rows.length === 0 ? "Loading markets…" : "No market matches."}</p>}
+        {settled && limit < shown.length && <div ref={sentinel} aria-hidden className="h-px" />}
+        {(!settled || shown.length === 0) && (
+          <p className="p-6 text-center text-[12px] text-app-muted">{!settled || rows.length === 0 ? "Loading markets…" : "No market matches."}</p>
+        )}
       </div>
       {arbRow?.arb && arbRow.venues.hyperliquid && arbRow.venues.lighter && (
         <FundingArbDialog
