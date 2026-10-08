@@ -4,6 +4,7 @@ import { Check, KeyRound, Landmark, Loader2, ReceiptText, X } from "lucide-react
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { isLighterVenue, lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
+import { ASTER_APP_URL, asterConfig } from "@/lib/venues/aster/config";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -102,6 +103,61 @@ function HyperliquidSteps() {
         busy={busy === 2}
         action="Create key"
         onRun={() => void run(2)}
+      />
+    </ol>
+  );
+}
+
+/** Aster: approve our builder fee (when one is configured), then a browser trading key that can never withdraw. */
+function AsterSteps() {
+  const { aster, approveAster } = useTrading();
+  const [busy, setBusy] = useState<"builder" | "agent" | null>(null);
+  const builder = asterConfig.builder;
+  const builderDone = !builder || aster?.builder === "approved";
+  const agentDone = Boolean(aster?.agentReady);
+  const run = async (step: "builder" | "agent") => {
+    setBusy(step);
+    try {
+      await approveAster(step);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <ol className="mt-4 flex flex-col gap-2">
+      {builder && (
+        <Step
+          index={1}
+          Icon={ReceiptText}
+          title="Approve builder fee"
+          description={`Lets Angler add a fee of up to ${Number((builder.maxFeeRate * 100).toFixed(4))}% on Aster orders placed from this terminal. Your wallet may switch to BNB Chain to sign.`}
+          done={builderDone}
+          active={!builderDone}
+          busy={busy === "builder"}
+          action="Approve fee"
+          onRun={() => void run("builder")}
+        />
+      )}
+      <Step
+        index={builder ? 2 : 1}
+        Icon={KeyRound}
+        title="Create trading key"
+        description="Generates a key in this browser that can place and cancel Aster perp orders but can never withdraw. Deposit on Aster's app first if this wallet has no Aster account yet."
+        done={agentDone}
+        active={builderDone && !agentDone}
+        busy={busy === "agent"}
+        action="Create key"
+        onRun={() => void run("agent")}
+        extra={
+          <a
+            href={ASTER_APP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-8 items-center rounded-lg border border-app-hairline-strong px-3 text-[13px] font-semibold text-app-ink hover:bg-app-chip"
+          >
+            Open Aster
+          </a>
+        }
       />
     </ol>
   );
@@ -224,7 +280,7 @@ function LighterSteps({ venue }: { venue: LighterVenueId }) {
  * (agent wallet). Lighter: deposit check, register a browser API key, approve the integrator when configured.
  */
 export function TradingSetupDialog() {
-  const { setupVenue, closeSetup, onboarding, lighterStates, isVenueReady, network } = useTrading();
+  const { setupVenue, closeSetup, onboarding, lighterStates, aster, isVenueReady, network } = useTrading();
   const isDone = setupVenue !== null && isVenueReady(setupVenue);
 
   useEffect(() => {
@@ -232,13 +288,14 @@ export function TradingSetupDialog() {
       const timer = window.setTimeout(closeSetup, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [isDone, closeSetup, onboarding, lighterStates]);
+  }, [isDone, closeSetup, onboarding, lighterStates, aster]);
 
   const backdropRef = useModalEnter(setupVenue !== null);
 
   if (!setupVenue) return null;
   const lighterVenue = isLighterVenue(setupVenue) ? setupVenue : null;
-  const isTestnet = (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
+  const isAster = setupVenue === "aster";
+  const isTestnet = !isAster && (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeSetup}>
@@ -252,10 +309,10 @@ export function TradingSetupDialog() {
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="trading-setup-title" className="text-[16px] font-semibold text-app-ink">
-              Set up trading on {lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
+              Set up trading on {isAster ? "Aster" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
-              {lighterVenue ? "One-time setup" : "Two one-time signatures"}
+              {lighterVenue || isAster ? "One-time setup" : "Two one-time signatures"}
               {isTestnet ? " on testnet" : ""}. No funds move.
             </p>
           </div>
@@ -263,7 +320,7 @@ export function TradingSetupDialog() {
             <X className="size-4" />
           </button>
         </header>
-        {lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
+        {isAster ? <AsterSteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
       </div>
     </div>
   );

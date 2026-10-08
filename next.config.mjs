@@ -30,6 +30,8 @@ function readConfiguredVenues(env) {
     // EVM swap aggregators next to Uniswap (lib/venues/aggregators).
     zerox: set(env.ZEROX_API_KEY),
     odos: set(env.ODOS_API_KEY),
+    // Aster perps trade without a key; our builder fee only applies with NEXT_PUBLIC_ASTER_BUILDER set.
+    aster: true,
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])

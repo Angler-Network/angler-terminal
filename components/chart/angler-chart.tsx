@@ -68,7 +68,7 @@ interface CandleData {
   poolName?: string;
 }
 
-const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", pool: "DEX pool" };
+const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", pool: "DEX pool" };
 
 /** A spot token's own candles (`/api/spot/candles`); null when no indexed pool trades it or the source is down. */
 async function loadPoolCandles(network: PoolNetwork, address: string, interval: ChartInterval, count: number) {
@@ -89,6 +89,15 @@ async function loadPoolCandles(network: PoolNetwork, address: string, interval: 
  * fetches only the latest candles for a refresh.
  */
 async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval, since?: number) {
+  if (venue === "aster") {
+    try {
+      const { asterVenue } = await import("@/lib/venues/aster/venue");
+      const candles = await asterVenue.loadCandles(market, interval, since ?? Date.now() - intervalDuration(interval) * CANDLE_COUNT);
+      return candles.length > 0 ? { origin: "venue" as const, source: venue as CandleSource, candles } : null;
+    } catch {
+      return null;
+    }
+  }
   if (venue !== "hyperliquid" && !LIGHTER_CANDLE_RESOLUTIONS.has(interval)) return null;
   try {
     // Lighter's venue module (and its signer) only loads when its candles are asked for.

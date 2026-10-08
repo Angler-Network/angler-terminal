@@ -11,6 +11,7 @@ import { ROBINHOOD_TESTNET_FAUCET_URL, TEST_USDG_MINT_AMOUNT, arcusConfig } from
 import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
+import { ASTER_APP_URL } from "@/lib/venues/aster/config";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -207,8 +208,37 @@ function LighterSection({ venue }: { venue: LighterVenueId }) {
   );
 }
 
+/** Aster perps: balances, setup, and deposits on Aster's own app until the funds window takes Aster. */
+function AsterSection() {
+  const { accounts, isVenueReady, openSetup } = useTrading();
+  const account = accounts.aster ?? null;
+  const ready = isVenueReady("aster");
+  return (
+    <Section title="Aster perps" badge="Mainnet">
+      <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
+      <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <div className="flex gap-2">
+        <a
+          href={ASTER_APP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-app-hairline-strong text-[12px] font-semibold text-app-ink hover:bg-app-chip"
+        >
+          Deposit on Aster
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+        {!ready && (
+          <button type="button" onClick={() => openSetup("aster")} className="h-8 flex-1 rounded-lg bg-app-accent text-[12px] font-semibold text-app-on-accent">
+            Set up trading
+          </button>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function PerpSection({ venue }: { venue: PerpVenueId }) {
-  return venue === "hyperliquid" ? <HyperliquidSection /> : <LighterSection venue={venue} />;
+  return venue === "hyperliquid" ? <HyperliquidSection /> : venue === "aster" ? <AsterSection /> : <LighterSection venue={venue} />;
 }
 
 /**
@@ -218,10 +248,10 @@ function PerpSection({ venue }: { venue: PerpVenueId }) {
 function PerpAccount() {
   const { preferences } = usePreferences();
   const { tradeVenue } = useSelectedAsset();
-  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh };
+  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh, aster: preferences.venueAster };
   const venue = [tradeVenue, preferences.preferredPerpVenue, ...(Object.keys(enabled) as PerpVenueId[])].find((entry): entry is PerpVenueId => Boolean(entry && enabled[entry]));
   if (!venue) return null;
-  return venue === "hyperliquid" ? <HyperliquidSection /> : <LighterSection venue={venue} />;
+  return <PerpSection venue={venue} />;
 }
 
 function JupiterSection() {

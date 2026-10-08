@@ -1,13 +1,13 @@
 import { findMarket } from "./hyperliquid/markets";
 import type { PerpVenueId, VenueMarket } from "./types";
 
-export const PERP_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh"];
+export const PERP_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster"];
 
 /** "Lighter RH" is Lighter on Robinhood Chain: a separate exchange (own accounts, USDG margin, mostly stock perps). */
-export const PERP_VENUE_NAMES: Record<PerpVenueId, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH" };
+export const PERP_VENUE_NAMES: Record<PerpVenueId, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster" };
 
 /** Short labels for badges and tight columns. */
-export const PERP_VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH" };
+export const PERP_VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster" };
 
 /** Markets per perp venue: undefined while loading, [] when the venue is off or failed to load. */
 export type MarketsByVenue = Partial<Record<PerpVenueId, VenueMarket[] | undefined>>;

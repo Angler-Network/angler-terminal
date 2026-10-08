@@ -17,6 +17,7 @@ import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
 import dynamic from "next/dynamic";
+import { perpNetwork } from "@/lib/venues/perp-network";
 
 // History loads its venue code on demand (the Hyperliquid SDK, Lighter's signer for the auth token).
 const OrderHistoryTable = dynamic(() => import("./history-tables").then((module) => module.OrderHistoryTable), { ssr: false });
@@ -383,7 +384,7 @@ export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positio
               <td className={`${td} font-semibold`}>
                 {PERP_VENUE_NAMES[row.venue]}
                 <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-app-faint">
-                  {(row.venue === "hyperliquid" ? network : lighterConfigs[row.venue].network) === "testnet" ? "Testnet" : "Mainnet"}
+                  {(row.venue === "hyperliquid" ? network : perpNetwork(row.venue)) === "testnet" ? "Testnet" : "Mainnet"}
                 </span>
               </td>
               <td className={td}>{formatPrice(row.accountValue)}</td>

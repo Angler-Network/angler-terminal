@@ -25,6 +25,8 @@ import {
   type LighterOnboarding,
 } from "@/lib/venues/lighter/onboarding";
 import { lighterRhVenue, lighterVenue } from "@/lib/venues/lighter/venue";
+import { approveAsterAgent, approveAsterBuilder, asterOnboarding, forgetAsterAgent, type AsterOnboarding } from "@/lib/venues/aster/onboarding";
+import { asterVenue } from "@/lib/venues/aster/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
@@ -42,7 +44,7 @@ import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue };
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue };
 
 interface TradingContextValue {
   /** Hyperliquid network (the chart and the EVM wallet group follow it). */
@@ -79,6 +81,10 @@ interface TradingContextValue {
   /** Approves the integrator; with `referral`, also sets our referral code there (the user opted in). */
   approveLighter: (options?: { referral?: boolean; venue?: LighterVenueId }) => Promise<boolean>;
   revokeLighter: (venue?: LighterVenueId) => Promise<void>;
+  /** Aster setup: our builder fee and the browser trading key, both approved by the wallet. */
+  aster: AsterOnboarding | null;
+  approveAster: (step: "builder" | "agent") => Promise<boolean>;
+  revokeAster: () => void;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
   placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
@@ -109,6 +115,7 @@ export function useTrading() {
 }
 
 function venueError(venue: PerpVenueId, error: unknown) {
+  if (venue === "aster") return error instanceof Error ? error : new Error(String(error));
   return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
 
@@ -229,6 +236,56 @@ function useLighterInstance(
   return { markets, state, account, refresh, register, approve, revoke, ready };
 }
 
+/**
+ * Aster for the connected wallet: markets, setup state (kept in this browser, like the Hyperliquid agent), the polled
+ * account once a trading key exists, and the two wallet-signed setup steps.
+ */
+function useAsterInstance(enabled: boolean, address: `0x${string}` | null, getWalletClient: (() => Promise<import("viem").WalletClient>) | null | undefined, toast: Toast) {
+  const markets = useVenueMarkets(asterVenue, enabled);
+  const [state, setState] = useState<AsterOnboarding | null>(null);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const refresh = useCallback(() => setState(address && enabled ? asterOnboarding(address) : null), [address, enabled]);
+  useEffect(refresh, [refresh]);
+
+  const agentReady = Boolean(state?.agentReady);
+  useEffect(() => {
+    setAccount(null);
+    if (!address || !enabled) return;
+    return asterVenue.subscribeAccount(address, {
+      onSnapshot: setAccount,
+      onError: (error) => console.warn(`[aster] account: ${error instanceof Error ? error.message : String(error)}`),
+    });
+  }, [address, enabled, agentReady]);
+
+  const approve = useCallback(
+    async (step: "builder" | "agent") => {
+      if (!address || !getWalletClient) return false;
+      try {
+        const wallet = await getWalletClient();
+        if (step === "builder") await approveAsterBuilder(wallet, address);
+        else await approveAsterAgent(wallet, address);
+        refresh();
+        if (step === "agent") toast({ tone: "success", title: "Aster trading key active", message: "Aster orders now sign in the browser without a wallet popup." });
+        return true;
+      } catch (error) {
+        toast({ tone: "error", title: step === "builder" ? "Aster fee approval failed" : "Couldn't create the Aster key", message: error instanceof Error ? error.message : String(error) });
+        return false;
+      }
+    },
+    [address, getWalletClient, refresh, toast],
+  );
+
+  const revoke = useCallback(() => {
+    if (!address) return;
+    forgetAsterAgent(address);
+    refresh();
+    toast({ tone: "info", title: "Aster trading key removed from this browser" });
+  }, [address, refresh, toast]);
+
+  const ready = Boolean(state?.agentReady && state.builder !== "needed");
+  return { markets, state, account, approve, revoke, ready };
+}
+
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
@@ -236,6 +293,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const { symbol } = useSelectedAsset();
   const lighterEnabled = preferences.venueLighter;
   const lighterRhEnabled = preferences.venueLighterRh;
+  const asterEnabled = preferences.venueAster;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
   const markets = useVenueMarkets(hyperliquidVenue, true);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -275,6 +333,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const lighterCore = useLighterInstance(lighterConfig, lighterVenue, lighterEnabled, address, signMessage, Boolean(getWalletClient), toast);
   const lighterRh = useLighterInstance(lighterConfigs.lighterRh, lighterRhVenue, lighterRhEnabled, address, signMessage, Boolean(getWalletClient), toast);
   const lighterByVenue = useMemo(() => ({ lighter: lighterCore, lighterRh }), [lighterCore, lighterRh]);
+  const aster = useAsterInstance(asterEnabled, address, getWalletClient, toast);
   const lighter = lighterCore.state;
   const lighterStates = useMemo(() => ({ lighter: lighterCore.state, lighterRh: lighterRh.state }), [lighterCore.state, lighterRh.state]);
 
@@ -283,8 +342,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       hyperliquid: preferences.venueHyperliquid ? (markets ?? undefined) : [],
       lighter: lighterEnabled ? (lighterCore.markets ?? undefined) : [],
       lighterRh: lighterRhEnabled ? (lighterRh.markets ?? undefined) : [],
+      aster: asterEnabled ? (aster.markets ?? undefined) : [],
     }),
-    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets],
+    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets],
   );
 
   const perpOrder = useMemo(
@@ -293,8 +353,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         hyperliquid: preferences.venueHyperliquid,
         lighter: lighterEnabled,
         lighterRh: lighterRhEnabled,
+        aster: asterEnabled,
       }),
-    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled],
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled],
   );
 
   const refreshOnboarding = useCallback(async () => {
@@ -322,8 +383,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
   const isVenueReady = useCallback(
-    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : lighterByVenue[venue].ready),
-    [isReady, lighterByVenue],
+    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : lighterByVenue[venue].ready),
+    [isReady, lighterByVenue, aster.ready],
   );
 
   const approveBuilder = useCallback(async () => {
@@ -471,8 +532,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       hyperliquid: hlAccount,
       ...(lighterEnabled ? { lighter: lighterCore.account } : {}),
       ...(lighterRhEnabled ? { lighterRh: lighterRh.account } : {}),
+      ...(asterEnabled ? { aster: aster.account } : {}),
     }),
-    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled],
+    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account],
   );
 
   const account = useMemo<AccountSnapshot | null>(() => {
@@ -512,6 +574,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       registerLighter,
       approveLighter,
       revokeLighter,
+      aster: aster.state,
+      approveAster: aster.approve,
+      revokeAster: aster.revoke,
       placeOrder,
       cancelOrder,
       closePosition,
@@ -545,6 +610,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       registerLighter,
       approveLighter,
       revokeLighter,
+      aster.state,
+      aster.approve,
+      aster.revoke,
       placeOrder,
       cancelOrder,
       closePosition,

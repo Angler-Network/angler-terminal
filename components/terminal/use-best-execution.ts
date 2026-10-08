@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { HL_BASE_TAKER_FEE, compareExecution, readLighterRestBook, splitExecution, type SplitPlan, type VenueQuote } from "@/lib/trading/execution";
-import { readHlBook, type BookSide } from "@/lib/trading/orderbook";
+import { readAsterBook, readHlBook, type BookSide } from "@/lib/trading/orderbook";
+import { asterConfig } from "@/lib/venues/aster/config";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
@@ -12,10 +13,13 @@ const DEBOUNCE_MS = 400;
 /** Hyperliquid rejects orders under $10 of notional. */
 const HL_MIN_ORDER_USD = 10;
 const REFRESH_MS = 5_000;
+/** Aster's base-tier taker fee (accounts with volume pay less), plus our builder fee on top. */
+const ASTER_BASE_TAKER_FEE = 0.00035;
 
 /** Every fee a taker pays on the venue: base fee plus our builder (Hyperliquid) or integrator (Lighter) fee. */
 export function takerFeeFor(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_BASE_TAKER_FEE + (hlConfig.builder?.fee ?? 0) / 100_000;
+  if (market.venue === "aster") return ASTER_BASE_TAKER_FEE + (asterConfig.builder?.feeRate ?? 0);
   return (market.takerFee ?? 0) + (lighterConfigs[market.venue].integrator?.takerFee ?? 0) / 1_000_000;
 }
 
@@ -28,6 +32,10 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
     });
     return response.ok ? readHlBook(await response.json()) : null;
   }
+  if (market.venue === "aster") {
+    const response = await fetch(`${asterConfig.apiUrl}/fapi/v1/depth?symbol=${market.coin}&limit=100`);
+    return response.ok ? readAsterBook(await response.json()) : null;
+  }
   // Each Lighter exchange (core, Robinhood) has its own books.
   const response = await fetch(`${lighterConfigs[market.venue].apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
   return response.ok ? readLighterRestBook(await response.json()) : null;
@@ -36,6 +44,7 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
 /** Smallest order a venue accepts, in USD (Lighter's from the market's minimums at the current price). */
 export function minOrderUsd(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_MIN_ORDER_USD;
+  if (market.venue === "aster") return market.minQuoteAmount ?? 5;
   const price = market.midPx ?? market.markPx;
   return price ? minimumSize(market, price) * price : 0;
 }

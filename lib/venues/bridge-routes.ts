@@ -79,7 +79,8 @@ export function fundsRoute(
       const target = walletChainSource(chains.to);
       return steps("move", [{ kind: "across", from: source, to: target, recipient: "wallet" }], source, target);
     }
-    if (!isPerpEndpoint(to)) return { kind: "soon" };
+    // Aster deposits (its depositFor contract on Arbitrum) come with the funds flow for it.
+    if (!isPerpEndpoint(to) || to === "aster") return { kind: "soon" };
     const plan = depositPlan(to, networkOf(to));
     if (plan.kind === "faucet") return { kind: "faucet", venue: to, plan };
     const direct = plan.sources.find((entry) => entry.chainId === source.chainId);

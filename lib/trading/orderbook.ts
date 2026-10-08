@@ -35,6 +35,25 @@ const levels = (rows: unknown, read: (row: Record<string, unknown>) => BookLevel
     return parsed ? [parsed] : [];
   });
 
+/** Aster (Binance-style) `depth`: `bids` and `asks` as [price, quantity] string pairs, best first. */
+export function readAsterBook(data: unknown): BookSide | null {
+  const body = data as { bids?: unknown; asks?: unknown } | null;
+  if (!body || !Array.isArray(body.bids) || !Array.isArray(body.asks)) return null;
+  const read = (rows: unknown[]) => rows.flatMap((row) => (Array.isArray(row) ? [level(row[0], row[1])].filter((entry): entry is BookLevel => entry !== null) : []));
+  return { bids: read(body.bids), asks: read(body.asks) };
+}
+
+/** Aster `trades`: { id, price, qty, time, isBuyerMaker }, oldest first; the taker sold when the buyer was the maker. */
+export function readAsterTrades(data: unknown): TapeTrade[] {
+  return (Array.isArray(data) ? data : [])
+    .flatMap((row: Record<string, unknown>) => {
+      const price = Number(row.price);
+      const size = Number(row.qty);
+      return Number.isFinite(price) && price > 0 && size > 0 ? [{ id: String(row.id), price, size, side: row.isBuyerMaker ? ("sell" as const) : ("buy" as const), time: Number(row.time) }] : [];
+    })
+    .reverse();
+}
+
 /** Hyperliquid `l2Book` data (REST or WebSocket): `levels` is [bids, asks] of { px, sz, n }. */
 export function readHlBook(data: unknown): BookSide | null {
   const rows = (data as { levels?: unknown } | null)?.levels;

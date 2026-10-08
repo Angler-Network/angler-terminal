@@ -20,7 +20,7 @@ describe("pro order", () => {
         { id: 3, venue: "lighter", symbol: "DOGE", side: "buy", usd: 100, leverage: 3 },
         { id: 4, venue: "hyperliquid", symbol: "BTC", side: "buy", usd: 0, leverage: 3 },
       ],
-      (venue, symbol) => (symbol === "BTC" && venue !== "lighterRh" ? markets[venue] : null),
+      (venue, symbol) => (symbol === "BTC" && (venue === "hyperliquid" || venue === "lighter") ? markets[venue] : null),
       () => 10,
     );
     expect(plans.map((plan) => [plan.size, plan.leverage, plan.problem])).toEqual([

@@ -75,3 +75,16 @@ describe("ownSizeByLevel", () => {
     expect([...ownSizeByLevel(orders, 0.1, "asks")]).toEqual([[100.4, 0.5]]);
   });
 });
+
+describe("Aster book and trades", () => {
+  it("reads depth pairs and newest-first trades", async () => {
+    const { readAsterBook, readAsterTrades } = await import("./orderbook");
+    expect(readAsterBook({ bids: [["100.5", "2"], ["bad", "1"]], asks: [["101", "0.5"]] })).toEqual({ bids: [{ price: 100.5, size: 2 }], asks: [{ price: 101, size: 0.5 }] });
+    expect(readAsterBook({})).toBeNull();
+    const trades = readAsterTrades([
+      { id: 1, price: "100", qty: "1", time: 10, isBuyerMaker: true },
+      { id: 2, price: "101", qty: "2", time: 20, isBuyerMaker: false },
+    ]);
+    expect(trades.map((trade) => [trade.id, trade.side])).toEqual([["2", "buy"], ["1", "sell"]]);
+  });
+});

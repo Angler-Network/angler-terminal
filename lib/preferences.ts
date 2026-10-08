@@ -200,6 +200,8 @@ export interface Preferences extends Appearance {
   venueLighter: boolean;
   /** Lighter on Robinhood Chain, a separate Lighter exchange (USDG margin, mostly stock perps). */
   venueLighterRh: boolean;
+  /** Aster perps (mainnet), quoted and routed with the other perp venues. */
+  venueAster: boolean;
   venueJupiter: boolean;
   venueArcus: boolean;
   /** Quote Robinhood Chain stock tokens on Uniswap too and swap on the better of Uniswap and Arcus (mainnet). */
@@ -289,6 +291,8 @@ export const defaultPreferences: Preferences = {
   venueHyperliquid: venueAvailable("hyperliquid"),
   venueLighter: venueAvailable("lighter"),
   venueLighterRh: venueAvailable("lighterRh"),
+  // On by default once our builder fee is set up (NEXT_PUBLIC_ASTER_BUILDER); before that, only for those who turn it on.
+  venueAster: venueAvailable("aster") && Boolean(process.env.NEXT_PUBLIC_ASTER_BUILDER?.trim()),
   venueJupiter: venueAvailable("jupiter"),
   venueArcus: venueAvailable("arcus"),
   venueUniswap: venueAvailable("uniswap"),
@@ -433,6 +437,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueHyperliquid: venueAvailable("hyperliquid") && readBoolean(stored.venueHyperliquid, defaultPreferences.venueHyperliquid),
       venueLighter: venueAvailable("lighter") && readBoolean(stored.venueLighter, defaultPreferences.venueLighter),
       venueLighterRh: venueAvailable("lighterRh") && readBoolean(stored.venueLighterRh, defaultPreferences.venueLighterRh),
+      venueAster: venueAvailable("aster") && readBoolean(stored.venueAster, defaultPreferences.venueAster),
       // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
       venueJupiter: venueAvailable("jupiter") && readBoolean(stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: venueAvailable("arcus") && readBoolean(stored.venueArcus, defaultPreferences.venueArcus),
@@ -441,7 +446,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueAvailable("zerox") && readBoolean(stored.venueZerox, defaultPreferences.venueZerox),
       venueOdos: venueAvailable("odos") && readBoolean(stored.venueOdos, defaultPreferences.venueOdos),
-      preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" ? stored.preferredPerpVenue : "hyperliquid",
+      preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" ? stored.preferredPerpVenue : "hyperliquid",
       bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
       bridgeRelay: readBoolean(stored.bridgeRelay, defaultPreferences.bridgeRelay),
       bridgeLifi: readBoolean(stored.bridgeLifi, defaultPreferences.bridgeLifi),

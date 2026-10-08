@@ -2,6 +2,7 @@
 
 import { ArrowRight, ChevronDown, Sparkles } from "lucide-react";
 import { CoinIcon } from "./token-icon";
+import { perpNetwork } from "@/lib/venues/perp-network";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -86,6 +87,7 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
   hyperliquid: { domain: "hyperliquid.xyz" },
   lighter: { domain: "lighter.xyz" },
   lighterRh: { domain: "lighter.xyz", chain: 4663 },
+  aster: { domain: "asterdex.com" },
   solana: { domain: "jup.ag", chain: "solana" },
   arcus: { domain: "arcus.xyz", chain: 4663 },
 };
@@ -309,7 +311,7 @@ function useVenueChoices(symbol: string, mint?: string) {
     choices.push(
       venue === "hyperliquid"
         ? { id: venue, name: "Hyperliquid", network, kind: "perp", market }
-        : { id: venue, name: PERP_VENUE_NAMES[venue], network: lighterConfigs[venue].network, kind: "perp", market },
+        : { id: venue, name: PERP_VENUE_NAMES[venue], network: perpNetwork(venue), kind: "perp", market },
     );
   }
   if (preferences.venueJupiter && token) {

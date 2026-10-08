@@ -40,6 +40,7 @@ const PERP_MARKS: Record<PerpVenueId, { domain: string; chain?: number }> = {
   hyperliquid: { domain: "hyperliquid.xyz" },
   lighter: { domain: "lighter.xyz" },
   lighterRh: { domain: "lighter.xyz", chain: 4663 },
+  aster: { domain: "asterdex.com" },
 };
 
 interface Filter {

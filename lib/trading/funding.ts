@@ -7,7 +7,7 @@
 export const FUNDING_VENUES = ["hyperliquid", "lighter", "aster", "binance", "bybit"] as const;
 /** The funding feed's venue for a perp venue: Lighter on Robinhood isn't in it. */
 export function fundingVenueOf(venue: string): FundingVenue | null {
-  return venue === "hyperliquid" || venue === "lighter" ? venue : null;
+  return venue === "hyperliquid" || venue === "lighter" || venue === "aster" ? venue : null;
 }
 
 export type FundingVenue = (typeof FUNDING_VENUES)[number];

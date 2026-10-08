@@ -154,7 +154,8 @@ export function DepositDialog() {
   const quoteKey = acrossStep && acrossInput && acrossInput > 0n && address ? `${acrossStep.from.chainId}>${acrossStep.to.chainId}:${acrossStep.recipient}:${acrossInput}:${address}` : null;
 
   const enabled = (venue: PerpVenueId) =>
-    venue === depositVenue || (venue === "hyperliquid" ? preferences.venueHyperliquid : venue === "lighter" ? preferences.venueLighter : preferences.venueLighterRh);
+    venue === depositVenue ||
+    (venue === "hyperliquid" ? preferences.venueHyperliquid : venue === "lighter" ? preferences.venueLighter : venue === "aster" ? preferences.venueAster : preferences.venueLighterRh);
   const endpointOptions: Array<PickerOption<FundsEndpoint>> = [
     { value: "wallet", label: "Wallet", icon: <EndpointLogo endpoint="wallet" size={20} /> },
     ...BRIDGE_VENUES.filter((venue) => !venue.live || !isPerpEndpoint(venue.id) || enabled(venue.id) || venue.id === from || venue.id === to).map((venue) => ({

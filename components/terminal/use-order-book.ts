@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
+import { ASTER_API_URL } from "@/lib/venues/aster/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { VenueMarket } from "@/lib/venues/types";
 import {
   applyLevels,
+  readAsterBook,
+  readAsterTrades,
   readHlBook,
   readHlTrades,
   readLighterBook,
@@ -19,6 +22,7 @@ const FLUSH_MS = 150;
 const MAX_TRADES = 60;
 const PING_MS = 45_000;
 const RETRY_MS = 3_000;
+const ASTER_POLL_MS = 1_000;
 
 export type BookStatus = "connecting" | "live" | "offline";
 
@@ -37,6 +41,31 @@ export function useOrderBook(market: VenueMarket | null) {
     setTrades([]);
     if (!market) return;
     setStatus("connecting");
+    if (market.venue === "aster") {
+      // Aster: its public REST (open to browsers) read once a second: the book and the latest trades.
+      let live = true;
+      const poll = async () => {
+        try {
+          const [depth, recent] = await Promise.all([
+            fetch(`${ASTER_API_URL}/fapi/v1/depth?symbol=${market.coin}&limit=100`, { cache: "no-store" }).then((response) => response.json()),
+            fetch(`${ASTER_API_URL}/fapi/v1/trades?symbol=${market.coin}&limit=${MAX_TRADES}`, { cache: "no-store" }).then((response) => response.json()),
+          ]);
+          if (!live) return;
+          const parsed = readAsterBook(depth);
+          if (parsed) setBook(parsed);
+          setTrades(readAsterTrades(recent).slice(0, MAX_TRADES));
+          setStatus("live");
+        } catch {
+          if (live) setStatus("offline");
+        }
+      };
+      void poll();
+      const timer = window.setInterval(() => document.visibilityState !== "hidden" && void poll(), ASTER_POLL_MS);
+      return () => {
+        live = false;
+        window.clearInterval(timer);
+      };
+    }
     let socket: WebSocket | null = null;
     let isActive = true;
     let retry: number | undefined;
