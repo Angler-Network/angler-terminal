@@ -189,12 +189,17 @@ const VENUE_MARKS: Record<string, { domain: string; chain?: number | string }> =
   Jupiter: { domain: "jup.ag", chain: "solana" },
   Arcus: { domain: "arcus.xyz", chain: 4663 },
   Uniswap: { domain: "uniswap.org" },
+  Aster: { domain: "asterdex.com" },
+  Orderly: { domain: "orderly.network" },
+  Titan: { domain: "titan.exchange", chain: "solana" },
+  "0x": { domain: "0x.org" },
+  Odos: { domain: "odos.xyz" },
 };
 
 /**
  * A row's venues as logos with the chain in the corner ("Uniswap · Base" = Uniswap's logo, Base badge), the full names
- * on hover. One venue also gets a short label (the chain for Uniswap, else the venue); labels without a logo
- * ("Wallet", "Popular") stay text.
+ * on hover. One venue also gets a short label (the chain for Uniswap, else the venue). Only rows where no venue has
+ * a logo ("Wallet", "Popular") stay text; a venue without one among others shows as its short name.
  */
 export function VenueMarks({ venues }: { venues: string[] }) {
   if (venues.length === 0) return <span className="text-app-faint">—</span>;
@@ -204,14 +209,20 @@ export function VenueMarks({ venues }: { venues: string[] }) {
     const chain = chainName ? EVM_SWAP_CHAINS.find((entry) => entry.name === chainName)?.id : mark?.chain;
     return { label, name, chainName, mark, chain };
   });
-  if (marks.some((entry) => !entry.mark)) return <span className="truncate">{venues.join(" · ")}</span>;
+  if (marks.every((entry) => !entry.mark)) return <span className="truncate">{venues.join(" · ")}</span>;
   const single = marks.length === 1 ? marks[0] : null;
   return (
     <span className="flex min-w-0 items-center justify-end gap-1.5" title={venues.join(", ")}>
       <span className="flex shrink-0 items-center gap-1">
-        {marks.map((entry) => (
-          <CoinIcon key={entry.label} src={`/api/favicon?domain=${entry.mark!.domain}`} symbol={entry.name} chain={entry.chain} size={18} />
-        ))}
+        {marks.map((entry) =>
+          entry.mark ? (
+            <CoinIcon key={entry.label} src={`/api/favicon?domain=${entry.mark.domain}`} symbol={entry.name} chain={entry.chain} size={18} />
+          ) : (
+            <span key={entry.label} className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">
+              {entry.name}
+            </span>
+          ),
+        )}
       </span>
       {single && <span className="truncate">{single.chainName ?? single.name}</span>}
     </span>
