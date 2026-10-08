@@ -1,8 +1,9 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { DEFAULT_MIN_TRADE_USD, type PredictionTrade } from "@/lib/prediction/trades";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_MIN_TRADE_USD, readHip4Trades, type Hip4CoinInfo, type PredictionTrade } from "@/lib/prediction/trades";
+import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { formatChance, PREDICTION_CATEGORIES, type PredictionCategory, type PredictionEvent, type PredictionMarket, type PredictionSource } from "@/lib/prediction/types";
 import { usePredictionEvents, usePredictionTrades } from "./use-prediction";
 
@@ -131,10 +132,104 @@ const ago = (time: number) => {
 };
 
 const MINIMUMS = [1, 10, 100, 1000];
+/** HIP-4 events whose trades the feed streams (by 24h volume): 2 coins each, well under Hyperliquid's subscription cap. */
+const HIP4_FEED_EVENTS = 40;
+const HL_PING_MS = 45_000;
+const HL_RETRY_MS = 3_000;
 
-/** Polymarket's latest trades across every market, refreshed every few seconds, with a minimum size. */
-export function TradesFeed() {
+type FeedTrade = PredictionTrade & { eventId?: string };
+
+/**
+ * HIP-4 trades for the feed: Hyperliquid's WebSocket `trades` stream for both sides of the busiest outcome events
+ * (each subscription starts with its recent trades). Newest first, the last 60.
+ */
+function useHip4Trades(events: PredictionEvent[]) {
+  const coins = useMemo(() => {
+    const map = new Map<string, Hip4CoinInfo>();
+    const busiest = events
+      .filter((event) => event.source === "hyperliquid")
+      .sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0))
+      .slice(0, HIP4_FEED_EVENTS);
+    for (const event of busiest) {
+      for (const market of event.markets) {
+        const title = market.label === event.title ? event.title : `${event.title} · ${market.label}`;
+        market.outcomes.forEach((outcome) => map.set(outcome.asset, { title, outcome: outcome.label, eventId: event.id, icon: event.image }));
+      }
+    }
+    return map;
+  }, [events]);
+  const coinsRef = useRef(coins);
+  coinsRef.current = coins;
+  const key = [...coins.keys()].sort().join(",");
+  const [trades, setTrades] = useState<FeedTrade[]>([]);
+  useEffect(() => {
+    if (!key) return;
+    const list = key.split(",");
+    let socket: WebSocket | null = null;
+    let live = true;
+    let ping: number | undefined;
+    let retry: number | undefined;
+    const connect = () => {
+      if (!live) return;
+      const ws = new WebSocket(`${hlConfig.apiUrl.replace(/^http/, "ws")}/ws`);
+      socket = ws;
+      ws.onopen = () => {
+        for (const coin of list) ws.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin } }));
+        ping = window.setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ method: "ping" })), HL_PING_MS);
+      };
+      ws.onmessage = (event) => {
+        let message: { channel?: string; data?: unknown };
+        try {
+          message = JSON.parse(String(event.data));
+        } catch {
+          return;
+        }
+        if (message.channel !== "trades") return;
+        const fresh = readHip4Trades(message.data, coinsRef.current);
+        if (fresh.length === 0) return;
+        setTrades((current) => {
+          const seen = new Set(current.map((trade) => trade.id));
+          return [...fresh.filter((trade) => !seen.has(trade.id)), ...current].sort((a, b) => b.time - a.time).slice(0, 60);
+        });
+      };
+      ws.onclose = () => {
+        window.clearInterval(ping);
+        if (live) retry = window.setTimeout(connect, HL_RETRY_MS);
+      };
+      ws.onerror = () => ws.close();
+    };
+    connect();
+    return () => {
+      live = false;
+      window.clearInterval(ping);
+      window.clearTimeout(retry);
+      socket?.close();
+    };
+  }, [key]);
+  return trades;
+}
+
+/**
+ * Polymarket's latest trades across every market (refreshed every few seconds) and HIP-4 trades of the busiest outcome
+ * events (streamed), with a minimum size. A row opens its event (a Polymarket market slug resolved to its event through
+ * `/api/prediction/resolve`).
+ */
+export function TradesFeed({ onOpenId, events = [] }: { onOpenId?: (id: string) => void; events?: PredictionEvent[] }) {
   const [min, setMin] = useState(DEFAULT_MIN_TRADE_USD);
+  const [opening, setOpening] = useState<string | null>(null);
+  const hip4 = useHip4Trades(events);
+  const open = async (trade: FeedTrade) => {
+    if (trade.eventId) return onOpenId?.(trade.eventId);
+    if (!trade.slug || !onOpenId || opening) return;
+    setOpening(trade.id);
+    try {
+      const response = await fetch(`/api/prediction/resolve?slug=${encodeURIComponent(trade.slug)}`);
+      const body = (await response.json().catch(() => ({}))) as { id?: string };
+      if (body.id) onOpenId(body.id);
+    } finally {
+      setOpening(null);
+    }
+  };
   const { data, error } = usePredictionTrades(min);
   // Re-render the "12s ago" labels between polls.
   const [, setNow] = useState(0);
@@ -142,7 +237,11 @@ export function TradesFeed() {
     const timer = window.setInterval(() => setNow((count) => count + 1), 5_000);
     return () => window.clearInterval(timer);
   }, []);
-  const trades = data?.trades ?? [];
+  // Polymarket's feed and HIP-4's stream, newest first, above the minimum size.
+  const trades = useMemo<FeedTrade[]>(
+    () => [...(data?.trades ?? []), ...hip4.filter((trade) => trade.usd >= min)].sort((a, b) => b.time - a.time).slice(0, 80),
+    [data, hip4, min],
+  );
   return (
     <section aria-label="Live trades" className={`${panel} flex h-full flex-col`}>
       <header className="flex shrink-0 items-center gap-2 border-b border-app-hairline px-3 py-2.5">
@@ -164,10 +263,16 @@ export function TradesFeed() {
         </span>
       </header>
       <ul className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto">
-        {!data && !error && <li className="p-6 text-center text-[12px] text-app-muted">Connecting…</li>}
-        {error && !data && <li className="p-6 text-center text-[12px] text-app-down">{error}</li>}
-        {trades.map((trade: PredictionTrade) => (
-          <li key={trade.id} className="flex items-center gap-2.5 border-b border-app-hairline px-3 py-2">
+        {!data && !error && trades.length === 0 && <li className="p-6 text-center text-[12px] text-app-muted">Connecting…</li>}
+        {error && !data && <li className="px-3 py-2 text-center text-[11px] text-app-down">{error}</li>}
+        {trades.map((trade) => (
+          <li key={trade.id} className="border-b border-app-hairline">
+            <button
+              type="button"
+              disabled={(!trade.slug && !trade.eventId) || !onOpenId}
+              onClick={() => void open(trade)}
+              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors enabled:hover:bg-app-selected/50 ${opening === trade.id ? "opacity-60" : ""}`}
+            >
             {trade.icon ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={trade.icon} alt="" aria-hidden width={28} height={28} className="size-7 shrink-0 rounded-md bg-app-chip object-cover" />
@@ -187,10 +292,11 @@ export function TradesFeed() {
               <span className="block text-[12px] font-semibold tabular-nums text-app-ink">{trade.usd >= 1000 ? compactUsd.format(trade.usd) : `$${trade.usd.toFixed(trade.usd < 10 ? 2 : 0)}`}</span>
               <span className="block text-[10px] tabular-nums text-app-faint">{ago(trade.time)}</span>
             </span>
+            </button>
           </li>
         ))}
       </ul>
-      <p className="shrink-0 border-t border-app-hairline px-3 py-1.5 text-[10px] text-app-faint">Polymarket, all markets, newest first.</p>
+      <p className="shrink-0 border-t border-app-hairline px-3 py-1.5 text-[10px] text-app-faint">Polymarket (every market) and Hyperliquid&apos;s busiest outcomes, newest first.</p>
     </section>
   );
 }
@@ -199,7 +305,15 @@ export function TradesFeed() {
  * The /prediction landing: a header with source, search and categories, the events as cards (top two lines with Yes/No),
  * and the live trades beside them. A card, line or Yes/No opens the event (with that market and side picked).
  */
-export function PredictionHome({ browser, onOpen }: { browser: EventBrowser; onOpen: (event: PredictionEvent, market?: PredictionMarket, side?: 0 | 1) => void }) {
+export function PredictionHome({
+  browser,
+  onOpen,
+  onOpenId,
+}: {
+  browser: EventBrowser;
+  onOpen: (event: PredictionEvent, market?: PredictionMarket, side?: 0 | 1) => void;
+  onOpenId: (id: string) => void;
+}) {
   const { source, setSource, category, setCategory, sort, setSort, draft, setDraft, query, data, error, loading, events, categories } = browser;
   return (
     <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[minmax(0,1fr)_clamp(280px,22vw,340px)]">
@@ -262,7 +376,7 @@ export function PredictionHome({ browser, onOpen }: { browser: EventBrowser; onO
         </div>
       </section>
       <div className="min-h-0 max-lg:h-[420px]">
-        <TradesFeed />
+        <TradesFeed onOpenId={onOpenId} events={data?.events} />
       </div>
     </div>
   );

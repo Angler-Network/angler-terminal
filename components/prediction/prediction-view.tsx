@@ -297,7 +297,7 @@ export function PredictionView() {
     window.history.replaceState(null, "", url);
   };
 
-  if (!selected) return <PredictionHome browser={browser} onOpen={(event, market, side) => select(event.id, market?.id ?? null, side ?? 0)} />;
+  if (!selected) return <PredictionHome browser={browser} onOpen={(event, market, side) => select(event.id, market?.id ?? null, side ?? 0)} onOpenId={(id) => select(id)} />;
   return (
     <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[clamp(280px,24vw,360px)_minmax(0,1fr)]">
       <div className="min-h-0 max-lg:hidden">

@@ -5,7 +5,7 @@ import events from "./fixtures/polymarket-events.json";
 import { buildHip4Events, guessCategory, hip4AssetId, hip4Coin, readFields, readStamp, type Hip4Meta } from "./hip4";
 import { readBook, readHistory, walkAsks } from "./market-data";
 import { categoryOf, mapGammaEvent, type GammaEvent } from "./polymarket";
-import { readPolymarketTrades } from "./trades";
+import { readHip4Trades, readPolymarketTrades } from "./trades";
 import { formatChance } from "./types";
 
 describe("HIP-4", () => {
@@ -132,6 +132,7 @@ describe("Polymarket trades feed", () => {
         price: 0.6,
         timestamp: 1791458603,
         title: "Bitcoin Up or Down - October 8, 7:15AM-7:30AM ET",
+        slug: "btc-updown-15m-1791458100",
         icon: "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
         outcome: "Up",
         name: "curie",
@@ -143,7 +144,22 @@ describe("Polymarket trades feed", () => {
     ];
     const trades = readPolymarketTrades(body);
     expect(trades).toHaveLength(2);
-    expect(trades[0]).toMatchObject({ side: "buy", outcome: "Up", price: 0.6, size: 127, usd: 76.2, time: 1791458603000, trader: "curie", icon: expect.stringContaining("https://") });
-    expect(trades[1]).toMatchObject({ side: "sell", usd: 13.5, trader: "0x726f…d8e7", icon: null });
+    expect(trades[0]).toMatchObject({ side: "buy", outcome: "Up", price: 0.6, size: 127, usd: 76.2, time: 1791458603000, trader: "curie", icon: expect.stringContaining("https://"), slug: "btc-updown-15m-1791458100" });
+    expect(trades[1]).toMatchObject({ side: "sell", usd: 13.5, trader: "0x726f…d8e7", icon: null, slug: null });
+  });
+});
+
+describe("HIP-4 trades feed", () => {
+  it("names the event and side of an outcome coin and the taker", () => {
+    const coins = new Map([["#10", { title: "BTC above $90k on Oct 9?", outcome: "Yes", eventId: "hl:x", icon: null }]]);
+    const rows = readHip4Trades(
+      [
+        { coin: "#10", side: "A", px: "0.42", sz: "100", time: 1700000000000, tid: 7, users: ["0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222"] },
+        { coin: "BTC", side: "B", px: "1", sz: "1", time: 1 },
+      ],
+      coins,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: "hl:7", side: "sell", outcome: "Yes", price: 0.42, usd: 42, trader: "0x2222…2222", eventId: "hl:x" });
   });
 });

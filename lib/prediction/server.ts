@@ -113,6 +113,17 @@ export async function getPredictionBook(source: PredictionSource, asset: string)
   return readBook("hyperliquid", await hlInfo({ type: "l2Book", coin: asset }));
 }
 
+/** A Polymarket market slug (what trades carry) → its event's id here (`pm:<event id>`); null when Gamma has none. */
+export const resolvePolymarketSlug = unstable_cache(
+  async (slug: string): Promise<string | null> => {
+    const market = await json<{ events?: Array<{ id?: unknown }> }>(`${GAMMA}/markets/slug/${encodeURIComponent(slug)}`);
+    const id = market.events?.[0]?.id;
+    return typeof id === "string" || typeof id === "number" ? `pm:${id}` : null;
+  },
+  ["prediction-polymarket-slug-v1"],
+  { revalidate: 3600 },
+);
+
 const DATA_API = "https://data-api.polymarket.com";
 const TRADES_LIMIT = 60;
 

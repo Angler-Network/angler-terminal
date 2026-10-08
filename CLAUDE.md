@@ -453,7 +453,9 @@ dependency versions and design are free to diverge from angler-news.
     the event (`?event=`, that market and side preselected) with the list beside it and a back button to the overview.
     The filters (`useEventBrowser`) are shared by both. Live trades: Polymarket's latest taker trades across every
     market (`data-api.polymarket.com/trades?takerOnly&filterType=CASH&filterAmount=`, via `/api/prediction/trades?min=`
-    1|10|100|1000, cached 3s; `readPolymarketTrades`, timestamps in seconds), polled every 4s. No HIP-4 trades there yet.
+    1|10|100|1000, cached 3s; `readPolymarketTrades`, timestamps in seconds), polled every 4s, plus HIP-4 trades of the
+    40 busiest outcome events streamed over Hyperliquid's WebSocket (`useHip4Trades`, `readHip4Trades`). A row opens its
+    event: HIP-4 directly, Polymarket via `/api/prediction/resolve?slug=` (Gamma `/markets/slug/{slug}` → its event).
   - Data goes through our server (`server.ts`, `unstable_cache`): Gamma `/events` (top 150 by 24h volume),
     `/public-search`, `/events/{id}`; CLOB `/prices-history` and `/book`; Hyperliquid `outcomeMeta` + `allMids`,
     `candleSnapshot` and `l2Book` for `#N` coins. Routes: `/api/prediction/{events,event,history,book}`.

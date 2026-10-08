@@ -19,6 +19,8 @@ export interface PredictionTrade {
   /** Polymarket name, else its generated pseudonym, else a short wallet. */
   trader: string;
   icon: string | null;
+  /** The market's slug: `/api/prediction/resolve` turns it into its event, so a row can open it. */
+  slug: string | null;
 }
 
 /** Trades smaller than this many dollars are left out by default (Polymarket's own feed starts at $1). */
@@ -51,6 +53,48 @@ export function readPolymarketTrades(body: unknown): PredictionTrade[] {
         time: seconds * 1000,
         trader: text(row.name) || text(row.pseudonym) || (wallet ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : "Trader"),
         icon: icon.startsWith("https://") ? icon : null,
+        slug: /^[a-z0-9-]{1,200}$/.test(text(row.slug)) ? text(row.slug) : null,
+      },
+    ];
+  });
+}
+
+/** What a HIP-4 outcome coin ("#123") stands for in the feed: its event's title and the side's label. */
+export interface Hip4CoinInfo {
+  title: string;
+  outcome: string;
+  /** The event's id here (`hl:…`), so a row can open it. */
+  eventId: string;
+  icon: string | null;
+}
+
+/**
+ * Hyperliquid `trades` stream messages for HIP-4 outcome coins → feed rows. `side` "B" means the taker bought; the
+ * taker is the first of `users` when buying, else the second.
+ */
+export function readHip4Trades(data: unknown, coins: Map<string, Hip4CoinInfo>): Array<PredictionTrade & { eventId: string }> {
+  return (Array.isArray(data) ? (data as Array<Record<string, unknown>>) : []).flatMap((row): Array<PredictionTrade & { eventId: string }> => {
+    const info = typeof row?.coin === "string" ? coins.get(row.coin) : undefined;
+    const price = finite(row?.px);
+    const size = finite(row?.sz);
+    const time = finite(row?.time);
+    if (!info || price === null || size === null || time === null || !(size > 0) || (row.side !== "B" && row.side !== "A")) return [];
+    const users = Array.isArray(row.users) ? row.users.filter((user): user is string => typeof user === "string") : [];
+    const taker = row.side === "B" ? users[0] : users[1];
+    return [
+      {
+        id: `hl:${String(row.tid ?? `${row.coin}-${time}`)}`,
+        title: info.title,
+        outcome: info.outcome,
+        side: row.side === "B" ? "buy" : "sell",
+        price,
+        size,
+        usd: size * price,
+        time,
+        trader: taker ? `${taker.slice(0, 6)}…${taker.slice(-4)}` : "Trader",
+        icon: info.icon,
+        slug: null,
+        eventId: info.eventId,
       },
     ];
   });
