@@ -795,6 +795,25 @@ export function OrderPanel() {
               {buttonText}
             </button>
           )}
+          {address && (
+            // Hold to place (the default) or one click, right where the trader feels it; the same switch as in Settings.
+            <div role="group" aria-label="How orders are confirmed" className="-mt-1 flex items-center justify-center gap-1 text-[11px] text-app-faint">
+              <span>Confirm by</span>
+              {([false, true] as const).map((oneClick) => (
+                <button
+                  key={String(oneClick)}
+                  type="button"
+                  aria-pressed={preferences.oneClickTrading === oneClick}
+                  onClick={() => updatePreference("oneClickTrading", oneClick)}
+                  className={`rounded-md px-1.5 py-0.5 font-semibold transition-colors ${
+                    preferences.oneClickTrading === oneClick ? "bg-app-chip text-app-ink" : "hover:text-app-ink"
+                  }`}
+                >
+                  {oneClick ? "click" : "hold"}
+                </button>
+              ))}
+            </div>
+          )}
           {isPerp && (
             <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">
               <Summary label={orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>
