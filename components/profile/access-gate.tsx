@@ -12,11 +12,7 @@ import { useProfile } from "./profile-provider";
 /** Invite codes are 8 characters (`lib/profile/store.ts`). */
 const CODE_LENGTH = 8;
 
-// Loaded only when the gate shows (it sits in the root layout): WebGL and the slot animations stay out of every other page.
-const DarkVeil = dynamic(() => import("@/components/fx/dark-veil"), { ssr: false });
-/** Turns the veil's violet toward Angler's gold. */
-const GATE_HUE = 205;
-
+// Loaded only when the gate shows (it sits in the root layout): the slot animations stay out of every other page.
 const CodeSlots = dynamic(() => import("@/components/fx/code-slots"), { ssr: false });
 
 function Step({ index, label, state }: { index: number; label: string; state: "done" | "current" | "next" }) {
@@ -66,9 +62,9 @@ export function AccessGate() {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-xl">
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden opacity-70">
-        {/* Half resolution: a soft veil doesn't need more, and the GPU stays free. It stops when the gate unmounts. */}
-        <DarkVeil hueShift={GATE_HUE} speed={0.35} resolutionScale={0.5} />
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="gate-aurora absolute -left-1/4 -top-1/3 h-[80vh] w-[80vw] rounded-full bg-[radial-gradient(closest-side,rgba(245,201,123,0.16),transparent)]" />
+        <div className="gate-aurora absolute -bottom-1/3 -right-1/4 h-[70vh] w-[70vw] rounded-full bg-[radial-gradient(closest-side,rgba(95,180,217,0.10),transparent)] [animation-delay:-9s]" />
       </div>
 
       <div role="dialog" aria-modal="true" aria-labelledby="access-gate-title" className="gate-rise relative flex w-full max-w-[460px] flex-col items-center text-center text-app-ink">

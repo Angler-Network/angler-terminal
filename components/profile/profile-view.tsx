@@ -10,6 +10,7 @@ import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import { INVITE_VOLUME } from "@/lib/profile/invites";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
+import BorderGlow from "@/components/fx/border-glow";
 import { AdminView } from "./admin-view";
 import { PortfolioCard } from "./portfolio-card";
 import { RewardsView } from "./rewards-view";
@@ -239,7 +240,9 @@ function VipCard({ profile }: { profile: ProfileData }) {
   const next = nextVip(vip);
   const progress = next ? Math.min(1, (volume - vip.minVolume) / (next.minVolume - vip.minVolume)) : 1;
   return (
-    <section className={`${card} flex h-full flex-col p-4`}>
+    // The top tier's card glows on its own; the others light up toward the pointer.
+    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="40 85 70" glowRadius={28} colors={["#f5c97b", "#e9b45a", "#fff1cf"]} fillOpacity={0.35} animated={!next}>
+    <section className="flex h-full flex-col p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-[13px] font-semibold text-app-ink">VIP</h2>
         <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-[#f5c97b]/15 text-[#f5c97b]" : "bg-app-chip text-app-muted"}`}>
@@ -268,6 +271,7 @@ function VipCard({ profile }: { profile: ProfileData }) {
         ))}
       </ol>
     </section>
+    </BorderGlow>
   );
 }
 

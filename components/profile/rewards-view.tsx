@@ -3,6 +3,8 @@
 import { ArrowRight, Gift, Sparkles, Trophy } from "lucide-react";
 import Link from "next/link";
 import { PerpDexIcon } from "@/components/app/nav-icons";
+import BorderGlow from "@/components/fx/border-glow";
+import Counter from "@/components/fx/counter";
 import { pointsFor } from "@/lib/profile/levels";
 import { vipFor } from "@/lib/profile/vip";
 import { useProfile } from "./profile-provider";
@@ -10,6 +12,8 @@ import { useProfile } from "./profile-provider";
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
+/** Angler gold, for the cards' edge glow. */
+const GOLD = ["#f5c97b", "#e9b45a", "#fff1cf"];
 
 function SourceCard({
   icon,
@@ -25,7 +29,9 @@ function SourceCard({
   cta: { label: string; href: string };
 }) {
   return (
-    <section className={`${card} group relative flex flex-col overflow-hidden p-5`}>
+    // The edge lights up in gold toward the pointer (only while hovered, so it costs nothing otherwise).
+    <BorderGlow className="h-full" backgroundColor="rgb(var(--app-card))" borderRadius={16} glowColor="40 85 70" glowRadius={28} colors={GOLD} fillOpacity={0.35}>
+    <section className="group relative flex h-full flex-col overflow-hidden p-5">
       <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[#f5c97b]/[0.06] blur-2xl" />
       <span className="flex size-10 items-center justify-center rounded-xl bg-[#f5c97b]/12 text-[#f5c97b] ring-1 ring-[#f5c97b]/20">{icon}</span>
       <h3 className="mt-4 text-[13px] font-semibold text-app-muted">{title}</h3>
@@ -36,6 +42,7 @@ function SourceCard({
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </Link>
     </section>
+    </BorderGlow>
   );
 }
 
@@ -65,7 +72,10 @@ export function RewardsView() {
               <Sparkles className="size-3.5" aria-hidden />
               Total points
             </p>
-            <p className="mt-2 text-[44px] font-semibold leading-none tabular-nums tracking-tight text-app-ink sm:text-[56px]">{number.format(profile.points)}</p>
+            {/* Digits roll to each new total. */}
+            <div className="mt-2 -ml-2 font-semibold tracking-tight text-app-ink">
+              <Counter value={Math.round(profile.points * 100) / 100} fontSize={52} gap={2} horizontalPadding={8} gradientHeight={0} fontWeight={600} />
+            </div>
             <p className="mt-3 text-[13px] text-app-muted">
               <span className="font-semibold text-app-ink">+{number.format(earned30)}</span> trading points in the last 30 days
             </p>

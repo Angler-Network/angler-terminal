@@ -39,6 +39,7 @@ import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
+import HoldButton from "@/components/fx/hold-button";
 
 type VenueChoice = { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket } | SpotChoice;
 
@@ -404,11 +405,12 @@ export function OrderPanel() {
     }
   };
 
-  const submit = async () => {
+  /** `held`: confirmed by holding the button, so no second click to arm it. */
+  const submit = async (held = false) => {
     // "Connect wallet" must work before the form is valid (the size is still empty then).
     if (!address) return openWallets();
     if (!choice || choice.kind !== "perp" || !isValid || isPlacing) return;
-    if (!armed && !preferences.oneClickTrading) return setArmed(true);
+    if (!held && !armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
     setIsPlacing(true);
     try {
@@ -756,20 +758,43 @@ export function OrderPanel() {
               )}
             </div>
           )}
-          <button
-            type="button"
-            disabled={(address ? !isValid : false) || isPlacing}
-            onClick={() => void submit()}
-            className={`h-10 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-50 ${
-              !address
-                ? "bg-app-accent text-app-on-accent hover:opacity-90"
-                : isBuy(side)
-                  ? "bg-app-up/90 text-black hover:bg-app-up"
-                  : "bg-app-down/90 text-white hover:bg-app-down"
-            } ${armed ? "ring-2 ring-app-ink ring-offset-1 ring-offset-transparent" : ""}`}
-          >
-            {buttonText}
-          </button>
+          {address && !preferences.oneClickTrading ? (
+            // Hold to place: a short hold replaces the arm-then-confirm double click (one-click trading skips it).
+            <HoldButton
+              key={`${side}-${choice?.id ?? ""}`}
+              disabled={!isValid || isPlacing}
+              onHold={() => void submit(true)}
+              holdTime={600}
+              releaseTime={250}
+              resetAfter={900}
+              size="sm"
+              radius={8}
+              wave={false}
+              backgroundColor={isBuy(side) ? "rgb(var(--app-up) / 0.18)" : "rgb(var(--app-down) / 0.18)"}
+              fillColor={isBuy(side) ? "rgb(var(--app-up))" : "rgb(var(--app-down))"}
+              textColor="rgb(var(--app-ink))"
+              fillTextColor={isBuy(side) ? "#000" : "#fff"}
+              doneLabel="Sent"
+              className="h-10! w-full text-[13px]! font-semibold!"
+            >
+              {isPlacing ? buttonText : `Hold to ${buttonText.charAt(0).toLowerCase()}${buttonText.slice(1)}`}
+            </HoldButton>
+          ) : (
+            <button
+              type="button"
+              disabled={(address ? !isValid : false) || isPlacing}
+              onClick={() => void submit()}
+              className={`h-10 rounded-lg text-[13px] font-semibold transition-colors disabled:opacity-50 ${
+                !address
+                  ? "bg-app-accent text-app-on-accent hover:opacity-90"
+                  : isBuy(side)
+                    ? "bg-app-up/90 text-black hover:bg-app-up"
+                    : "bg-app-down/90 text-white hover:bg-app-down"
+              } ${armed ? "ring-2 ring-app-ink ring-offset-1 ring-offset-transparent" : ""}`}
+            >
+              {buttonText}
+            </button>
+          )}
           {isPerp && (
             <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">
               <Summary label={orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>

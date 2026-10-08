@@ -720,7 +720,7 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
-/* Closed beta gate: a light that runs around the card's edge (the veil behind it is WebGL, `components/fx/dark-veil`). */
+/* Closed beta gate: a slow gold aurora behind it and a light that runs around the card's edge. */
 @property --gate-angle {
   syntax: "<angle>";
   inherits: false;
@@ -730,6 +730,16 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
 @keyframes gate-spin {
   to {
     --gate-angle: 360deg;
+  }
+}
+
+@keyframes gate-drift {
+  0%,
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 5%, 0) scale(1.12);
   }
 }
 
@@ -745,11 +755,16 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   animation: gate-spin 6s linear infinite;
 }
 
+.gate-aurora {
+  animation: gate-drift 18s ease-in-out infinite;
+}
+
 .gate-rise {
   animation: gate-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gate-aurora,
   .gate-edge,
   .gate-rise {
     animation: none;
