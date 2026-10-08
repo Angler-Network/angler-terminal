@@ -25,6 +25,14 @@ const MOVERS: Array<{ sort: AssetSort; title: string; icon: LucideIcon; tone: st
   { sort: "losers", title: "Losers", icon: TrendingDown, tone: "text-app-down" },
 ];
 
+/** One short line per market view, about what it does rather than which venues it covers (those keep changing). */
+const TAGLINES: Record<string, string> = {
+  "/perp": "Leverage on every perp DEX",
+  "/swap": "Best route for any token",
+  "/spot": "Order-book spot trading",
+  "/prediction": "Trade on what happens next",
+};
+
 const panel = "surface-panel overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55";
 
 function Change({ value }: { value: number | undefined }) {
@@ -192,17 +200,17 @@ export function HomeView() {
         </section>
 
         <nav aria-label="Trade" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {marketNav.map(({ href, label, title, icon: Icon }) => (
-            <Link key={href} href={href} className={`${panel} group flex items-start gap-3 p-4 transition-colors hover:border-app-hairline-strong`}>
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink">
-                <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
+          {marketNav.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className={`${panel} group flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:border-app-hairline-strong`}>
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink">
+                <Icon className="size-[22px]" strokeWidth={1.75} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 text-[14px] font-semibold text-app-ink">
+                <span className="flex items-center gap-1.5 text-[16px] font-semibold text-app-ink">
                   {label}
-                  <ArrowRight className="size-3.5 text-app-faint transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  <ArrowRight className="size-4 text-app-faint transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </span>
-                <span className="mt-0.5 line-clamp-2 block text-[12px] text-app-muted">{title}</span>
+                <span className="mt-0.5 block truncate text-[12px] text-app-muted">{TAGLINES[href]}</span>
               </span>
             </Link>
           ))}
