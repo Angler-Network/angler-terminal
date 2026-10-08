@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, BriefcaseBusiness, CandlestickChart, ChartPie, Layers, ExternalLink, Menu, Newspaper, Settings, SquarePen, Trophy, X, type LucideIcon } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,15 +11,33 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { marketNav } from "./market-nav";
+import {
+  BridgeIcon,
+  ChartIcon,
+  MarketsIcon,
+  MenuIcon,
+  NewsIcon,
+  PieChartIcon,
+  PortfolioIcon,
+  ProOrderIcon,
+  ProfileIcon,
+  SettingsIcon,
+  TradeIcon,
+  type NavIcon,
+} from "./nav-icons";
 import { useMobileView, type MobileView } from "./mobile-view";
 import { usePreferences } from "./preferences-provider";
 
-const tabs: Array<{ view: MobileView; label: string; icon: LucideIcon }> = [
-  { view: "chart", label: "Chart", icon: CandlestickChart },
-  { view: "trade", label: "Trade", icon: SquarePen },
-  { view: "news", label: "News", icon: Newspaper },
-  { view: "portfolio", label: "Portfolio", icon: BriefcaseBusiness },
+const tabs: Array<{ view: MobileView; label: string; icon: NavIcon }> = [
+  { view: "chart", label: "Chart", icon: ChartIcon },
+  { view: "trade", label: "Trade", icon: TradeIcon },
+  { view: "news", label: "News", icon: NewsIcon },
+  { view: "portfolio", label: "Portfolio", icon: PortfolioIcon },
 ];
+
+/** Solar icons like the sidebar's: linear, and bold duotone in the accent color for the open page. */
+const iconClass = (active: boolean) => `size-[22px] transition-colors ${active ? "text-app-accent" : ""}`;
+const sheetIconClass = (active: boolean) => `size-[22px] ${active ? "text-app-accent" : "text-app-muted"}`;
 
 const tabClass = (active: boolean) =>
   `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${active ? "text-app-ink" : "text-app-muted"}`;
@@ -67,13 +85,13 @@ export function MobileNav() {
           const active = onTerminal && view === tab;
           return (
             <button key={tab} type="button" aria-current={active ? "page" : undefined} onClick={() => show(tab)} className={tabClass(active)}>
-              <Icon className={`size-5 ${active ? "text-app-accent" : ""}`} strokeWidth={1.75} aria-hidden />
+              <Icon className={iconClass(active)} active={active} />
               {label}
             </button>
           );
         })}
         <button type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} className={tabClass(!onTerminal || menuOpen)}>
-          <Menu className="size-5" strokeWidth={1.75} aria-hidden />
+          <MenuIcon className={iconClass(menuOpen)} active={menuOpen} />
           More
         </button>
       </nav>
@@ -103,22 +121,22 @@ export function MobileNav() {
                     isActive(pathname) ? "border-app-accent bg-app-accent/10 text-app-ink" : "border-app-hairline text-app-muted hover:bg-app-chip"
                   }`}
                 >
-                  <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                  <Icon className={iconClass(isActive(pathname))} active={isActive(pathname)} />
                   {label}
                   {soon && <span className="absolute right-2 top-1.5 text-[9px] font-semibold uppercase tracking-wide text-[#f5c97b]">Soon</span>}
                 </Link>
               ))}
             </div>
             <Link href="/markets" className={`${sheetItem} ${pathname === "/markets" ? "bg-app-chip" : ""}`}>
-              <BarChart3 className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <MarketsIcon className={sheetIconClass(pathname === "/markets")} active={pathname === "/markets"} />
               Markets & funding
             </Link>
             <Link href="/profile" className={`${sheetItem} ${pathname === "/profile" ? "bg-app-chip" : ""}`}>
-              <Trophy className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <ProfileIcon className={sheetIconClass(pathname === "/profile")} active={pathname === "/profile"} />
               Profile & points
             </Link>
             <Link href="/profile/portfolio" className={`${sheetItem} ${pathname === "/profile/portfolio" ? "bg-app-chip" : ""}`}>
-              <ChartPie className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <PieChartIcon className={sheetIconClass(pathname === "/profile/portfolio")} active={pathname === "/profile/portfolio"} />
               Full portfolio
             </Link>
             <button
@@ -129,7 +147,7 @@ export function MobileNav() {
                 openProOrder();
               }}
             >
-              <Layers className="size-5" strokeWidth={1.75} aria-hidden />
+              <ProOrderIcon className="size-[22px]" />
               Pro order
             </button>
             <button
@@ -141,15 +159,15 @@ export function MobileNav() {
                 else wallets.open();
               }}
             >
-              <ArrowLeftRight className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <BridgeIcon className={sheetIconClass(false)} />
               Bridge
             </button>
             <Link href="/settings" className={`${sheetItem} ${pathname.startsWith("/settings") ? "bg-app-chip" : ""}`}>
-              <Settings className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <SettingsIcon className={sheetIconClass(pathname.startsWith("/settings"))} active={pathname.startsWith("/settings")} />
               Settings
             </Link>
             <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" className={sheetItem}>
-              <Newspaper className="size-5 text-app-muted" strokeWidth={1.75} aria-hidden />
+              <NewsIcon className={sheetIconClass(false)} />
               Angler News
               <ExternalLink className="ml-auto size-4 text-app-faint" aria-hidden />
             </a>
