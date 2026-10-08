@@ -4,7 +4,7 @@ import { vipFee } from "@/lib/profile/vip";
 import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionRef, type PositionTpsl, type VenueMarket, type VenueOpenOrder } from "../types";
 import { asterConfig } from "./config";
 import { readAsterAccount, readAsterCandles, readAsterMarkets, type AsterAccountInfo, type AsterOrderRow, type AsterPositionRow } from "./markets";
-import { asterAgent, asterOnboarding } from "./onboarding";
+import { asterOnboarding, readAsterRecord } from "./store";
 import { signAgentRequest, type AsterParams } from "./sign";
 
 /**
@@ -23,7 +23,9 @@ async function publicGet<T>(path: string, params: Record<string, string | number
   return (await response.json()) as T;
 }
 
-function agentFor(user: `0x${string}`) {
+async function agentFor(user: `0x${string}`) {
+  // viem's accounts (secp256k1) load with the first signed request, not with the page.
+  const { asterAgent } = await import("./onboarding");
   const agent = asterAgent(user);
   if (!agent) throw new VenueError("Set up Aster trading first: approve a trading key from this wallet.");
   return agent;
@@ -31,7 +33,7 @@ function agentFor(user: `0x${string}`) {
 
 /** A request signed by the agent: query string for GET, form body otherwise (as Aster's docs ask). */
 async function signed<T>(user: `0x${string}`, method: "GET" | "POST" | "DELETE", path: string, params: AsterParams = {}): Promise<T> {
-  const query = await signAgentRequest(agentFor(user), user, params);
+  const query = await signAgentRequest(await agentFor(user), user, params);
   const url = `${asterConfig.apiUrl}${path}`;
   const response =
     method === "GET"
@@ -113,21 +115,29 @@ function createAsterVenue(): PerpVenue {
 
   function listMarkets() {
     if (!cache || Date.now() - cache.at > MARKETS_TTL_MS) {
-      const markets = Promise.all([
-        publicGet<{ symbols?: unknown[] }>("/fapi/v1/exchangeInfo"),
-        publicGet<unknown[]>("/fapi/v1/ticker/24hr"),
-        publicGet<unknown[]>("/fapi/v1/premiumIndex"),
-      ]).then(([info, tickers, premium]) =>
-        readAsterMarkets(
-          (info.symbols ?? []) as Parameters<typeof readAsterMarkets>[0],
-          (Array.isArray(tickers) ? tickers : []) as Parameters<typeof readAsterMarkets>[1],
-          (Array.isArray(premium) ? premium : []) as Parameters<typeof readAsterMarkets>[2],
-        ),
-      );
+      // Our server's cached copy (one Aster call per 30s for every visitor), else Aster directly.
+      const markets = fetch("/api/aster/markets")
+        .then((response) => (response.ok ? (response.json() as Promise<VenueMarket[]>) : Promise.reject(new Error(`Markets route answered ${response.status}`))))
+        .then((list) => (Array.isArray(list) && list.length > 0 ? list : Promise.reject(new Error("Markets route listed nothing"))))
+        .catch(() => directMarkets());
       cache = { at: Date.now(), markets };
       markets.catch(() => (cache = null));
     }
     return cache.markets;
+  }
+
+  function directMarkets() {
+    return Promise.all([
+      publicGet<{ symbols?: unknown[] }>("/fapi/v1/exchangeInfo"),
+      publicGet<unknown[]>("/fapi/v1/ticker/24hr"),
+      publicGet<unknown[]>("/fapi/v1/premiumIndex"),
+    ]).then(([info, tickers, premium]) =>
+      readAsterMarkets(
+        (info.symbols ?? []) as Parameters<typeof readAsterMarkets>[0],
+        (Array.isArray(tickers) ? tickers : []) as Parameters<typeof readAsterMarkets>[1],
+        (Array.isArray(premium) ? premium : []) as Parameters<typeof readAsterMarkets>[2],
+      ),
+    );
   }
 
   async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
@@ -181,7 +191,7 @@ function createAsterVenue(): PerpVenue {
   function subscribeAccount(user: `0x${string}`, handlers: AccountHandlers) {
     let active = true;
     const read = async () => {
-      if (!asterAgent(user)) {
+      if (!readAsterRecord(user).agent) {
         handlers.onSnapshot({ positions: [], orders: [], accountValue: 0, withdrawable: 0 });
         return;
       }

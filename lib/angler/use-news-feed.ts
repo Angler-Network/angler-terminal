@@ -1,6 +1,6 @@
 "use client";
 
-import { Centrifuge, type PublicationContext } from "centrifuge";
+import type { Centrifuge, PublicationContext } from "centrifuge";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NewsItem } from "@/lib/types";
 import { mergeFeedNews, readNewsPage, readSources, readStageMessage, sourceNames, toNewsItem } from "./map";
@@ -136,8 +136,10 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
     // The first ticket tells us where to connect; getData then mints a fresh one for every later attempt.
     const start = async () => {
       let first: WsTicketResponse | null;
+      let Client: typeof Centrifuge;
       try {
-        first = await fetchTicket();
+        // The client library (~80 KB) loads with the first ticket, after the page has painted, not with the page.
+        [first, { Centrifuge: Client }] = await Promise.all([fetchTicket(), import("centrifuge")]);
       } catch (error) {
         if (!isActive) return;
         if (error instanceof UnconfiguredError) setStatus("unconfigured");
@@ -149,7 +151,7 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
         return;
       }
       if (!isActive) return;
-      client = new Centrifuge(first.url, {
+      client = new Client(first.url, {
         getData: async () => {
           const ticket = first ?? (await fetchTicket());
           first = null;

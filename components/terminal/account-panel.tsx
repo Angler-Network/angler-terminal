@@ -18,7 +18,7 @@ import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { OrderPanel } from "./order-panel";
-import { SpotOrderPanel } from "./spot-order-panel";
+import dynamic from "next/dynamic";
 import type { SpotBalances } from "@/lib/venues/types";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
@@ -28,6 +28,9 @@ import { useAssetVenues } from "./use-asset-venue";
 import { useWallet } from "./wallet-provider";
 import { usePathname } from "next/navigation";
 import { terminalKindOf } from "@/lib/terminal-kind";
+
+// The order-book spot form loads on /spot only.
+const SpotOrderPanel = dynamic(() => import("./spot-order-panel").then((module) => module.SpotOrderPanel));
 
 const BALANCE_REFRESH_MS = 15_000;
 

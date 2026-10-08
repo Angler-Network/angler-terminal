@@ -3,8 +3,7 @@
 import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionRef, type PositionTpsl, type VenueMarket, type VenueOpenOrder } from "../types";
 import { ORDERLY_BASE_TAKER_FEE, orderlyConfig } from "./config";
 import { readOrderlyAccount, readOrderlyCandles, readOrderlyMarkets, roundToTick, type OrderlyFuturesRow, type OrderlyInfoRow, type OrderlyOrderRow, type OrderlyPositionsData, type OrderlySteps } from "./markets";
-import { orderlyKey } from "./onboarding";
-import { orderlyHeaders } from "./sign";
+import { orderlyKey } from "./store";
 
 /**
  * Orderly perps as a terminal venue. Public data straight from Orderly's API (open to browsers); orders and account
@@ -39,7 +38,8 @@ async function publicGet<T>(path: string): Promise<T> {
 async function signed<T>(user: `0x${string}`, method: "GET" | "POST" | "PUT" | "DELETE", pathWithQuery: string, payload?: Record<string, unknown>): Promise<T> {
   const key = orderlyKey(user);
   if (!key) throw new VenueError("Set up Orderly trading first: register and add a trading key from this wallet.");
-  const { accountId, secret } = await key;
+  // The ed25519 signer loads with the first signed request, not with the page.
+  const [{ accountId, secret }, { orderlyHeaders }] = await Promise.all([key, import("./sign")]);
   const body = payload ? JSON.stringify(payload) : "";
   const response = await fetch(`${orderlyConfig.apiUrl}${pathWithQuery}`, {
     method,

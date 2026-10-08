@@ -3,7 +3,7 @@
 import type { EIP1193Provider } from "viem";
 import { VenueError } from "../types";
 import { orderlyConfig } from "./config";
-import { orderlyKey } from "./onboarding";
+import { orderlyKey } from "./store";
 import { orderlyHeaders } from "./sign";
 
 /**

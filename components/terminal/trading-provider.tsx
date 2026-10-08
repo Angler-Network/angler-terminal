@@ -25,9 +25,9 @@ import {
   type LighterOnboarding,
 } from "@/lib/venues/lighter/onboarding";
 import { lighterRhVenue, lighterVenue } from "@/lib/venues/lighter/venue";
-import { approveAsterAgent, approveAsterBuilder, asterOnboarding, forgetAsterAgent, type AsterOnboarding } from "@/lib/venues/aster/onboarding";
+import { asterOnboarding, forgetAsterAgent, type AsterOnboarding } from "@/lib/venues/aster/store";
 import { asterVenue } from "@/lib/venues/aster/venue";
-import { addOrderlyKey, forgetOrderlyKey, orderlyOnboarding, registerOrderly, type OrderlyOnboarding } from "@/lib/venues/orderly/onboarding";
+import { forgetOrderlyKey, type OrderlyOnboarding } from "@/lib/venues/orderly/store";
 import { orderlyVenue } from "@/lib/venues/orderly/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
@@ -269,7 +269,8 @@ function useAsterInstance(enabled: boolean, address: `0x${string}` | null, getWa
     async (step: "builder" | "agent") => {
       if (!address || !getWalletClient) return false;
       try {
-        const wallet = await getWalletClient();
+        // The signing code (viem accounts, secp256k1) loads only for setup, never on the first screen.
+        const [wallet, { approveAsterAgent, approveAsterBuilder }] = await Promise.all([getWalletClient(), import("@/lib/venues/aster/onboarding")]);
         if (step === "builder") await approveAsterBuilder(wallet, address);
         else await approveAsterAgent(wallet, address);
         refresh();
@@ -304,6 +305,7 @@ function useOrderlyInstance(enabled: boolean, address: `0x${string}` | null, get
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const refresh = useCallback(async () => {
     if (!address || !enabled) return setState(null);
+    const { orderlyOnboarding } = await import("@/lib/venues/orderly/onboarding");
     setState(await orderlyOnboarding(address).catch(() => ({ registered: null, keyReady: false, accountId: null })));
   }, [address, enabled]);
   useEffect(() => {
@@ -324,7 +326,7 @@ function useOrderlyInstance(enabled: boolean, address: `0x${string}` | null, get
     async (step: "register" | "key") => {
       if (!address || !getWalletClient) return false;
       try {
-        const wallet = await getWalletClient();
+        const [wallet, { addOrderlyKey, registerOrderly }] = await Promise.all([getWalletClient(), import("@/lib/venues/orderly/onboarding")]);
         if (step === "register") await registerOrderly(wallet, address);
         else await addOrderlyKey(wallet, address);
         await refresh();

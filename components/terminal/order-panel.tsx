@@ -8,9 +8,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { swapViewAvailable, venueAvailable } from "@/lib/deployment";
-import { useBookSpotFallback } from "./book-spot-card";
-import { EvmSwapCard } from "./evm-swap-card";
-import { SwapCard, type SpotChoice } from "./swap-card";
+import dynamic from "next/dynamic";
+import { useBookSpotFallback } from "./use-book-spot";
+import type { SpotChoice } from "./swap-card";
 import { riseIn, useEnter } from "@/components/app/use-motion";
 import { useToast } from "@/components/app/toast-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
@@ -42,6 +42,11 @@ import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
 import HoldButton from "@/components/fx/hold-button";
+
+// The swap cards (Jupiter, Titan, Uniswap, bridges) load on /swap and /spot only, never with the perp terminal.
+const swapLoading = () => <div aria-hidden className="h-[420px] animate-pulse rounded-xl bg-app-chip/60" />;
+const SwapCard = dynamic(() => import("./swap-card").then((module) => module.SwapCard), { loading: swapLoading });
+const EvmSwapCard = dynamic(() => import("./evm-swap-card").then((module) => module.EvmSwapCard), { loading: swapLoading });
 
 type VenueChoice = { id: PerpVenueId; name: string; network: string; kind: "perp"; market: VenueMarket } | SpotChoice;
 

@@ -72,3 +72,11 @@ export function useSpotView(): SpotView | null | undefined {
   if (arcus === undefined) return undefined;
   return arcus ? { mode: "arcus", token: arcus } : null;
 }
+
+/** The Hyperliquid or Lighter spot market (`book:` ref) an asset trades on when nothing else lists it; null otherwise. */
+export function useBookSpotFallback(asset: string, enabled: boolean) {
+  const { preferences } = usePreferences();
+  const listings = useSpotListings(enabled);
+  if (!enabled || !listings) return null;
+  return pickBookSpotListing(listings, asset, { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter })?.address ?? null;
+}

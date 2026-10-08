@@ -6,69 +6,17 @@ import { bsc } from "viem/chains";
 import { VenueError } from "../types";
 import { asterConfig } from "./config";
 import { asterNonce, signAgentRequest, walletParams, walletTypedData, type AsterParams } from "./sign";
+import { readAsterRecord, writeAsterRecord } from "./store";
 
 /**
  * Aster setup for a wallet, all signed by the wallet itself (typed data on BNB Chain's id, as Aster's demo does):
  * 1. approve our builder fee (when one is configured), 2. approve an agent key made in this browser that can trade
- * perps but never withdraw. The key lives in this browser's localStorage only, like the Hyperliquid agent.
+ * perps but never withdraw. The key lives in this browser's localStorage only, like the Hyperliquid agent. Loaded on
+ * demand (viem's accounts and secp256k1); what the first screen needs to know about a wallet is in `store.ts`.
  */
 
-export interface AsterAgent {
-  address: `0x${string}`;
-  privateKey: `0x${string}`;
-}
-
-export interface AsterRecord {
-  agent?: AsterAgent;
-  /** The builder and cap this wallet approved. */
-  builder?: { address: string; maxFeeRate: number };
-}
-
-export interface AsterOnboarding {
-  agentReady: boolean;
-  builder: "none" | "needed" | "approved";
-}
-
-const KEY = "angler:aster:mainnet";
-const storageKey = (user: string) => `${KEY}:${user.toLowerCase()}`;
 /** Agents are approved for about ten years; revoking is a new setup. */
 const AGENT_LIFETIME_MS = 10 * 365 * 86_400_000;
-
-function storage() {
-  try {
-    return typeof window === "undefined" ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-export function readAsterRecord(user: string): AsterRecord {
-  try {
-    const parsed = JSON.parse(storage()?.getItem(storageKey(user)) ?? "{}") as AsterRecord;
-    const agent = parsed.agent && /^0x[0-9a-fA-F]{40}$/.test(parsed.agent.address) && /^0x[0-9a-fA-F]{64}$/.test(parsed.agent.privateKey) ? parsed.agent : undefined;
-    return { agent, builder: parsed.builder && typeof parsed.builder.address === "string" ? parsed.builder : undefined };
-  } catch {
-    return {};
-  }
-}
-
-function writeRecord(user: string, record: AsterRecord) {
-  const store = storage();
-  if (!store) return;
-  if (!record.agent && !record.builder) store.removeItem(storageKey(user));
-  else store.setItem(storageKey(user), JSON.stringify(record));
-}
-
-export function asterOnboarding(user: string): AsterOnboarding {
-  const record = readAsterRecord(user);
-  const builder = asterConfig.builder;
-  const builderState = !builder
-    ? "none"
-    : record.builder?.address.toLowerCase() === builder.address.toLowerCase() && record.builder.maxFeeRate >= builder.feeRate
-      ? "approved"
-      : "needed";
-  return { agentReady: Boolean(record.agent), builder: builderState };
-}
 
 /** The agent key to sign orders with, or null before setup. */
 export function asterAgent(user: string) {
@@ -99,7 +47,7 @@ export async function approveAsterBuilder(wallet: WalletClient, user: `0x${strin
     maxFeeRate: String(builder.maxFeeRate),
     builderName: "Angler",
   });
-  writeRecord(user, { ...readAsterRecord(user), builder: { address: builder.address, maxFeeRate: builder.maxFeeRate } });
+  writeAsterRecord(user, { ...readAsterRecord(user), builder: { address: builder.address, maxFeeRate: builder.maxFeeRate } });
 }
 
 export async function approveAsterAgent(wallet: WalletClient, user: `0x${string}`) {
@@ -114,7 +62,7 @@ export async function approveAsterAgent(wallet: WalletClient, user: `0x${string}
     canPerpTrade: true,
     canWithdraw: false,
   });
-  writeRecord(user, { ...readAsterRecord(user), agent: { address: agent.address, privateKey } });
+  writeAsterRecord(user, { ...readAsterRecord(user), agent: { address: agent.address, privateKey } });
   // Deposits arrive as USDC: Multi-Assets mode lets it count as margin for the USDT markets. Aster refuses while an
   // isolated position is open (or when it's already on); then nothing changes.
   try {
@@ -124,8 +72,3 @@ export async function approveAsterAgent(wallet: WalletClient, user: `0x${string}
   return agent.address;
 }
 
-/** Forgets the key here (it can't withdraw; Aster lets it expire or be removed from the Aster app). */
-export function forgetAsterAgent(user: string) {
-  const record = readAsterRecord(user);
-  writeRecord(user, { ...record, agent: undefined });
-}

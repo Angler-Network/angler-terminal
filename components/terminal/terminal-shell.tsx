@@ -17,8 +17,7 @@ import { OrderBook } from "./order-book";
 import { OrderDraftProvider } from "./order-draft";
 import { PanelResizer, type ResizeEdge } from "./panel-resizer";
 import { PositionsBar } from "./positions-bar";
-import { SpotBookPanel } from "./spot-book-panel";
-import { SwapHoldings } from "./swap-holdings";
+import dynamic from "next/dynamic";
 import { useBookVenueMarket, useSpotView } from "./use-book-spot";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
@@ -26,6 +25,10 @@ import { usePathname } from "next/navigation";
 import { terminalKindOf } from "@/lib/terminal-kind";
 import { columnTrack, COLUMN_RULES, maxColumnWidth, MIN_ORDERBOOK_HEIGHT, type ColumnPanel, type PanelSizes } from "@/lib/layout/panel-sizes";
 import { dropOnto, positionsSpanRail, type ArrangeTarget, type ColumnId, type StackPanel } from "@/lib/layout/arrangement";
+
+// The panels under the chart on /swap and /spot load with their view, not with the perp terminal.
+const SpotBookPanel = dynamic(() => import("./spot-book-panel").then((module) => module.SpotBookPanel));
+const SwapHoldings = dynamic(() => import("./swap-holdings").then((module) => module.SwapHoldings));
 
 type Slot = { column: string; row: string };
 

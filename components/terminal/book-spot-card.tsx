@@ -6,7 +6,7 @@ import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { trackTrade } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
-import { BOOK_SPOT_VENUE_NAMES, HL_SPOT_MIN_ORDER_USD, parseBookSpotRef, pickBookSpotListing, type BookSpotMarket, type BookSpotOpenOrder } from "@/lib/spot/book-spot";
+import { BOOK_SPOT_VENUE_NAMES, HL_SPOT_MIN_ORDER_USD, parseBookSpotRef, type BookSpotMarket, type BookSpotOpenOrder } from "@/lib/spot/book-spot";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { useAssetSearch } from "./asset-search";
 import { amountText, DetailRow } from "./swap-card";
@@ -14,7 +14,6 @@ import { CoinIcon } from "./token-icon";
 import { useOrderDraft } from "./order-draft";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
-import { useSpotListings } from "./use-spot-listings";
 import { useWallet } from "./wallet-provider";
 
 const SHARES = [25, 50, 75, 100];
@@ -66,14 +65,6 @@ async function loadAccount(user: `0x${string}`, market: BookSpotMarket): Promise
   }
   const account = await (await import("@/lib/venues/lighter/spot")).loadLighterSpotAccount(user, market);
   return { exists: account.exists, spendable: account.spotUsdc, movable: account.perpsAvailable, base: account.base };
-}
-
-/** The Hyperliquid or Lighter spot market (`book:` ref) an asset trades on when nothing else lists it; null otherwise. */
-export function useBookSpotFallback(asset: string, enabled: boolean) {
-  const { preferences } = usePreferences();
-  const listings = useSpotListings(enabled);
-  if (!enabled || !listings) return null;
-  return pickBookSpotListing(listings, asset, { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter })?.address ?? null;
 }
 
 /** The market (refreshed for its price) for a `book:<venue>:<id>` ref; null when the venue doesn't list it. */
