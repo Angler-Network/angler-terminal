@@ -16,6 +16,26 @@ const LEVELS = 50;
 
 type Tab = "book" | "trades";
 type VenueView = PerpVenueId | "all";
+/** Both sides of the book, or only the bids (buyers) or only the asks (sellers). */
+type SideView = "both" | "bids" | "asks";
+
+const SIDE_VIEWS: Array<{ value: SideView; label: string }> = [
+  { value: "both", label: "Bids and asks" },
+  { value: "bids", label: "Bids only" },
+  { value: "asks", label: "Asks only" },
+];
+
+/** A tiny book: asks (red) over bids (green), or one side filling it. */
+function SideGlyph({ view }: { view: SideView }) {
+  const rows = view === "both" ? ["down", "down", "up", "up"] : view === "bids" ? ["up", "up", "up", "up"] : ["down", "down", "down", "down"];
+  return (
+    <svg viewBox="0 0 14 12" width="14" height="12" aria-hidden className="shrink-0">
+      {rows.map((tone, index) => (
+        <rect key={index} x="0" y={index * 3} width="14" height="2" rx="0.5" className={tone === "up" ? "fill-app-up" : "fill-app-down"} />
+      ))}
+    </svg>
+  );
+}
 
 /** Venue colors in the merged book: depth segments, legend and trade dots. */
 const VENUE_COLORS: Record<PerpVenueId, string> = { hyperliquid: "#3fc8b0", lighter: "#8b8ff8", lighterRh: "#d6f24a" };
@@ -121,6 +141,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
   const { pickPrice } = useOrderDraft();
   const [view, setView] = useState<VenueView | null>(null);
   const [tab, setTab] = useState<Tab>("book");
+  const [sideView, setSideView] = useState<SideView>("both");
   const [tickIndex, setTickIndex] = useState(0);
 
   const choices =
@@ -244,17 +265,31 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
         )
       ) : tab === "book" ? (
         <div className="flex min-h-0 flex-1 flex-col py-1">
-          {sides && (
-            <div className="flex shrink-0 items-center gap-3 px-2 pb-1 text-[10px] text-app-muted">
-              {sides.map(({ venue }) => (
-                <span key={venue} className="flex items-center gap-1">
-                  <span className="size-2 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />
-                  {VENUE_SHORT[venue]}
-                </span>
-              ))}
-              <span className="ml-auto text-app-faint">size by venue</span>
-            </div>
-          )}
+          <div role="group" aria-label="Book sides" className="flex shrink-0 items-center gap-0.5 px-1.5 pb-1">
+            {SIDE_VIEWS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={sideView === option.value}
+                aria-label={option.label}
+                title={option.label}
+                onClick={() => setSideView(option.value)}
+                className={`flex size-6 items-center justify-center rounded-md transition-opacity ${sideView === option.value ? "bg-app-chip opacity-100" : "opacity-45 hover:opacity-80"}`}
+              >
+                <SideGlyph view={option.value} />
+              </button>
+            ))}
+            {sides && (
+              <span className="ml-auto flex items-center gap-2.5 pr-0.5 text-[10px] text-app-muted" title="Bars show each level's size by venue">
+                {sides.map(({ venue }) => (
+                  <span key={venue} className="flex items-center gap-1">
+                    <span className="size-2 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />
+                    {VENUE_SHORT[venue]}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
           <div className="grid shrink-0 grid-cols-3 px-2 pb-1 text-[10px] uppercase tracking-[0.06em] text-app-faint">
             <span>Price</span>
             <span className="text-right">Size</span>
@@ -264,7 +299,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
             <p className="p-3 text-[12px] text-app-faint">{status === "offline" ? "Order book unavailable. Reconnecting…" : "Loading order book…"}</p>
           ) : (
             <>
-              <Levels rows={asks} side="asks" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.asks} />
+              {sideView !== "bids" && <Levels rows={asks} side="asks" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.asks} />}
               <div className="flex shrink-0 items-center justify-between border-y border-app-hairline px-2 py-1 text-[11px] tabular-nums">
                 <span className="font-semibold text-app-ink">
                   {spread ? spread.mid.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals + 1 }) : "—"}
@@ -277,7 +312,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
                   <span className="text-app-faint">Spread {spread ? `${spread.pct.toFixed(3)}%` : "—"}</span>
                 )}
               </div>
-              <Levels rows={bids} side="bids" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.bids} />
+              {sideView !== "asks" && <Levels rows={bids} side="bids" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.bids} />}
             </>
           )}
         </div>
