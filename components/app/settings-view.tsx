@@ -723,17 +723,35 @@ function VenueSettings() {
         </p>
       )}
       {perpChoices.length > 1 && (
-        <SettingRow
-          title="Preferred perp venue"
-          description="News perp trades go here first. When it does not list the asset, the next enabled perp venue is used."
-        >
-          <SegmentedControl
-            label="Preferred perp venue"
-            value={perpChoices.some((option) => option.value === preferences.preferredPerpVenue) ? preferences.preferredPerpVenue : perpChoices[0].value}
-            options={perpChoices}
-            onChange={(value) => updatePreference("preferredPerpVenue", value)}
-          />
-        </SettingRow>
+        // One tile per enabled perp venue (the same icons as above), so it scales to any number of venues.
+        <section className="border-b border-app-line py-4">
+          <h3 className="text-[15px] font-semibold text-app-ink">Preferred perp venue</h3>
+          <p className="mt-1 text-[13px] text-app-muted">News perp trades go here first. When it does not list the asset, the next enabled perp venue is used.</p>
+          <div role="radiogroup" aria-label="Preferred perp venue" className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+            {perpChoices.map((option) => {
+              const tile = VENUE_GROUPS[0].tiles.find((entry) => entry.key === option.value)!;
+              const preferred = option.value === (perpChoices.some((choice) => choice.value === preferences.preferredPerpVenue) ? preferences.preferredPerpVenue : perpChoices[0].value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={preferred}
+                  onClick={() => updatePreference("preferredPerpVenue", option.value)}
+                  className={`relative flex flex-col items-center gap-2 rounded-2xl border px-2 pb-2.5 pt-3.5 transition-all ${
+                    preferred ? "border-app-accent/60 bg-app-accent/[0.07] shadow-[0_0_0_3px_rgb(var(--app-accent)/0.08)]" : "border-app-line bg-app-chip/30 hover:border-app-field-border"
+                  }`}
+                >
+                  {preferred && <span className="absolute right-2 top-2 rounded-full bg-app-accent px-1.5 text-[9px] font-bold uppercase tracking-wide text-app-on-accent">1st</span>}
+                  <span className={preferred ? "" : "opacity-60 grayscale"}>
+                    <CoinIcon src={`/api/favicon?domain=${tile.domain}`} symbol={option.label} chain={tile.chain} size={30} />
+                  </span>
+                  <span className={`max-w-full truncate text-[12px] font-semibold ${preferred ? "text-app-ink" : "text-app-muted"}`}>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
       {/* Local builds only: switch a venue between testnet and mainnet. */}
       {!deployment && preferences.venueHyperliquid && (
