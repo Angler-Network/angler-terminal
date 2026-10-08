@@ -114,8 +114,16 @@ function VenueChips({
     }`;
   return (
     <div role="radiogroup" aria-label="Venue" className="flex min-w-0 items-center gap-1.5">
-      <button type="button" role="radio" aria-checked={auto} title="Auto: each market order goes to the venue with the best price" onClick={onAuto} className={chip(auto)}>
-        <Sparkles className={`size-3.5 ${auto ? "text-app-accent" : "text-app-muted"}`} aria-hidden />
+      <button
+        type="button"
+        role="radio"
+        aria-checked={auto}
+        title="Auto routing: each market order goes to whichever venue gives the best price right now"
+        onClick={onAuto}
+        className={`${chip(auto)} w-auto gap-1 px-2 text-[11px] font-semibold ${auto ? "text-app-accent" : "text-app-muted"}`}
+      >
+        <Sparkles className="size-3.5" aria-hidden />
+        Auto
       </button>
       <span aria-hidden className="h-5 w-px shrink-0 bg-app-hairline" />
       <div className="scrollbar-none flex max-w-[75%] shrink-0 gap-1.5 overflow-x-auto">
@@ -138,7 +146,11 @@ function VenueChips({
           );
         })}
       </div>
-      {chosen && <span className="ml-auto min-w-0 truncate pl-1 text-[12px] font-semibold text-app-ink">{auto ? `Auto · ${chosen.name}` : chosen.name}</span>}
+      {chosen && (
+        <span className="ml-auto min-w-0 truncate pl-1 text-[12px] font-semibold text-app-ink" title={auto ? `Best price right now is on ${chosen.name}` : undefined}>
+          {auto ? `Best: ${chosen.name}` : chosen.name}
+        </span>
+      )}
     </div>
   );
 }
