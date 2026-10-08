@@ -16,7 +16,7 @@ import { PERP_VENUE_NAMES, PERP_VENUE_SHORT } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { FundingArbDialog } from "./funding-arb-dialog";
 
-const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", aster: "Aster", binance: "Binance", bybit: "Bybit" };
+const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
 
 type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | FundingVenue;
 

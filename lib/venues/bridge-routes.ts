@@ -34,6 +34,8 @@ export function walletChainSource(chain: WalletChain, network: Network = "mainne
 export type FundsStep =
   /** Hyperliquid `withdraw3` to the wallet's USDC on Arbitrum, minus the 1 USDC fee. */
   | { kind: "hlWithdraw" }
+  /** Orderly's withdrawal to the wallet's USDC on Arbitrum (wallet signature, Orderly's 1 USDC fee, a few minutes). */
+  | { kind: "orderlyWithdraw" }
   /** Across from the wallet on `from` to `to`, paid to the wallet or to a Lighter instance's deposit address. */
   | { kind: "across"; from: SourceChain; to: SourceChain; recipient: "wallet" | LighterVenueId }
   /** A transfer from the wallet into a venue (Hyperliquid's bridge contract or a Lighter deposit address). */
@@ -93,6 +95,12 @@ export function fundsRoute(
       : steps("deposit", [{ kind: "across", from: source, to: target, recipient: to }], source, target);
   }
 
+  if (from === "orderly") {
+    // Orderly pays out on Arbitrum; other wallet chains and venues aren't wired from it yet.
+    if (to !== "wallet" || chains.to !== "arbitrum") return { kind: "soon" };
+    if (networkOf("orderly") !== "mainnet") return { kind: "testnet" };
+    return steps("withdraw", [{ kind: "orderlyWithdraw" }], ARBITRUM, ARBITRUM);
+  }
   if (from !== "hyperliquid") return { kind: "soon" };
   const hlMainnet = networkOf("hyperliquid") === "mainnet";
   if (to === "wallet") {

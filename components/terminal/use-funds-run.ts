@@ -43,6 +43,7 @@ export function errorMessage(caught: unknown) {
 /** One line per step, for the checklist and the continue button. */
 export function stepLabel(step: FundsStep) {
   if (step.kind === "hlWithdraw") return "Withdraw from Hyperliquid (signature, no gas, 1 USDC fee), lands on Arbitrum in 3-4 min";
+  if (step.kind === "orderlyWithdraw") return "Withdraw from Orderly (signature, no gas, 1 USDC fee), lands on Arbitrum in a few minutes";
   if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
   const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
   const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
@@ -53,7 +54,7 @@ export function continueLabel(step: FundsStep, carry: bigint) {
   const amount = units6(carry).toFixed(2);
   if (step.kind === "transfer") return `Deposit ${amount} ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]}`;
   if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
-  return "Withdraw from Hyperliquid";
+  return step.kind === "orderlyWithdraw" ? `Withdraw ${amount} USDC from Orderly` : "Withdraw from Hyperliquid";
 }
 
 interface FundsRunOptions {
@@ -102,6 +103,14 @@ export function useFundsRun(callbacks: FundsRunOptions) {
     const step = current.steps[current.index];
     setRun({ ...current, phase: "busy" });
     try {
+      if (step.kind === "orderlyWithdraw") {
+        const { withdrawOrderly } = await import("@/lib/venues/orderly/withdraw");
+        await withdrawOrderly(wallet.provider, address, current.carry);
+        // Orderly pays out by itself, like Hyperliquid: the run ends at the request.
+        setRun(null);
+        toast({ tone: "success", title: "Orderly withdrawal requested", message: `${units6(current.carry).toFixed(2)} USDC minus Orderly's 1 USDC fee lands on Arbitrum in a few minutes.` });
+        return options.current.onWithdrawOnly?.();
+      }
       if (step.kind === "hlWithdraw") {
         const before = await readUsdcBalance(ARBITRUM, address);
         const expected = usdcUnits(String(Math.floor((units6(current.carry) - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6)) ?? 0n;

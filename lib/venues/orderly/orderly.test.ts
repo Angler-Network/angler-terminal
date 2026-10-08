@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import futures from "./fixtures/public-futures.json";
 import info from "./fixtures/public-info.json";
 import { ORDERLY_TESTNET_DEMO_BROKER, readOrderlyConfig } from "./config";
+import { orderlyFundingRows } from "./funding";
 import { orderlyBase, readOrderlyAccount, readOrderlyBook, readOrderlyCandles, readOrderlyMarkets, readOrderlyTrade, roundToTick, tickDecimals } from "./markets";
 import { newOrderlyKey, orderlyAccountId, orderlyHash, orderlyHeaders, orderlyMessage } from "./sign";
 
@@ -85,5 +86,25 @@ describe("Orderly signing", () => {
     expect(orderlyMessage(1649920583000, "post", "/v1/order", body)).toBe(`1649920583000POST/v1/order${body}`);
     expect(ed25519.verify(base64urlnopad.decode(headers["orderly-signature"]), message, base58.decode(key.publicKey.slice(8)))).toBe(true);
     expect(orderlyHeaders(key.secret, "0xabc", 1, "GET", "/v1/positions", "")["content-type"]).toBe("application/x-www-form-urlencoded");
+  });
+});
+
+describe("Orderly funding", () => {
+  it("normalizes each market's last rate to 8 hours and drops broker-only markets", () => {
+    const rows = orderlyFundingRows(
+      [
+        { symbol: "PERP_BTC_USDC", last_funding_rate: 0.00001 },
+        { symbol: "PERP_DOGE_USDC", last_funding_rate: 0.0002 },
+        { symbol: "PERP_AAOI_USDC_mythos", last_funding_rate: 0.1 },
+      ],
+      [
+        { symbol: "PERP_BTC_USDC", funding_period: 8 },
+        { symbol: "PERP_DOGE_USDC", funding_period: 4 },
+      ],
+    );
+    expect(rows).toEqual([
+      { exchange: "orderly", symbol: "BTC", rate: 0.00001 },
+      { exchange: "orderly", symbol: "DOGE", rate: 0.0004 },
+    ]);
   });
 });

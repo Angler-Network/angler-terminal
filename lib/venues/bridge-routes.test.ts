@@ -75,3 +75,14 @@ describe("fundsRoute", () => {
     expect(presetRoute("move", "hyperliquid")).toMatchObject({ from: "hyperliquid", to: "lighter" });
   });
 });
+
+describe("Orderly funds", () => {
+  it("deposits through its vault from the wallet or after a Hyperliquid withdrawal, and withdraws to Arbitrum", () => {
+    expect(shape(fundsRoute("wallet", "orderly", on("arbitrum"), mainnet))).toEqual(["transfer orderly 42161"]);
+    expect(shape(fundsRoute("wallet", "orderly", on("base"), mainnet))).toEqual(["transfer orderly 8453"]);
+    expect(shape(fundsRoute("hyperliquid", "orderly", on("arbitrum"), mainnet))).toEqual(["hlWithdraw", "transfer orderly 42161"]);
+    expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "arbitrum"), mainnet))).toEqual(["orderlyWithdraw"]);
+    expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "base"), mainnet))).toBe("soon");
+    expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "arbitrum"), testnet))).toBe("testnet");
+  });
+});

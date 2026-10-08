@@ -118,9 +118,31 @@ function createOrderlyVenue(): PerpVenue {
     throw new VenueError("Orderly accepted the order but hasn't confirmed the fill yet. Check your positions before trying again.");
   }
 
+  /**
+   * TP/SL on the whole position: Orderly's `POSITIONAL_TP_SL` algo order, one child per level, each closing the
+   * position at market when the mark price crosses it.
+   */
+  async function placePositionTpsl(user: `0x${string}`, market: VenueMarket, closeSide: "BUY" | "SELL", levels: PositionTpsl) {
+    const steps = await stepsOf(market.coin);
+    const children = (
+      [
+        ["TAKE_PROFIT", levels.takeProfit],
+        ["STOP_LOSS", levels.stopLoss],
+      ] as const
+    ).flatMap(([type, price]) =>
+      price
+        ? [{ symbol: market.coin, algo_type: type, side: closeSide, type: "CLOSE_POSITION", trigger_price_type: "MARK_PRICE", trigger_price: roundToTick(price, steps.quoteTick), reduce_only: true }]
+        : [],
+    );
+    if (children.length === 0) return;
+    await signed(user, "POST", "/v1/algo/order", { symbol: market.coin, algo_type: "POSITIONAL_TP_SL", trigger_price_type: "MARK_PRICE", child_orders: children });
+  }
+
   async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
     const { market } = input;
-    if (input.takeProfit || input.stopLoss) throw new VenueError("TP/SL on Orderly isn't available here yet. Place the order without it.");
+    const withTpsl = Boolean(input.takeProfit || input.stopLoss);
+    // Orderly's TP/SL attaches to a position, so a resting limit entry can't carry one yet.
+    if (withTpsl && input.kind === "limit") throw new VenueError("On Orderly, add TP/SL after the limit order fills (TP/SL on the position row).");
     const steps = await stepsOf(market.coin);
     const quantity = roundToTick(input.size, steps.baseTick);
     if (!(quantity > 0)) throw new VenueError(`Size is below ${market.symbol}'s lot on Orderly (${steps.baseTick}).`);
@@ -133,7 +155,15 @@ function createOrderlyVenue(): PerpVenue {
       ...(input.kind === "limit" && input.limitPx ? { order_price: roundToTick(input.limitPx, steps.quoteTick) } : {}),
       ...(input.reduceOnly ? { reduce_only: true } : {}),
     });
-    return confirm(user, order.order_id, input.kind);
+    const result = await confirm(user, order.order_id, input.kind);
+    if (withTpsl && result.status === "filled") {
+      try {
+        await placePositionTpsl(user, market, input.side === "buy" ? "SELL" : "BUY", { takeProfit: input.takeProfit, stopLoss: input.stopLoss });
+      } catch (error) {
+        throw new VenueError(`The order filled, but Orderly refused the TP/SL (${error instanceof Error ? error.message : String(error)}). Set it from the position row.`);
+      }
+    }
+    return result;
   }
 
   async function cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coin" | "oid">) {
@@ -146,8 +176,10 @@ function createOrderlyVenue(): PerpVenue {
     return placeOrder(user, { market, side: position.size > 0 ? "sell" : "buy", kind: "market", size: Math.abs(position.size), reduceOnly: true });
   }
 
-  async function setPositionTpsl(_user: `0x${string}`, _position: VenuePosition, _levels: PositionTpsl) {
-    throw new VenueError("TP/SL on Orderly isn't available here yet.");
+  async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, levels: PositionTpsl) {
+    const market = (await listMarkets()).find((entry) => entry.coin === position.coin);
+    if (!market) throw new VenueError(`Orderly doesn't list ${position.symbol} anymore.`);
+    await placePositionTpsl(user, market, position.size > 0 ? "SELL" : "BUY", levels);
   }
 
   /** Positions, open orders and collateral every few seconds (before setup the account is empty). */
