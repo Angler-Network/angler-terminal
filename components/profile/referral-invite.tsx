@@ -2,7 +2,6 @@
 
 import { Gift, X } from "lucide-react";
 import { useState } from "react";
-import { shortAddress } from "@/lib/profile/identity";
 import { useProfile } from "./profile-provider";
 
 /**
@@ -16,7 +15,6 @@ export function ReferralInvite() {
   // Only new profiles can join through a link (the server checks the same).
   const isNew = profile !== null && profile.points === 0 && !profile.referrer;
   if (!pendingReferral || !isNew) return null;
-  const inviter = /^0x[0-9a-f]{40}$/i.test(pendingReferral) ? shortAddress(pendingReferral) : pendingReferral;
 
   return (
     <div
@@ -28,8 +26,8 @@ export function ReferralInvite() {
         <Gift className="size-[18px]" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold">{inviter} invited you</p>
-        <p className="mt-0.5 text-[12px] text-app-muted">Join with their link to support them. One signature, no fee.</p>
+        <p className="text-[14px] font-semibold">You have an invite</p>
+        <p className="mt-0.5 text-[12px] text-app-muted">Accept invite {pendingReferral.toUpperCase()} to join the trader who sent it. One signature, no fee.</p>
         {error && <p className="mt-1 text-[12px] text-app-down">{error}</p>}
         <button
           type="button"

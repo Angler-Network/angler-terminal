@@ -1,6 +1,8 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
 import { dayKey, volumeOverDays } from "./days";
+import { INVITE_VOLUME } from "./invites";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
 import type { EnsIdentity } from "./ens";
 import { profileIdOf, type ProfileChain } from "./identity";
@@ -9,6 +11,8 @@ import { profileIdOf, type ProfileChain } from "./identity";
  * Profiles in Redis (`lib/redis.ts`, memory without it), per deployment so testnet points stay apart:
  *   p:{id}          hash: username, usd:{venue}, cursors, links
  *   d:{id}          hash: UTC day → volume credited that day (7 and 30 day totals)
+ *   inv:{id}        hash: invite code → the profile that used it ("" while unused)
+ *   invite:{code}   the profile that owns an invite code; invite-used:{code} the profile that used it
  *   points          sorted set: id → points (the leaderboard)
  *   name:{lower}    the id holding a username
  *   claim:{tx}      a Solana swap already credited
@@ -142,6 +146,8 @@ export interface ProfileView {
   /** Profiles this one referred, and the points their volume earned it. */
   referrals: number;
   referralPoints: number;
+  /** Single-use invite codes, one per INVITE_VOLUME of own volume; a referrer is set only through one. */
+  invites: { codes: Array<{ code: string; usedBy: string | null }>; nextAt: number };
   /** Primary ENS name and avatar (EVM), added by the API route. */
   ens?: EnsIdentity | null;
 }
@@ -184,6 +190,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
+  const invites = await syncInvites(id, totalOf(volumeOf(hash)));
   const volume = volumeOf(hash);
   const points = pointsOf(hash);
   return {
@@ -199,6 +206,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
     referrals: referred.length,
+    invites,
     referralPoints: pointsFor(referralUsdOf(hash)),
   };
 }
@@ -255,6 +263,49 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number)
   }
 }
 
+/** Codes made in one read at most (a whale's first read after this ships). */
+const MAX_NEW_INVITES = 50;
+/** Invite codes and their use are kept for good (Redis needs an expiry for SET NX here: a century). */
+const INVITE_TTL_SECONDS = 100 * 365 * 86_400;
+/** No 0/O or 1/I/L: codes get read out and typed. */
+const INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function newInviteCode() {
+  return Array.from({ length: 8 }, () => INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)]).join("");
+}
+
+async function readInvites(id: string): Promise<Record<string, string>> {
+  if (!redisConfig()) return { ...(memory.hashes.get(key("inv", id)) ?? {}) };
+  const [result] = await run([["HGETALL", key("inv", id)]]);
+  return toHash(result);
+}
+
+async function setInvite(id: string, code: string, usedBy: string) {
+  if (!redisConfig()) {
+    memory.hashes.set(key("inv", id), { ...(memory.hashes.get(key("inv", id)) ?? {}), [code]: usedBy });
+    return;
+  }
+  await run([["HSET", key("inv", id), code, usedBy]]);
+}
+
+/** Tops a profile up to the invite codes its volume earned, and lists them (unused first). */
+async function syncInvites(id: string, volume: number): Promise<ProfileView["invites"]> {
+  const earned = Math.floor(volume / INVITE_VOLUME);
+  const codes = await readInvites(id);
+  let missing = Math.min(MAX_NEW_INVITES, earned - Object.keys(codes).length);
+  while (missing > 0) {
+    const code = newInviteCode();
+    // A code is claimed for good (no expiry); a clash just draws another one.
+    if (!(await takeKey(key("invite", code), INVITE_TTL_SECONDS, id))) continue;
+    await setInvite(id, code, "");
+    codes[code] = "";
+    missing--;
+  }
+  const list = Object.entries(codes).map(([code, usedBy]) => ({ code, usedBy: usedBy || null }));
+  list.sort((a, b) => Number(Boolean(a.usedBy)) - Number(Boolean(b.usedBy)) || a.code.localeCompare(b.code));
+  return { codes: list, nextAt: (earned + 1) * INVITE_VOLUME };
+}
+
 export type ReferralResult = { ok: true; referrer: string } | { ok: false; error: string };
 
 /**
@@ -265,13 +316,17 @@ export async function setReferrer(id: string, code: string): Promise<ReferralRes
   const own = await getHash(id);
   if (own.referrer) return { ok: false, error: "This profile already has a referrer." };
   // Referral links are for new traders: a profile that already traded through Angler can't pick a referrer later.
-  if (totalOf(volumeOf(own)) > 0) return { ok: false, error: "Referral links only apply to new profiles." };
-  const referrer = profileIdOf(code)?.id ?? (await getKey(key("name", code.toLowerCase())));
-  if (!referrer) return { ok: false, error: "No profile uses that referral code." };
-  if (referrer === id) return { ok: false, error: "You can't refer yourself." };
+  if (totalOf(volumeOf(own)) > 0) return { ok: false, error: "Invites only apply to new profiles." };
+  const invite = code.toUpperCase();
+  const referrer = await getKey(key("invite", invite));
+  if (!referrer) return { ok: false, error: "That invite code doesn't exist." };
+  if (referrer === id) return { ok: false, error: "You can't use your own invite." };
   if ((await getHash(referrer)).referrer === id) return { ok: false, error: "That profile was referred by you." };
+  // One use per code: the first claim wins.
+  if (!(await takeKey(key("invite-used", invite), INVITE_TTL_SECONDS, id))) return { ok: false, error: "That invite was already used." };
   await setFields(id, { referrer });
   await addToSet(key("refs", referrer), id);
+  await setInvite(referrer, invite, id);
   return { ok: true, referrer };
 }
 

@@ -8,6 +8,7 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { LEVELS } from "@/lib/profile/levels";
 import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
+import { INVITE_VOLUME } from "@/lib/profile/invites";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import { PortfolioCard } from "./portfolio-card";
 import { ProfileAvatar } from "./profile-avatar";
@@ -336,50 +337,63 @@ function Overview() {
           <li>0.01 point per dollar (a point per $100) traded through Angler, on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
-          <li>Referrals: you earn 10% of the points of everyone who joins with your link, from their volume after they join. Their own points stay the same.</li>
+          <li>Invites: every $10K you trade earns a single-use invite. You earn 10% of the points of everyone who joins with one, from their volume after they join. Their own points stay the same.</li>
         </ul>
       </section>
     </>
   );
 }
 
-/** Your referral link, code and stats. A referrer is set only by joining through a link (`ReferralInvite`). */
+/** Your invite codes (one per INVITE_VOLUME traded, single use) and referral stats; a referrer is set only through one (`ReferralInvite`). */
 function ReferralCard() {
   const { id, profile } = useProfile();
-  const [copied, setCopied] = useState<"link" | "code" | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   // Opened from the account menu's Referrals: scroll here once the card has rendered.
   useEffect(() => {
     if (profile && window.location.hash === "#referrals") document.getElementById("referrals")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [profile]);
   if (!id || !profile) return null;
-  const ownCode = profile.username ?? profile.id;
-  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${ownCode}`;
-  const copy = (what: "link" | "code") =>
-    void navigator.clipboard?.writeText(what === "link" ? link : ownCode).then(() => {
-      setCopied(what);
+  const { codes, nextAt } = profile.invites;
+  const available = codes.filter((entry) => !entry.usedBy).length;
+  const ownVolume = VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0);
+  const copy = (code: string) =>
+    void navigator.clipboard?.writeText(`${window.location.origin}/?ref=${code}`).then(() => {
+      setCopied(code);
       window.setTimeout(() => setCopied(null), 1500);
     });
-  const copyButton = "h-9 shrink-0 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70";
   return (
-    <section id="referrals" className={`${card} h-full scroll-mt-4 p-4`}>
-      <h2 className="text-[13px] font-semibold text-app-ink">Referrals</h2>
-      <p className="mt-1 text-[12px] text-app-muted">Share your link: you earn 10% of the points of everyone who joins with it.</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-[12px] text-app-muted">Your code</span>
-        <code title={ownCode} className="min-w-0 truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] font-semibold text-app-ink">
-          {profile.username ?? shortAddress(profile.id)}
-        </code>
-        <span className="ml-auto flex gap-2">
-          <button type="button" onClick={() => copy("link")} title={link} className={copyButton}>
-            {copied === "link" ? "Copied" : "Copy link"}
-          </button>
-          <button type="button" onClick={() => copy("code")} title={ownCode} className={copyButton}>
-            {copied === "code" ? "Copied" : "Copy code"}
-          </button>
-        </span>
+    <section id="referrals" className={`${card} flex h-full scroll-mt-4 flex-col p-4`}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-[13px] font-semibold text-app-ink">Invites</h2>
+        <span className="rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
       </div>
-      {!profile.username && <p className="mt-1.5 text-[11px] text-app-faint">Set a username for a shorter link.</p>}
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <p className="mt-1 text-[12px] text-app-muted">
+        Every {compactUsd.format(INVITE_VOLUME)} you trade earns an invite. Each one brings in one trader, and you earn 10% of their points.
+      </p>
+      {codes.length > 0 ? (
+        <ul className="scrollbar-subtle mt-3 flex max-h-[168px] flex-col gap-1.5 overflow-y-auto">
+          {codes.map((entry) => (
+            <li key={entry.code} className="flex items-center gap-2 rounded-lg bg-app-chip/60 px-2.5 py-1.5">
+              <code className={`text-[13px] font-semibold tracking-wider ${entry.usedBy ? "text-app-faint line-through" : "text-app-ink"}`}>{entry.code}</code>
+              {entry.usedBy ? (
+                <span className="ml-auto text-[11px] text-app-faint">Used by {shortAddress(entry.usedBy)}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => copy(entry.code)}
+                  className="ml-auto h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
+                >
+                  {copied === entry.code ? "Copied" : "Copy link"}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">No invites yet.</p>
+      )}
+      <p className="mt-1.5 text-[11px] text-app-faint">Next invite at {compactUsd.format(nextAt)} traded ({compactUsd.format(Math.max(0, nextAt - ownVolume))} to go).</p>
+      <div className="mt-auto grid grid-cols-2 gap-3 pt-3">
         <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
           <p className="text-[11px] text-app-muted">Referred</p>
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.referrals}</p>
@@ -389,7 +403,7 @@ function ReferralCard() {
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{number.format(profile.referralPoints)}</p>
         </div>
       </div>
-      {profile.referrer && <p className="mt-3 text-[12px] text-app-muted">Referred by {shortAddress(profile.referrer)}.</p>}
+      {profile.referrer && <p className="mt-3 text-[12px] text-app-muted">Invited by {shortAddress(profile.referrer)}.</p>}
     </section>
   );
 }

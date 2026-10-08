@@ -151,11 +151,11 @@ function ReferralBanner() {
         <Gift className="size-[18px]" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold text-app-ink">Bring your crew, keep 10% of their points</span>
-        <span className="block text-[12px] text-app-muted">Share your link from your profile. Every trader who joins with it earns you points on every trade, for good.</span>
+        <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their points</span>
+        <span className="block text-[12px] text-app-muted">Every $10K you trade earns a single-use invite. Each trader you bring in earns you points on every trade, for good.</span>
       </span>
       <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#f5c97b] px-3 text-[12px] font-semibold text-black">
-        Get your link
+        My invites
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
     </Link>
