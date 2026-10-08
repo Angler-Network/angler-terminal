@@ -3,13 +3,21 @@
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { REFERRAL_CODE } from "@/lib/profile/identity";
 import { useProfile } from "./profile-provider";
 
 /** Invite codes are 8 characters (`lib/profile/store.ts`). */
 const CODE_LENGTH = 8;
+
+// Loaded only when the gate shows (it sits in the root layout): WebGL and the slot animations stay out of every other page.
+const DarkVeil = dynamic(() => import("@/components/fx/dark-veil"), { ssr: false });
+/** Turns the veil's violet toward Angler's gold. */
+const GATE_HUE = 205;
+
+const CodeSlots = dynamic(() => import("@/components/fx/code-slots"), { ssr: false });
 
 function Step({ index, label, state }: { index: number; label: string; state: "done" | "current" | "next" }) {
   return (
@@ -23,49 +31,6 @@ function Step({ index, label, state }: { index: number; label: string; state: "d
       </span>
       {label}
     </span>
-  );
-}
-
-/** One box per character over a single real input, so typing, pasting and mobile keyboards all just work. */
-function CodeInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [focused, setFocused] = useState(false);
-  useEffect(() => inputRef.current?.focus(), []);
-  return (
-    <div className="relative" onClick={() => inputRef.current?.focus()}>
-      <div aria-hidden className="grid grid-cols-8 gap-1.5 sm:gap-2">
-        {Array.from({ length: CODE_LENGTH }, (_, index) => {
-          const char = value[index];
-          const current = focused && index === Math.min(value.length, CODE_LENGTH - 1);
-          return (
-            <span
-              key={index}
-              className={`flex aspect-[4/5] items-center justify-center rounded-xl border text-[20px] font-semibold transition-all duration-150 ${
-                current
-                  ? "border-[#f5c97b] bg-[#f5c97b]/[0.07] shadow-[0_0_0_4px_rgba(245,201,123,0.12)]"
-                  : char
-                    ? "border-app-hairline-strong bg-app-card text-app-ink"
-                    : "border-app-hairline bg-app-field"
-              }`}
-            >
-              {char ?? (current ? <span className="h-6 w-px animate-pulse bg-[#f5c97b]" /> : "")}
-            </span>
-          );
-        })}
-      </div>
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={(event) => onChange(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, CODE_LENGTH))}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        aria-label="Invite code"
-        autoComplete="one-time-code"
-        autoCapitalize="characters"
-        spellCheck={false}
-        className="absolute inset-0 cursor-text opacity-0"
-      />
-    </div>
   );
 }
 
@@ -101,9 +66,9 @@ export function AccessGate() {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-xl">
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="gate-aurora absolute -left-1/4 -top-1/3 h-[80vh] w-[80vw] rounded-full bg-[radial-gradient(closest-side,rgba(245,201,123,0.16),transparent)]" />
-        <div className="gate-aurora absolute -bottom-1/3 -right-1/4 h-[70vh] w-[70vw] rounded-full bg-[radial-gradient(closest-side,rgba(95,180,217,0.10),transparent)] [animation-delay:-9s]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden opacity-70">
+        {/* Half resolution: a soft veil doesn't need more, and the GPU stays free. It stops when the gate unmounts. */}
+        <DarkVeil hueShift={GATE_HUE} speed={0.35} resolutionScale={0.5} />
       </div>
 
       <div role="dialog" aria-modal="true" aria-labelledby="access-gate-title" className="gate-rise relative flex w-full max-w-[460px] flex-col items-center text-center text-app-ink">
@@ -139,7 +104,19 @@ export function AccessGate() {
                   void join();
                 }}
               >
-                <CodeInput value={code} onChange={setCode} />
+                <CodeSlots
+                  length={CODE_LENGTH}
+                  value={code}
+                  onChange={setCode}
+                  autoFocus
+                  accentColor="#f5c97b"
+                  status={message ? "error" : "idle"}
+                  slotSize={44}
+                  gap={8}
+                  radius={12}
+                  ariaLabel="Invite code"
+                  className="justify-center"
+                />
                 {message && <p className="mt-3 text-[12px] text-app-down">{message}</p>}
                 <button
                   type="submit"
