@@ -19,7 +19,10 @@ import type { BridgeLegRef, DirectQuote, DirectSwapRequest } from "@/lib/venues/
 import { WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { LIFI_NATIVE_SOL, LIFI_SOLANA_CHAIN } from "@/lib/venues/lifi";
 import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
-import type { UniswapQuote } from "@/lib/venues/uniswap/quote";
+import { fetchAggregatorQuote, type EvmSwapQuote } from "@/lib/venues/aggregators/client";
+import { AGGREGATOR_NAMES, type AggregatorProvider } from "@/lib/venues/aggregators/types";
+import { useOffServices } from "@/components/app/service-status";
+import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
 import { DetailRow, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
@@ -103,10 +106,23 @@ function useBalances(rpc: string | null, owner: `0x${string}` | null, tokens: st
   return key && state?.key === key ? state.amounts : null;
 }
 
-/** A debounced Uniswap quote for the exact input, refreshed every few seconds. */
+/** The aggregators asked next to Uniswap: switched on in Settings, set up on this site, and not turned off by an admin. */
+function useAggregators(): AggregatorProvider[] {
+  const { preferences } = usePreferences();
+  const { off } = useOffServices();
+  return (["zerox", "odos"] as const).filter(
+    (provider) => venueAvailable(provider) && (provider === "zerox" ? preferences.venueZerox : preferences.venueOdos) && !off.includes(`swap:${provider}`),
+  );
+}
+
+/**
+ * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, Odos) asked
+ * together, the largest output wins. All carry the same fee, so the best price for the trader is the one that runs.
+ */
 function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; amount: bigint | null; swapper: string | null; slippageBps: number | null }) {
-  const key = input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps].join("|") : null;
-  const [state, setState] = useState<{ key: string; quote?: UniswapQuote; error?: string } | null>(null);
+  const aggregators = useAggregators();
+  const key = input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(",")].join("|") : null;
+  const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (!key || !input.amount) return;
@@ -114,8 +130,15 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
     const load = async () => {
       setLoading(true);
       try {
-        const quote = await fetchUniswapQuote({ ...input, amount: input.amount! });
-        if (active) setState({ key, quote });
+        const request = { ...input, amount: input.amount! };
+        const results = await Promise.allSettled([
+          fetchUniswapQuote(request).then((quote): EvmSwapQuote => ({ ...quote, provider: "uniswap" })),
+          ...aggregators.map((provider) => fetchAggregatorQuote(provider, request)),
+        ]);
+        const quotes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+        const best = quotes.reduce<EvmSwapQuote | null>((winner, quote) => (!winner || quote.outAmount > winner.outAmount ? quote : winner), null);
+        if (!best) throw (results[0] as PromiseRejectedResult).reason;
+        if (active) setState({ key, quote: best });
       } catch (error) {
         if (active) setState({ key, error: error instanceof Error ? error.message : String(error) });
       } finally {
@@ -588,12 +611,17 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one poller per sent swap
   }, [directPending, owner]);
 
-  /** One Uniswap swap on this chain; resolves to what it delivered, or null when it failed (a toast says why). */
-  const swapOnChain = async (tokenIn: Side, tokenOut: Side, amountIn: bigint) => {
+  /**
+   * One swap on this chain through the source whose quote won (Uniswap, 0x or Odos); resolves to what it delivered,
+   * or null when it failed (a toast says why).
+   */
+  const swapOnChain = async (tokenIn: Side, tokenOut: Side, amountIn: bigint, source: EvmSwapQuote["provider"] = "uniswap") => {
     if (!owner || !wallet) return null;
+    const sourceName = source === "uniswap" ? "Uniswap" : AGGREGATOR_NAMES[source];
     try {
-      const [{ uniswapSwap }, viem] = await Promise.all([import("@/lib/venues/uniswap/venue"), viemChain(chain)]);
-      const result = await uniswapSwap({
+      const [{ uniswapSwap }, { aggregatorSwap }, viem] = await Promise.all([import("@/lib/venues/uniswap/venue"), import("@/lib/venues/aggregators/venue"), viemChain(chain)]);
+      const run = source === "uniswap" ? uniswapSwap : (args: Parameters<typeof uniswapSwap>[0]) => aggregatorSwap(source, args);
+      const result = await run({
         provider: wallet.provider,
         account: owner,
         chain: viem,
@@ -611,16 +639,16 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       toast({
         tone: "success",
         title: `${bought ? "Bought" : "Sold"} ${amountText(tokenAmount)} ${token.symbol}`,
-        message: `${bought ? "Spent" : "Received"} ${amountText(otherAmount)} ${other.symbol} on Uniswap · ${chain.name}${result.gasless ? " (gasless)" : ""}`,
+        message: `${bought ? "Spent" : "Received"} ${amountText(otherAmount)} ${other.symbol} on ${sourceName} · ${chain.name}${result.gasless ? " (gasless)" : ""}`,
         link: { href: result.explorerUrl, label: "View transaction" },
       });
       recordSwap(owner, { tx: result.txHash, at: Date.now(), chain: chain.key, token: token.address, symbol: token.symbol, side: bought ? "buy" : "sell", amount: tokenAmount, usd });
-      trackTrade({ venue: "uniswap", side: bought ? "buy" : "sell", usd: Math.round(usd * 100) / 100, feeBps: null, newsId: null, oneClick: preferences.oneClickTrading });
+      trackTrade({ venue: source, side: bought ? "buy" : "sell", usd: Math.round(usd * 100) / 100, feeBps: null, newsId: null, oneClick: preferences.oneClickTrading });
       return result.outAmount;
     } catch (caught) {
       toast({
         tone: "error",
-        title: "Uniswap swap failed",
+        title: `${sourceName} swap failed`,
         message: caught instanceof Error ? caught.message : String(caught),
         link: caught instanceof Error && "explorerUrl" in caught && typeof caught.explorerUrl === "string" && caught.explorerUrl ? { href: caught.explorerUrl, label: "View transaction" } : undefined,
       });
@@ -679,13 +707,13 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     try {
       if (crossSell) {
         // Swap to this chain's USDC, then bridge what it delivered.
-        const out = tokenIsUsdc ? units : await swapOnChain(asset, { ...chainUsdc }, units);
+        const out = tokenIsUsdc ? units : await swapOnChain(asset, { ...chainUsdc }, units, sellQuote.quote?.provider);
         if (out === null) return;
         pendingFinish.current = remoteSource?.symbol ?? "USDC";
         void execute({ steps, index: 0, phase: "ready", carry: out });
         return;
       }
-      if (await swapOnChain(sell, buy, units)) setAmount("");
+      if (await swapOnChain(sell, buy, units, swapQuote.quote?.provider)) setAmount("");
     } finally {
       setPlacing(false);
       setRefresh((count) => count + 1);
@@ -869,7 +897,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
           1 {token.symbol} ≈ {DOLLARS.has(pay.symbol) ? formatPrice(rate) : amountText(rate)} {pay.symbol}
           <span className="text-app-faint">
             {" · "}
-            {direct ? `${directName}, ${side === "buy" ? remoteChainName : chain.name} → ${side === "buy" ? chain.name : remoteChainName}` : `Uniswap on ${chain.name}`}
+            {direct ? `${directName}, ${side === "buy" ? remoteChainName : chain.name} → ${side === "buy" ? chain.name : remoteChainName}` : `${quote && quote.provider !== "uniswap" ? AGGREGATOR_NAMES[quote.provider] : "Uniswap"} on ${chain.name}`}
             {direct ? "" : cross ? " + bridge" : quote ? (quote.settle === "order" ? ", gasless (UniswapX)" : quote.route.length ? ` via ${quote.route.join(", ")}` : "") : ""}
             {loading && <span aria-hidden className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-app-accent align-middle" />}
           </span>

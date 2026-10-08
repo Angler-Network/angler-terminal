@@ -538,9 +538,9 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", odos: "Odos" };
 
-type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueOdos" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
 interface VenueTile {
   key: VenueKey | BridgeProvider;
@@ -549,6 +549,8 @@ interface VenueTile {
   preference: VenuePreference;
   /** A bridge: an admin can turn it off for everyone, and the last one on stays on. */
   bridge?: BridgeProvider;
+  /** A service an admin can turn off for everyone (`lib/ops/kill-switch.ts`). */
+  serviceOff?: string;
   /** Site icon through /api/favicon, with the chain badge in its corner. */
   domain: string;
   chain?: number | string;
@@ -585,6 +587,8 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
         description: "Robinhood Chain stock swaps quote Uniswap and Arcus and take the better one. Pool swaps need a little ETH for gas.",
         shown: () => arcusConfig.network === "mainnet",
       },
+      { key: "zerox", preference: "venueZerox", domain: "0x.org", serviceOff: "swap:zerox", description: "EVM swap aggregator: swaps on Ethereum, Base and Arbitrum ask 0x, Odos and Uniswap and take the best quote." },
+      { key: "odos", preference: "venueOdos", domain: "odos.xyz", serviceOff: "swap:odos", description: "EVM swap aggregator with multi-path routing, compared with 0x and Uniswap on every EVM swap." },
     ],
   },
   {
@@ -694,7 +698,7 @@ function VenueSettings() {
             <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-app-faint">{group.title}</h3>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
               {tiles.map((tile) => {
-                const turnedOff = tile.bridge && off.includes(`bridge:${tile.bridge}`);
+                const turnedOff = (tile.bridge && off.includes(`bridge:${tile.bridge}`)) || (tile.serviceOff && off.includes(tile.serviceOff));
                 const lastBridge = tile.bridge && bridgesOn.length === 1 && bridgesOn[0] === tile.bridge;
                 const locked = turnedOff
                   ? "Turned off by Angler for everyone for now"

@@ -51,6 +51,8 @@ const SERVICES: Array<{ id: string; name: string }> = [
   { id: "bridge:across", name: "Across" },
   { id: "bridge:relay", name: "Relay" },
   { id: "bridge:lifi", name: "LI.FI" },
+  { id: "swap:zerox", name: "0x" },
+  { id: "swap:odos", name: "Odos" },
 ];
 
 /** Kill switches: turn a service off for everyone at once (a hacked or failing bridge); browsers drop it within a minute. */
@@ -69,7 +71,7 @@ function ServicesPanel() {
   return (
     <section className={`${card} p-4`}>
       <h3 className="text-[13px] font-semibold text-app-ink">Services</h3>
-      <p className="mt-1 text-[11px] text-app-faint">Turn a bridge off for everyone if it&apos;s hacked or failing. It stops being quoted in every browser within a minute.</p>
+      <p className="mt-1 text-[11px] text-app-faint">Turn a bridge or aggregator off for everyone if it&apos;s hacked or failing. It stops being quoted in every browser within a minute.</p>
       <ul className="mt-3 divide-y divide-app-hairline">
         {SERVICES.map((service) => {
           const isOff = off.includes(service.id);

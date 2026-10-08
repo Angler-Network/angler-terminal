@@ -23,7 +23,7 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-export type VenueKey = "hyperliquid" | "lighter" | "lighterRh" | "jupiter" | "titan" | "arcus" | "uniswap";
+export type VenueKey = "hyperliquid" | "lighter" | "lighterRh" | "jupiter" | "titan" | "arcus" | "uniswap" | "zerox" | "odos";
 
 /** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */
 export const configuredVenues = readConfiguredVenues(process.env.NEXT_PUBLIC_CONFIGURED_VENUES);

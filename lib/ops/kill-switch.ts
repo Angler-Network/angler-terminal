@@ -8,7 +8,7 @@ import { redisConfig, redisPipeline } from "@/lib/redis";
 const KEY = `angler:ops:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}:off`;
 const memory = ((globalThis as unknown as { __anglerOff?: Set<string> }).__anglerOff ??= new Set<string>());
 
-export const SERVICE_IDS = ["bridge:across", "bridge:relay", "bridge:lifi"] as const;
+export const SERVICE_IDS = ["bridge:across", "bridge:relay", "bridge:lifi", "swap:zerox", "swap:odos"] as const;
 export type ServiceId = (typeof SERVICE_IDS)[number];
 
 export function isServiceId(value: unknown): value is ServiceId {

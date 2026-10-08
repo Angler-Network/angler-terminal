@@ -27,6 +27,9 @@ function readConfiguredVenues(env) {
     // our builder fee. Gating on it left mainnet stock swaps on Uniswap alone.
     arcus: true,
     uniswap: set(env.UNISWAP_API_KEY),
+    // EVM swap aggregators next to Uniswap (lib/venues/aggregators).
+    zerox: set(env.ZEROX_API_KEY),
+    odos: set(env.ODOS_API_KEY),
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])
