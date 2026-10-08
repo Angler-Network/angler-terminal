@@ -151,6 +151,13 @@ function VenueChips({
   );
 }
 
+const cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** How much worse a venue's fill is than the best one, in cents: fractions of a cent read as "<$0.01". */
+function extraCost(usd: number) {
+  return usd < 0.005 ? "<$0.01" : `+${cents.format(usd)}`;
+}
+
 function Summary({ label, children, title }: { label: string; children: React.ReactNode; title?: string }) {
   return (
     <div className="flex items-center justify-between text-[12px]" title={title}>
@@ -836,16 +843,19 @@ export function OrderPanel() {
           {quotes.length > 1 && (
             <div className="flex flex-col gap-0.5 rounded-lg border border-app-hairline p-1.5">
               <div className="flex items-center justify-between px-1 text-[11px]">
-                <span className="font-medium text-app-muted">Best price</span>
-                <label className="flex items-center gap-1.5 text-app-muted" title="Send market orders to the venue with the best estimated fill after fees">
-                  <input
-                    type="checkbox"
-                    checked={preferences.autoRoute}
-                    onChange={(event) => updatePreference("autoRoute", event.target.checked)}
-                    className="accent-[rgb(var(--app-accent))]"
-                  />
-                  Auto-route
-                </label>
+                <span className="font-medium text-app-muted">Quotes</span>
+                {/* The venue chips above carry Auto when there's a choice of venue; this toggle only stands in without them. */}
+                {kindChoices.length <= 1 && (
+                  <label className="flex items-center gap-1.5 text-app-muted" title="Send market orders to the venue with the best estimated fill after fees">
+                    <input
+                      type="checkbox"
+                      checked={preferences.autoRoute}
+                      onChange={(event) => updatePreference("autoRoute", event.target.checked)}
+                      className="accent-[rgb(var(--app-accent))]"
+                    />
+                    Auto-route
+                  </label>
+                )}
               </div>
               {quotes.map((quote, index) => (
                 <button
@@ -853,18 +863,18 @@ export function OrderPanel() {
                   type="button"
                   onClick={() => pickVenue(quote.venue)}
                   aria-pressed={choice?.id === quote.venue}
-                  className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md px-1 py-0.5 text-[11px] tabular-nums transition-colors hover:bg-app-chip ${
+                  className={`grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md px-1 py-0.5 text-[11px] tabular-nums transition-colors hover:bg-app-chip ${
                     choice?.id === quote.venue ? "bg-app-chip" : ""
                   }`}
                   title={`Avg. fill ${formatPrice(quote.avgPx)} + fees ${formatPrice(quote.feeUsd)}${quote.complete ? "" : " (book too thin for the whole size)"}`}
                 >
-                  <span className="text-left font-semibold text-app-ink">{PERP_VENUE_NAMES[quote.venue]}</span>
+                  <span className="truncate text-left font-semibold text-app-ink">{PERP_VENUE_NAMES[quote.venue]}</span>
                   <span className="text-app-muted">
                     {formatPrice(quote.avgPx)}
                     {!quote.complete && " · thin"}
                   </span>
-                  <span className={`w-14 text-right ${index === 0 ? "font-semibold text-app-up" : "text-app-down"}`}>
-                    {index === 0 ? "Best" : `+${formatPrice(quote.costVsBestUsd)}`}
+                  <span className={`min-w-14 whitespace-nowrap text-right ${index === 0 ? "font-semibold text-app-up" : "text-app-down"}`}>
+                    {index === 0 ? "Best" : extraCost(quote.costVsBestUsd)}
                   </span>
                 </button>
               ))}
