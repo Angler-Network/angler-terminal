@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Link2, Pencil, Trophy, Wallet, X } from "lucide-react";
+import { Check, ExternalLink, Link2, Pencil, Trophy, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PortfolioView } from "@/components/portfolio/portfolio-view";
@@ -33,6 +33,8 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
 ];
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
+/** Angler's Discord (`NEXT_PUBLIC_DISCORD_URL`): referral earnings are withdrawn through a ticket there. */
+const DISCORD_URL = process.env.NEXT_PUBLIC_DISCORD_URL?.trim() || null;
 // Points carry two decimals (0.01 per dollar).
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -462,6 +464,24 @@ function ReferralCard() {
           <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-up">{usd2.format(profile.referralEarnings)}</p>
         </div>
       </div>
+      {profile.referralEarnings > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-app-up/25 bg-app-up/[0.06] px-3 py-2.5">
+          <p className="min-w-0 flex-1 text-[12px] text-app-muted">
+            To withdraw your <span className="font-semibold text-app-up">{usd2.format(profile.referralEarnings)}</span>, open a ticket on our Discord.
+          </p>
+          {DISCORD_URL && (
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#5865F2] px-3 text-[12px] font-semibold text-white hover:opacity-90"
+            >
+              Open a ticket
+              <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          )}
+        </div>
+      )}
       {profile.referrer && <p className="mt-3 text-[12px] text-app-muted">Invited by {shortAddress(profile.referrer)}.</p>}
     </section>
   );
