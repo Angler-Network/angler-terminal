@@ -720,6 +720,57 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
+/* Closed beta gate: a slow gold aurora behind it and a light that runs around the card's edge. */
+@property --gate-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes gate-spin {
+  to {
+    --gate-angle: 360deg;
+  }
+}
+
+@keyframes gate-drift {
+  0%,
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 5%, 0) scale(1.12);
+  }
+}
+
+@keyframes gate-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.gate-aurora {
+  animation: gate-drift 18s ease-in-out infinite;
+}
+
+.gate-edge {
+  background: conic-gradient(from var(--gate-angle), transparent 0deg, rgba(245, 201, 123, 0.9) 40deg, transparent 90deg, transparent 180deg, rgba(245, 201, 123, 0.35) 230deg, transparent 280deg);
+  animation: gate-spin 6s linear infinite;
+}
+
+.gate-rise {
+  animation: gate-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-aurora,
+  .gate-edge,
+  .gate-rise {
+    animation: none;
+  }
+}
+
 /* Home search: the venue filters slide in next to the market type they belong to. */
 @keyframes home-slide {
   from {
