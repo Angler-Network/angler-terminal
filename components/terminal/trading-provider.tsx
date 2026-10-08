@@ -27,6 +27,8 @@ import {
 import { lighterRhVenue, lighterVenue } from "@/lib/venues/lighter/venue";
 import { approveAsterAgent, approveAsterBuilder, asterOnboarding, forgetAsterAgent, type AsterOnboarding } from "@/lib/venues/aster/onboarding";
 import { asterVenue } from "@/lib/venues/aster/venue";
+import { addOrderlyKey, forgetOrderlyKey, orderlyOnboarding, registerOrderly, type OrderlyOnboarding } from "@/lib/venues/orderly/onboarding";
+import { orderlyVenue } from "@/lib/venues/orderly/venue";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
@@ -44,7 +46,7 @@ import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue };
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue, orderly: orderlyVenue };
 
 interface TradingContextValue {
   /** Hyperliquid network (the chart and the EVM wallet group follow it). */
@@ -85,6 +87,10 @@ interface TradingContextValue {
   aster: AsterOnboarding | null;
   approveAster: (step: "builder" | "agent") => Promise<boolean>;
   revokeAster: () => void;
+  /** Orderly setup: the account registered under our broker, then a browser trading key, both signed by the wallet. */
+  orderly: OrderlyOnboarding | null;
+  approveOrderly: (step: "register" | "key") => Promise<boolean>;
+  revokeOrderly: () => void;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
   placeOrder: (input: PlaceOrderInput) => Promise<OrderResult | null>;
   cancelOrder: (order: VenueOpenOrder) => Promise<void>;
@@ -115,7 +121,7 @@ export function useTrading() {
 }
 
 function venueError(venue: PerpVenueId, error: unknown) {
-  if (venue === "aster") return error instanceof Error ? error : new Error(String(error));
+  if (venue === "aster" || venue === "orderly") return error instanceof Error ? error : new Error(String(error));
   return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
 
@@ -286,6 +292,61 @@ function useAsterInstance(enabled: boolean, address: `0x${string}` | null, getWa
   return { markets, state, account, approve, revoke, ready };
 }
 
+/**
+ * Orderly for the connected wallet: markets, setup state (registration is Orderly's; the trading key lives in this
+ * browser, encrypted), the polled account once a key exists, and the two wallet-signed setup steps.
+ */
+function useOrderlyInstance(enabled: boolean, address: `0x${string}` | null, getWalletClient: (() => Promise<import("viem").WalletClient>) | null | undefined, toast: Toast) {
+  const markets = useVenueMarkets(orderlyVenue, enabled);
+  const [state, setState] = useState<OrderlyOnboarding | null>(null);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const refresh = useCallback(async () => {
+    if (!address || !enabled) return setState(null);
+    setState(await orderlyOnboarding(address).catch(() => ({ registered: null, keyReady: false, accountId: null })));
+  }, [address, enabled]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const keyReady = Boolean(state?.keyReady);
+  useEffect(() => {
+    setAccount(null);
+    if (!address || !enabled) return;
+    return orderlyVenue.subscribeAccount(address, {
+      onSnapshot: setAccount,
+      onError: (error) => console.warn(`[orderly] account: ${error instanceof Error ? error.message : String(error)}`),
+    });
+  }, [address, enabled, keyReady]);
+
+  const approve = useCallback(
+    async (step: "register" | "key") => {
+      if (!address || !getWalletClient) return false;
+      try {
+        const wallet = await getWalletClient();
+        if (step === "register") await registerOrderly(wallet, address);
+        else await addOrderlyKey(wallet, address);
+        await refresh();
+        if (step === "key") toast({ tone: "success", title: "Orderly trading key active", message: "Orderly orders now sign in the browser without a wallet popup." });
+        return true;
+      } catch (error) {
+        toast({ tone: "error", title: step === "register" ? "Orderly registration failed" : "Couldn't create the Orderly key", message: error instanceof Error ? error.message : String(error) });
+        return false;
+      }
+    },
+    [address, getWalletClient, refresh, toast],
+  );
+
+  const revoke = useCallback(() => {
+    if (!address) return;
+    forgetOrderlyKey(address);
+    void refresh();
+    toast({ tone: "info", title: "Orderly trading key removed from this browser" });
+  }, [address, refresh, toast]);
+
+  const ready = Boolean(state?.registered && state.keyReady);
+  return { markets, state, account, approve, revoke, ready };
+}
+
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
@@ -294,6 +355,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const lighterEnabled = preferences.venueLighter;
   const lighterRhEnabled = preferences.venueLighterRh;
   const asterEnabled = preferences.venueAster;
+  const orderlyEnabled = preferences.venueOrderly;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
   const markets = useVenueMarkets(hyperliquidVenue, true);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -334,6 +396,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const lighterRh = useLighterInstance(lighterConfigs.lighterRh, lighterRhVenue, lighterRhEnabled, address, signMessage, Boolean(getWalletClient), toast);
   const lighterByVenue = useMemo(() => ({ lighter: lighterCore, lighterRh }), [lighterCore, lighterRh]);
   const aster = useAsterInstance(asterEnabled, address, getWalletClient, toast);
+  const orderly = useOrderlyInstance(orderlyEnabled, address, getWalletClient, toast);
   const lighter = lighterCore.state;
   const lighterStates = useMemo(() => ({ lighter: lighterCore.state, lighterRh: lighterRh.state }), [lighterCore.state, lighterRh.state]);
 
@@ -343,8 +406,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       lighter: lighterEnabled ? (lighterCore.markets ?? undefined) : [],
       lighterRh: lighterRhEnabled ? (lighterRh.markets ?? undefined) : [],
       aster: asterEnabled ? (aster.markets ?? undefined) : [],
+      orderly: orderlyEnabled ? (orderly.markets ?? undefined) : [],
     }),
-    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets],
+    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets, orderlyEnabled, orderly.markets],
   );
 
   const perpOrder = useMemo(
@@ -354,8 +418,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         lighter: lighterEnabled,
         lighterRh: lighterRhEnabled,
         aster: asterEnabled,
+        orderly: orderlyEnabled,
       }),
-    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled],
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled, orderlyEnabled],
   );
 
   const refreshOnboarding = useCallback(async () => {
@@ -383,8 +448,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
   const isVenueReady = useCallback(
-    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : lighterByVenue[venue].ready),
-    [isReady, lighterByVenue, aster.ready],
+    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : venue === "orderly" ? orderly.ready : lighterByVenue[venue].ready),
+    [isReady, lighterByVenue, aster.ready, orderly.ready],
   );
 
   const approveBuilder = useCallback(async () => {
@@ -533,8 +598,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       ...(lighterEnabled ? { lighter: lighterCore.account } : {}),
       ...(lighterRhEnabled ? { lighterRh: lighterRh.account } : {}),
       ...(asterEnabled ? { aster: aster.account } : {}),
+      ...(orderlyEnabled ? { orderly: orderly.account } : {}),
     }),
-    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account],
+    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account, orderlyEnabled, orderly.account],
   );
 
   const account = useMemo<AccountSnapshot | null>(() => {
@@ -577,6 +643,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       aster: aster.state,
       approveAster: aster.approve,
       revokeAster: aster.revoke,
+      orderly: orderly.state,
+      approveOrderly: orderly.approve,
+      revokeOrderly: orderly.revoke,
       placeOrder,
       cancelOrder,
       closePosition,
@@ -613,6 +682,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       aster.state,
       aster.approve,
       aster.revoke,
+      orderly.state,
+      orderly.approve,
+      orderly.revoke,
       placeOrder,
       cancelOrder,
       closePosition,

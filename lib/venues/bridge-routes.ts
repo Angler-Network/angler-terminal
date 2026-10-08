@@ -13,7 +13,7 @@ export const BRIDGE_VENUES = [
   { id: "lighter", name: "Lighter", live: true, domain: "lighter.xyz" },
   { id: "lighterRh", name: "Lighter RH", live: true, domain: "lighter.xyz" },
   { id: "aster", name: "Aster", live: true, domain: "asterdex.com" },
-  { id: "orderly", name: "Orderly", live: false, domain: "orderly.network" },
+  { id: "orderly", name: "Orderly", live: true, domain: "orderly.network" },
 ] as const;
 
 export type BridgeVenueId = (typeof BRIDGE_VENUES)[number]["id"];
@@ -37,7 +37,7 @@ export type FundsStep =
   /** Across from the wallet on `from` to `to`, paid to the wallet or to a Lighter instance's deposit address. */
   | { kind: "across"; from: SourceChain; to: SourceChain; recipient: "wallet" | LighterVenueId }
   /** A transfer from the wallet into a venue (Hyperliquid's bridge contract or a Lighter deposit address). */
-  | { kind: "transfer"; venue: PerpVenueId; source: SourceChain; target: "bridge" | "intent" | "aster"; minimum: number; arrival: string };
+  | { kind: "transfer"; venue: PerpVenueId; source: SourceChain; target: "bridge" | "intent" | "aster" | "orderly"; minimum: number; arrival: string };
 
 export type FundsRoute =
   | { kind: "same" }
@@ -49,7 +49,7 @@ export type FundsRoute =
   | { kind: "faucet"; venue: PerpVenueId; plan: Extract<DepositPlan, { kind: "faucet" }> }
   | { kind: "steps"; flow: FundsKind; steps: FundsStep[]; input: SourceChain; output: SourceChain };
 
-const PERP_VENUES = new Set<string>(["hyperliquid", "lighter", "lighterRh", "aster"]);
+const PERP_VENUES = new Set<string>(["hyperliquid", "lighter", "lighterRh", "aster", "orderly"]);
 
 export function isPerpEndpoint(endpoint: FundsEndpoint): endpoint is PerpVenueId {
   return PERP_VENUES.has(endpoint);
@@ -86,9 +86,9 @@ export function fundsRoute(
     if (direct) return steps("deposit", [transfer(to, plan, direct)], direct, direct);
     if (networkOf(to) !== "mainnet") return { kind: "testnet" };
     const target = venueAsset(to);
-    // Hyperliquid credits whoever sends to its bridge and Aster's vault is called by the wallet, so the USDC lands in
-    // the wallet first; Lighter's deposit addresses credit whatever arrives, so Across pays them directly.
-    return to === "hyperliquid" || to === "aster"
+    // Hyperliquid credits whoever sends to its bridge and Aster's and Orderly's vaults are called by the wallet, so the
+    // USDC lands in the wallet first; Lighter's deposit addresses credit whatever arrives, so Across pays them directly.
+    return to === "hyperliquid" || to === "aster" || to === "orderly"
       ? steps("deposit", [{ kind: "across", from: source, to: target, recipient: "wallet" }, transfer(to, plan, target)], source, target)
       : steps("deposit", [{ kind: "across", from: source, to: target, recipient: to }], source, target);
   }
@@ -110,8 +110,8 @@ export function fundsRoute(
       ? steps("move", [{ kind: "hlWithdraw" }, transfer(to, plan, ARBITRUM)], ARBITRUM, ARBITRUM)
       : steps("move", [{ kind: "hlWithdraw" }, { kind: "across", from: ARBITRUM, to: target, recipient: to }], ARBITRUM, target);
   }
-  if (to === "aster") {
-    // The withdrawal lands as USDC on Arbitrum, where Aster's vault takes it.
+  if (to === "aster" || to === "orderly") {
+    // The withdrawal lands as USDC on Arbitrum, where Aster's and Orderly's vaults take it.
     if (!hlMainnet) return { kind: "testnet" };
     const plan = depositPlan(to, "mainnet");
     return plan.kind === "transfer" ? steps("move", [{ kind: "hlWithdraw" }, transfer(to, plan, ARBITRUM)], ARBITRUM, ARBITRUM) : { kind: "soon" };

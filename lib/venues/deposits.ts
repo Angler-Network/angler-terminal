@@ -62,7 +62,7 @@ export const MIN_DEPOSIT_USDC = 5;
 export const USDC_DECIMALS = 6;
 
 export type DepositPlan =
-  | { kind: "transfer"; venue: PerpVenueId; sources: SourceChain[]; arrival: string; target: "bridge" | "intent" | "aster"; minimum: number }
+  | { kind: "transfer"; venue: PerpVenueId; sources: SourceChain[]; arrival: string; target: "bridge" | "intent" | "aster" | "orderly"; minimum: number }
   | { kind: "faucet"; venue: PerpVenueId; url: string; label: string };
 
 /** Lighter on Robinhood's minimum per deposit, in USDG. */
@@ -77,6 +77,12 @@ export const ASTER_VAULTS: Record<number, `0x${string}`> = {
 export function depositPlan(venue: PerpVenueId, network: "mainnet" | "testnet"): DepositPlan {
   // Aster (mainnet only): USDC from Arbitrum or Ethereum through its vault.
   if (venue === "aster") return { kind: "transfer", venue, sources: [ARBITRUM, ETHEREUM], arrival: "a few minutes", target: "aster", minimum: MIN_DEPOSIT_USDC };
+  // Orderly: USDC from Arbitrum or Base through its vault (the same contract on both); testnet points to its testnet app.
+  if (venue === "orderly") {
+    return network === "mainnet"
+      ? { kind: "transfer", venue, sources: [ARBITRUM, BASE], arrival: "a few minutes", target: "orderly", minimum: MIN_DEPOSIT_USDC }
+      : { kind: "faucet", venue, url: "https://testnet-dex.orderly.network", label: "Get test USDC in Orderly's testnet app" };
+  }
   // Lighter on Robinhood has no faucet: even testnet takes (test) USDG from Robinhood Chain.
   if (venue === "lighterRh") return { kind: "transfer", venue, sources: [ROBINHOOD[network]], arrival: "a few minutes", target: "intent", minimum: MIN_RH_DEPOSIT_USDG };
   if (network === "testnet") {

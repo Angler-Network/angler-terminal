@@ -2,7 +2,7 @@
  * Trade analytics, anonymous by design: events carry no wallet address and no IP, and the store keeps only daily
  * totals (trades, USD volume, estimated partner fees per venue), never a per-trade record.
  */
-export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "jupiter", "titan", "arcus", "uniswap", "zerox", "odos", "relay", "lifi", "polymarket"] as const;
+export const TRADE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan", "arcus", "uniswap", "zerox", "odos", "relay", "lifi", "polymarket"] as const;
 export type TradeVenue = (typeof TRADE_VENUES)[number];
 
 export interface TradeEvent {

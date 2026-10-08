@@ -113,3 +113,55 @@ export async function sendUsdc(provider: EIP1193Provider, account: `0x${string}`
   if (receipt.status !== "success") throw new VenueError(`The ${source.symbol} transfer reverted.`);
   return { hash, explorerUrl: `${source.explorer}/tx/${hash}` };
 }
+
+/** Orderly's vault takes `VaultDepositFE { accountId, brokerHash, tokenHash, tokenAmount }`; its fee is paid in ETH. */
+const ORDERLY_DEPOSIT = [
+  { name: "accountId", type: "bytes32" },
+  { name: "brokerHash", type: "bytes32" },
+  { name: "tokenHash", type: "bytes32" },
+  { name: "tokenAmount", type: "uint128" },
+] as const;
+const ORDERLY_VAULT_ABI = [
+  { type: "function", name: "deposit", stateMutability: "payable", inputs: [{ name: "data", type: "tuple", components: ORDERLY_DEPOSIT }], outputs: [] },
+  {
+    type: "function",
+    name: "getDepositFee",
+    stateMutability: "view",
+    inputs: [
+      { name: "receiver", type: "address" },
+      { name: "data", type: "tuple", components: ORDERLY_DEPOSIT },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+/**
+ * Deposits USDC into the wallet's Orderly account (registered under our broker): an exact approval of Orderly's vault,
+ * then `deposit` with the vault's cross-chain fee (`getDepositFee`, in ETH) as the value. Credited in a few minutes.
+ */
+export async function depositToOrderly(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain, units: bigint) {
+  const [{ orderlyConfig, ORDERLY_VAULTS }, { orderlyAccountId, orderlyHash }, { orderlyRegistered }] = await Promise.all([
+    import("./orderly/config"),
+    import("./orderly/sign"),
+    import("./orderly/onboarding"),
+  ]);
+  const brokerId = orderlyConfig.brokerId;
+  if (!brokerId) throw new VenueError("Orderly isn't set up on this site yet.");
+  if (!(await orderlyRegistered(account))) throw new VenueError("Set up Orderly first (register the account), then deposit.");
+  const vault = Object.values(ORDERLY_VAULTS).find((entry) => entry.chainId === source.chainId)?.vault ?? (source.chainId === 8453 || source.chainId === 1 ? ORDERLY_VAULTS.mainnet.vault : null);
+  if (!vault) throw new VenueError(`Orderly doesn't take deposits from ${source.name} here.`);
+  const { createPublicClient, erc20Abi, http } = await import("viem");
+  const { wallet, chain } = await walletOn(provider, account, source);
+  const client = createPublicClient({ chain, transport: http(RPC_URLS[source.chainId]) });
+  const allowance = await client.readContract({ address: source.usdc, abi: erc20Abi, functionName: "allowance", args: [account, vault] });
+  if (allowance < units) {
+    const approval = await wallet.writeContract({ address: source.usdc, abi: erc20Abi, functionName: "approve", args: [vault, units] });
+    if ((await client.waitForTransactionReceipt({ hash: approval })).status !== "success") throw new VenueError(`The ${source.symbol} approval reverted.`);
+  }
+  const data = { accountId: orderlyAccountId(account, brokerId), brokerHash: orderlyHash(brokerId), tokenHash: orderlyHash("USDC"), tokenAmount: units };
+  const fee = await client.readContract({ address: vault, abi: ORDERLY_VAULT_ABI, functionName: "getDepositFee", args: [account, data] });
+  const hash = await wallet.writeContract({ address: vault, abi: ORDERLY_VAULT_ABI, functionName: "deposit", args: [data], value: fee });
+  const receipt = await client.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new VenueError("The Orderly deposit reverted.");
+  return { hash, explorerUrl: `${source.explorer}/tx/${hash}` };
+}

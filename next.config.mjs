@@ -32,6 +32,8 @@ function readConfiguredVenues(env) {
     odos: set(env.ODOS_API_KEY),
     // Aster perps trade without a key; our builder fee only applies with NEXT_PUBLIC_ASTER_BUILDER set.
     aster: true,
+    // Orderly needs our broker id on mainnet (fees go to the broker); testnet falls back to Orderly's demo broker.
+    orderly: set(env.NEXT_PUBLIC_ORDERLY_BROKER_ID) || env.NEXT_PUBLIC_DEPLOYMENT === "testnet",
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])

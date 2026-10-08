@@ -538,9 +538,9 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", odos: "Odos", aster: "Aster" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", odos: "Odos", aster: "Aster", orderly: "Orderly" };
 
-type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueOdos" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueOdos" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
 interface VenueTile {
   key: VenueKey | BridgeProvider;
@@ -572,6 +572,7 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
       { key: "lighter", preference: "venueLighter", domain: "lighter.xyz", description: "Perpetuals on the Lighter zk-rollup. Needs a Lighter account (first deposit), then a browser trading key." },
       { key: "lighterRh", preference: "venueLighterRh", domain: "lighter.xyz", chain: 4663, description: "Lighter on Robinhood Chain: USDG margin and mostly stock perps, with its own account and trading key." },
       { key: "aster", preference: "venueAster", domain: "asterdex.com", description: "Aster perps: crypto, stocks and commodities. Orders sign with a browser trading key that can never withdraw." },
+      { key: "orderly", preference: "venueOrderly", domain: "orderly.network", description: "Orderly perps on its shared omnichain order book. Register once through Angler, then a browser trading key that can never withdraw." },
     ],
   },
   {
@@ -669,6 +670,7 @@ function VenueSettings() {
       preferences.venueLighter && { value: "lighter", label: "Lighter" },
       preferences.venueLighterRh && { value: "lighterRh", label: "Lighter RH" },
       preferences.venueAster && { value: "aster", label: "Aster" },
+      preferences.venueOrderly && { value: "orderly", label: "Orderly" },
     ] as Array<false | { value: PerpVenueId; label: string }>
   ).filter((option): option is { value: PerpVenueId; label: string } => Boolean(option));
 

@@ -6,6 +6,7 @@ import { readAsterBook, readHlBook, type BookSide } from "@/lib/trading/orderboo
 import { asterConfig } from "@/lib/venues/aster/config";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
+import { orderlyConfig } from "@/lib/venues/orderly/config";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
 import type { OrderSide, PerpVenueId, VenueMarket } from "@/lib/venues/types";
 
@@ -20,6 +21,8 @@ const ASTER_BASE_TAKER_FEE = 0.00035;
 export function takerFeeFor(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_BASE_TAKER_FEE + (hlConfig.builder?.fee ?? 0) / 100_000;
   if (market.venue === "aster") return ASTER_BASE_TAKER_FEE + (asterConfig.builder?.feeRate ?? 0);
+  // Orderly: the broker's rate (Orderly's base plus our part), as set in its admin.
+  if (market.venue === "orderly") return orderlyConfig.takerFee;
   return (market.takerFee ?? 0) + (lighterConfigs[market.venue].integrator?.takerFee ?? 0) / 1_000_000;
 }
 
@@ -36,6 +39,11 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
     const response = await fetch(`${asterConfig.apiUrl}/fapi/v1/depth?symbol=${market.coin}&limit=100`);
     return response.ok ? readAsterBook(await response.json()) : null;
   }
+  if (market.venue === "orderly") {
+    // Orderly's REST book needs a signed account: its public WebSocket snapshot instead (loaded on demand).
+    const { orderlyBookSnapshot } = await import("@/lib/venues/orderly/stream");
+    return orderlyBookSnapshot(market.coin);
+  }
   // Each Lighter exchange (core, Robinhood) has its own books.
   const response = await fetch(`${lighterConfigs[market.venue].apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
   return response.ok ? readLighterRestBook(await response.json()) : null;
@@ -45,6 +53,7 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
 export function minOrderUsd(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_MIN_ORDER_USD;
   if (market.venue === "aster") return market.minQuoteAmount ?? 5;
+  if (market.venue === "orderly") return market.minQuoteAmount ?? 10;
   const price = market.midPx ?? market.markPx;
   return price ? minimumSize(market, price) * price : 0;
 }

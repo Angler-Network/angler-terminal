@@ -66,6 +66,35 @@ export function useOrderBook(market: VenueMarket | null) {
         window.clearInterval(timer);
       };
     }
+    if (market.venue === "orderly") {
+      // Orderly: its shared public WebSocket (a full snapshot each second, trades as they print), loaded on demand.
+      let live = true;
+      let stop = () => {};
+      let pending: TapeTrade[] = [];
+      const flushTrades = window.setInterval(() => {
+        if (pending.length === 0) return;
+        const fresh = pending;
+        pending = [];
+        setTrades((current) => [...fresh, ...current].slice(0, MAX_TRADES));
+      }, FLUSH_MS);
+      void import("@/lib/venues/orderly/stream").then(({ watchOrderly }) => {
+        if (!live) return;
+        stop = watchOrderly(market.coin, {
+          book: (next) => {
+            setBook(next);
+            setStatus("live");
+          },
+          trade: (trade) => {
+            pending = [trade, ...pending];
+          },
+        });
+      });
+      return () => {
+        live = false;
+        stop();
+        window.clearInterval(flushTrades);
+      };
+    }
     let socket: WebSocket | null = null;
     let isActive = true;
     let retry: number | undefined;

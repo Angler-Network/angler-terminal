@@ -128,6 +128,26 @@ dependency versions and design are free to diverge from angler-news.
   - Account over the WebSocket: `account_all` + `user_stats` (public) and `account_all_orders` (auth token);
     `update/*` messages are partial and merged (`account.ts`). API codes and order statuses map to readable toasts
     in `errors.ts`. Never place mainnet orders from tests or scripts.
+- Orderly (`lib/venues/orderly/`, a `PerpVenue` like Aster; docs orderly.network/docs, index /docs/llms.txt): an
+  omnichain order book with no front end of its own; we trade as a broker. Every account is registered under our
+  broker id (`NEXT_PUBLIC_ORDERLY_BROKER_ID`; mainnet offers Orderly only with it, testnet falls back to Orderly's demo
+  `woofi_dex`), and our fee is the broker's rate set in Orderly's admin above its base (3 bps taker): orders carry no fee
+  field, so `NEXT_PUBLIC_ORDERLY_TAKER_FEE` only feeds cost comparisons and analytics. Network: deployment, else
+  `NEXT_PUBLIC_ORDERLY_NETWORK` (testnet default). Setup (`onboarding.ts`), two wallet EIP-712 signatures on the
+  off-chain domain with the wallet moved to Arbitrum (Sepolia on testnet): `Registration` (nonce from
+  `/v1/registration_nonce`, POST `/v1/register_account`; account id = keccak256(abi.encode(address, keccak256(broker))))
+  then `AddOrderlyKey` (ed25519 key made here, scope read,trading, a year; POST `/v1/orderly_key`). The key's secret is
+  AES-GCM encrypted with Lighter's device key (`key-crypto.ts`). Private requests carry `orderly-account-id/key/
+  timestamp/signature` = ed25519 over `timestamp + METHOD + path?query + body`, base64url (`sign.ts`). Markets:
+  `/v1/public/info` + `/v1/public/futures`, broker-only markets (`broker_id` set) dropped, lots can be 100
+  (`roundToTick`). Orders POST `/v1/order` (MARKET/LIMIT; read back from `/v1/order/{id}` until final), leverage POST
+  `/v1/client/leverages` per symbol, cancel DELETE `/v1/order?order_id&symbol`, account = `/v1/positions` +
+  `/v1/orders?status=INCOMPLETE` every 3s, candles `/tv/history`. No TP/SL yet. The REST book needs a signed account,
+  so the order book and best execution read the public WebSocket (`stream.ts`: one shared socket, any id in the path,
+  `{symbol}@orderbook` full snapshots + `@trade`, answers pings). Deposits (`depositToOrderly`): USDC approve + vault
+  `deposit(VaultDepositFE{accountId, brokerHash, tokenHash, amount})` with `getDepositFee` as the value, Arbitrum or
+  Base (vault `0x816f…67e9` on both); testnet points to Orderly's testnet app. Withdrawals happen on an Orderly app.
+  Checked end to end on testnet with a throwaway wallet (register, key, signed GET/POST).
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
   github.com/jup-ag/docs (mirrors developers.jup.ag).

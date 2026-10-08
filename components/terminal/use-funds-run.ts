@@ -115,6 +115,11 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         return;
       }
       if (step.kind === "transfer") {
+        if (step.target === "orderly") {
+          const { depositToOrderly } = await import("@/lib/venues/deposit-client");
+          const result = await depositToOrderly(wallet.provider, address, step.source, current.carry);
+          return advance(current, current.carry, result.explorerUrl);
+        }
         if (step.target === "aster") {
           const { depositToAster } = await import("@/lib/venues/deposit-client");
           const result = await depositToAster(wallet.provider, address, step.source, current.carry);

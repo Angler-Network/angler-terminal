@@ -155,7 +155,7 @@ export function DepositDialog() {
 
   const enabled = (venue: PerpVenueId) =>
     venue === depositVenue ||
-    (venue === "hyperliquid" ? preferences.venueHyperliquid : venue === "lighter" ? preferences.venueLighter : venue === "aster" ? preferences.venueAster : preferences.venueLighterRh);
+    (venue === "hyperliquid" ? preferences.venueHyperliquid : venue === "lighter" ? preferences.venueLighter : venue === "aster" ? preferences.venueAster : venue === "orderly" ? preferences.venueOrderly : preferences.venueLighterRh);
   const endpointOptions: Array<PickerOption<FundsEndpoint>> = [
     { value: "wallet", label: "Wallet", icon: <EndpointLogo endpoint="wallet" size={20} /> },
     ...BRIDGE_VENUES.filter((venue) => !venue.live || !isPerpEndpoint(venue.id) || enabled(venue.id) || venue.id === from || venue.id === to).map((venue) => ({

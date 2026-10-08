@@ -12,6 +12,7 @@ import type { ArcusToken } from "@/lib/venues/arcus/tokens";
 import { arcusQuoteToken } from "@/lib/venues/arcus/catalog";
 import { lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
 import { ASTER_APP_URL } from "@/lib/venues/aster/config";
+import { orderlyConfig } from "@/lib/venues/orderly/config";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -239,8 +240,46 @@ function AsterSection() {
   );
 }
 
+function OrderlySection() {
+  const { accounts, isVenueReady, openSetup } = useTrading();
+  const account = accounts.orderly ?? null;
+  const ready = isVenueReady("orderly");
+  return (
+    <Section title="Orderly perps" badge={orderlyConfig.network === "mainnet" ? "Mainnet" : "Testnet"}>
+      <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
+      <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <FundsButton venue="orderly" />
+      <div className="flex gap-2">
+        <a
+          href={orderlyConfig.appUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Withdrawals happen on an Orderly app for now"
+          className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-app-hairline-strong text-[12px] font-semibold text-app-ink hover:bg-app-chip"
+        >
+          Open Orderly
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+        {!ready && (
+          <button type="button" onClick={() => openSetup("orderly")} className="h-8 flex-1 rounded-lg bg-app-accent text-[12px] font-semibold text-app-on-accent">
+            Set up trading
+          </button>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function PerpSection({ venue }: { venue: PerpVenueId }) {
-  return venue === "hyperliquid" ? <HyperliquidSection /> : venue === "aster" ? <AsterSection /> : <LighterSection venue={venue} />;
+  return venue === "hyperliquid" ? (
+    <HyperliquidSection />
+  ) : venue === "aster" ? (
+    <AsterSection />
+  ) : venue === "orderly" ? (
+    <OrderlySection />
+  ) : (
+    <LighterSection venue={venue} />
+  );
 }
 
 /**
@@ -250,7 +289,7 @@ function PerpSection({ venue }: { venue: PerpVenueId }) {
 function PerpAccount() {
   const { preferences } = usePreferences();
   const { tradeVenue } = useSelectedAsset();
-  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh, aster: preferences.venueAster };
+  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh, aster: preferences.venueAster, orderly: preferences.venueOrderly };
   const venue = [tradeVenue, preferences.preferredPerpVenue, ...(Object.keys(enabled) as PerpVenueId[])].find((entry): entry is PerpVenueId => Boolean(entry && enabled[entry]));
   if (!venue) return null;
   return <PerpSection venue={venue} />;

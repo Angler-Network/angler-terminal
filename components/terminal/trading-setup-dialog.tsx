@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { isLighterVenue, lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
 import { ASTER_APP_URL, asterConfig } from "@/lib/venues/aster/config";
+import { orderlyConfig } from "@/lib/venues/orderly/config";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -163,6 +164,63 @@ function AsterSteps() {
   );
 }
 
+/**
+ * Orderly: register the wallet's account under our broker (once, for good), then a browser trading key (read and trade,
+ * never withdraw; valid a year). Both are wallet signatures on Arbitrum, where deposits go.
+ */
+function OrderlySteps() {
+  const { orderly, approveOrderly, openDeposit } = useTrading();
+  const [busy, setBusy] = useState<"register" | "key" | null>(null);
+  const registered = Boolean(orderly?.registered);
+  const keyDone = Boolean(orderly?.keyReady);
+  const chain = orderlyConfig.network === "mainnet" ? "Arbitrum" : "Arbitrum Sepolia";
+  const run = async (step: "register" | "key") => {
+    setBusy(step);
+    try {
+      await approveOrderly(step);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <ol className="mt-4 flex flex-col gap-2">
+      <Step
+        index={1}
+        Icon={ReceiptText}
+        title="Create your Orderly account"
+        description={`Registers this wallet on Orderly through Angler. One signature, no gas; your wallet may switch to ${chain} to sign.`}
+        done={registered}
+        active={!registered}
+        busy={busy === "register"}
+        action="Register"
+        onRun={() => void run("register")}
+      />
+      <Step
+        index={2}
+        Icon={KeyRound}
+        title="Create trading key"
+        description="Generates a key in this browser that can place and cancel Orderly orders but can never withdraw. It's stored encrypted here and expires in a year."
+        done={keyDone}
+        active={registered && !keyDone}
+        busy={busy === "key"}
+        action="Create key"
+        onRun={() => void run("key")}
+        extra={
+          registered ? (
+            <button
+              type="button"
+              onClick={() => openDeposit("orderly", "deposit")}
+              className="inline-flex h-8 items-center rounded-lg border border-app-hairline-strong px-3 text-[13px] font-semibold text-app-ink hover:bg-app-chip"
+            >
+              Deposit USDC
+            </button>
+          ) : undefined
+        }
+      />
+    </ol>
+  );
+}
+
 /** Setup of one Lighter exchange: core Lighter, or Lighter on Robinhood Chain (same steps, its own account and key). */
 function LighterSteps({ venue }: { venue: LighterVenueId }) {
   const { lighterStates, refreshLighter, registerLighter, approveLighter, openDeposit } = useTrading();
@@ -280,7 +338,7 @@ function LighterSteps({ venue }: { venue: LighterVenueId }) {
  * (agent wallet). Lighter: deposit check, register a browser API key, approve the integrator when configured.
  */
 export function TradingSetupDialog() {
-  const { setupVenue, closeSetup, onboarding, lighterStates, aster, isVenueReady, network } = useTrading();
+  const { setupVenue, closeSetup, onboarding, lighterStates, aster, orderly, isVenueReady, network } = useTrading();
   const isDone = setupVenue !== null && isVenueReady(setupVenue);
 
   useEffect(() => {
@@ -288,14 +346,15 @@ export function TradingSetupDialog() {
       const timer = window.setTimeout(closeSetup, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [isDone, closeSetup, onboarding, lighterStates, aster]);
+  }, [isDone, closeSetup, onboarding, lighterStates, aster, orderly]);
 
   const backdropRef = useModalEnter(setupVenue !== null);
 
   if (!setupVenue) return null;
   const lighterVenue = isLighterVenue(setupVenue) ? setupVenue : null;
   const isAster = setupVenue === "aster";
-  const isTestnet = !isAster && (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
+  const isOrderly = setupVenue === "orderly";
+  const isTestnet = isOrderly ? orderlyConfig.network === "testnet" : !isAster && (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeSetup}>
@@ -309,7 +368,7 @@ export function TradingSetupDialog() {
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="trading-setup-title" className="text-[16px] font-semibold text-app-ink">
-              Set up trading on {isAster ? "Aster" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
+              Set up trading on {isAster ? "Aster" : isOrderly ? "Orderly" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
               {lighterVenue || isAster ? "One-time setup" : "Two one-time signatures"}
@@ -320,7 +379,7 @@ export function TradingSetupDialog() {
             <X className="size-4" />
           </button>
         </header>
-        {isAster ? <AsterSteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
+        {isAster ? <AsterSteps /> : isOrderly ? <OrderlySteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
       </div>
     </div>
   );
