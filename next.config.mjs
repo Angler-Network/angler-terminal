@@ -49,6 +49,12 @@ const nextConfig = {
   // doesn't list as a basic bot (Googlebot included), where crawlers and Lighthouse may miss them; ours never wait
   // on data, so blocking on them costs nothing.
   htmlLimitedBots: /.*/,
+  webpack(config) {
+    // viem's chain index (`mainnet` for ENS lookups in lib/profile/ens.ts) pulls in ox's Tempo helpers, whose dynamic
+    // import webpack can't resolve statically. That code never runs here; the warning was the build's only one.
+    config.ignoreWarnings = [...(config.ignoreWarnings ?? []), { module: /node_modules[\\/]ox[\\/]_esm[\\/]tempo[\\/]/ }];
+    return config;
+  },
   // The terminal lives at /perp, /swap and /spot; the root is the home page.
   async redirects() {
     return [
