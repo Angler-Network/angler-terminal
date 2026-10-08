@@ -155,7 +155,7 @@ function LevelCard() {
   if (!profile) return null;
   const { level } = profile;
   return (
-    <section className={`${card} p-4`}>
+    <section className={`${card} h-full p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-app-ink">
           Level {level.level} · {level.name}
@@ -169,7 +169,7 @@ function LevelCard() {
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}>
         <div className="h-full rounded-full bg-app-accent transition-[width]" style={{ width: `${Math.max(2, level.progress * 100)}%` }} />
       </div>
-      <ol className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[10px] sm:grid-cols-10">
+      <ol className="mt-4 grid grid-cols-5 gap-1.5 text-center text-[10px]">
         {LEVELS.map((entry, index) => {
           const reached = index + 1 <= level.level;
           return (
@@ -197,12 +197,12 @@ function VolumeCard({ profile }: { profile: ProfileData }) {
   const [range, setRange] = useState<VolumeRange>("all");
   const total = range === "all" ? VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0) : profile.recentVolume[range];
   return (
-    <section className={`${card} flex flex-wrap items-end justify-between gap-3 p-4`}>
+    <section className={`${card} flex h-full flex-col justify-between gap-3 p-4`}>
       <div>
         <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
         <p className="mt-1 text-[26px] font-semibold tabular-nums tracking-tight text-app-ink">{total >= 1_000_000 ? compactUsd.format(total) : usd.format(total)}</p>
       </div>
-      <div role="group" aria-label="Period" className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+      <div role="group" aria-label="Period" className="flex gap-0.5 self-start rounded-lg bg-app-chip p-0.5">
         {VOLUME_RANGES.map((option) => (
           <button
             key={option.value}
@@ -241,41 +241,44 @@ function Overview() {
 
   return (
     <>
-      <LevelCard />
-      <VolumeCard profile={profile} />
-      {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
-        <section className={`${card} p-4`}>
-          <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>
-          <p className="mt-1 text-[12px] text-app-muted">Swaps from a linked Solana wallet count toward this profile.</p>
-          {profile.linkedWallets.length > 0 && (
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {profile.linkedWallets.map((wallet) => (
-                <li key={wallet} className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip px-2 py-1 text-[12px] tabular-nums text-app-ink">
-                  <Link2 className="size-3.5 text-app-muted" aria-hidden />
-                  {shortAddress(wallet)}
-                </li>
-              ))}
-            </ul>
-          )}
-          {linkSolana && (
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={linking}
-                onClick={async () => {
-                  setLinking(true);
-                  setLinkError(await linkSolana());
-                  setLinking(false);
-                }}
-                className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70 disabled:opacity-60"
-              >
-                {linking ? "Sign in your Solana wallet…" : "Link connected Solana wallet"}
-              </button>
-              {linkError && <span className="text-[12px] text-app-down">{linkError}</span>}
-            </div>
-          )}
-        </section>
-      )}
+      {/* Level, volume and linked wallets side by side on wide screens. */}
+      <div className="grid gap-4 lg:grid-cols-[repeat(auto-fit,minmax(0,1fr))]">
+        <LevelCard />
+        <VolumeCard profile={profile} />
+        {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
+          <section className={`${card} h-full p-4`}>
+            <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>
+            <p className="mt-1 text-[12px] text-app-muted">Swaps from a linked Solana wallet count toward this profile.</p>
+            {profile.linkedWallets.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {profile.linkedWallets.map((wallet) => (
+                  <li key={wallet} className="inline-flex items-center gap-1.5 rounded-lg bg-app-chip px-2 py-1 text-[12px] tabular-nums text-app-ink">
+                    <Link2 className="size-3.5 text-app-muted" aria-hidden />
+                    {shortAddress(wallet)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {linkSolana && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={linking}
+                  onClick={async () => {
+                    setLinking(true);
+                    setLinkError(await linkSolana());
+                    setLinking(false);
+                  }}
+                  className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70 disabled:opacity-60"
+                >
+                  {linking ? "Sign in your Solana wallet…" : "Link connected Solana wallet"}
+                </button>
+                {linkError && <span className="text-[12px] text-app-down">{linkError}</span>}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
       <ReferralCard />
       <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
