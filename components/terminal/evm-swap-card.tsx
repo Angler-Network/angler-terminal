@@ -33,6 +33,7 @@ import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./u
 import { useEvmToken, type EvmToken } from "./use-evm-token";
 import { useSpotListings } from "./use-spot-listings";
 import { useSolanaWallet } from "./solana-wallet-provider";
+import { useSolanaBalance } from "./use-solana-balance";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 
@@ -63,8 +64,6 @@ const QUOTE_ONLY_USER = "0x000000000000000000000000000000000000dEaD";
 /** Solana's docs' sample address: quotes before a Solana wallet connects. */
 const QUOTE_ONLY_SOLANA = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-/** SOL kept back for fees when spending native SOL. */
-const SOL_RESERVE_LAMPORTS = 10_000_000n;
 const ROBINHOOD_RPC = "https://rpc.mainnet.chain.robinhood.com";
 
 const rpcFor = (chainId: number | null) => (chainId === null ? null : (evmSwapChain(chainId)?.rpc ?? (chainId === 4663 ? ROBINHOOD_RPC : null)));
@@ -181,34 +180,6 @@ function useAcrossPreview(step: Extract<FundsStep, { kind: "across" }> | null, u
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
   }, [key]);
   return key && state?.key === key ? state : null;
-}
-
-/** The wallet's spendable balance of a Solana token (native SOL less a fee reserve), refreshed while visible. */
-function useSolanaBalance(owner: string | null, mint: string | null, refresh: number) {
-  const key = owner && mint ? `${owner}:${mint}:${refresh}` : null;
-  const [state, setState] = useState<{ key: string; amount: bigint } | null>(null);
-  useEffect(() => {
-    if (!key || !owner || !mint) return;
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch(`/api/solana/balances?owner=${owner}&mints=${mint === WSOL_MINT ? "" : mint}`, { cache: "no-store" });
-        const body = (await response.json()) as { lamports?: string; tokens?: Record<string, string> };
-        if (!response.ok || body.lamports === undefined) return;
-        const lamports = BigInt(body.lamports);
-        const amount = mint === WSOL_MINT ? (lamports > SOL_RESERVE_LAMPORTS ? lamports - SOL_RESERVE_LAMPORTS : 0n) : BigInt(body.tokens?.[mint] ?? "0");
-        if (active) setState({ key, amount });
-      } catch {}
-    };
-    void load();
-    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), BALANCE_REFRESH_MS);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers the wallet, mint and refreshes
-  }, [key]);
-  return key && state?.key === key ? state.amount : undefined;
 }
 
 /** Decimals of a Solana token picked from the search (Jupiter's token data). */

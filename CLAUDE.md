@@ -265,6 +265,10 @@ dependency versions and design are free to diverge from angler-news.
     with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →
     USDG to the wallet), with the Across quote previewed in the Buy box; when the USDG lands (`onDone`) the card asks
     for one more press to swap it on Arcus (rounded down to the cent). The card says plainly that USDC becomes USDG.
+    USDC · Solana and SOL · Solana (`payFrom` solanaUsdc / solanaSol) skip the funds steps: a debounced
+    `quoteDirectSwap` (LI.FI only: Solana) to USDG on Robinhood paid to the EVM wallet, one Solana signature
+    (`sendDirectSwap`), then `bridgeLegState` until filled; the USDG that arrived (Robinhood USDG balance after minus
+    before) becomes `bridged` for the same Arcus press. Both wallets must be connected (balances: `use-solana-balance.ts`).
   - TP/SL (`lib/trading/tpsl.ts` validates the side): reduce-only market-when-triggered orders. Hyperliquid: entry +
     triggers with grouping `normalTpsl`, open positions with `positionTpsl`. Lighter: types 4 (TP) / 2 (SL), IOC,
     expiry -1 (28 days), grouped with the entry via `SignCreateGroupedOrders` (OTO, or OTOCO for both) and as an
