@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowRight, Gift, Sparkles, Trophy } from "lucide-react";
+import { ArrowRight, Gift, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import Link from "next/link";
-import { PerpDexIcon } from "@/components/app/nav-icons";
 import BorderGlow from "@/components/fx/border-glow";
 import Counter from "@/components/fx/counter";
 import { pointsFor } from "@/lib/profile/levels";
@@ -64,63 +63,73 @@ export function RewardsView() {
 
   return (
     <>
-      <section className={`${card} relative overflow-hidden p-6 sm:p-8`}>
+      <section className={`${card} relative overflow-hidden px-6 py-5 sm:px-7 sm:py-6`}>
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_120%_at_0%_0%,rgb(var(--app-accent)/0.14),transparent_55%),radial-gradient(50%_90%_at_100%_100%,rgb(var(--app-accent)/0.06),transparent_60%)]" />
-        <div className="relative flex flex-wrap items-end justify-between gap-6">
+        <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
           <div>
             <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-app-accent">
-              <Sparkles className="size-3.5" aria-hidden />
+              <Sparkles className="size-3.5" strokeWidth={1.75} aria-hidden />
               Total points
             </p>
             {/* Digits roll to each new total. */}
-            <div className="mt-2 -ml-2 font-semibold tracking-tight text-app-ink">
-              <Counter value={Math.round(profile.points * 100) / 100} fontSize={52} gap={2} horizontalPadding={8} gradientHeight={0} fontWeight={600} />
+            <div className="mt-1 -ml-2 font-semibold tracking-tight text-app-ink">
+              <Counter value={Math.round(profile.points * 100) / 100} fontSize={44} gap={2} horizontalPadding={8} gradientHeight={0} fontWeight={600} />
             </div>
-            <p className="mt-3 text-[13px] text-app-muted">
+            <p className="mt-1.5 text-[13px] text-app-muted">
               <span className="font-semibold text-app-ink">+{number.format(earned30)}</span> trading points in the last 30 days
             </p>
           </div>
-          <div className="flex gap-3">
-            <div className="rounded-xl border border-app-hairline bg-app-card/60 px-4 py-3 text-center">
-              <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">Rank</p>
-              <p className="mt-1 flex items-center justify-center gap-1.5 text-[20px] font-semibold tabular-nums text-app-ink">
-                <Trophy className="size-4 text-app-accent" aria-hidden />
+          <dl className="flex divide-x divide-app-hairline">
+            <div className="pr-6">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">Rank</dt>
+              <dd className="mt-1 flex items-center gap-1.5 text-[18px] font-semibold tabular-nums text-app-ink">
+                <Trophy className="size-4 text-app-accent" strokeWidth={1.75} aria-hidden />
                 {profile.rank ? `#${profile.rank}` : "—"}
-              </p>
+              </dd>
             </div>
-            <div className="rounded-xl border border-app-hairline bg-app-card/60 px-4 py-3 text-center">
-              <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">Level</p>
-              <p className="mt-1 text-[20px] font-semibold text-app-ink">{level.name}</p>
+            <div className="pl-6">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-app-faint">Level</dt>
+              <dd className="mt-1 text-[18px] font-semibold text-app-ink">{level.name}</dd>
             </div>
-          </div>
+          </dl>
         </div>
-        <div className="relative mt-6">
+        <div className="relative mt-4">
           <div className="h-1.5 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}>
-            <div className="h-full rounded-full bg-linear-to-r from-app-accent/60 to-app-accent" style={{ width: `${Math.max(2, level.progress * 100)}%` }} />
+            {/* No fill at 0: a sliver would read as progress that isn't there. */}
+            {level.progress > 0 && <div className="h-full rounded-full bg-linear-to-r from-app-accent/60 to-app-accent" style={{ width: `${level.progress * 100}%` }} />}
           </div>
-          <p className="mt-2 text-[12px] tabular-nums text-app-muted">
-            {level.next === null ? "Top level reached." : `${number.format(level.next - profile.points)} points to ${level.nextName}`}
+          <p className="mt-2 flex justify-between text-[12px] tabular-nums text-app-muted">
+            {level.next === null ? (
+              <span>{level.name} · top level reached</span>
+            ) : (
+              <>
+                <span>
+                  {level.name} <span className="text-app-faint">→</span> <span className="text-app-ink">{level.nextName}</span>
+                </span>
+                <span>{number.format(level.next - profile.points)} points to go</span>
+              </>
+            )}
           </p>
         </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-3">
         <SourceCard
-          icon={<PerpDexIcon className="size-5" active />}
+          icon={<TrendingUp className="size-5" strokeWidth={1.75} aria-hidden />}
           title="Trading"
           value={number.format(tradingPoints)}
-          detail="0.01 point for every $1 you trade through Angler: perps, spot and swaps on every venue."
+          detail="Earn 1 point per $100 traded."
           cta={{ label: "Trade now", href: "/perp" }}
         />
         <SourceCard
-          icon={<Gift className="size-5" aria-hidden />}
+          icon={<Gift className="size-5" strokeWidth={1.75} aria-hidden />}
           title="Referrals"
           value={number.format(profile.referralPoints)}
-          detail={`10% of the points of the ${profile.referrals === 1 ? "trader" : `${profile.referrals} traders`} you invited, on their perp and spot trades.`}
+          detail="Earn 10% of your referrals’ points."
           cta={{ label: "Invite traders", href: "/profile#referrals" }}
         />
         <SourceCard
-          icon={<Sparkles className="size-5" aria-hidden />}
+          icon={<Sparkles className="size-5" strokeWidth={1.75} aria-hidden />}
           title="VIP"
           value={`VIP ${vip.level}`}
           detail={`${compactUsd.format(profile.recentVolume.d30)} traded in the last 30 days. More volume, a bigger discount on Angler fees.`}
