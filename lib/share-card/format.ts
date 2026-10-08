@@ -5,6 +5,8 @@
 
 export interface TradeData {
   symbol: string;
+  /** The market's logo (same-origin, so the PNG export can read it); without one, BTC/ETH/SOL are drawn and others get initials. */
+  symbolIcon?: string;
   market: string;
   direction: "long" | "short";
   leverage: number;

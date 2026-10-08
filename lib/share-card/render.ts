@@ -124,7 +124,15 @@ function shadeLeft(c: Ctx, { start = 570, end = 1080, opacity = 0.66 } = {}) {
   c.fillRect(0, 150, end, 710);
 }
 
-function token(c: Ctx, symbol: string, x: number, y: number, size = 48) {
+/** The market's logo as on the site, fitted into the icon's square; a drawn mark when it didn't load. */
+function token(c: Ctx, symbol: string, x: number, y: number, size: number, logo: HTMLImageElement | null) {
+  if (logo) {
+    const ratio = logo.naturalWidth && logo.naturalHeight ? logo.naturalWidth / logo.naturalHeight : 1;
+    const w = ratio >= 1 ? size : size * ratio;
+    const h = ratio >= 1 ? size / ratio : size;
+    c.drawImage(logo, x - w / 2, y - h / 2, w, h);
+    return;
+  }
   c.save();
   c.translate(x, y);
   const k = size / 48;
@@ -167,8 +175,8 @@ function brand(c: Ctx, x = 80, y = 113, size = 52) {
   text(c, "Angler", x, y, size, WHITE, { weight: 550 });
 }
 
-function market(c: Ctx, d: TradeData, x: number, y: number, { size = 26, icon = 46 } = {}) {
-  token(c, d.symbol, x + icon / 2, y - icon * 0.3, icon);
+function market(c: Ctx, d: TradeData, logo: HTMLImageElement | null, x: number, y: number, { size = 26, icon = 46 } = {}) {
+  token(c, d.symbol, x + icon / 2, y - icon * 0.3, icon, logo);
   text(c, `${d.symbol}—${d.market}`, x + icon + 18, y, size, WHITE, { weight: 600, maxWidth: 360 });
 }
 
@@ -225,13 +233,14 @@ function footer(c: Ctx, d: TradeData, venueIcon: HTMLImageElement | null) {
   qr(c, d.url);
 }
 
-const venueIcons = new Map<string, Promise<HTMLImageElement | null>>();
+const logos = new Map<string, Promise<HTMLImageElement | null>>();
 
-/** The venue logo, or null when it doesn't load: a missing logo leaves just the name. */
-function loadVenueIcon(url: string) {
-  let icon = venueIcons.get(url);
-  if (!icon) venueIcons.set(url, (icon = loadImage(url).catch(() => null)));
-  return icon;
+/** A token or venue logo, or null when it doesn't load: the card then draws its own mark or just the name. */
+function loadLogo(url: string | undefined) {
+  if (!url) return Promise.resolve(null);
+  let logo = logos.get(url);
+  if (!logo) logos.set(url, (logo = loadImage(url).catch(() => null)));
+  return logo;
 }
 
 function dollars(c: Ctx, d: TradeData, x: number, y: number, size: number, color = WHITE, width = 900) {
@@ -269,55 +278,55 @@ function splitScore(c: Ctx, d: TradeData, { x = 80, baseline = 620, width = 950,
   }
 }
 
-type Painter = (c: Ctx, d: TradeData, accent: string, venueIcon: HTMLImageElement | null) => void;
+type Painter = (c: Ctx, d: TradeData, accent: string, venueIcon: HTMLImageElement | null, logo: HTMLImageElement | null) => void;
 
 /** Each design's layout on top of its (recolored) artwork, in the kit's 1600×1000 coordinates. */
 const painters: Record<DesignId, Painter> = {
-  velocity(c, d, accent, venueIcon) {
+  velocity(c, d, accent, venueIcon, logo) {
     brand(c);
-    market(c, d, 1065, 113, { size: 29 });
+    market(c, d, logo, 1065, 113, { size: 29 });
     splitScore(c, d, { baseline: 624, width: 950, size: 510 });
     direction(c, d, 80, 705, accent, 30);
     dollars(c, d, 80, 811, 96, WHITE, 800);
     footer(c, d, venueIcon);
   },
-  polar(c, d, accent, venueIcon) {
+  polar(c, d, accent, venueIcon, logo) {
     brand(c, 80, 113, 52);
-    market(c, d, 80, 282, { size: 30 });
+    market(c, d, logo, 80, 282, { size: 30 });
     direction(c, d, 80, 340, "#9aaec9", 24);
     roi(c, d, 68, 577, 930, 272, accent, 550);
     dollars(c, d, 80, 683, 82, WHITE, 800);
     footer(c, d, venueIcon);
   },
-  eclipse(c, d, accent, venueIcon) {
+  eclipse(c, d, accent, venueIcon, logo) {
     brand(c, 80, 113, 48);
-    market(c, d, 80, 283, { size: 28 });
+    market(c, d, logo, 80, 283, { size: 28 });
     dollars(c, d, 68, 568, 225, WHITE, 930);
     roi(c, d, 80, 688, 770, 100, accent, 420);
     direction(c, d, 80, 787, "#8f96b4", 27);
     footer(c, d, venueIcon);
   },
-  orbit(c, d, accent, venueIcon) {
+  orbit(c, d, accent, venueIcon, logo) {
     shadeLeft(c, { start: 520, end: 1100, opacity: 0.82 });
     brand(c, 80, 113, 52);
-    market(c, d, 80, 281, { size: 29 });
+    market(c, d, logo, 80, 281, { size: 29 });
     splitScore(c, d, { x: 74, baseline: 612, width: 840, size: 485 });
     direction(c, d, 80, 701, accent, 28);
     dollars(c, d, 80, 800, 88, WHITE, 760);
     footer(c, d, venueIcon);
   },
-  relay(c, d, accent, venueIcon) {
+  relay(c, d, accent, venueIcon, logo) {
     shadeLeft(c, { start: 610, end: 1000, opacity: 0.5 });
     brand(c, 80, 113, 52);
-    market(c, d, 80, 281, { size: 29 });
+    market(c, d, logo, 80, 281, { size: 29 });
     direction(c, d, 80, 342, accent, 25);
     roi(c, d, 68, 586, 930, 274, WHITE, 550);
     dollars(c, d, 80, 707, 94, accent, 870);
     footer(c, d, venueIcon);
   },
-  mono(c, d, accent, venueIcon) {
+  mono(c, d, accent, venueIcon, logo) {
     brand(c, 80, 113, 48);
-    market(c, d, 80, 281, { size: 29 });
+    market(c, d, logo, 80, 281, { size: 29 });
     dollars(c, d, 70, 543, 220, WHITE, 890);
     roi(c, d, 80, 681, 820, 110, accent, 420);
     direction(c, d, 80, 791, "#939dad", 27);
@@ -337,7 +346,7 @@ export async function renderCard(canvas: HTMLCanvasElement, input: TradeInput, {
   if (!spec) throw new RangeError(`Unknown design: ${design}`);
   if (!Number.isFinite(scale) || scale < 0.1 || scale > 4) throw new RangeError("scale must be between 0.1 and 4");
   const d = normalizeData(input);
-  const [images, venueIcon] = await Promise.all([loadResources(), d.showVenue && d.venueIcon ? loadVenueIcon(d.venueIcon) : null]);
+  const [images, venueIcon, logo] = await Promise.all([loadResources(), loadLogo(d.showVenue ? d.venueIcon : undefined), loadLogo(d.symbolIcon)]);
   const colors = paletteFor(palette, spec.accent);
   const art = recolorArt(images[spec.asset], colors, spec.hue);
   canvas.width = Math.round(CARD_WIDTH * scale);
@@ -348,7 +357,7 @@ export async function renderCard(canvas: HTMLCanvasElement, input: TradeInput, {
   c.imageSmoothingEnabled = true;
   c.imageSmoothingQuality = "high";
   c.drawImage(art, 0, 0, CARD_WIDTH, CARD_HEIGHT);
-  painters[design](c, d, colors.accent, venueIcon);
+  painters[design](c, d, colors.accent, venueIcon, logo);
   canvas.setAttribute("role", "img");
   canvas.setAttribute("aria-label", dataLabel(d));
   return canvas;

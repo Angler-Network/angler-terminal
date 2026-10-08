@@ -22,8 +22,13 @@ export interface Favicon {
 }
 
 /** Returns the first real image from the sources, or null. Rejects non-images, empty and oversized bodies. */
-export async function fetchFavicon(domain: string, fetchImpl: typeof fetch = fetch): Promise<Favicon | null> {
-  for (const url of faviconSources(domain)) {
+export function fetchFavicon(domain: string, fetchImpl: typeof fetch = fetch): Promise<Favicon | null> {
+  return fetchFirstImage(faviconSources(domain), fetchImpl);
+}
+
+/** The first of the URLs that answers with a real image (not empty, under 200 KB), or null. */
+export async function fetchFirstImage(urls: string[], fetchImpl: typeof fetch = fetch): Promise<Favicon | null> {
+  for (const url of urls) {
     try {
       const response = await fetchImpl(url, { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: "follow" });
       const contentType = response.headers.get("content-type") ?? "";

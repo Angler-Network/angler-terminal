@@ -44,9 +44,11 @@ function readChoice(): Choice {
 
 /** The card's record for a live position: ROE and unrealized PnL exactly as the venue reports them. */
 export function positionTrade(position: VenuePosition, url = siteUrl()): TradeInput {
+  // HIP-3 markets carry their dex ("xyz:TSLA"); the card shows the asset.
+  const symbol = position.symbol.split(":").pop() || position.symbol;
   return {
-    // HIP-3 markets carry their dex ("xyz:TSLA"); the card shows the asset.
-    symbol: position.symbol.split(":").pop() || position.symbol,
+    symbol,
+    symbolIcon: `/api/token-icon?symbol=${encodeURIComponent(symbol)}`,
     market: "PERP",
     direction: position.size >= 0 ? "long" : "short",
     leverage: position.leverage,
