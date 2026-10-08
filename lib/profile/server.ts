@@ -81,7 +81,8 @@ async function syncLighter(config: LighterConfig, l1Address: string, cursor: num
     if (newer.length < list.length || !body.next_cursor || list.length < LIGHTER_PAGE) break;
     next = body.next_cursor;
   }
-  return { usd: lighterAnglerVolume(trades, accountIndex).usd, cursor: newest };
+  const volume = lighterAnglerVolume(trades, accountIndex);
+  return { usd: volume.usd, standardUsd: volume.standardUsd, cursor: newest };
 }
 
 /**
@@ -106,11 +107,12 @@ export async function syncProfile(id: string) {
     await saveCursors(id, { hl: hl.value.cursor });
   } else if (hl.status === "rejected") console.warn(`[profile] Hyperliquid sync failed: ${String(hl.reason)}`);
   if (lighter.status === "fulfilled" && lighter.value) {
-    await creditVolume(id, "lighter", lighter.value.usd, lighterFee(lighterConfig, lighter.value.usd));
+    // Standard-account volume paid no fee: none of ours, and half points.
+    await creditVolume(id, "lighter", lighter.value.usd, lighterFee(lighterConfig, lighter.value.usd - lighter.value.standardUsd), lighter.value.standardUsd);
     await saveCursors(id, { lighter: lighter.value.cursor });
   } else if (lighter.status === "rejected") console.warn(`[profile] Lighter sync failed: ${String(lighter.reason)}`);
   if (lighterRh.status === "fulfilled" && lighterRh.value) {
-    await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd));
+    await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd - lighterRh.value.standardUsd), lighterRh.value.standardUsd);
     await saveCursors(id, { lighterRh: lighterRh.value.cursor });
   } else if (lighterRh.status === "rejected") console.warn(`[profile] Lighter RH sync failed: ${String(lighterRh.reason)}`);
   if (aster.status === "fulfilled" && aster.value) {

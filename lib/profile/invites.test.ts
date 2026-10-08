@@ -4,6 +4,17 @@ vi.mock("server-only", () => ({}));
 
 const { creditVolume, readProfile, setReferrer } = await import("./store");
 
+describe("Lighter Standard volume", () => {
+  it("earns half points but counts in full as volume", async () => {
+    const trader = "0x00000000000000000000000000000000000000ab";
+    // $10,000 on Lighter, $4,000 of it on a Standard account: 6,000 + 4,000 / 2 = $8,000 worth of points.
+    await creditVolume(trader, "lighter", 10_000, 0, 4_000);
+    const profile = await readProfile(trader);
+    expect(profile.volume.lighter).toBe(10_000);
+    expect(profile.points).toBe(80);
+  });
+});
+
 describe("invites", () => {
   it("earns one single-use code per $10K and only lets new profiles join with one", async () => {
     const inviter = "0x00000000000000000000000000000000000000a1";

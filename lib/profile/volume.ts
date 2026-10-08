@@ -56,6 +56,16 @@ export interface LighterTrade {
   bid_account_id: number;
   ask_client_id: number;
   bid_client_id: number;
+  /** Which side rested on the book; the fees are per role (Lighter leaves a zero fee out). */
+  is_maker_ask?: boolean;
+  taker_fee?: number;
+  maker_fee?: number;
+}
+
+/** The fee the account's own side paid: zero (or absent) on a Standard account, which pays Lighter nothing. */
+function ownFee(trade: LighterTrade, accountIndex: number) {
+  const ownMaker = trade.ask_account_id === accountIndex ? trade.is_maker_ask === true : trade.is_maker_ask === false;
+  return Number((ownMaker ? trade.maker_fee : trade.taker_fee) ?? 0) || 0;
 }
 
 /** Whether the account's own side of the trade was placed from this terminal. */
@@ -66,14 +76,22 @@ export function isAnglerTrade(trade: LighterTrade, accountIndex: number) {
   );
 }
 
+/**
+ * Volume placed from this terminal, and the part of it a Standard account traded (no fee, so none of ours): that part
+ * earns half points (`standardUsd`, see `STANDARD_POINTS_SHARE`).
+ */
 export function lighterAnglerVolume(trades: LighterTrade[], accountIndex: number) {
   let usd = 0;
+  let standardUsd = 0;
   let lastTime = 0;
   for (const trade of trades) {
     lastTime = Math.max(lastTime, trade.timestamp);
-    if (isAnglerTrade(trade, accountIndex)) usd += Math.abs(Number(trade.usd_amount)) || 0;
+    if (!isAnglerTrade(trade, accountIndex)) continue;
+    const amount = Math.abs(Number(trade.usd_amount)) || 0;
+    usd += amount;
+    if (ownFee(trade, accountIndex) === 0) standardUsd += amount;
   }
-  return { usd, lastTime };
+  return { usd, standardUsd, lastTime };
 }
 
 interface TokenBalance {

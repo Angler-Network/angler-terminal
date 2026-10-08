@@ -208,8 +208,43 @@ function LighterSection({ venue }: { venue: LighterVenueId }) {
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
       <FundsButton venue={venue} />
+      <LighterTierCard venue={venue} />
       <LighterKeyStatus venue={venue} />
     </Section>
+  );
+}
+
+/**
+ * A Standard account pays no Lighter fee, so none of ours either, and its trades here earn half points. The card says
+ * what Plus costs and switches the account (no wallet popup), then asks for the one signature that approves our fee.
+ */
+function LighterTierCard({ venue }: { venue: LighterVenueId }) {
+  const { lighterStates, upgradeLighter } = useTrading();
+  const [busy, setBusy] = useState(false);
+  const config = lighterConfigs[venue];
+  const state = lighterStates[venue];
+  const feeBps = (config.integrator?.maxTakerFee ?? 0) / 100;
+  if (state?.tier !== "std" || !config.integrator || feeBps <= 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-app-accent/40 bg-app-accent/5 px-2.5 py-2 text-[12px] leading-snug text-app-muted">
+      <p className="font-semibold text-app-ink">Standard account: half points</p>
+      <p>
+        {config.name} trades on a Standard account earn half points. On Plus they earn full points. Plus pays {config.name}&apos;s 0.005% fee
+        and Angler&apos;s fee (up to {Number(feeBps.toFixed(2))} bps) on each trade; switching back is possible after 24 hours.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          await upgradeLighter(venue);
+          setBusy(false);
+        }}
+        className="h-7 self-start rounded-md bg-app-accent px-2.5 text-[12px] font-semibold text-app-on-accent hover:opacity-90 disabled:opacity-60"
+      >
+        {busy ? "Switching…" : "Switch to Plus"}
+      </button>
+    </div>
   );
 }
 

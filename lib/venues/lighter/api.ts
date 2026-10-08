@@ -160,6 +160,14 @@ export async function txStatus(config: LighterConfig, hash: string) {
   }
 }
 
+/**
+ * Switches the account type. Lighter's docs show "premium" and "standard"; "plus" follows the tier names
+ * `accountLimits` reports. Upgrades work any time, other changes once a day.
+ */
+export async function changeAccountTier(config: LighterConfig, accountIndex: number, tier: "plus" | "premium" | "standard", auth: string) {
+  return lighterPostForm(config, "changeAccountTier", { account_index: String(accountIndex), new_tier: tier }, auth);
+}
+
 /** "std", "plus" or "premium"; partner fees above zero need Plus or Premium. */
 export async function userTier(config: LighterConfig, accountIndex: number, auth: string) {
   const body = await lighterGet(config, "accountLimits", { account_index: accountIndex }, auth);

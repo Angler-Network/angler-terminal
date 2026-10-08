@@ -198,7 +198,23 @@ function referralUsdOf(hash: Record<string, string>) {
 }
 
 /** Own volume plus the referral share: the points a profile shows and ranks by. */
-const pointsOf = (hash: Record<string, string>) => pointsFor(totalOf(volumeOf(hash)) + referralUsdOf(hash));
+/**
+ * Lighter volume a Standard account traded (no Lighter fee, so none of ours) earns this share of points; Plus and
+ * Premium volume earns full points. The volume itself still counts in full (profile totals, VIP, invites).
+ */
+export const STANDARD_POINTS_SHARE = 0.5;
+
+/** Volume that earned only part of its points (`half:{venue}`), less the share it did earn. */
+function reducedUsdOf(hash: Record<string, string>) {
+  let reduced = 0;
+  for (const venue of PROFILE_VENUES) {
+    const value = Number(hash[`half:${venue}`] ?? 0);
+    if (Number.isFinite(value) && value > 0) reduced += value * (1 - STANDARD_POINTS_SHARE);
+  }
+  return reduced;
+}
+
+const pointsOf = (hash: Record<string, string>) => pointsFor(Math.max(0, totalOf(volumeOf(hash)) - reducedUsdOf(hash)) + referralUsdOf(hash));
 
 async function rankOf(id: string): Promise<number | null> {
   if (!redisConfig()) {
@@ -287,19 +303,25 @@ export async function volume30d(id: string) {
  * Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. On perp and spot
  * venues the referrer, if any, earns a share of the points and REFERRAL_FEE_SHARE of `feeUsd`, the Angler fee paid.
  */
-export async function creditVolume(id: string, venue: ProfileVenue, usd: number, feeUsd = 0) {
+export async function creditVolume(id: string, venue: ProfileVenue, usd: number, feeUsd = 0, standardUsd = 0) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
+  // Part of `usd` traded on a Standard Lighter account: recorded so points count it at STANDARD_POINTS_SHARE.
+  const standard = Math.round(Math.min(Math.max(0, standardUsd), usd) * 100) / 100;
+  // What the volume is worth in points, for the referrer's share too.
+  const pointsAmount = Math.round((amount - standard * (1 - STANDARD_POINTS_SHARE)) * 100) / 100;
   const today = dayKey(Date.now());
   if (redisConfig()) {
     await run([
       ["HINCRBYFLOAT", key("p", id), `usd:${venue}`, amount],
+      ...(standard > 0 ? [["HINCRBYFLOAT", key("p", id), `half:${venue}`, standard] as RedisCommand] : []),
       ["HINCRBYFLOAT", key("d", id), today, amount],
       ["EXPIRE", key("d", id), DAYS_TTL_SECONDS],
     ]);
   } else {
     const hash = memory.hashes.get(key("p", id)) ?? {};
     hash[`usd:${venue}`] = String(Number(hash[`usd:${venue}`] ?? 0) + amount);
+    if (standard > 0) hash[`half:${venue}`] = String(Number(hash[`half:${venue}`] ?? 0) + standard);
     memory.hashes.set(key("p", id), hash);
     const days = memory.hashes.get(key("d", id)) ?? {};
     days[today] = String(Number(days[today] ?? 0) + amount);
@@ -313,12 +335,12 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number,
     const share = Math.round(Math.max(0, feeUsd) * REFERRAL_FEE_SHARE * 1e6) / 1e6;
     if (redisConfig()) {
       await run([
-        ["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", amount],
+        ["HINCRBYFLOAT", key("p", hash.referrer), "refUsd", pointsAmount],
         ...(share > 0 ? [["HINCRBYFLOAT", key("p", hash.referrer), "refFeeUsd", share] as RedisCommand, ["SADD", key("earners"), hash.referrer] as RedisCommand] : []),
       ]);
     } else {
       const referrer = await getHash(hash.referrer);
-      await setFields(hash.referrer, { refUsd: String(Number(referrer.refUsd ?? 0) + amount), refFeeUsd: String(Number(referrer.refFeeUsd ?? 0) + share) });
+      await setFields(hash.referrer, { refUsd: String(Number(referrer.refUsd ?? 0) + pointsAmount), refFeeUsd: String(Number(referrer.refFeeUsd ?? 0) + share) });
       if (share > 0) await addToSet(key("earners"), hash.referrer);
     }
     await setPoints(hash.referrer, pointsOf(await getHash(hash.referrer)));

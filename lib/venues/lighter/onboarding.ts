@@ -1,7 +1,7 @@
 "use client";
 
 import { VenueError } from "../types";
-import { getAccountIndex, lighterGet, lighterPostForm, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
+import { changeAccountTier, getAccountIndex, lighterGet, lighterPostForm, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
 import type { LighterConfig } from "./config";
 import { toLighterVenueError } from "./errors";
 import { encryptSecret, getDeviceKey } from "./key-crypto";
@@ -19,18 +19,29 @@ export interface LighterOnboarding {
   keyReady: boolean;
   /** "none" when no integrator is configured. */
   integrator: "none" | "needed" | "approved";
+  /** The account type ("std", "plus", "premium") once this browser holds a key to ask with; null before. */
+  tier: string | null;
 }
 
 const INTEGRATOR_APPROVAL_DAYS = 365;
 const KEY_WAIT_MS = 30_000;
+const TIER_WAIT_MS = 20_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function integratorState(config: LighterConfig, accountIndex: number, l1Address: string): LighterOnboarding["integrator"] {
+function integratorState(config: LighterConfig, accountIndex: number, l1Address: string, tier: string | null): LighterOnboarding["integrator"] {
   const integrator = config.integrator;
   if (!integrator) return "none";
   const approved = readRecord(config, l1Address, accountIndex).integrator;
-  return approved && approved.accountIndex === integrator.accountIndex && approved.expiresAt > Date.now() ? "approved" : "needed";
+  if (!approved || approved.accountIndex !== integrator.accountIndex || approved.expiresAt <= Date.now()) return "needed";
+  // Approved at zero on Standard, and the account has since moved to Plus or Premium: approve the fee again.
+  const paidTier = tier !== null && tier !== "std";
+  return paidTier && approved.maxTakerFee === 0 && integrator.maxTakerFee > 0 ? "needed" : "approved";
+}
+
+async function readTier(config: LighterConfig, l1Address: string) {
+  const session = await requireSession(config, l1Address);
+  return userTier(config, session.accountIndex, await authToken(session));
 }
 
 /**
@@ -39,7 +50,7 @@ function integratorState(config: LighterConfig, accountIndex: number, l1Address:
  */
 export async function getLighterOnboarding(config: LighterConfig, l1Address: string): Promise<LighterOnboarding> {
   const accountIndex = await getAccountIndex(config, l1Address, { fresh: true });
-  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none" };
+  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none", tier: null };
   const record = readRecord(config, l1Address, accountIndex);
   let keyReady = false;
   if (record.key) {
@@ -50,7 +61,8 @@ export async function getLighterOnboarding(config: LighterConfig, l1Address: str
       forgetSessionCaches(config, accountIndex, record.key.apiKeyIndex);
     }
   }
-  return { accountIndex, keyReady, integrator: integratorState(config, accountIndex, l1Address) };
+  const tier = keyReady ? await readTier(config, l1Address).catch(() => null) : null;
+  return { accountIndex, keyReady, tier, integrator: integratorState(config, accountIndex, l1Address, tier) };
 }
 
 async function waitForApiKey(config: LighterConfig, accountIndex: number, apiKeyIndex: number, publicKey: string) {
@@ -140,6 +152,26 @@ export async function approveLighterIntegrator(config: LighterConfig, signMessag
       ...record,
       integrator: { accountIndex: integrator.accountIndex, maxTakerFee, expiresAt },
     }));
+  } catch (error) {
+    throw toLighterVenueError(error);
+  }
+}
+
+/**
+ * Moves the account from Standard (no Lighter fee, so none of ours either) to Plus, signed with the browser key's auth
+ * token: no wallet popup. Waits until Lighter reports the new tier. The caller then approves our fee again.
+ */
+export async function upgradeLighterTier(config: LighterConfig, l1Address: string) {
+  try {
+    const session = await requireSession(config, l1Address);
+    const auth = await authToken(session);
+    await changeAccountTier(config, session.accountIndex, "plus", auth);
+    const deadline = Date.now() + TIER_WAIT_MS;
+    while (Date.now() < deadline) {
+      if ((await userTier(config, session.accountIndex, auth)) !== "std") return;
+      await sleep(1000);
+    }
+    throw new VenueError(`${config.name} accepted the switch but still reports Standard. Check again in a minute.`);
   } catch (error) {
     throw toLighterVenueError(error);
   }

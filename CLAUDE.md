@@ -665,7 +665,14 @@ dependency versions and design are free to diverge from angler-news.
   "Use referral code" message (`POST /api/profile/referral`, once, never changed). The referrer earns 10% of the
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
-  Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+  Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Lighter and Lighter RH volume from a
+  Standard account (the trade's own-side `maker_fee`/`taker_fee` is zero or absent: no Lighter fee, so none of ours)
+  earns half points (`STANDARD_POINTS_SHARE`, stored as `half:{venue}`; the volume itself counts in full for totals,
+  VIP and invites). The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts
+  (`LighterTierCard`): `changeAccountTier` with `new_tier: "plus"` (Lighter's docs only show "premium"/"standard";
+  verify on the first real switch) and the browser key's auth token, then `approveLighterIntegrator` again (Standard
+  approved a zero fee; `integratorState` asks again once the tier is paid). The setup state carries `tier` from
+  `accountLimits`. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
   VIP (`lib/profile/vip.ts`): the 30-day volume sets a share of the configured fee (base 3.5 bps: VIP 1-4 pay 3.25 / 3 /
   2.75 / 2.5). It applies only where the order carries our fee and the browser signs it: the Hyperliquid builder fee
   (perps, spot, HIP-4), the Lighter and Lighter RH integrator fees and the Aster builder fee. Swaps, bridges, Orderly

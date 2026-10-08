@@ -23,6 +23,7 @@ import {
   applyLighterReferral,
   registerLighterKey,
   revokeLighterKey,
+  upgradeLighterTier,
   type LighterOnboarding,
 } from "@/lib/venues/lighter/onboarding";
 import { lighterRhVenue, lighterVenue } from "@/lib/venues/lighter/venue";
@@ -86,6 +87,8 @@ interface TradingContextValue {
   /** Approves the integrator; with `referral`, also sets our referral code there (the user opted in). */
   approveLighter: (options?: { referral?: boolean; venue?: LighterVenueId }) => Promise<boolean>;
   revokeLighter: (venue?: LighterVenueId) => Promise<void>;
+  /** Moves a Standard Lighter account to Plus and approves our fee again. */
+  upgradeLighter: (venue: LighterVenueId) => Promise<boolean>;
   /** Aster setup: our builder fee and the browser trading key, both approved by the wallet. */
   aster: AsterOnboarding | null;
   approveAster: (step: "builder" | "agent") => Promise<boolean>;
@@ -176,7 +179,7 @@ function useLighterInstance(
       return next;
     } catch (error) {
       console.warn(`[${config.venue}] setup state: ${toLighterVenueError(error).message}`);
-      setState({ accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none" });
+      setState({ accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none", tier: null });
       return null;
     }
   }, [address, enabled, config]);
@@ -242,8 +245,29 @@ function useLighterInstance(
     }
   }, [address, canSign, config, signMessage, refresh, fail, toast]);
 
+  /** Standard → Plus, then our fee approved again (one wallet signature), so Plus trades carry it. */
+  const upgrade = useCallback(async () => {
+    if (!address || !canSign) return false;
+    try {
+      await upgradeLighterTier(config, address);
+    } catch (error) {
+      fail(`Couldn't switch ${config.name} to Plus`, error);
+      return false;
+    }
+    try {
+      await approveLighterIntegrator(config, signMessage, address);
+    } catch (error) {
+      fail(`${config.name} is on Plus, but approving Angler failed`, error);
+      await refresh();
+      return false;
+    }
+    await refresh();
+    toast({ tone: "success", title: `${config.name} switched to Plus`, message: `Your ${config.name} trades now earn full points.` });
+    return true;
+  }, [address, canSign, config, signMessage, refresh, fail, toast]);
+
   const ready = Boolean(state && state.accountIndex !== null && state.keyReady && state.integrator !== "needed");
-  return { markets, state, account, refresh, register, approve, revoke, ready };
+  return { markets, state, account, refresh, register, approve, revoke, upgrade, ready };
 }
 
 /**
@@ -509,6 +533,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     [lighterByVenue],
   );
   const revokeLighter = useCallback((venue: LighterVenueId = "lighter") => lighterByVenue[venue].revoke(), [lighterByVenue]);
+  const upgradeLighter = useCallback((venue: LighterVenueId) => lighterByVenue[venue].upgrade(), [lighterByVenue]);
 
   const placeOrder = useCallback(
     async (input: PlaceOrderInput) => {
@@ -668,6 +693,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       registerLighter,
       approveLighter,
       revokeLighter,
+      upgradeLighter,
       aster: aster.state,
       approveAster: aster.approve,
       revokeAster: aster.revoke,
@@ -707,6 +733,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       registerLighter,
       approveLighter,
       revokeLighter,
+      upgradeLighter,
       aster.state,
       aster.approve,
       aster.revoke,

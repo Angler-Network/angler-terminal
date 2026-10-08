@@ -79,10 +79,22 @@ describe("Lighter volume", () => {
   });
 
   it("counts trades whose own side carries the terminal tag", () => {
-    expect(lighterAnglerVolume([trade({ ask_client_id: ours })], 7)).toEqual({ usd: 500.5, lastTime: 10 });
+    // No fee fields: a Standard account, so the whole trade is Standard volume.
+    expect(lighterAnglerVolume([trade({ ask_client_id: ours })], 7)).toEqual({ usd: 500.5, standardUsd: 500.5, lastTime: 10 });
     // The tag on the other side's order doesn't count for this account.
     expect(lighterAnglerVolume([trade({ bid_client_id: ours })], 7).usd).toBe(0);
-    expect(lighterAnglerVolume([trade({ bid_client_id: ours, timestamp: 12 })], 8)).toEqual({ usd: 500.5, lastTime: 12 });
+    expect(lighterAnglerVolume([trade({ bid_client_id: ours, timestamp: 12 })], 8)).toEqual({ usd: 500.5, standardUsd: 500.5, lastTime: 12 });
+  });
+
+  it("tells Plus and Premium trades (own side paid a fee) from Standard ones", () => {
+    // Account 7 is the ask; the ask rested (maker), so its fee is maker_fee.
+    const paidMaker = trade({ ask_client_id: ours, is_maker_ask: true, maker_fee: 50, taker_fee: 0 });
+    expect(lighterAnglerVolume([paidMaker], 7)).toMatchObject({ usd: 500.5, standardUsd: 0 });
+    // Same trade, but the taker (bid, account 8) paid nothing: Standard for account 8.
+    const freeTaker = trade({ bid_client_id: ours, is_maker_ask: true, maker_fee: 50, taker_fee: 0 });
+    expect(lighterAnglerVolume([freeTaker], 8)).toMatchObject({ usd: 500.5, standardUsd: 500.5 });
+    const paidTaker = trade({ bid_client_id: ours, is_maker_ask: true, taker_fee: 280 });
+    expect(lighterAnglerVolume([paidTaker, freeTaker], 8)).toMatchObject({ usd: 1001, standardUsd: 500.5 });
   });
 });
 
