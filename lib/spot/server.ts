@@ -269,7 +269,13 @@ async function uniswapListings(): Promise<SpotListing[]> {
         const key = (isNativeToken(address) ? weth : address).toLowerCase();
         return fillMarket(prices.get(llamaKey(chain.llama, key)), fresh.get(key), remembered.get(key));
       };
-      return records.flatMap((record) => fromUniswapToken(record, marketOf(String(record.address))) ?? []);
+      // The native coin (address 0) keeps its own name: pool sources label it after the wrapped token ("WETH"), which
+      // listed it twice next to the real WETH.
+      const native = chain.pay.find((token) => isNativeToken(token.address));
+      return records.flatMap((record) => {
+        const named = native && typeof record.address === "string" && isNativeToken(record.address) ? { ...record, symbol: native.symbol, name: chain.nativeName } : record;
+        return fromUniswapToken(named, marketOf(String(record.address))) ?? [];
+      });
     }),
   );
   for (const list of lists) if (list.status === "rejected") console.error("[spot] uniswap list failed:", list.reason);
