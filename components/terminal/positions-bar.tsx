@@ -14,6 +14,7 @@ import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
 import { ClosePositionDialog, TpslDialog } from "./position-dialogs";
+import { VenueLogo } from "./market-rows";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useWallet } from "./wallet-provider";
@@ -56,14 +57,11 @@ function RowButton({ onClick, children }: { onClick: () => Promise<void>; childr
   );
 }
 
-/** Which venue a row lives on; close and cancel go to that venue. */
+/** Which venue a row lives on, as its logo (the name on hover); close and cancel go to that venue. */
 export function VenueBadge({ venue }: { venue: PerpVenueId }) {
   return (
-    <span
-      title={PERP_VENUE_NAMES[venue]}
-      className="ml-1.5 rounded-sm bg-app-chip px-1 py-[2px] align-middle text-[9px] font-semibold uppercase tracking-[0.08em] text-app-muted"
-    >
-      {venue === "hyperliquid" ? "HL" : "Lighter"}
+    <span className="ml-2 inline-flex align-middle">
+      <VenueLogo name={PERP_VENUE_NAMES[venue]} size={16} />
     </span>
   );
 }
