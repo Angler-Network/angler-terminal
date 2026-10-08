@@ -26,10 +26,10 @@ export const CHAIN_IDS: Record<LighterInstance, Record<LighterNetwork, number>> 
   rh: { mainnet: 466_324, testnet: 300 },
 };
 
-/** Lighter's own web app; Lighter on Robinhood is traded from the Robinhood Wallet app, so it has none. */
+/** Lighter's own web apps: core, and Lighter on Robinhood Chain (no testnet app found for it). */
 export const APP_URLS: Record<LighterInstance, Record<LighterNetwork, string | null>> = {
   core: { mainnet: "https://app.lighter.xyz", testnet: "https://testnet.app.lighter.xyz" },
-  rh: { mainnet: null, testnet: null },
+  rh: { mainnet: "https://robinhoodchain.lighter.xyz", testnet: null },
 };
 
 /** Lighter on Robinhood takes USDG on Robinhood Chain (asset 3 in `assetDetails`, 6 decimals). */
@@ -48,8 +48,11 @@ export const MAX_API_KEY_INDEX = 254;
  */
 export const DEFAULT_API_KEY_INDEX = 61;
 
-/** Integrator fees are in millionths of the trade size (1000 = 10 bps). The testnet system cap is 10000 for perps. */
-export const MAX_PERP_INTEGRATOR_FEE = 10_000;
+/**
+ * Integrator fees are in millionths of the trade size (1000 = 10 bps). Lighter's Partner Attribution caps perps at
+ * 10 bps (spot at 100 bps), in steps of 0.01 bps; a higher value would be refused, so it's read as unset.
+ */
+export const MAX_PERP_INTEGRATOR_FEE = 1_000;
 
 /** Worst acceptable price for market orders: best bid/ask moved this far against the order. */
 export const DEFAULT_SLIPPAGE = 0.03;

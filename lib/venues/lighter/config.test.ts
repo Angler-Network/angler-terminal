@@ -53,9 +53,11 @@ describe("Lighter on Robinhood Chain", () => {
       wsUrl: "wss://api.rh.lighter.xyz/stream",
       chainId: 466324,
       storeKey: "rh-mainnet",
-      appUrl: null,
+      appUrl: "https://robinhoodchain.lighter.xyz",
     });
-    expect(readLighterConfig({}, "rh")).toMatchObject({ apiUrl: "https://api.rh-testnet.lighter.xyz", chainId: 300, storeKey: "rh-testnet" });
+    expect(readLighterConfig({}, "rh")).toMatchObject({ apiUrl: "https://api.rh-testnet.lighter.xyz", chainId: 300, storeKey: "rh-testnet", appUrl: null });
+    // Lighter's Partner Attribution caps perp integrator fees at 10 bps (1000 millionths).
+    expect(readLighterConfig({ NEXT_PUBLIC_LIGHTER_INTEGRATOR_ACCOUNT: "5", NEXT_PUBLIC_LIGHTER_INTEGRATOR_FEE: "1001" }).integrator?.takerFee).toBe(0);
     expect(readLighterConfig({ NEXT_PUBLIC_LIGHTER_API_KEY_INDEX: "157" }, "rh").apiKeyIndex).toBe(DEFAULT_API_KEY_INDEX);
     expect(readLighterConfig({ NEXT_PUBLIC_LIGHTER_API_KEY_INDEX: "157" }).apiKeyIndex).toBe(157);
     // Core keeps the bare network as its storage key, so existing browser keys stay found.

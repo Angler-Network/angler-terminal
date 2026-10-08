@@ -103,7 +103,9 @@ dependency versions and design are free to diverge from angler-news.
     chain id travel together (RH mainnet `api.rh.lighter.xyz`, chain 466324; testnet `api.rh-testnet.lighter.xyz`,
     chain 300, only BTC/SOL/ETH). `createLighterVenue(config)` builds each venue; `storeKey` separates browser keys
     and caches (core keeps the bare network so existing keys stay found). RH env: `NEXT_PUBLIC_LIGHTER_RH_*`
-    (network, integrator account/fee/max, referral); key slot shared, never 157 (reserved on RH). RH marks every
+    (network, integrator account/fee/max, referral); key slot shared, never 157 (reserved on RH). Web app:
+    robinhoodchain.lighter.xyz (`APP_URLS.rh`; the account panel still opens RH accounts through the terminal's own USDG
+    deposit). Integrator fees on both: millionths, perps capped at 1000 (10 bps, Lighter's Partner Attribution limit). RH marks every
     market strategy 0, so `forInstance` names its crypto (`RH_CRYPTO`) and calls the rest stocks. Deposits: USDG on
     Robinhood Chain to the RH intent address (`createIntentAddress` chain_id 4663, ≥ 1 USDG; `ROBINHOOD` source,
     viem chain from `arcus/config`). The trading provider runs `useLighterInstance` per exchange; the account

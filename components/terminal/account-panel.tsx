@@ -138,8 +138,9 @@ function LighterKeyStatus({ venue }: { venue: LighterVenueId }) {
       </div>
     );
   }
-  if (lighter.accountIndex === null && !config.appUrl) {
-    // Lighter on Robinhood has no web app: the first USDG deposit (from Robinhood Chain) opens the account.
+  if (lighter.accountIndex === null && (config.collateral === "USDG" || !config.appUrl)) {
+    // Lighter on Robinhood: the first USDG deposit (from Robinhood Chain, or USDC bridged by the funds window) opens the
+    // account, so the terminal's own deposit is the way in.
     return (
       <button
         type="button"
