@@ -25,11 +25,11 @@ import { profileIdOf, type ProfileChain } from "./identity";
  */
 const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 
-export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "jupiter", "titan"] as const;
+export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 /** Perp and order-book spot venues: only their volume earns invites and referral rewards (not swaps or bridges). */
-const TRADING_VENUES: ProfileVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster"];
+const TRADING_VENUES: ProfileVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly"];
 
 /** A referrer's cash share of the Angler fees its referrals pay on perp and spot trades. */
 export const REFERRAL_FEE_SHARE = 0.1;
@@ -259,15 +259,16 @@ export async function readCursors(id: string) {
     const value = Number(hash[field]);
     return Number.isFinite(value) ? value : null;
   };
-  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor"), aster: number("asterCursor") };
+  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor"), aster: number("asterCursor"), orderly: number("orderlyCursor") };
 }
 
-export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number }) {
+export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number; orderly?: number }) {
   const fields: Record<string, string> = {};
   if (cursors.hl !== undefined) fields.hlCursor = String(cursors.hl);
   if (cursors.lighter !== undefined) fields.lighterCursor = String(cursors.lighter);
   if (cursors.lighterRh !== undefined) fields.lighterRhCursor = String(cursors.lighterRh);
   if (cursors.aster !== undefined) fields.asterCursor = String(cursors.aster);
+  if (cursors.orderly !== undefined) fields.orderlyCursor = String(cursors.orderly);
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 

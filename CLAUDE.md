@@ -144,11 +144,18 @@ dependency versions and design are free to diverge from angler-news.
   `/v1/public/info` + `/v1/public/futures`, broker-only markets (`broker_id` set) dropped, lots can be 100
   (`roundToTick`). Orders POST `/v1/order` (MARKET/LIMIT; read back from `/v1/order/{id}` until final), leverage POST
   `/v1/client/leverages` per symbol, cancel DELETE `/v1/order?order_id&symbol`, account = `/v1/positions` +
-  `/v1/orders?status=INCOMPLETE` every 3s, candles `/tv/history`. No TP/SL yet. The REST book needs a signed account,
+  `/v1/orders?status=INCOMPLETE` every 3s, candles `/tv/history`. TP/SL: POST `/v1/algo/order` `POSITIONAL_TP_SL` (mark price, `CLOSE_POSITION`
+  children) placed after a market fill or from the position row; a resting limit entry can't carry one. Funding rates
+  (`orderly/funding.ts`, `/v1/public/futures` + `/info`, normalized to 8h) join the Markets table. The REST book needs a signed account,
   so the order book and best execution read the public WebSocket (`stream.ts`: one shared socket, any id in the path,
   `{symbol}@orderbook` full snapshots + `@trade`, answers pings). Deposits (`depositToOrderly`): USDC approve + vault
   `deposit(VaultDepositFE{accountId, brokerHash, tokenHash, amount})` with `getDepositFee` as the value, Arbitrum or
-  Base (vault `0x816f…67e9` on both); testnet points to Orderly's testnet app. Withdrawals happen on an Orderly app.
+  Base (vault `0x816f…67e9` on both); testnet points to Orderly's testnet app. Withdrawals (`withdraw.ts`, the funds window's Orderly → Wallet on
+  Arbitrum, mainnet only): `/v1/withdraw_nonce`, the wallet signs EIP-712 `Withdraw` on the ledger domain (mainnet
+  `0x6F7a…D203`, testnet `0x1826…abff`), amount in USDC base units (checked on testnet), POST `/v1/withdraw_request`;
+  Orderly takes 1 USDC. Profile points: `lib/profile/orderly-volume.ts` reads the public broker leaderboard
+  (`/v1/broker/leaderboard/daily?broker_id&address`, perp volume and broker fee per closed UTC day; only with our own
+  broker id, never the demo one).
   Checked end to end on testnet with a throwaway wallet (register, key, signed GET/POST).
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
@@ -656,7 +663,7 @@ dependency versions and design are free to diverge from angler-news.
   "Use referral code" message (`POST /api/profile/referral`, once, never changed). The referrer earns 10% of the
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
   The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
-  Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+  Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
 - Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
   `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
   under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in

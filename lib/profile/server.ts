@@ -13,6 +13,7 @@ import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTrans
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
 import { tierFee, tierFees, vipFor } from "./vip";
 import { syncAster } from "./aster-volume";
+import { syncOrderly } from "./orderly-volume";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -84,7 +85,7 @@ async function syncLighter(config: LighterConfig, l1Address: string, cursor: num
 }
 
 /**
- * Pulls new Angler volume for an EVM profile from Hyperliquid and both Lighter exchanges, at most once a minute. Errors leave the
+ * Pulls new Angler volume for an EVM profile from Hyperliquid, both Lighter exchanges, Aster and Orderly, at most once a minute. Errors leave the
  * cursors where they were, so the next sync retries.
  */
 export async function syncProfile(id: string) {
@@ -93,11 +94,12 @@ export async function syncProfile(id: string) {
   // Lighter trades don't list our integrator fee: it's the configured fee at the trader's VIP tier.
   const rate = vipFor(await volume30d(id)).rate;
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
-  const [hl, lighter, lighterRh, aster] = await Promise.allSettled([
+  const [hl, lighter, lighterRh, aster, orderly] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl),
     syncLighter(lighterConfig, id, cursors.lighter),
     syncLighter(lighterRhConfig, id, cursors.lighterRh),
     syncAster(id, cursors.aster),
+    syncOrderly(id, cursors.orderly),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
     await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee);
@@ -116,6 +118,11 @@ export async function syncProfile(id: string) {
     await creditVolume(id, "aster", aster.value.usd, aster.value.fee);
     await saveCursors(id, { aster: aster.value.cursor });
   } else if (aster.status === "rejected") console.warn(`[profile] Aster sync failed: ${String(aster.reason)}`);
+  if (orderly.status === "fulfilled" && orderly.value) {
+    // Orderly's leaderboard reports the broker fee each day paid: our exact revenue on it.
+    await creditVolume(id, "orderly", orderly.value.usd, orderly.value.fee);
+    await saveCursors(id, { orderly: orderly.value.cursor });
+  } else if (orderly.status === "rejected") console.warn(`[profile] Orderly sync failed: ${String(orderly.reason)}`);
 }
 
 async function referralAccounts(referral: string, mints: string[]) {

@@ -15,12 +15,18 @@ const VENUE_NAMES: Record<string, string> = {
   hyperliquid: "Hyperliquid",
   lighter: "Lighter",
   lighterRh: "Lighter RH",
+  aster: "Aster",
+  orderly: "Orderly",
   jupiter: "Jupiter",
   titan: "Titan",
   arcus: "Arcus",
   uniswap: "Uniswap",
+  zerox: "0x",
+  odos: "Odos",
+  kyberswap: "KyberSwap",
   relay: "Relay",
   lifi: "LI.FI",
+  polymarket: "Polymarket",
 };
 
 type Report = RevenueReport & { years: number[] };
