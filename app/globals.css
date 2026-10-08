@@ -743,9 +743,10 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
+/* Rise only, no fade-in: the gate is a first visit's largest paint, and a paint at opacity 0 doesn't count, so a fade
+   pushed it behind the page's scripts on slow phones. */
 @keyframes gate-rise {
   from {
-    opacity: 0;
     transform: translateY(14px);
   }
 }

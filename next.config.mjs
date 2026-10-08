@@ -45,6 +45,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  // Title, description and robots go in <head> for every visitor. Next streams them into the body for anything it
+  // doesn't list as a basic bot (Googlebot included), where crawlers and Lighthouse may miss them; ours never wait
+  // on data, so blocking on them costs nothing.
+  htmlLimitedBots: /.*/,
   // The terminal lives at /perp, /swap and /spot; the root is the home page.
   async redirects() {
     return [
@@ -56,7 +60,21 @@ const nextConfig = {
   },
   // Self-hosted fonts carry a content hash in their name.
   async headers() {
-    return [{ source: "/fonts/:file*.woff2", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
+    return [
+      { source: "/fonts/:file*.woff2", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      {
+        // A trading screen with one-click orders must never load inside another site's frame (clickjacking).
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+        ],
+      },
+    ];
   },
   env: {
     // Compared with /api/version to tell open tabs a newer deploy is live.

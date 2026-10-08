@@ -30,7 +30,7 @@ import "./globals.css";
 
 const title = "Angler Terminal";
 const description =
-  "Trade Hyperliquid and Lighter perps, Solana tokens and tokenized stocks from one screen, with AI-scored crypto news you can trade in two taps.";
+  "Perps on Hyperliquid, Lighter, Aster and Orderly, swaps on every major chain and prediction markets from one screen, with AI-scored crypto news you can trade in two taps.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -76,16 +76,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <WalletModalProvider>
                   <TradeTicketProvider>
                   <ProfileProvider>
+                    {/* First in the HTML: a first visit's largest paint is one of these (the welcome dialog, the invite gate), and
+                        they show before the terminal's markup is even parsed (both sit on top wherever they are in the page). */}
+                    <AlphaNotice />
+                    <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
+                    <AccessGate />
                     <div className="app-shell relative flex h-full overflow-hidden bg-linear-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <LayoutRevealButtons />
                       <Sidebar />
                       <AppFrame tape={<ServerTape />}>{children}</AppFrame>
                     </div>
                     <LazyDialogs />
-                    <AlphaNotice />
-                    <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
                     <UpdateNotice />
-                    <AccessGate />
                     <ServiceStatus />
                     <TooltipLayer />
                   </ProfileProvider>

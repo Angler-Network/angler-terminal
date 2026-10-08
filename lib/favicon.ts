@@ -1,6 +1,8 @@
 /**
  * Favicons for news sources, fetched server-side so the browser never calls third-party icon services directly.
- * Tries DuckDuckGo's icon service, then Google's; both resolve the site's real favicon by domain.
+ * Tries Google's icon service (a 64px PNG, a couple of KB), then DuckDuckGo's (the site's own .ico, which can carry
+ * every size at once: lighter.xyz's is 60 KB); both resolve the site's real favicon by domain. Google answers 404 with a
+ * placeholder globe for unknown domains, which is skipped.
  */
 
 const DOMAIN_PATTERN = /^(?=.{3,253}$)(?!-)[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+$/;
@@ -13,7 +15,7 @@ export function normalizeDomain(value: string | null | undefined) {
 }
 
 export function faviconSources(domain: string) {
-  return [`https://icons.duckduckgo.com/ip3/${domain}.ico`, `https://www.google.com/s2/favicons?domain=${domain}&sz=64`];
+  return [`https://www.google.com/s2/favicons?domain=${domain}&sz=64`, `https://icons.duckduckgo.com/ip3/${domain}.ico`];
 }
 
 export interface Favicon {
