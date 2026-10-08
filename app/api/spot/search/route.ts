@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mergeListings, normalizeSpotSymbol } from "@/lib/spot/listings";
 import { getSpotListings, searchJupiterListings, searchUniswapListings } from "@/lib/spot/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 const QUERY_PATTERN = /^[\p{L}\p{N} $._-]{1,64}$/u;
 
@@ -9,6 +10,8 @@ const QUERY_PATTERN = /^[\p{L}\p{N} $._-]{1,64}$/u;
  * (EVM tokens on Ethereum, Base and Arbitrum). Both also find unverified tokens.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "spot-search");
+  if (limited) return limited;
   const query = request.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (!QUERY_PATTERN.test(query)) return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   const wanted = normalizeSpotSymbol(query);

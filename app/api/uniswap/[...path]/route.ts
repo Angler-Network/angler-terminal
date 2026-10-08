@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { sameOrigin } from "@/lib/same-origin";
 import { UNISWAP_CHAIN_IDS } from "@/lib/venues/uniswap/config";
 import { readUniswapServerConfig, uniswapFetch, withIntegratorFee } from "@/lib/venues/uniswap/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 /** Trading API endpoints the terminal uses; nothing else is proxied. */
 const POST_PATHS = new Set(["check_approval", "quote", "swap", "order"]);
@@ -26,6 +27,8 @@ const sameChainSupported = (body: Record<string, unknown>) =>
 
 /** GET /api/uniswap/orders?orderId= (UniswapX status) and /swaps?txHashes=&chainId= (transaction status). */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "uniswap");
+  if (limited) return limited;
   const [endpoint, ...rest] = (await params).path;
   if (rest.length > 0 || !GET_PATHS.has(endpoint)) return NextResponse.json({ detail: "Not found" }, { status: 404 });
   const { apiKey } = readUniswapServerConfig(process.env);
@@ -43,6 +46,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  * dropped) and are limited to single-chain swaps on the chains the terminal supports.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "uniswap");
+  if (limited) return limited;
   const path = (await params).path;
   const endpoint = path[0];
   if (path.length !== 1 || !POST_PATHS.has(endpoint)) return NextResponse.json({ detail: "Not found" }, { status: 404 });

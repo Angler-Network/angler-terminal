@@ -4,6 +4,7 @@ import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { jupFetch } from "@/lib/venues/jupiter/server";
 import { fromJupRecord, pickSpotListing } from "@/lib/spot/listings";
 import { pickVerifiedToken, toSpotToken, type JupTokenRecord } from "@/lib/venues/jupiter/tokens";
+import { rateLimited } from "@/lib/rate-limit";
 
 const SYMBOL_PATTERN = /^[A-Za-z0-9$._-]{1,20}$/;
 
@@ -24,6 +25,8 @@ const search = unstable_cache(
  * normal answer (`{ token: null }`, 200): a 404 would log a console error on every page that checks a perp-only asset.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "jup-token");
+  if (limited) return limited;
   const params = request.nextUrl.searchParams;
   const mint = params.get("mint");
   const symbol = params.get("symbol");

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sameOrigin } from "@/lib/same-origin";
 import { readRelayServerConfig, relayFetch, withRelayFee } from "@/lib/venues/relay-server";
+import { rateLimited } from "@/lib/rate-limit";
 
 const MAX_BODY = 20_000;
 
@@ -19,6 +20,8 @@ const unreachable = () => NextResponse.json({ message: "Relay is unreachable rig
 
 /** GET /api/relay/intents/status/v2?requestId= : a bridge leg's progress. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "relay");
+  if (limited) return limited;
   const path = (await params).path.join("/");
   const requestId = request.nextUrl.searchParams.get("requestId") ?? "";
   if (path !== "intents/status/v2" || !/^0x[0-9a-fA-F]{64}$/.test(requestId)) return NextResponse.json({ message: "Not found" }, { status: 404 });
@@ -31,6 +34,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 /** POST /api/relay/quote: a bridge leg's quote, with our app fee added here (never by the browser). */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "relay");
+  if (limited) return limited;
   if ((await params).path.join("/") !== "quote") return NextResponse.json({ message: "Not found" }, { status: 404 });
   if (!sameOrigin(request)) return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   const raw = await request.text();

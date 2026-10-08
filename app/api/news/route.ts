@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
 import { readApiNewsPage } from "@/lib/angler/map";
+import { rateLimited } from "@/lib/rate-limit";
 
 const TIMEOUT_MS = 10_000;
 const MAX_LIMIT = 100;
@@ -11,6 +12,8 @@ const COIN_PATTERN = /^[A-Za-z0-9:]{1,30}$/;
  * Answers a validated `ApiNewsPage` without `content` (article bodies run to ~250 KB each).
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "news");
+  if (limited) return limited;
   const { apiUrl, key } = anglerConfig();
   if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
 

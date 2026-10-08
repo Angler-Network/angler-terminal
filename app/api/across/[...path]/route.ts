@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { readAcrossServerConfig } from "@/lib/venues/across-server";
+import { rateLimited } from "@/lib/rate-limit";
 
 /** The two Across endpoints the funds window uses; nothing else is proxied. */
 const UPSTREAM: Record<string, string> = {
@@ -8,6 +9,8 @@ const UPSTREAM: Record<string, string> = {
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "across");
+  if (limited) return limited;
   const upstream = UPSTREAM[(await params).path.join("/")];
   if (!upstream) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const query = new URLSearchParams(request.nextUrl.searchParams);

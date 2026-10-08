@@ -2,12 +2,15 @@ import type { NextRequest } from "next/server";
 import { readSlippageBps } from "@/lib/trading/slippage";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { badRequest, jupFetch, jupServerConfig, relay, unreachable } from "@/lib/venues/jupiter/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 /**
  * Proxies GET /swap/v2/order (Meta-Aggregator). The server adds the API key and our referral account and fee,
  * so neither can be read or changed from the browser.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "jup");
+  if (limited) return limited;
   const incoming = request.nextUrl.searchParams;
   const inputMint = incoming.get("inputMint");
   const outputMint = incoming.get("outputMint");

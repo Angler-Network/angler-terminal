@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
 import { badRequest, jupFetch, relay, unreachable } from "@/lib/venues/jupiter/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 const MAX_TRANSACTION_LENGTH = 4096;
 
 /** Proxies POST /swap/v2/execute: Jupiter lands the signed transaction and reports the outcome. */
 export async function POST(request: NextRequest) {
+  const limited = rateLimited(request, "jup-execute", "send");
+  if (limited) return limited;
   let body: { signedTransaction?: unknown; requestId?: unknown };
   try {
     body = await request.json();

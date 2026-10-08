@@ -4,6 +4,7 @@ import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { readTitanFeeConfig, titanFeeParams } from "@/lib/venues/titan/fees";
 import { readTitanRoute, titanErrorMessage } from "@/lib/venues/titan/route";
 import { buildTitanTransaction, readTitanServerConfig, titanFetch } from "@/lib/venues/titan/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 const SLIPPAGE_BPS = 50;
 
@@ -12,6 +13,8 @@ const SLIPPAGE_BPS = 50;
  * here so the browser doesn't need a Solana SDK. 503 when TITAN_API_KEY isn't set.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "titan");
+  if (limited) return limited;
   if (!readTitanServerConfig(process.env).apiKey) return NextResponse.json({ error: "Titan isn't configured." }, { status: 503 });
   const incoming = request.nextUrl.searchParams;
   const inputMint = incoming.get("inputMint");

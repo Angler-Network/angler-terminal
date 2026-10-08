@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { sumTokenAccounts } from "@/lib/venues/jupiter/balances";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { jupServerConfig } from "@/lib/venues/jupiter/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 const MAX_MINTS = 4;
 
@@ -23,6 +24,8 @@ async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T
  * Amounts are raw base-unit strings.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "solana-balances");
+  if (limited) return limited;
   const params = request.nextUrl.searchParams;
   const owner = params.get("owner");
   const mints = [...new Set((params.get("mints") ?? "").split(",").filter(Boolean))].slice(0, MAX_MINTS);

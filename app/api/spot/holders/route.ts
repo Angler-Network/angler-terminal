@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { readLargestHolders, type TokenHolder } from "@/lib/spot/token-activity";
 import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   const response = await fetch(jupServerConfig().rpcUrl, {
@@ -64,6 +65,8 @@ const largestHolders = unstable_cache(
 
 /** Holders of a Solana token (the swap view's Holders tab). Robinhood Chain tokens link to the explorer instead. */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "spot-holders", "heavy");
+  if (limited) return limited;
   const token = request.nextUrl.searchParams.get("token");
   if (!isSolanaAddress(token)) return NextResponse.json({ error: "Invalid token" }, { status: 400 });
   try {

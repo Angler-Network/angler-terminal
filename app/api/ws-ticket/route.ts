@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
 import type { WsTicketResponse } from "@/lib/angler/types";
+import { rateLimited } from "@/lib/rate-limit";
 
 const TIMEOUT_MS = 10_000;
 
@@ -8,7 +9,9 @@ const TIMEOUT_MS = 10_000;
  * Mints a single-use realtime ticket. A ticket opens exactly one socket, so the browser calls this on every
  * connect and reconnect and passes the ticket as connection data.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const limited = rateLimited(request, "ws-ticket");
+  if (limited) return limited;
   const { apiUrl, wsUrl, key } = anglerConfig();
   if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
 

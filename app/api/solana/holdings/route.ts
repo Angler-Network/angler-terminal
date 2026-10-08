@@ -3,6 +3,7 @@ import { isSolanaAddress } from "@/lib/venues/jupiter/config";
 import { buildHoldings, rawAmountsByMint, type ParsedTokenAccount } from "@/lib/venues/jupiter/holdings";
 import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
 import type { JupTokenRecord } from "@/lib/venues/jupiter/tokens";
+import { rateLimited } from "@/lib/rate-limit";
 
 const TOKEN_PROGRAMS = ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"];
 /** Jupiter's token search takes up to 100 comma-separated mints. */
@@ -41,6 +42,8 @@ async function tokenRecords(mints: string[]) {
  * view. The RPC URL and Jupiter key stay server-side.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "solana-holdings");
+  if (limited) return limited;
   const owner = request.nextUrl.searchParams.get("owner");
   if (!isSolanaAddress(owner)) return NextResponse.json({ error: "Invalid owner" }, { status: 400 });
   const { rpcUrl } = jupServerConfig();

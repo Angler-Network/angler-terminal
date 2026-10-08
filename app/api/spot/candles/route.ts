@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isChartInterval } from "@/lib/chart/candles";
 import { isPoolNetwork, isTokenAddress, MAX_POOL_CANDLES } from "@/lib/spot/pool-candles";
 import { getPoolCandles } from "@/lib/spot/pool-candles-server";
+import { rateLimited } from "@/lib/rate-limit";
 
 /**
  * A spot token's own candles (its busiest DEX pool): ?network=solana|robinhood&address=&interval=&count=.
@@ -9,6 +10,8 @@ import { getPoolCandles } from "@/lib/spot/pool-candles-server";
  * falls back to the asset's market chart.
  */
 export async function GET(request: NextRequest) {
+  const limited = rateLimited(request, "spot-candles");
+  if (limited) return limited;
   const params = request.nextUrl.searchParams;
   const network = params.get("network");
   const address = params.get("address") ?? "";

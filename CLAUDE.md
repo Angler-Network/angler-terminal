@@ -703,6 +703,11 @@ dependency versions and design are free to diverge from angler-news.
   title/description/robots in `<head>` for every visitor (Next streams them into the body otherwise, Googlebot
   included); all metadata is static or reads only the URL, so blocking on it costs nothing. `/api/favicon` asks
   Google's 64px icon first (a few hundred bytes) and DuckDuckGo's .ico second (lighter.xyz's is 60 KB).
+- Rate limits (`lib/rate-limit.ts`, `rateLimited(request, scope, tier)` at the top of a handler): every route that
+  spends our keys or quotas (Jupiter, Titan, Uniswap, Arcus, Relay, LI.FI, Across, aggregators, Solana RPC, spot
+  candles/trades/search/holders, news, ws-ticket) answers 429 above `RATE_LIMITS` per IP per minute (read 240, send 30,
+  heavy 30). In memory per instance (no Redis cost or latency on quotes); the Origin check alone can be faked by a
+  script. Add it to any new proxy that carries a key.
 - Server-rendered chart price (the mobile LCP element): preferences mirror the chart's asset, market type and price
   source into the `angler_chart` cookie (`CHART_COOKIE`, next to the tape's `angler_tape`). `app/layout.tsx` seeds
   `PreferencesProvider` with it so the server and the first client render show the same asset, and `app/page.tsx`

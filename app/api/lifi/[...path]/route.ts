@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sameOrigin } from "@/lib/same-origin";
 import { lifiFetch, lifiQuoteQuery, readLifiServerConfig } from "@/lib/venues/lifi-server";
+import { rateLimited } from "@/lib/rate-limit";
 
 async function relay(response: Response) {
   const text = await response.text();
@@ -20,6 +21,8 @@ const TX_HASH = /^(0x[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{64,90})$/;
  * GET /api/lifi/status?txHash=&fromChain=&toChain= : a sent route's progress.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "lifi");
+  if (limited) return limited;
   const path = (await params).path.join("/");
   const config = readLifiServerConfig(process.env);
   const search = request.nextUrl.searchParams;

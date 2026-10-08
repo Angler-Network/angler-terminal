@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { arcusFetch, readArcusServerConfig } from "@/lib/venues/arcus/server";
+import { rateLimited } from "@/lib/rate-limit";
 
 /** Router endpoints the terminal uses; nothing else is proxied. */
 const GET_PATHS = new Set(["tokens", "price", "quote", "status"]);
@@ -18,6 +19,8 @@ async function relay(response: Response) {
 const unreachable = () => NextResponse.json({ error: "Arcus is unreachable right now." }, { status: 502 });
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "arcus");
+  if (limited) return limited;
   const [endpoint, ...rest] = (await params).path;
   if (rest.length > 0 || !GET_PATHS.has(endpoint)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const query = new URLSearchParams(request.nextUrl.searchParams);
@@ -37,6 +40,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const limited = rateLimited(request, "arcus-send");
+  if (limited) return limited;
   const path = (await params).path;
   if (path.length !== 1 || path[0] !== "submit") return NextResponse.json({ error: "Not found" }, { status: 404 });
   let body: Record<string, unknown>;
