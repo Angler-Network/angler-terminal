@@ -8,6 +8,7 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { LEVELS } from "@/lib/profile/levels";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
+import { PortfolioCard } from "./portfolio-card";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
 
@@ -279,7 +280,10 @@ function Overview() {
           </section>
         )}
       </div>
-      <ReferralCard />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ReferralCard />
+        <PortfolioCard className={`${card} h-full`} />
+      </div>
       <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
@@ -299,7 +303,7 @@ function ReferralCard() {
   const [code, setCode] = useState(pendingReferral ?? "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"link" | "code" | null>(null);
   useEffect(() => {
     if (pendingReferral) setCode(pendingReferral);
   }, [pendingReferral]);
@@ -308,24 +312,29 @@ function ReferralCard() {
     if (profile && window.location.hash === "#referrals") document.getElementById("referrals")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [profile]);
   if (!id || !profile) return null;
-  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${profile.username ?? profile.id}`;
+  const ownCode = profile.username ?? profile.id;
+  const link = typeof window === "undefined" ? "" : `${window.location.origin}/?ref=${ownCode}`;
+  const copy = (what: "link" | "code") =>
+    void navigator.clipboard?.writeText(what === "link" ? link : ownCode).then(() => {
+      setCopied(what);
+      window.setTimeout(() => setCopied(null), 1500);
+    });
+  const copyButton = "h-9 shrink-0 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70";
   return (
-    <section id="referrals" className={`${card} scroll-mt-4 p-4`}>
+    <section id="referrals" className={`${card} h-full scroll-mt-4 p-4`}>
       <h2 className="text-[13px] font-semibold text-app-ink">Referrals</h2>
       <p className="mt-1 text-[12px] text-app-muted">Share your link: you earn 10% of the points of everyone who joins with it.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <code className="min-w-0 flex-1 truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] text-app-ink">{link}</code>
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard?.writeText(link).then(() => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-          className="h-9 rounded-xl border border-app-hairline-strong px-3.5 text-[13px] font-semibold text-app-ink hover:bg-app-selected/70"
-        >
-          {copied ? "Copied" : "Copy link"}
+        <button type="button" onClick={() => copy("link")} className={copyButton}>
+          {copied === "link" ? "Copied" : "Copy link"}
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-app-muted">Your code</span>
+        <code className="min-w-0 max-w-full truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] font-semibold text-app-ink">{profile.username ?? shortAddress(profile.id)}</code>
+        <button type="button" onClick={() => copy("code")} title={ownCode} className={copyButton}>
+          {copied === "code" ? "Copied" : "Copy code"}
         </button>
       </div>
       {!profile.username && <p className="mt-1.5 text-[11px] text-app-faint">Set a username for a shorter link.</p>}
