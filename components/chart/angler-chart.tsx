@@ -361,7 +361,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       isActive = false;
       window.clearInterval(timer);
     };
-    // The venue markets are captured through venueKey in key; their live prices must not restart polling.
+    // The venue markets, chart source and pool are captured in key (venueKey, chartSource, pool address); the markets'
+    // live prices must not restart polling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, symbol, interval, isStock, preferences.chartMarket, sources]);
 
   const fittedKeyRef = useRef<string | null>(null);

@@ -410,7 +410,10 @@ function ArcusSection({ address }: { address: `0x${string}` }) {
 
 /** True when at least one wallet is connected, so the shell can give the panel a column. */
 export function useHasWallet() {
-  return Boolean(useWallet().address || useSolanaWallet().address);
+  // Both hooks every render: `a || b` would skip the second one while an EVM wallet is connected.
+  const evm = useWallet().address;
+  const solana = useSolanaWallet().address;
+  return Boolean(evm || solana);
 }
 
 /**

@@ -53,7 +53,6 @@ interface Filter {
 
 function chainIcon(key: RowChain) {
   const logo = ROW_CHAINS.find((chain) => chain.key === key)?.logo ?? `/chains/${key}.svg`;
-  // eslint-disable-next-line @next/next/no-img-element
   return <img src={logo} alt="" width={16} height={16} className="size-4 rounded-full" />;
 }
 

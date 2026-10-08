@@ -70,7 +70,7 @@ export function TickerTape({ initial, initialMarkets }: TickerTapeProps) {
       const picked = pickQuote(market, settings.source);
       return picked ? [{ market, quote: picked.quote }] : [];
     });
-  }, [loaded, marketType, symbolKey, settings.source]);
+  }, [loaded, symbolKey, settings.source]);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const groupRef = useRef<HTMLUListElement>(null);

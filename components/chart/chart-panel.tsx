@@ -151,7 +151,6 @@ function TradingViewChart({ symbol, isStock, interval }: { symbol: string; isSto
 function SpotTokenIcon({ icon, symbol, isStock }: { icon?: string; symbol: string; isStock: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (icon && failed !== icon) {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={icon} alt="" width={20} height={20} onError={() => setFailed(icon)} className="size-5 shrink-0 rounded-full object-cover" />;
   }
   return <MarketIcon symbol={symbol} kind={isStock ? "stock" : "crypto"} size={20} />;

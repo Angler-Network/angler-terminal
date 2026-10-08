@@ -8,7 +8,7 @@ import { useToast } from "@/components/app/toast-provider";
 import { useModalEnter } from "@/components/app/use-motion";
 import { DESIGNS, type DesignId, type TradeInput } from "@/lib/share-card/format";
 import { PALETTES, type PaletteId } from "@/lib/share-card/palettes";
-import { ASSET_BASE, canvasToBlob, exportCard, renderCard } from "@/lib/share-card/render";
+import { ASSET_BASE, exportCard, renderCard } from "@/lib/share-card/render";
 import { siteUrl } from "@/lib/site";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { venueLogoUrl } from "./market-rows";
@@ -72,6 +72,7 @@ export function SharePositionDialog({ position, onClose }: { position: VenuePosi
   const trade = useMemo(
     () => positionTrade(position),
     // Follows the live PnL, without redrawing for every unrelated change to the position object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [position.symbol, position.size >= 0, position.leverage, position.returnOnEquity, position.unrealizedPnl, position.venue],
   );
   const data = useMemo(() => ({ ...trade, hidePnl: choice.hidePnl, showVenue: choice.showVenue }), [trade, choice.hidePnl, choice.showVenue]);

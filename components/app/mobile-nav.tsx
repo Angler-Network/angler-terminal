@@ -27,7 +27,6 @@ import {
   type NavIcon,
 } from "./nav-icons";
 import { useMobileView, type MobileView } from "./mobile-view";
-import { usePreferences } from "./preferences-provider";
 
 const tabs: Array<{ view: MobileView; label: string; icon: NavIcon }> = [
   { view: "chart", label: "Chart", icon: ChartIcon },

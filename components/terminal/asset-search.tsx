@@ -194,7 +194,7 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
-  }, [isSpot, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, chains]);
+  }, [isSpot, isBook, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, chains]);
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
@@ -348,7 +348,6 @@ function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind; pick?:
                       on ? "bg-app-chip opacity-100" : chains.length ? "opacity-35 hover:opacity-80" : "opacity-80 hover:bg-app-chip/60 hover:opacity-100"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={chain.logo ?? `/chains/${chain.key}.svg`} alt={chain.name} width={18} height={18} className="size-[18px] rounded-full" />
                   </button>
                 );

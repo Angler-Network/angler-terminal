@@ -351,9 +351,9 @@ function Overview() {
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
           <li>0.01 point per dollar (a point per $100) traded through Angler, on every venue the terminal routes to.</li>
-          <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
+          <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Aster trades with Angler&apos;s builder code, Orderly volume under Angler&apos;s broker (a day after it closes), Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
-          <li>Invites: every $10K you trade on perps and spot earns a single-use invite. You earn 10% of the Angler fees and 10% of the points of everyone who joins with one, from their perp and spot trades after they join (swaps and bridges don't count). Their own fees and points stay the same.</li>
+          <li>Invites: every $10K you trade on perps and spot earns a single-use invite. You earn 10% of the Angler fees and 10% of the points of everyone who joins with one, from their perp and spot trades after they join (swaps and bridges don&apos;t count). Their own fees and points stay the same.</li>
         </ul>
       </section>
     </>

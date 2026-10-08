@@ -67,7 +67,6 @@ function mergeWallets(evm: EvmWallet[], solana: SolanaWallet[]): WalletRow[] {
 
 function WalletIcon({ icon, name, className }: { icon?: string; name: string; className: string }) {
   return icon ? (
-    // eslint-disable-next-line @next/next/no-img-element
     <img src={icon} alt="" className={className} />
   ) : (
     <span className={`flex items-center justify-center bg-app-chip text-[12px] font-bold text-app-ink ${className}`}>{name.charAt(0)}</span>
@@ -149,7 +148,6 @@ function WalletModal() {
       >
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           {BACKDROP.map((item) => (
-            // eslint-disable-next-line @next/next/no-img-element
             <img key={item.src} src={item.src} alt="" className={`absolute opacity-[0.07] grayscale ${item.className}`} />
           ))}
         </div>
@@ -168,7 +166,6 @@ function WalletModal() {
               {rows.length === 0
                 ? INSTALL.map((entry) => (
                     <a key={entry.name} href={entry.url} target="_blank" rel="noopener noreferrer" className={`${tileClass} border-app-hairline hover:border-app-hairline-strong hover:bg-app-chip/60`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={`/api/favicon?domain=${entry.icon}`} alt="" className="size-11 rounded-xl" />
                       <span className="text-[12px] font-semibold text-app-ink">{entry.name}</span>
                       <span className="text-[10px] text-app-faint">Install ↗</span>

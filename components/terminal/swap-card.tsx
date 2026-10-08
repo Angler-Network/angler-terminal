@@ -231,7 +231,6 @@ function SpotRoutes({
             title={quote.note ?? (pick === quote.source ? "Pinned: press again for the best price" : "Swap on this route")}
             className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${used ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/favicon?domain=${SOURCE_DOMAINS[quote.source]}`}
               alt=""

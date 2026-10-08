@@ -138,7 +138,6 @@ const CodeSlots: React.FC<CodeSlotsProps> = ({
       mvs: Array.from({ length }, (_, i) => motionValue(slotsRef.current[i] ? 1 : 0)),
       drops: Array.from({ length }, () => motionValue(statusRef.current === 'success' ? 1 : 0))
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [length]
   );
   const { mvs, drops } = springs;

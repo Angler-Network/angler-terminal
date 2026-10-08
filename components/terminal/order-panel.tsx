@@ -22,7 +22,7 @@ import { optionalPrice, percentFrom, pnlAt, portionOf, tpslError } from "@/lib/t
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { sizeForNotional } from "@/lib/venues/hyperliquid/pricing";
 import { minimumSize } from "@/lib/venues/lighter/pricing";
-import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
+import { isLighterVenue } from "@/lib/venues/lighter/config";
 import type { OrderKind, OrderSide, PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";

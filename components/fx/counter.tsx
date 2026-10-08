@@ -70,7 +70,11 @@ function Digit({ place, value, height, digitStyle }: DigitProps) {
     );
   }
 
-  // Numeric digit
+  return <NumericDigit place={place} value={value} height={height} digitStyle={digitStyle} />;
+}
+
+/** Its own component so the hooks never sit behind the decimal point's early return. */
+function NumericDigit({ place, value, height, digitStyle }: DigitProps & { place: number }) {
   const valueRoundedToPlace = getValueRoundedToPlace(value, place);
   const animatedValue = useSpring(valueRoundedToPlace);
 

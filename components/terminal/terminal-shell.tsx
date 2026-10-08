@@ -134,7 +134,7 @@ export function TerminalShell() {
   const bookMarkets = kind === "book" ? (bookRef === undefined ? null : bookMarket ? [bookMarket] : []) : undefined;
   const orderBook = <OrderBook markets={bookMarkets} emptyText={kind === "book" ? `Hyperliquid and Lighter have no ${symbol} spot market.` : undefined} />;
   // Phones keep the classic split: the order book under the order panel, news as its own view.
-  const arrangement = isMobile ? { ...preferences.arrangement, stack: "orderbook" as const } : preferences.arrangement;
+  const arrangement = useMemo(() => (isMobile ? { ...preferences.arrangement, stack: "orderbook" as const } : preferences.arrangement), [isMobile, preferences.arrangement]);
   const stackPanel = arrangement.stack;
   const railPanel: StackPanel = stackPanel === "news" ? "orderbook" : "news";
   const shown = { ...(isMobile ? allPanels : panels), ...(isSpot && { orderbook: false }) };

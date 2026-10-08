@@ -72,6 +72,7 @@ export function useListEnter(
     if (elements.length === 0) return;
     const animation = animateRef.current(gsap, elements);
     return () => void animation.revert();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `signature` stands for `keys` (a new array every render)
   }, [signature, containerRef, selector]);
 }
 

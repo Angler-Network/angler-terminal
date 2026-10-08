@@ -159,7 +159,6 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
 export function TokenIcon({ row }: { row: MarketRow }) {
   const [failed, setFailed] = useState(false);
   if (row.icon && !failed) {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={row.icon} alt="" width={24} height={24} loading="lazy" onError={() => setFailed(true)} className="size-6 shrink-0 rounded-full object-cover" />;
   }
   return <MarketIcon symbol={row.asset} kind={row.kind} size={24} />;

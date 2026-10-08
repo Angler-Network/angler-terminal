@@ -11,7 +11,6 @@ import { liquidationDistancePct } from "@/lib/trading/order-math";
 import { groupByVenue, summarizeVenue, totalSummary, type VenueSummary } from "@/lib/trading/portfolio";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
-import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { PerpVenueId, VenueOpenOrder, VenuePosition } from "@/lib/venues/types";
 import { ClosePositionDialog, TpslDialog } from "./position-dialogs";
 import { VenueLogo } from "./market-rows";

@@ -735,8 +735,8 @@ dependency versions and design are free to diverge from angler-news.
 
 ## Checks
 
-`npm test` (vitest, `*.test.ts` next to the module), `npm run typecheck` and `npm run build` must pass before
-pushing. Pure logic (pricing, parsing, error mapping, storage) gets unit tests; network and wallet code does not.
+`npm test` (vitest, `*.test.ts` next to the module), `npm run typecheck`, `npm run lint` (ESLint 9 with Next's rules,
+`eslint.config.mjs`; clean, keep it at zero warnings) and `npm run build` must pass before pushing. Pure logic (pricing, parsing, error mapping, storage) gets unit tests; network and wallet code does not.
 
 In Claude Code cloud sessions, Node's built-in fetch ignores `HTTPS_PROXY`: start the app (or any script that calls
 external APIs) with `NODE_USE_ENV_PROXY=1`. Delete `.next/cache` after running against mocks, since `unstable_cache`

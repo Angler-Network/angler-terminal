@@ -54,7 +54,6 @@ export function EventImage({ event, size }: { event: PredictionEvent; size: numb
   const src = event.image && !failed ? event.image : `/api/favicon?domain=${SOURCE_DOMAIN[event.source]}`;
   return (
     // Remote images from the sources' CDNs; next/image would need every host configured.
-    // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" aria-hidden width={size} height={size} onError={() => setFailed(true)} className="shrink-0 rounded-lg bg-app-chip object-cover" style={{ width: size, height: size }} />
   );
 }
@@ -62,7 +61,6 @@ export function EventImage({ event, size }: { event: PredictionEvent; size: numb
 export function SourceBadge({ source }: { source: PredictionSource }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/favicon?domain=${SOURCE_DOMAIN[source]}`} alt="" aria-hidden width={11} height={11} className="size-[11px] rounded-sm" />
       {SOURCE_NAME[source]}
     </span>
@@ -274,7 +272,6 @@ export function TradesFeed({ onOpenId, events = [] }: { onOpenId?: (id: string) 
               className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors enabled:hover:bg-app-selected/50 ${opening === trade.id ? "opacity-60" : ""}`}
             >
             {trade.icon ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={trade.icon} alt="" aria-hidden width={28} height={28} className="size-7 shrink-0 rounded-md bg-app-chip object-cover" />
             ) : (
               <span aria-hidden className="size-7 shrink-0 rounded-md bg-app-chip" />
