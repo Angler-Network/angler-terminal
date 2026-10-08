@@ -433,6 +433,15 @@ dependency versions and design are free to diverge from angler-news.
     (USDG first). Its list (`poolTop`) adds the tokens of its busiest pools (GeckoTerminal `getTopPoolTokens`, three
     pages, cached 15 min; `readGeckoPoolTokens`) to whatever Uniswap's `/tokens` ranks there, and drops Uniswap rows
     for Arcus's stock tokens so they're listed once, as Arcus. Before this only Arcus showed on Robinhood.
+    Pons (pons.family, Robinhood Chain's main memecoin launchpad): KyberSwap routes its tokens both on the bonding
+    curve (`pons-v2`) and after graduation (`uniswap-v4-pons-v2`, the v4 pool with Pons's hook), checked with a live
+    quote and a built transaction carrying our fee, so the EVM swap card already trades them. `getPonsTokens`
+    (`pool-candles-server.ts`, GeckoTerminal dexes `pons-v2` ×2 pages and `pons-v2-dex` ×1, base tokens only via
+    `readGeckoPoolBaseTokens`, cached 15 min) adds them to the Robinhood list first, tagged `pons: "curve" | "graduated"`;
+    the search shows them under their own "Pons" filter (`RowChain` "pons", venue "Pons · On curve" / "Pons"), which
+    shows them even with "Verified only" on. The EVM swap card asks for "I checked this token" before buying any
+    unverified token, like the Solana card. Pons's own factories in its integration guide emit nothing recent;
+    don't build on them.
   - Relay (`lib/venues/relay*.ts`, `bridge-leg.ts`, `app/api/relay/[...path]`): every bridge leg (`FundsStep` "across":
     funds window, both swap cards) quotes Across and Relay together (`quoteBridgeLeg`) and runs the larger output,
     Across on a tie; waits follow `BridgeLegRef` (Across deposit id or Relay request id). Relay's `/quote` lists the

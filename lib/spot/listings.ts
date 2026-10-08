@@ -34,6 +34,8 @@ export interface SpotListing {
   marketCap?: number;
   /** A dollar token (stablecoin, or a yield-bearing dollar like jlUSDC): listed, but after the rest. */
   stable?: boolean;
+  /** A Pons launch on Robinhood Chain: still on its bonding curve, or graduated to its Uniswap v4 pool. */
+  pons?: "curve" | "graduated";
 }
 
 /** The parts of a Jupiter Tokens V2 record the listings read. */
@@ -179,6 +181,8 @@ export interface UniswapTokenRecord {
   decimals?: number;
   logoURI?: string | null;
   extensions?: { safetyInfo?: { safetyLevel?: string; buyFee?: number; sellFee?: number } };
+  /** Set for Pons launches (`getPonsTokens`). */
+  pons?: "curve" | "graduated";
 }
 
 /** Live market numbers for a token (DexScreener). */
@@ -232,6 +236,7 @@ export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket
     icon: (typeof record.logoURI === "string" && record.logoURI) || market.icon,
     category: "crypto",
     verified,
+    ...(record.pons ? { pons: record.pons } : {}),
     price: market.price,
     change24h: market.change24h,
     volume24h: market.volume24h,

@@ -14,7 +14,7 @@ import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener"
 import { LLAMA_BATCH, llamaKey, readLlamaMarkets } from "./llama";
 import { GECKO_TOKENS_BATCH } from "./gecko-tokens";
 import { decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-memory";
-import { getOnchainTokenStats, getTopPoolTokens } from "./pool-candles-server";
+import { getOnchainTokenStats, getPonsTokens, getTopPoolTokens } from "./pool-candles-server";
 import type { PoolNetwork } from "./pool-candles";
 import { redisConfig, redisPipeline } from "@/lib/redis";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
@@ -243,13 +243,15 @@ async function uniswapListings(): Promise<SpotListing[]> {
       };
       // Volume first; the deepest pools add established tokens that trade less today. A failed TVL list only drops those.
       // A chain with busiest-pool tokens (Robinhood) keeps going when Uniswap ranks nothing there.
-      const [byVolume, byTvl, byPools] = await Promise.all([
+      const [byVolume, byTvl, byPools, pons] = await Promise.all([
         chain.poolTop ? ranked("volume_24h", UNISWAP_TOP_LIMIT).catch(() => []) : ranked("volume_24h", UNISWAP_TOP_LIMIT),
         ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => []),
         chain.poolTop ? getTopPoolTokens(chain.pool, chain.id).catch(() => []) : [],
+        chain.key === "robinhood" ? getPonsTokens().catch(() => []) : [],
       ]);
       const seen = new Set<string>();
-      const records = [...byVolume, ...byTvl, ...byPools].filter((record) => {
+      // Pons launches first, so a token another list also has keeps its Pons tag.
+      const records = [...pons, ...byVolume, ...byTvl, ...byPools].filter((record) => {
         const key = String(record.address).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);

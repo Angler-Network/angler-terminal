@@ -15,6 +15,7 @@ export const VENUE_MARKS: Record<string, { domain: string; chain?: number | stri
   Titan: { domain: "titan.exchange", chain: "solana" },
   "0x": { domain: "0x.org" },
   KyberSwap: { domain: "kyberswap.com" },
+  Pons: { domain: "poonsfamily.com", chain: 4663 },
   Binance: { domain: "binance.com" },
   Bybit: { domain: "bybit.com" },
 };

@@ -133,7 +133,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
     const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
-        (!isSpot || !verifiedOnly || row.verified) &&
+        // Pons launches are new tokens, nearly all unverified: the Pons filter shows them anyway (buying one asks for a tick).
+        (!isSpot || !verifiedOnly || row.verified || (chains.includes("pons") && row.chain === "pons")) &&
         matches(row) &&
         (!pick || row.mint !== pick.exclude),
     );

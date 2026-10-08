@@ -39,6 +39,18 @@ export function readGeckoTokens(body: unknown): Map<string, TokenMarket> {
  * The tokens of a network's busiest pools (`networks/{net}/pools?sort=h24_volume_usd_desc&include=base_token,quote_token`)
  * in the Uniswap token-list shape, busiest first: the top list for chains Uniswap's `/tokens` doesn't rank (Robinhood).
  */
+/** The base token of each pool (the launched token; its quote side is WETH, USDG or another pair token). */
+export function readGeckoPoolBaseTokens(body: unknown, chainId: number): UniswapTokenRecord[] {
+  const record = (body ?? {}) as { data?: unknown };
+  if (!Array.isArray(record.data)) return [];
+  const bases = new Set(
+    (record.data as Array<{ relationships?: Record<string, { data?: { id?: unknown } }> }>).map((pool) => pool?.relationships?.base_token?.data?.id).filter((id): id is string => typeof id === "string"),
+  );
+  const all = readGeckoPoolTokens(body, chainId);
+  const included = new Map(((body as { included?: Array<{ id?: unknown; attributes?: { address?: unknown } }> }).included ?? []).map((entry) => [String(entry?.attributes?.address ?? "").toLowerCase(), entry?.id]));
+  return all.filter((token) => bases.has(String(included.get(token.address!.toLowerCase()))));
+}
+
 export function readGeckoPoolTokens(body: unknown, chainId: number): UniswapTokenRecord[] {
   const record = (body ?? {}) as { data?: unknown; included?: unknown };
   if (!Array.isArray(record.data) || !Array.isArray(record.included)) return [];

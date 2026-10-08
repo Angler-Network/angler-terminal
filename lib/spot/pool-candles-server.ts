@@ -1,5 +1,5 @@
 import "server-only";
-import { readGeckoPoolTokens, readGeckoTokens } from "./gecko-tokens";
+import { readGeckoPoolBaseTokens, readGeckoPoolTokens, readGeckoTokens } from "./gecko-tokens";
 import type { UniswapTokenRecord } from "./listings";
 import { unstable_cache } from "next/cache";
 import { takeDailyBudget } from "@/lib/analytics/store";
@@ -95,6 +95,27 @@ export const getTopPoolTokens = unstable_cache(
     return pages.flatMap((page) => readGeckoPoolTokens(page, chainId)).filter((token) => !seen.has(token.address!.toLowerCase()) && Boolean(seen.add(token.address!.toLowerCase())));
   },
   ["spot-top-pool-tokens-v1"],
+  { revalidate: 15 * 60 },
+);
+
+/**
+ * Pons launches on Robinhood Chain, busiest first: GeckoTerminal's "Pons V2" pools (tokens still on the bonding curve)
+ * and "Pons V2 Dex" pools (graduated to the Uniswap v4 pool with Pons's hook). KyberSwap routes both, so the EVM swap
+ * card trades them; this only makes them findable. Two pages of curve pools and one of graduated ones, every 15 minutes.
+ */
+export const getPonsTokens = unstable_cache(
+  async (): Promise<UniswapTokenRecord[]> => {
+    const read = (dex: string, page: number) =>
+      onchainJson(`/networks/robinhood/dexes/${dex}/pools?page=${page}&sort=h24_volume_usd_desc&include=base_token,quote_token`).catch(() => null);
+    const [curve1, curve2, graduated] = await Promise.all([read("pons-v2", 1), read("pons-v2", 2), read("pons-v2-dex", 1)]);
+    if (!curve1 && !curve2 && !graduated) throw new Error("Pons pools are unavailable");
+    const seen = new Set<string>();
+    const tag = (tokens: UniswapTokenRecord[], pons: "curve" | "graduated") => tokens.map((token) => ({ ...token, pons }));
+    return [...tag(readGeckoPoolBaseTokens(graduated, 4663), "graduated"), ...tag([...readGeckoPoolBaseTokens(curve1, 4663), ...readGeckoPoolBaseTokens(curve2, 4663)], "curve")].filter(
+      (token) => !seen.has(token.address!.toLowerCase()) && Boolean(seen.add(token.address!.toLowerCase())),
+    );
+  },
+  ["spot-pons-tokens-v1"],
   { revalidate: 15 * 60 },
 );
 

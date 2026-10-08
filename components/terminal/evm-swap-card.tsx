@@ -311,6 +311,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     return DOLLARS.has(token.symbol) && bridgeable ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
   const [side, setSide] = useState<OrderSide>("buy");
+  /** The unverified token the user ticked "I checked this token" for. */
+  const [acknowledged, setAcknowledged] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [armed, setArmed] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -537,7 +539,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
                 ? `Not enough ${sell.symbol} on ${direct && side === "buy" ? remoteChainName : chain.name}.`
                 : (across?.error ?? quoteError ?? null);
   const ready = direct ? Boolean(directQuote.quote) : cross ? receiveUnits !== null : Boolean(quote);
-  const canSwap = Boolean(owner) && ready && !error && !placing && !locked;
+  const needsAck = !token.verified && side === "buy" && acknowledged !== token.address;
+  const canSwap = Boolean(owner) && ready && !error && !placing && !locked && !needsAck;
 
   useEffect(() => setArmed(false), [side, amount, counter]);
   useEffect(() => {
@@ -922,12 +925,25 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </div>
       )}
       {!token.verified && (
-        <p className="rounded-xl border border-app-down/40 bg-app-down/10 p-2.5 text-[12px] text-app-ink">
-          <span className="font-semibold text-app-down">Unverified token.</span> Anyone can create a token with any name and logo. Check the address first:{" "}
-          <a href={`${chain.explorer}/token/${token.address}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] underline">
-            {token.address.slice(0, 6)}…{token.address.slice(-4)}
-          </a>
-        </p>
+        <div className="flex flex-col gap-1.5 rounded-xl border border-app-down/40 bg-app-down/10 p-2.5 text-[12px] text-app-ink">
+          <p>
+            <span className="font-semibold text-app-down">Unverified token.</span> Anyone can create a token with any name and logo. Check the address first:{" "}
+            <a href={`${chain.explorer}/token/${token.address}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] underline">
+              {token.address.slice(0, 6)}…{token.address.slice(-4)}
+            </a>
+          </p>
+          {side === "buy" && (
+            <label className="flex items-center gap-2 text-app-muted">
+              <input
+                type="checkbox"
+                checked={acknowledged === token.address}
+                onChange={(event) => setAcknowledged(event.target.checked ? token.address : null)}
+                className="accent-[rgb(var(--app-accent))]"
+              />
+              I checked this token and want to buy it
+            </label>
+          )}
+        </div>
       )}
       {value > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-app-hairline p-2.5">
