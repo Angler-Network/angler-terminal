@@ -15,6 +15,7 @@ import { ProfileProvider } from "@/components/profile/profile-provider";
 import { AccessGate } from "@/components/profile/access-gate";
 import { NavIconSprite } from "@/components/app/nav-icon-sprite";
 import { ServiceStatus } from "@/components/app/service-status";
+import { DebugTrail } from "@/components/app/debug-trail";
 import { TooltipLayer } from "@/components/app/tooltip-layer";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
@@ -86,6 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <LazyDialogs />
                     <UpdateNotice />
                     <ServiceStatus />
+                    <DebugTrail />
                     <TooltipLayer />
                   </ProfileProvider>
                   </TradeTicketProvider>

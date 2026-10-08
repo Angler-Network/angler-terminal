@@ -587,6 +587,16 @@ dependency versions and design are free to diverge from angler-news.
   history is rebuilt from the 30-day fills (`lib/trading/position-history.ts`): flat → flat per venue and asset,
   seeded from Hyperliquid's `startPosition` (exact even when the venue caps fills at 2000; checked against a live
   market maker: closed + still-open PnL equals the venue's total to the cent) or current size minus the window.
+- Tooltips (`components/app/tooltip-layer.tsx`): every `title` shows as the app's own bubble (moved to `data-tip` on hover).
+  Its MutationObserver re-takes a title React puts back under a resting mouse; it must never react to its own title
+  changes. Once it did: with a titled element inside another (venue logo in a titled row), moving the title between
+  them woke it endlessly (275k title writes in 1.5 s from one page change), which froze the whole browser on /swap.
+  Now its own changes go through `own()` (`takeRecords`), the element already taken counts as under the pointer
+  (`[data-tip]`), and it checks once per animation frame.
+- Freeze recorder (`lib/debug/trail.ts`, `components/app/debug-trail.tsx`): off unless
+  `localStorage["angler:debug"] = "1"`; then it writes the last 90 seconds (memory, DOM size, sockets, timers, listener
+  counts, requests in flight by path, the market shown) to `localStorage["angler:debug:trail"]`, readable after a
+  freeze that DevTools can't record. Paths only, never query strings.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
