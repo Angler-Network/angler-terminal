@@ -28,6 +28,7 @@ import { findLighterMarket, forInstance, readOrderBookDetails } from "./markets"
 import { baseAmountFor, fromUnits, leverageFraction, minimumSize, nextClientOrderIndex, toUnits, worstPrice } from "./pricing";
 import { authToken, loadSession, requireSession, signAndSend, waitForTx, type LighterSession } from "./session";
 import { GROUPING, signCancelOrder, signCreateGroupedOrders, signCreateOrder, signUpdateLeverage, type CreateOrderArgs } from "./signer";
+import { vipFee } from "@/lib/profile/vip";
 
 const MARKETS_TTL_MS = 60_000;
 const CONFIRM_TIMEOUT_MS = 15_000;
@@ -96,7 +97,7 @@ export function createLighterVenue(config: LighterConfig): PerpVenue {
     const integrator = config.integrator;
     const approved = session.record.integrator;
     if (!integrator || !approved || approved.accountIndex !== integrator.accountIndex || approved.expiresAt <= Date.now()) return undefined;
-    return { accountIndex: integrator.accountIndex, takerFee: Math.min(integrator.takerFee, approved.maxTakerFee), makerFee: 0 };
+    return { accountIndex: integrator.accountIndex, takerFee: Math.min(vipFee(integrator.takerFee), approved.maxTakerFee), makerFee: 0 };
   }
 
   /**

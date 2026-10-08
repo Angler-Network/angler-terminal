@@ -9,6 +9,7 @@ import { toVenueError } from "./errors";
 import { toWire } from "./pricing";
 import { requireTradingSetup } from "./venue";
 import type { AbstractWallet } from "@nktkas/hyperliquid/signing";
+import { vipFee } from "@/lib/profile/vip";
 
 /**
  * HIP-4 outcome trading with the same Hyperliquid account, agent key and builder fee as perps. Outcomes are spot-like
@@ -71,7 +72,7 @@ export async function placeOutcomeOrder(user: `0x${string}`, order: OutcomeOrder
     const result = await exchange.order({
       orders: [{ a: asset, b: isBuy, p: toWire(price), s: toWire(contracts), r: false, t: { limit: { tif: "Ioc" } } }],
       grouping: "na",
-      builder: { b: builder.address, f: builder.fee },
+      builder: { b: builder.address, f: vipFee(builder.fee) },
     });
     const status = result.response.data.statuses[0];
     if (typeof status === "object" && "filled" in status) return { status: "filled", contracts: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx) };

@@ -8,6 +8,7 @@ import { DEFAULT_SLIPPAGE, hlConfig } from "./config";
 import { toVenueError } from "./errors";
 import { roundPrice, roundSize, slippagePrice, toWire } from "./pricing";
 import { requireTradingSetup } from "./venue";
+import { vipFee } from "@/lib/profile/vip";
 
 /**
  * Hyperliquid spot with the account, agent key and builder fee the terminal already uses for perps. Spot spends spot
@@ -94,11 +95,11 @@ export async function placeHlSpotOrder(user: `0x${string}`, market: BookSpotMark
         },
       ],
       grouping: "na",
-      builder: { b: builder.address, f: builder.fee },
+      builder: { b: builder.address, f: vipFee(builder.fee) },
     });
     const status = result.response.data.statuses[0];
     if (typeof status === "object" && "filled" in status) {
-      return { filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: builder.fee / 10 };
+      return { filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: vipFee(builder.fee) / 10 };
     }
     throw new VenueError("Hyperliquid accepted the order but returned no fill.");
   } catch (error) {
@@ -128,12 +129,12 @@ export async function placeHlSpotLimit(user: `0x${string}`, market: BookSpotMark
     const result = await exchange.order({
       orders: [{ a: market.assetId, b: order.side === "buy", p: toWire(price), s: toWire(size), r: false, t: { limit: { tif: "Gtc" } } }],
       grouping: "na",
-      builder: { b: builder.address, f: builder.fee },
+      builder: { b: builder.address, f: vipFee(builder.fee) },
     });
     const status = result.response.data.statuses[0];
     if (typeof status === "object" && "resting" in status) return { status: "resting", oid: status.resting.oid };
     if (typeof status === "object" && "filled" in status) {
-      return { status: "filled", filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: builder.fee / 10 };
+      return { status: "filled", filledSize: Number(status.filled.totalSz), avgPx: Number(status.filled.avgPx), partnerFeeBps: vipFee(builder.fee) / 10 };
     }
     throw new VenueError("Hyperliquid accepted the order but didn't say whether it rests or filled.");
   } catch (error) {

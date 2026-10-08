@@ -7,6 +7,7 @@ import { base58 } from "@/lib/profile/base58";
 import { profileMessage, REFERRAL_CODE, type ProfileAction } from "@/lib/profile/identity";
 import { TRADE_EVENT } from "@/lib/profile/client";
 import type { ProfileView } from "@/lib/profile/store";
+import { setVipRate, vipFor } from "@/lib/profile/vip";
 
 const REFRESH_MS = 5 * 60_000;
 /** A `?ref=` code seen in a link, kept until the visitor applies it (or another one replaces it). */
@@ -66,6 +67,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { address: solanaAddress, signMessage } = useSolanaWallet();
   const id = evmAddress ?? solanaAddress;
   const [profile, setProfile] = useState<ProfileView | null>(null);
+  // Orders signed from now on charge the connected profile's VIP fee (its 30-day volume).
+  useEffect(() => setVipRate(profile ? vipFor(profile.recentVolume?.d30 ?? 0).rate : 1), [profile]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);

@@ -17,20 +17,24 @@ export interface HlFill {
 }
 
 /**
- * Whether a fill paid our builder fee: `fee` is in tenths of a basis point (`builder.f`), so the fee is
- * notional × fee / 100,000. Allows rounding to the cent-ish precision fills report and ±10% for rounding.
+ * Whether a fill paid our builder fee at one of the VIP tiers (`fees`, in tenths of a basis point like `builder.f`), so
+ * the fee is notional × fee / 100,000. Allows the cent-ish precision fills report and ±4% for rounding: the tiers
+ * sit 7% or more apart.
  */
-export function isAnglerFill(fill: HlFill, builderFeeTenthsBp: number) {
-  if (!(builderFeeTenthsBp > 0) || fill.builderFee === undefined) return false;
+export function isAnglerFill(fill: HlFill, fees: number | number[]) {
+  const rates = (Array.isArray(fees) ? fees : [fees]).filter((fee) => fee > 0);
+  if (rates.length === 0 || fill.builderFee === undefined) return false;
   const paid = Number(fill.builderFee);
   const notional = Math.abs(Number(fill.px) * Number(fill.sz));
   if (!(paid > 0) || !(notional > 0)) return false;
-  const expected = (notional * builderFeeTenthsBp) / 100_000;
-  return Math.abs(paid - expected) <= Math.max(expected * 0.1, 0.000002);
+  return rates.some((fee) => {
+    const expected = (notional * fee) / 100_000;
+    return Math.abs(paid - expected) <= Math.max(expected * 0.04, 0.000002);
+  });
 }
 
 /** Our volume in a batch of fills, and the newest fill time seen (the next sync starts after it). */
-export function hlAnglerVolume(fills: HlFill[], builderFeeTenthsBp: number) {
+export function hlAnglerVolume(fills: HlFill[], builderFeeTenthsBp: number | number[]) {
   let usd = 0;
   let lastTime = 0;
   for (const fill of fills) {

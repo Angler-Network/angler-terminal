@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { LEVELS } from "@/lib/profile/levels";
+import { nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import { PortfolioCard } from "./portfolio-card";
@@ -193,15 +194,34 @@ const VOLUME_RANGES: Array<{ value: VolumeRange; label: string }> = [
   { value: "all", label: "All" },
 ];
 
+/** A VIP tier's discount on Angler fees, in whole percent. */
+const discountOf = (rate: number) => Math.round((1 - rate) * 100);
+
 /** Volume through Angler on every venue together, over the last 7 or 30 days or all time. */
 function VolumeCard({ profile }: { profile: ProfileData }) {
   const [range, setRange] = useState<VolumeRange>("all");
   const total = range === "all" ? VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0) : profile.recentVolume[range];
+  const vip = vipFor(profile.recentVolume.d30);
+  const next = nextVip(vip);
   return (
     <section className={`${card} flex h-full flex-col justify-between gap-3 p-4`}>
       <div>
-        <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
+          <span
+            title="Your 30-day volume sets your VIP tier: a discount on Angler fees for Hyperliquid and Lighter trades"
+            className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${vip.level > 0 ? "bg-[#f5c97b]/15 text-[#f5c97b]" : "bg-app-chip text-app-muted"}`}
+          >
+            VIP {vip.level}
+          </span>
+        </div>
         <p className="mt-1 text-[26px] font-semibold tabular-nums tracking-tight text-app-ink">{total >= 1_000_000 ? compactUsd.format(total) : usd.format(total)}</p>
+        <p className="mt-0.5 text-[11px] text-app-faint">
+          {vip.level > 0 && <span className="font-semibold text-[#f5c97b]">{discountOf(vip.rate)}% fee discount. </span>}
+          {next
+            ? `Trade ${compactUsd.format(Math.max(0, next.minVolume - profile.recentVolume.d30))} more in 30 days to earn a ${discountOf(next.rate)}% fee discount.`
+            : "Top tier: the biggest fee discount."}
+        </p>
       </div>
       <div role="group" aria-label="Period" className="flex gap-0.5 self-start rounded-lg bg-app-chip p-0.5">
         {VOLUME_RANGES.map((option) => (

@@ -4,6 +4,7 @@ import { base58 } from "./base58";
 import { nextClientOrderIndex } from "@/lib/venues/lighter/pricing";
 import { isFresh, profileIdOf, profileMessage, readProfileMessage, usernameError } from "./identity";
 import { levelFor, pointsFor } from "./levels";
+import { tierFees } from "./vip";
 import { hlAnglerVolume, isAnglerFill, lighterAnglerVolume, readAnglerSwap, type LighterTrade, type ParsedSolanaTx } from "./volume";
 
 describe("levels", () => {
@@ -57,6 +58,10 @@ describe("Hyperliquid volume", () => {
     expect(isAnglerFill(fill("100", "10"), 25)).toBe(false);
     expect(isAnglerFill(fill("100", "10", "0.25"), 0)).toBe(false);
     expect(hlAnglerVolume([fill("100", "10", "0.25", 5), fill("50", "2", undefined, 9)], 25)).toEqual({ usd: 1000, lastTime: 9 });
+    // Any VIP tier of a 3.5 bps fee: VIP 2 pays 3 bps ($0.30 on $1000), and 3.5 bps still counts.
+    expect(isAnglerFill(fill("100", "10", "0.3"), tierFees(35))).toBe(true);
+    expect(isAnglerFill(fill("100", "10", "0.35"), tierFees(35))).toBe(true);
+    expect(isAnglerFill(fill("100", "10", "0.1"), tierFees(35))).toBe(false);
   });
 });
 

@@ -18,6 +18,7 @@ import { DEFAULT_SLIPPAGE, hlConfig } from "./config";
 import { toVenueError } from "./errors";
 import { builderDexes, findMarket, marketsFromMeta, splitCoin } from "./markets";
 import { roundPrice, roundSize, slippagePrice, toWire } from "./pricing";
+import { vipFee } from "@/lib/profile/vip";
 
 const MARKETS_TTL_MS = 60_000;
 
@@ -106,7 +107,7 @@ async function setPositionTpsl(user: `0x${string}`, position: VenuePosition, lev
   try {
     const exchange = await agentExchange(agent.privateKey);
     // positionTpsl: tied to the position, resized with it and canceled when it closes.
-    const result = await exchange.order({ orders, grouping: "positionTpsl", builder: { b: builder.address, f: builder.fee } });
+    const result = await exchange.order({ orders, grouping: "positionTpsl", builder: { b: builder.address, f: vipFee(builder.fee) } });
     for (const status of result.response.data.statuses) {
       if (typeof status === "object" && status && "error" in status) throw new VenueError(String((status as { error: unknown }).error));
     }
@@ -160,7 +161,7 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
       ],
       // normalTpsl: the TP/SL orders only become active once the entry fills.
       grouping: triggers.length > 0 ? "normalTpsl" : "na",
-      builder: { b: builder.address, f: builder.fee },
+      builder: { b: builder.address, f: vipFee(builder.fee) },
     });
 
     const status = result.response.data.statuses[0];
@@ -171,7 +172,7 @@ async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<
         filledSize: Number(status.filled.totalSz),
         avgPx: Number(status.filled.avgPx),
         // The builder fee is in tenths of a bp.
-        partnerFeeBps: builder.fee / 10,
+        partnerFeeBps: vipFee(builder.fee) / 10,
       };
     }
     if (typeof status === "object" && "resting" in status) return { status: "resting", oid: status.resting.oid };

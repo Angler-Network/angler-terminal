@@ -11,6 +11,7 @@ import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
+import { tierFees } from "./vip";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -43,7 +44,7 @@ async function syncHyperliquid(user: string, cursor: number | null) {
     });
     const fresh = fills.filter((fill) => !seen.has(fill.tid));
     for (const fill of fresh) seen.add(fill.tid);
-    const batch = hlAnglerVolume(fresh, fee);
+    const batch = hlAnglerVolume(fresh, tierFees(fee));
     usd += batch.usd;
     last = Math.max(last, batch.lastTime);
     if (fills.length < HL_PAGE) break;
