@@ -2,9 +2,10 @@
 
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
+import { VenueLogo } from "@/components/terminal/market-rows";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useFunding } from "@/components/terminal/use-funding";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
@@ -12,7 +13,7 @@ import { formatPrice } from "@/lib/format";
 import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { assetNames, assetRows, matchesQuery, type AssetRow } from "@/lib/markets/rows";
 import { FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
-import { PERP_VENUE_NAMES, PERP_VENUE_SHORT } from "@/lib/venues/routing";
+import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { FundingArbDialog } from "./funding-arb-dialog";
 
@@ -108,13 +109,13 @@ export function MarketsTable() {
     router.push("/perp");
   };
 
-  const header = (key: SortKey, label: string, title?: string) => (
+  const header = (key: SortKey, label: ReactNode, title?: string) => (
     <th className="px-3 py-2 text-right first:text-left">
       <button
         type="button"
         onClick={() => setSort(key)}
         title={title}
-        className={`text-[11px] font-medium uppercase tracking-[0.06em] ${sort === key ? "text-app-ink" : "text-app-faint hover:text-app-ink"}`}
+        className={`inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.06em] ${sort === key ? "text-app-ink" : "text-app-faint hover:text-app-ink"}`}
       >
         {label}
         {sort === key && " ↓"}
@@ -196,7 +197,7 @@ export function MarketsTable() {
               {header("change", "24h")}
               {header("volume", "24h volume", "Summed over every venue")}
               {header("openInterest", "Open interest", "Summed over every venue")}
-              {FUNDING_VENUES.map((fundingVenue) => header(fundingVenue, VENUE_LABELS[fundingVenue], `Sort by ${VENUE_LABELS[fundingVenue]} funding`))}
+              {FUNDING_VENUES.map((fundingVenue) => header(fundingVenue, <VenueLogo name={VENUE_LABELS[fundingVenue]} size={16} />, `Sort by ${VENUE_LABELS[fundingVenue]} funding`))}
               {header("arb", "Funding spread", "Long the lowest-funding venue, short the highest (Hyperliquid and Lighter)")}
               <th className="px-3 py-2" />
             </tr>
@@ -209,14 +210,7 @@ export function MarketsTable() {
                     <MarketIcon symbol={row.symbol} kind={row.kind} size={20} />
                     {row.symbol}
                     <span className="flex gap-1">
-                      {venueIds.map(
-                        (id) =>
-                          row.venues[id] && (
-                            <span key={id} className="rounded-sm bg-app-chip px-1 text-[9px] font-semibold uppercase text-app-muted">
-                              {PERP_VENUE_SHORT[id]}
-                            </span>
-                          ),
-                      )}
+                      {venueIds.map((id) => row.venues[id] && <VenueLogo key={id} name={PERP_VENUE_NAMES[id]} size={16} />)}
                     </span>
                   </button>
                 </td>

@@ -194,7 +194,20 @@ const VENUE_MARKS: Record<string, { domain: string; chain?: number | string }> =
   Titan: { domain: "titan.exchange", chain: "solana" },
   "0x": { domain: "0x.org" },
   Odos: { domain: "odos.xyz" },
+  Binance: { domain: "binance.com" },
+  Bybit: { domain: "bybit.com" },
 };
+
+/** One venue's logo (with its chain badge), the name on hover; the name as text when it has no logo. */
+export function VenueLogo({ name, size = 18 }: { name: string; size?: number }) {
+  const mark = VENUE_MARKS[name];
+  if (!mark) return <span className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">{name}</span>;
+  return (
+    <span title={name} className="inline-flex shrink-0">
+      <CoinIcon src={`/api/favicon?domain=${mark.domain}`} symbol={name} chain={mark.chain} size={size} />
+    </span>
+  );
+}
 
 /**
  * A row's venues as logos with the chain in the corner ("Uniswap · Base" = Uniswap's logo, Base badge), the full names
