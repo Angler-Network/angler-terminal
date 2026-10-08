@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PredictionBook, PredictionRange, PricePoint } from "@/lib/prediction/market-data";
+import type { PredictionTrade } from "@/lib/prediction/trades";
 import type { PredictionEvent, PredictionSource } from "@/lib/prediction/types";
 
 export interface Loaded<T> {
@@ -68,4 +69,9 @@ export function usePriceHistory(source: PredictionSource | null, asset: string |
 export function usePredictionBook(source: PredictionSource | null, asset: string | null) {
   const url = source && asset ? `/api/prediction/book?${new URLSearchParams({ source, asset })}` : null;
   return usePolled<PredictionBook>(url, 3_000);
+}
+
+/** Polymarket's latest trades of at least `min` dollars, refreshed every few seconds. */
+export function usePredictionTrades(min: number, enabled = true) {
+  return usePolled<{ trades: PredictionTrade[] }>(enabled ? `/api/prediction/trades?min=${min}` : null, 4_000);
 }

@@ -5,6 +5,7 @@ import events from "./fixtures/polymarket-events.json";
 import { buildHip4Events, guessCategory, hip4AssetId, hip4Coin, readFields, readStamp, type Hip4Meta } from "./hip4";
 import { readBook, readHistory, walkAsks } from "./market-data";
 import { categoryOf, mapGammaEvent, type GammaEvent } from "./polymarket";
+import { readPolymarketTrades } from "./trades";
 import { formatChance } from "./types";
 
 describe("HIP-4", () => {
@@ -117,5 +118,32 @@ describe("market data", () => {
     const deeper = walkAsks(asks, 11);
     expect(deeper?.shares).toBeCloseTo(20);
     expect(walkAsks(asks, 1000)).toBeNull();
+  });
+});
+
+describe("Polymarket trades feed", () => {
+  it("reads taker trades: dollars, side, trader name and icon", () => {
+    const body = [
+      {
+        proxyWallet: "0xd1ed12197b7dc22dede923727e9b714024dbd7cb",
+        side: "BUY",
+        asset: "296",
+        size: 127,
+        price: 0.6,
+        timestamp: 1791458603,
+        title: "Bitcoin Up or Down - October 8, 7:15AM-7:30AM ET",
+        icon: "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
+        outcome: "Up",
+        name: "curie",
+        pseudonym: "Illiterate-Counterforce",
+        transactionHash: "0xe803",
+      },
+      { proxyWallet: "0x726fd4fd2d3f3a48fcbd54d1cecdd933d207d8e7", side: "SELL", asset: "935", size: "15", price: "0.9", timestamp: 1791458600, title: "Will Bitcoin dip to $80,000?", outcome: "No", name: "", pseudonym: "", icon: "" },
+      { side: "BUY", size: 0, price: 0.5, timestamp: 1, title: "Empty" },
+    ];
+    const trades = readPolymarketTrades(body);
+    expect(trades).toHaveLength(2);
+    expect(trades[0]).toMatchObject({ side: "buy", outcome: "Up", price: 0.6, size: 127, usd: 76.2, time: 1791458603000, trader: "curie", icon: expect.stringContaining("https://") });
+    expect(trades[1]).toMatchObject({ side: "sell", usd: 13.5, trader: "0x726f…d8e7", icon: null });
   });
 });

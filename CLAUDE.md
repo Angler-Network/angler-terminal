@@ -448,6 +448,12 @@ dependency versions and design are free to diverge from angler-news.
   Kalshi), HIP-4 trades with the account the terminal already has. Polymarket is blocked by ISPs in Turkey (DNS points
   at a block page): develop it over a VPN exit outside Polymarket's geoblock list, and never route orders through
   our server to get around a block.
+  - Layout (`prediction-view.tsx`, `prediction-home.tsx`): it opens on an overview (title, source, search, category
+    tabs, events as cards with their top two lines and Yes/No, live trades on the right); a card, line or Yes/No opens
+    the event (`?event=`, that market and side preselected) with the list beside it and a back button to the overview.
+    The filters (`useEventBrowser`) are shared by both. Live trades: Polymarket's latest taker trades across every
+    market (`data-api.polymarket.com/trades?takerOnly&filterType=CASH&filterAmount=`, via `/api/prediction/trades?min=`
+    1|10|100|1000, cached 3s; `readPolymarketTrades`, timestamps in seconds), polled every 4s. No HIP-4 trades there yet.
   - Data goes through our server (`server.ts`, `unstable_cache`): Gamma `/events` (top 150 by 24h volume),
     `/public-search`, `/events/{id}`; CLOB `/prices-history` and `/book`; Hyperliquid `outcomeMeta` + `allMids`,
     `candleSnapshot` and `l2Book` for `#N` coins. Routes: `/api/prediction/{events,event,history,book}`.

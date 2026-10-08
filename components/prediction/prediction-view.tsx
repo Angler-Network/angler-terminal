@@ -1,25 +1,13 @@
 "use client";
 
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PREDICTION_RANGES, type PredictionBook, type PredictionRange } from "@/lib/prediction/market-data";
-import { formatChance, PREDICTION_CATEGORIES, type PredictionCategory, type PredictionEvent, type PredictionMarket, type PredictionSource } from "@/lib/prediction/types";
+import { formatChance, type PredictionEvent, type PredictionMarket } from "@/lib/prediction/types";
+import { EventImage, PredictionHome, SOURCE_NAME, SOURCES, SourceBadge, compactUsd, useEventBrowser, type EventBrowser } from "./prediction-home";
 import { ProbabilityChart } from "./probability-chart";
 import { PredictionTicket } from "./prediction-ticket";
-import { usePredictionBook, usePredictionEvent, usePredictionEvents, usePriceHistory } from "./use-prediction";
-
-type SourceFilter = PredictionSource | "all";
-type SortKey = "volume" | "ending";
-
-const SOURCES: Array<{ id: SourceFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "polymarket", label: "Polymarket" },
-  { id: "hyperliquid", label: "Hyperliquid" },
-];
-const SOURCE_DOMAIN: Record<PredictionSource, string> = { polymarket: "polymarket.com", hyperliquid: "hyperliquid.xyz" };
-const SOURCE_NAME: Record<PredictionSource, string> = { polymarket: "Polymarket", hyperliquid: "Hyperliquid" };
-
-const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
+import { usePredictionBook, usePredictionEvent, usePriceHistory } from "./use-prediction";
 const panel = "surface-panel min-h-0 overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55";
 /** Detail panels scroll on their own on desktop; on phones the detail scrolls as one column instead. */
 const detailPanel = "surface-panel rounded-2xl border border-app-card/80 bg-app-card/55 lg:min-h-0 lg:overflow-y-auto";
@@ -31,26 +19,6 @@ function endsText(endsAt: number | null) {
   if (left < 3_600_000) return `Ends in ${Math.max(1, Math.round(left / 60_000))}m`;
   if (left < 86_400_000) return `Ends in ${Math.round(left / 3_600_000)}h`;
   return `Ends ${new Date(endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: left > 300 * 86_400_000 ? "numeric" : undefined })}`;
-}
-
-function EventImage({ event, size }: { event: PredictionEvent; size: number }) {
-  const [failed, setFailed] = useState(false);
-  const src = event.image && !failed ? event.image : `/api/favicon?domain=${SOURCE_DOMAIN[event.source]}`;
-  return (
-    // Remote images from the sources' CDNs; next/image would need every host configured.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" aria-hidden width={size} height={size} onError={() => setFailed(true)} className="shrink-0 rounded-lg bg-app-chip object-cover" style={{ width: size, height: size }} />
-  );
-}
-
-function SourceBadge({ source }: { source: PredictionSource }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/favicon?domain=${SOURCE_DOMAIN[source]}`} alt="" aria-hidden width={11} height={11} className="size-[11px] rounded-sm" />
-      {SOURCE_NAME[source]}
-    </span>
-  );
 }
 
 /**
@@ -65,26 +33,8 @@ function leader(event: PredictionEvent): { label: string; chance: number | null 
   return { label: best.label, chance: best.outcomes[0].price };
 }
 
-function EventList({ selected, onSelect }: { selected: string | null; onSelect: (event: PredictionEvent) => void }) {
-  const [source, setSource] = useState<SourceFilter>("all");
-  const [category, setCategory] = useState<PredictionCategory | "all">("all");
-  const [sort, setSort] = useState<SortKey>("volume");
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
-  useEffect(() => {
-    const timer = window.setTimeout(() => setQuery(draft.trim()), 300);
-    return () => window.clearTimeout(timer);
-  }, [draft]);
-  const { data, error, loading } = usePredictionEvents(source, query);
-
-  const events = useMemo(() => {
-    const list = (data?.events ?? []).filter((event) => category === "all" || event.category === category);
-    if (query) return list;
-    return [...list].sort((a, b) =>
-      sort === "ending" ? (a.endsAt ?? Infinity) - (b.endsAt ?? Infinity) : (b.volume24h ?? -1) - (a.volume24h ?? -1) || (a.endsAt ?? Infinity) - (b.endsAt ?? Infinity),
-    );
-  }, [data, category, sort, query]);
-  const present = useMemo(() => new Set((data?.events ?? []).map((event) => event.category)), [data]);
+function EventList({ browser, selected, onSelect }: { browser: EventBrowser; selected: string | null; onSelect: (event: PredictionEvent) => void }) {
+  const { source, setSource, category, setCategory, sort, setSort, draft, setDraft, query, data, error, loading, events, categories } = browser;
 
   return (
     <section aria-label="Markets" className={`${panel} flex h-full flex-col`}>
@@ -107,7 +57,7 @@ function EventList({ selected, onSelect }: { selected: string | null; onSelect: 
           <input value={draft} onChange={(change) => setDraft(change.target.value)} placeholder="Search markets" aria-label="Search markets" className="min-w-0 flex-1 bg-transparent text-[13px] text-app-ink outline-hidden placeholder:text-app-faint" />
         </label>
         <div className="scrollbar-none -mx-3 flex gap-1 overflow-x-auto px-3">
-          {[{ id: "all" as const, label: "All" }, ...PREDICTION_CATEGORIES.filter((entry) => present.has(entry.id))].map((entry) => (
+          {categories.map((entry) => (
             <button
               key={entry.id}
               type="button"
@@ -245,15 +195,15 @@ function BookView({ book, outcome }: { book: PredictionBook | null; outcome: str
   );
 }
 
-function EventDetail({ id, onBack }: { id: string; onBack: () => void }) {
+function EventDetail({ id, initial, onBack }: { id: string; initial: { marketId: string | null; side: 0 | 1 }; onBack: () => void }) {
   const { data: event, error } = usePredictionEvent(id);
-  const [marketId, setMarketId] = useState<string | null>(null);
-  const [side, setSide] = useState<0 | 1>(0);
+  const [marketId, setMarketId] = useState<string | null>(initial.marketId);
+  const [side, setSide] = useState<0 | 1>(initial.side);
   const [range, setRange] = useState<PredictionRange>("1w");
   useEffect(() => {
-    setMarketId(null);
-    setSide(0);
-  }, [id]);
+    setMarketId(initial.marketId);
+    setSide(initial.side);
+  }, [id, initial]);
   const market = event?.markets.find((entry) => entry.id === marketId) ?? event?.markets[0] ?? null;
   const history = usePriceHistory(event?.source ?? null, market?.outcomes[0].asset ?? null, range);
   const book = usePredictionBook(event?.source ?? null, market?.outcomes[side].asset ?? null);
@@ -271,7 +221,7 @@ function EventDetail({ id, onBack }: { id: string; onBack: () => void }) {
     <div className="scrollbar-subtle grid h-full min-h-0 grid-cols-[minmax(0,1fr)] content-start gap-2 max-lg:overflow-y-auto lg:grid-cols-[minmax(0,1fr)_clamp(280px,22vw,340px)] lg:content-stretch">
       <section aria-label={event.title} className={`${detailPanel} scrollbar-subtle flex flex-col`}>
         <header className="flex items-start gap-3 border-b border-app-hairline p-4">
-          <button type="button" onClick={onBack} aria-label="Back to markets" className="-ml-1 mt-1 rounded-lg p-1 text-app-muted hover:text-app-ink lg:hidden">
+          <button type="button" onClick={onBack} aria-label="Back to all markets" title="All markets" className="-ml-1 mt-1 rounded-lg p-1 text-app-muted hover:text-app-ink">
             <ArrowLeft className="size-4" aria-hidden />
           </button>
           <EventImage event={event} size={48} />
@@ -326,39 +276,35 @@ function EventDetail({ id, onBack }: { id: string; onBack: () => void }) {
 }
 
 /**
- * Prediction markets from Polymarket and Hyperliquid HIP-4 side by side: a searchable list, then the selected event's
- * probability chart, markets, book and buy panel. The selection lives in the URL (`?event=`) so it can be shared.
+ * Prediction markets from Polymarket and Hyperliquid HIP-4. It opens on the overview (`PredictionHome`: categories,
+ * event cards, live trades); picking an event shows the list beside its chart, markets, book and buy panel, with a
+ * back button to the overview. The selection lives in the URL (`?event=`) so it can be shared.
  */
 export function PredictionView() {
+  const browser = useEventBrowser();
   const [selected, setSelected] = useState<string | null>(null);
+  const [initial, setInitial] = useState<{ marketId: string | null; side: 0 | 1 }>({ marketId: null, side: 0 });
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("event");
     if (fromUrl) setSelected(fromUrl);
   }, []);
-  const select = (id: string | null) => {
+  const select = (id: string | null, marketId: string | null = null, side: 0 | 1 = 0) => {
     setSelected(id);
+    setInitial({ marketId, side });
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("event", id);
     else url.searchParams.delete("event");
     window.history.replaceState(null, "", url);
   };
 
+  if (!selected) return <PredictionHome browser={browser} onOpen={(event, market, side) => select(event.id, market?.id ?? null, side ?? 0)} />;
   return (
     <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] gap-2 lg:grid-cols-[clamp(280px,24vw,360px)_minmax(0,1fr)]">
-      <div className={`min-h-0 ${selected ? "max-lg:hidden" : ""}`}>
-        <EventList selected={selected} onSelect={(event) => select(event.id)} />
+      <div className="min-h-0 max-lg:hidden">
+        <EventList browser={browser} selected={selected} onSelect={(event) => select(event.id)} />
       </div>
-      <div className={`min-h-0 ${selected ? "" : "max-lg:hidden"}`}>
-        {selected ? (
-          <EventDetail id={selected} onBack={() => select(null)} />
-        ) : (
-          <section className={`${panel} grid h-full place-items-center p-6 text-center`}>
-            <div>
-              <h1 className="text-[16px] font-semibold text-app-ink">Prediction markets</h1>
-              <p className="mt-1 max-w-sm text-[13px] text-app-muted">Polymarket and Hyperliquid outcome markets in one place. Pick a market to see its odds, book and trade.</p>
-            </div>
-          </section>
-        )}
+      <div className="min-h-0">
+        <EventDetail id={selected} initial={initial} onBack={() => select(null)} />
       </div>
     </div>
   );

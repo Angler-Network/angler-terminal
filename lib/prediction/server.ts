@@ -4,6 +4,7 @@ import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { buildHip4Events, type Hip4Meta } from "./hip4";
 import { mapGammaEvent, type GammaEvent } from "./polymarket";
 import { readBook, readHistory, type PredictionBook, type PredictionRange, type PricePoint } from "./market-data";
+import { readPolymarketTrades, type PredictionTrade } from "./trades";
 import type { PredictionEvent, PredictionSource } from "./types";
 
 const GAMMA = "https://gamma-api.polymarket.com";
@@ -111,3 +112,16 @@ export async function getPredictionBook(source: PredictionSource, asset: string)
   if (source === "polymarket") return readBook("polymarket", await json(`${CLOB}/book?token_id=${encodeURIComponent(asset)}`));
   return readBook("hyperliquid", await hlInfo({ type: "l2Book", coin: asset }));
 }
+
+const DATA_API = "https://data-api.polymarket.com";
+const TRADES_LIMIT = 60;
+
+/** Polymarket's latest taker trades of at least `minUsd`, across every market (shared by every viewer for 3s). */
+export const getRecentTrades = unstable_cache(
+  async (minUsd: number): Promise<PredictionTrade[]> =>
+    readPolymarketTrades(
+      await json<unknown>(`${DATA_API}/trades?${new URLSearchParams({ limit: String(TRADES_LIMIT), takerOnly: "true", filterType: "CASH", filterAmount: String(minUsd) })}`),
+    ),
+  ["prediction-trades-v1"],
+  { revalidate: 3 },
+);
