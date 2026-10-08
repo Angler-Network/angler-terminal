@@ -793,6 +793,17 @@ html[data-tone="dark"] dialog[open] .welcome-logo {
   }
 }
 
+/* The app's own tooltips (components/app/tooltip-layer.tsx) fade in. */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.tooltip-in {
+  animation: tooltip-in 0.12s ease-out both;
+}
+
 /* Home search: the venue filters slide in next to the market type they belong to. */
 @keyframes home-slide {
   from {
