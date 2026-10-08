@@ -19,7 +19,19 @@ const ZEROX_URL = "https://api.0x.org";
 const ODOS_URL = "https://enterprise-api.odos.xyz";
 const KYBER_URL = "https://aggregator-api.kyberswap.com";
 /** KyberSwap's chain names (aggregator-api.kyberswap.com/{chain}; list: common-service.kyberswap.com/api/v1/aggregator/supported-chains). */
-const KYBER_CHAINS: Record<number, string> = { 1: "ethereum", 56: "bsc", 8453: "base", 42161: "arbitrum", 4663: "robinhood" };
+const KYBER_CHAINS: Record<number, string> = {
+  1: "ethereum",
+  10: "optimism",
+  56: "bsc",
+  130: "unichain",
+  137: "polygon",
+  143: "monad",
+  999: "hyperevm",
+  4663: "robinhood",
+  8453: "base",
+  42161: "arbitrum",
+  43114: "avalanche",
+};
 /** 0x and KyberSwap name the native coin this way; Odos uses the zero address like the terminal. */
 const ZEROX_NATIVE = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const MAX_FEE_BPS = 100;
@@ -148,6 +160,7 @@ async function odos(request: AggregatorQuoteRequest, config: Config): Promise<Ag
 /** KyberSwap's DEX ids ("pancake-v3", "uniswap-v4") the way the other sources spell DEXes ("Pancake V3"). */
 export function kyberExchangeName(exchange: string) {
   return exchange
+    .replace(/([a-z])(v\d+)$/i, "$1-$2")
     .split(/[-_]/)
     .filter(Boolean)
     .map((part) => (/^v\d+$/i.test(part) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)))

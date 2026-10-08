@@ -44,7 +44,6 @@ const BALANCE_REFRESH_MS = 15_000;
 const SHARES = [25, 50, 75, 100];
 const DOLLARS = new Set(["USDC", "USDT", "USDG"]);
 /** ETH a "Max" keeps back for gas: mainnet gas costs more than an L2's. */
-const GAS_RESERVE_WEI: Record<number, bigint> = { 1: 5_000_000_000_000_000n, 56: 2_000_000_000_000_000n, 8453: 300_000_000_000_000n, 42161: 300_000_000_000_000n, 4663: 300_000_000_000_000n };
 
 /** A side of the swap: an EVM token (0x address) or, across chains, a Solana mint. */
 type Side = { address: string; symbol: string; decimals: number; icon?: string };
@@ -258,8 +257,8 @@ async function viemChain(chain: EvmSwapChain) {
     const { robinhoodChain } = await import("@/lib/venues/arcus/config");
     return robinhoodChain("mainnet");
   }
-  const { arbitrum, base, bsc, mainnet } = await import("viem/chains");
-  const known = [mainnet, base, arbitrum, bsc].find((entry) => entry.id === chain.id)!;
+  const { arbitrum, avalanche, base, bsc, hyperEvm, mainnet, monad, optimism, polygon, unichain } = await import("viem/chains");
+  const known = [mainnet, base, arbitrum, bsc, hyperEvm, polygon, optimism, avalanche, unichain, monad].find((entry) => entry.id === chain.id)!;
   return { ...known, rpcUrls: { default: { http: [chain.rpc] } } };
 }
 
@@ -843,7 +842,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
                   onClick={() => {
                     if (shareBalance === null) return setAmount(String(Math.floor(((sellBalanceShown ?? 0) * share) / 100 * 1e6) / 1e6));
                     // Selling ETH keeps a little back for gas.
-                    const reserve = isNativeToken(sell.address) ? (GAS_RESERVE_WEI[chain.id] ?? 0n) : 0n;
+                    const reserve = isNativeToken(sell.address) ? chain.gasReserve : 0n;
                     const spendable = shareBalance > reserve ? shareBalance - reserve : 0n;
                     setAmount(String(fromBaseUnits((spendable * BigInt(share)) / 100n, sell.decimals)));
                   }}

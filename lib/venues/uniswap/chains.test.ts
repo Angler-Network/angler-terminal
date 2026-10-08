@@ -6,7 +6,7 @@ describe("EVM swap chains", () => {
     const ref = evmRef(8453, "0x532f27101965dd16442E59d40670FaF5eBB142E4");
     expect(parseEvmRef(ref)?.chain.name).toBe("Base");
     expect(parseEvmRef(ref)?.address).toBe("0x532f27101965dd16442E59d40670FaF5eBB142E4");
-    expect(parseEvmRef("evm:10:0x532f27101965dd16442E59d40670FaF5eBB142E4")).toBeNull();
+    expect(parseEvmRef("evm:250:0x532f27101965dd16442E59d40670FaF5eBB142E4")).toBeNull();
     expect(parseEvmRef("So11111111111111111111111111111111111111112")).toBeNull();
     expect(isEvmRef(ref)).toBe(true);
     expect(isEvmRef("So11111111111111111111111111111111111111112")).toBe(false);

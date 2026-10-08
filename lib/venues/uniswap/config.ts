@@ -7,7 +7,7 @@
 export const UNISWAP_API_URL = "https://trade-api.gateway.uniswap.org/v1";
 
 /** Chains the terminal quotes on: Robinhood Chain (stock tokens) and the EVM swap chains (`chains.ts`). */
-export const UNISWAP_CHAIN_IDS = [4663, 1, 8453, 42161, 56] as const;
+export const UNISWAP_CHAIN_IDS = [4663, 1, 8453, 42161, 56, 137, 10, 43114, 130, 143] as const;
 
 /** The API's cap on the integrator fee (summed over recipients), in bps. */
 export const UNISWAP_MAX_FEE_BPS = 500;

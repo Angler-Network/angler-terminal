@@ -363,9 +363,17 @@ dependency versions and design are free to diverge from angler-news.
     and WBNB (`nativeName`, `wrapped` per chain; `wrappedNative` reads `wrapped`), `poolTop` so PancakeSwap's busiest
     pools add the tokens Uniswap doesn't rank. It isn't a funds wallet chain: another chain's dollar (and the Hyperliquid
     balance) reaches it through Relay / LI.FI like any token (`bridgeable` in `evm-swap-card.tsx`), not the Across path.
+    Same for HyperEVM (999, HYPE/WHYPE, no Uniswap there: aggregators only, `poolTop`), Polygon (137, POL/WPOL, RPC
+    drpc: publicnode and polygon-rpc.com failed reads), Optimism (10), Avalanche (43114, AVAX/WAVAX), Unichain (130,
+    USDC only: its USDT is too thin) and Monad (143, MON/WMON, `poolTop`). Service names differ per chain (GeckoTerminal
+    `polygon_pos`/`avax`, DefiLlama `hyperliquid`/`avax`, DexScreener `avalanche`): check each against the live API when
+    adding a chain, and the token addresses on-chain (symbol, decimals, supply). A chain = one `EVM_SWAP_CHAINS` entry
+    (with `gasReserve`), its logo `public/chains/<key>.svg` (the search filter builds the path from the key, the token
+    badge reads `CHAIN_LOGOS` by id), its viem chain in `viemChain`, `UNISWAP_CHAIN_IDS` when Uniswap trades there, and
+    the aggregators' chain maps.
     Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x, Odos and KyberSwap (`KYBERSWAP_CLIENT_ID`, no
     key; GET `/{chain}/api/v1/routes` with our fee as `feeAmount`/`isInBps`/`chargeFeeBy=currency_out`/`feeReceiver`,
-    then POST `route/build` right before signing; chains ethereum/bsc/base/arbitrum/robinhood), all quoted with
+    then POST `route/build` right before signing; `KYBER_CHAINS` maps every swap chain), all quoted with
     Uniswap on every EVM swap and the largest output runs. Each has a Settings switch and an admin off-switch. the spot list adds Uniswap's 300 most traded + 150 deepest (TVL) tokens per chain (Trading API `/tokens?sort=`, max 1000, server
     side with the key; not Robinhood, `listTop: false`), priced by DefiLlama (`lib/spot/llama.ts`: `coins.llama.fi`
     prices + 24h change, free, batches of 60). Volume, liquidity and market cap come from DexScreener

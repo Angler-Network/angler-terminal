@@ -23,5 +23,6 @@ describe("KyberSwap", () => {
     expect(kyberExchangeName("pancake-v3")).toBe("Pancake V3");
     expect(kyberExchangeName("uniswap_v4")).toBe("Uniswap V4");
     expect(kyberExchangeName("flux-prop")).toBe("Flux Prop");
+    expect(kyberExchangeName("uniswapv3")).toBe("Uniswap V3");
   });
 });
