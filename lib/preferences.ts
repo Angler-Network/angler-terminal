@@ -210,6 +210,10 @@ export interface Preferences extends Appearance {
   venueTitan: boolean;
   /** Perp venue news trades go to; the other enabled perp venue is the fallback when this one doesn't list the asset. */
   preferredPerpVenue: PerpVenueId;
+  /** Bridges quoted for deposits, moves and cross-chain swaps (the best enabled quote runs). */
+  bridgeAcross: boolean;
+  bridgeRelay: boolean;
+  bridgeLifi: boolean;
   /** Which headlines the feed shows (assets, sentiment, severity, minimum impact, raw headlines). */
   newsFilters: NewsFilters;
 }
@@ -288,6 +292,9 @@ export const defaultPreferences: Preferences = {
   preferArcus: true,
   venueTitan: venueAvailable("titan"),
   preferredPerpVenue: "hyperliquid",
+  bridgeAcross: true,
+  bridgeRelay: true,
+  bridgeLifi: true,
   newsFilters: defaultNewsFilters,
   ...defaultAppearance,
 };
@@ -428,6 +435,9 @@ export function parsePreferences(raw: string | null): Preferences {
       preferArcus: readBoolean(stored.preferArcus, defaultPreferences.preferArcus),
       venueTitan: venueAvailable("titan") && readBoolean(stored.venueTitan, defaultPreferences.venueTitan),
       preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" ? stored.preferredPerpVenue : "hyperliquid",
+      bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
+      bridgeRelay: readBoolean(stored.bridgeRelay, defaultPreferences.bridgeRelay),
+      bridgeLifi: readBoolean(stored.bridgeLifi, defaultPreferences.bridgeLifi),
       newsFilters: readNewsFilters(stored.newsFilters),
       ...readAppearance(
         stored.appearanceVersion === APPEARANCE_VERSION ? stored : { ...stored, theme: undefined, surfaceStyle: undefined },

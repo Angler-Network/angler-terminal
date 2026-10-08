@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { RevenueReport, RevenueSummary } from "@/lib/analytics/revenue";
 import { shortAddress } from "@/lib/profile/identity";
 import type { Payable } from "@/lib/profile/store";
+import { useOffServices } from "@/components/app/service-status";
 import { useProfile } from "./profile-provider";
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
@@ -43,6 +44,54 @@ function Stat({ label, value, metric }: { label: string; value: RevenueSummary |
         {value ? `${metric === "fee" ? `${compactUsd.format(value.usd)} volume` : `${usd.format(value.fee)} revenue`} · ${value.trades.toLocaleString("en-US")} trades` : " "}
       </p>
     </div>
+  );
+}
+
+const SERVICES: Array<{ id: string; name: string }> = [
+  { id: "bridge:across", name: "Across" },
+  { id: "bridge:relay", name: "Relay" },
+  { id: "bridge:lifi", name: "LI.FI" },
+];
+
+/** Kill switches: turn a service off for everyone at once (a hacked or failing bridge); browsers drop it within a minute. */
+function ServicesPanel() {
+  const { off, refresh } = useOffServices();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const toggle = async (id: string, turnOff: boolean) => {
+    setBusy(id);
+    setMessage(null);
+    const response = await fetch("/api/admin/status", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, off: turnOff }) });
+    if (!response.ok) setMessage(((await response.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't change it.");
+    await refresh();
+    setBusy(null);
+  };
+  return (
+    <section className={`${card} p-4`}>
+      <h3 className="text-[13px] font-semibold text-app-ink">Services</h3>
+      <p className="mt-1 text-[11px] text-app-faint">Turn a bridge off for everyone if it&apos;s hacked or failing. It stops being quoted in every browser within a minute.</p>
+      <ul className="mt-3 divide-y divide-app-hairline">
+        {SERVICES.map((service) => {
+          const isOff = off.includes(service.id);
+          return (
+            <li key={service.id} className="flex items-center gap-3 py-2.5 text-[13px]">
+              <span className={`size-2 rounded-full ${isOff ? "bg-app-down" : "bg-app-up"}`} aria-hidden />
+              <span className="font-semibold text-app-ink">{service.name}</span>
+              <span className="text-[12px] text-app-faint">{isOff ? "Off for everyone" : "On"}</span>
+              <button
+                type="button"
+                disabled={busy === service.id}
+                onClick={() => void toggle(service.id, !isOff)}
+                className={`ml-auto h-7 rounded-lg px-2.5 text-[12px] font-semibold disabled:opacity-60 ${isOff ? "bg-app-up text-black" : "border border-app-down/50 text-app-down hover:bg-app-down/10"}`}
+              >
+                {isOff ? "Turn back on" : "Turn off for everyone"}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {message && <p className="mt-2 text-[12px] text-app-down">{message}</p>}
+    </section>
   );
 }
 
@@ -289,6 +338,7 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
         {invites}
       </div>
       {status === "ready" && <PayoutsPanel />}
+      {status === "ready" && <ServicesPanel />}
     </>
   );
 }

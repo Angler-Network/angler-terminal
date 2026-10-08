@@ -14,6 +14,7 @@ import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { ProfileProvider } from "@/components/profile/profile-provider";
 import { AccessGate } from "@/components/profile/access-gate";
+import { ServiceStatus } from "@/components/app/service-status";
 import { TradingProvider } from "@/components/terminal/trading-provider";
 import { SolanaWalletProvider } from "@/components/terminal/solana-wallet-provider";
 import { WalletModalProvider } from "@/components/terminal/wallet-modal";
@@ -84,6 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
                     <UpdateNotice />
                     <AccessGate />
+                    <ServiceStatus />
                   </ProfileProvider>
                   </TradeTicketProvider>
                   </WalletModalProvider>

@@ -2,6 +2,8 @@
 
 import { Check, ExternalLink, Lock, Play, X } from "lucide-react";
 import { CoinIcon } from "@/components/terminal/token-icon";
+import { BRIDGE_PREFERENCES, useOffServices } from "@/components/app/service-status";
+import { PROVIDERS, type BridgeProvider } from "@/lib/venues/bridge-switch";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { playAlertSound } from "@/lib/alerts/sounds";
@@ -538,11 +540,15 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
 
 const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap" };
 
-type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap";
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
 interface VenueTile {
-  key: VenueKey;
+  key: VenueKey | BridgeProvider;
+  /** Bridges aren't in `venueNames`. */
+  name?: string;
   preference: VenuePreference;
+  /** A bridge: an admin can turn it off for everyone, and the last one on stays on. */
+  bridge?: BridgeProvider;
   /** Site icon through /api/favicon, with the chain badge in its corner. */
   domain: string;
   chain?: number | string;
@@ -581,10 +587,18 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
       },
     ],
   },
+  {
+    title: "Bridges",
+    tiles: [
+      { key: "across", bridge: "across", name: "Across", preference: "bridgeAcross", domain: "across.to", description: "Intent bridge for USDC and USDG between chains: deposits, moves between venues and cross-chain swaps." },
+      { key: "relay", bridge: "relay", name: "Relay", preference: "bridgeRelay", domain: "relay.link", description: "Fast cross-chain bridge and swaps between EVM chains." },
+      { key: "lifi", bridge: "lifi", name: "LI.FI", preference: "bridgeLifi", domain: "li.fi", description: "Bridge and swap aggregator, including Solana. Every bridge leg takes the best quote of the bridges left on." },
+    ],
+  },
 ];
 
 function VenueToggleTile({ tile, checked, locked, onChange }: { tile: VenueTile; checked: boolean; locked: string | undefined; onChange: (checked: boolean) => void }) {
-  const name = venueNames[tile.key];
+  const name = tile.name ?? venueNames[tile.key as VenueKey];
   return (
     <button
       type="button"
@@ -632,6 +646,8 @@ function VenueSettings() {
   const { preferences, updatePreference } = usePreferences();
   // Solana venues need a Solana wallet: until one is connected their tiles show off and can't be changed.
   const solanaConnected = Boolean(useSolanaWallet().address);
+  const { off } = useOffServices();
+  const bridgesOn = PROVIDERS.filter((provider) => preferences[BRIDGE_PREFERENCES[provider]] && !off.includes(`bridge:${provider}`));
   const unavailable = (Object.keys(venueNames) as VenueKey[]).filter((venue) => !venueAvailable(venue)).map((venue) => venueNames[venue]);
   const [choice, setChoice] = useState<NetworkChoice>("default");
   const [lighterChoice, setLighterChoice] = useState<NetworkChoice>("default");
@@ -671,19 +687,27 @@ function VenueSettings() {
         </SettingRow>
       )}
       {VENUE_GROUPS.map((group) => {
-        const tiles = group.tiles.filter((tile) => venueAvailable(tile.key) && (tile.shown?.() ?? true));
+        const tiles = group.tiles.filter((tile) => (tile.bridge ? true : venueAvailable(tile.key as VenueKey)) && (tile.shown?.() ?? true));
         if (tiles.length === 0) return null;
         return (
           <section key={group.title} className="border-b border-app-line py-4">
             <h3 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-app-faint">{group.title}</h3>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
               {tiles.map((tile) => {
-                const locked = tile.solana && !solanaConnected ? "Connect a Solana wallet to use this venue" : undefined;
+                const turnedOff = tile.bridge && off.includes(`bridge:${tile.bridge}`);
+                const lastBridge = tile.bridge && bridgesOn.length === 1 && bridgesOn[0] === tile.bridge;
+                const locked = turnedOff
+                  ? "Turned off by Angler for everyone for now"
+                  : lastBridge
+                    ? "Keep at least one bridge on: deposits and moves need one"
+                    : tile.solana && !solanaConnected
+                      ? "Connect a Solana wallet to use this venue"
+                      : undefined;
                 return (
                   <VenueToggleTile
                     key={tile.key}
                     tile={tile}
-                    checked={!locked && preferences[tile.preference]}
+                    checked={!turnedOff && (lastBridge || (!locked && preferences[tile.preference]))}
                     locked={locked}
                     onChange={(checked) => updatePreference(tile.preference, checked)}
                   />

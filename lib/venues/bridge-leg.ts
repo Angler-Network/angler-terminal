@@ -1,6 +1,7 @@
 "use client";
 
 import type { EIP1193Provider } from "viem";
+import { PROVIDERS, bridgeEnabled, type BridgeProvider } from "./bridge-switch";
 import { summarizeAcrossQuote, type AcrossQuoteRequest, type AcrossQuoteSummary } from "./across";
 import type { AcrossQuote } from "./across-client";
 import { publicClientOn, readUsdcBalance, walletOn } from "./deposit-client";
@@ -14,10 +15,12 @@ import { VenueError } from "./types";
  * at once; the larger output runs (on a tie the earlier one: Across, then Relay). The clients load on demand.
  */
 
-export type BridgeProvider = "across" | "relay" | "lifi";
+export type { BridgeProvider } from "./bridge-switch";
 
 export const BRIDGE_PROVIDER_NAMES: Record<BridgeProvider, string> = { across: "Across", relay: "Relay", lifi: "LI.FI" };
-const PROVIDERS: BridgeProvider[] = ["across", "relay", "lifi"];
+export { bridgeEnabled, setEnabledBridges } from "./bridge-switch";
+
+const off = (provider: BridgeProvider) => Promise.reject(new VenueError(`${BRIDGE_PROVIDER_NAMES[provider]} is turned off.`));
 
 export type BridgeLegQuote = AcrossQuoteSummary & { provider: BridgeProvider } & (
     | { provider: "across"; raw: AcrossQuote }
@@ -142,7 +145,11 @@ export async function sendRelayTxs(provider: EIP1193Provider, account: `0x${stri
 }
 
 export async function quoteBridgeLeg(request: AcrossQuoteRequest): Promise<BridgeLegQuotes> {
-  const results = await Promise.allSettled([quoteAcross(request), quoteRelay(request), quoteLifi(request)]);
+  const results = await Promise.allSettled([
+    bridgeEnabled("across") ? quoteAcross(request) : off("across"),
+    bridgeEnabled("relay") ? quoteRelay(request) : off("relay"),
+    bridgeEnabled("lifi") ? quoteLifi(request) : off("lifi"),
+  ]);
   const quotes = PROVIDERS.map((provider, index) => {
     const result = results[index];
     return result.status === "fulfilled" ? { provider, quote: result.value } : { provider, error: message(result.reason) };
@@ -155,9 +162,9 @@ export async function quoteBridgeLeg(request: AcrossQuoteRequest): Promise<Bridg
   return { best, quotes };
 }
 
-/** The reason a leg has no route: the first provider's error, else a plain line. */
+/** The reason a leg has no route: the first enabled provider's error, else a plain line. */
 export function noRouteReason(result: BridgeLegQuotes) {
-  return result.quotes.find((entry) => entry.error)?.error ?? "No bridge has a route for this amount right now.";
+  return result.quotes.find((entry) => entry.error && bridgeEnabled(entry.provider))?.error ?? "No bridge has a route for this amount right now.";
 }
 
 /**
@@ -237,7 +244,7 @@ export type DirectQuote = { provider: "relay"; raw: RelayQuote; name: string } |
 export async function quoteDirectSwap(request: DirectSwapRequest): Promise<{ best: DirectQuote | null; error?: string }> {
   const evmOnly = request.fromChain !== LIFI_SOLANA_CHAIN && request.toChain !== LIFI_SOLANA_CHAIN;
   const [relay, lifi] = await Promise.allSettled([
-    evmOnly
+    evmOnly && bridgeEnabled("relay")
       ? fetchRelayQuote({
           user: request.fromAddress,
           recipient: request.toAddress,
@@ -247,8 +254,8 @@ export async function quoteDirectSwap(request: DirectSwapRequest): Promise<{ bes
           destinationCurrency: request.toToken,
           amount: request.amount,
         })
-      : Promise.reject(new VenueError("Relay isn't used for Solana here.")),
-    fetchLifiQuote({ ...request, fromAmount: request.amount }),
+      : Promise.reject(new VenueError(evmOnly ? "Relay is turned off." : "Relay isn't used for Solana here.")),
+    bridgeEnabled("lifi") ? fetchLifiQuote({ ...request, fromAmount: request.amount }) : off("lifi"),
   ]);
   const options: DirectQuote[] = [];
   if (relay.status === "fulfilled" && relay.value.executable) options.push({ provider: "relay", raw: relay.value, name: "Relay" });
