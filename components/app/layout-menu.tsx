@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, LayoutGrid } from "lucide-react";
+import { Check } from "lucide-react";
+import { LayoutIcon } from "./nav-icons";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { layoutPresets, navModeChange, panelNames, toastPositions, type NavMode, type TapePosition, type TerminalPanels, type ToastPosition } from "@/lib/preferences";
@@ -122,7 +123,7 @@ export function LayoutMenu({
         onClick={() => setAnchor(isOpen ? null : (buttonRef.current?.getBoundingClientRect() ?? null))}
         className={className}
       >
-        <LayoutGrid className={iconClassName} strokeWidth={1.75} aria-hidden />
+        <LayoutIcon className={iconClassName} />
         {labelNode}
       </button>
       {anchor && (

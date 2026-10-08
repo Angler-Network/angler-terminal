@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowLeftRight, BarChart3, Layers, Newspaper, Settings, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -11,6 +10,7 @@ import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
+import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -25,15 +25,22 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 }
 
 function navItemClass(active: boolean) {
-  return `flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-xl px-1 py-[clamp(0.25rem,1vh,0.625rem)] text-[11px] transition-colors ${
-    active ? "bg-app-card text-app-ink shadow-[0_2px_8px_rgba(19,35,58,0.08)]" : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
+  return `relative flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-xl px-1 py-[clamp(0.25rem,1vh,0.625rem)] text-[11px] transition-colors ${
+    active
+      ? "bg-app-card text-app-ink shadow-[inset_0_0_0_1px_rgb(var(--app-hairline-strong)),0_2px_8px_rgba(19,35,58,0.08)] before:absolute before:-left-1.5 before:top-1/4 before:bottom-1/4 before:w-[3px] before:rounded-r-full before:bg-[#f5c97b]"
+      : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
   }`;
 }
 
-function NavButton({ label, icon: Icon, active = false, onClick }: { label: string; icon: LucideIcon; active?: boolean; onClick: () => void }) {
+/** The open page's icon: Solar's bold duotone in gold. */
+function iconClass(active: boolean) {
+  return `size-[22px] transition-colors ${active ? "text-[#f5c97b]" : ""}`;
+}
+
+function NavButton({ label, icon: Icon, active = false, onClick }: { label: string; icon: NavIcon; active?: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-haspopup="dialog" aria-expanded={active} className={navItemClass(active)}>
-      <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+      <Icon className={iconClass(active)} active={active} />
       <NavLabel>{label}</NavLabel>
     </button>
   );
@@ -62,7 +69,7 @@ export function Sidebar() {
         {marketNav.map(({ href, label, title, icon: Icon, soon, isActive }) => (
           <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
             <span className="relative">
-              <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+              <Icon className={iconClass(isActive(pathname))} active={isActive(pathname)} />
               {soon && <span aria-hidden className="absolute -right-1 -top-0.5 size-1.5 rounded-full bg-[#f5c97b]" />}
             </span>
             <NavLabel>{label}</NavLabel>
@@ -70,12 +77,12 @@ export function Sidebar() {
         ))}
         <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
         <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
-          <BarChart3 className="size-5" strokeWidth={1.75} aria-hidden />
+          <MarketsIcon className={iconClass(pathname === "/markets")} active={pathname === "/markets"} />
           <NavLabel>Markets</NavLabel>
         </Link>
-        <LayoutMenu className={navItemClass(false)} labelNode={<NavLabel>Layout</NavLabel>} />
+        <LayoutMenu className={navItemClass(false)} iconClassName="size-[22px]" labelNode={<NavLabel>Layout</NavLabel>} />
         <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>
-          <Newspaper className="size-5" strokeWidth={1.75} aria-hidden />
+          <NewsIcon className={iconClass(false)} />
           <NavLabel>News</NavLabel>
         </a>
       </nav>
@@ -90,12 +97,12 @@ export function Sidebar() {
           aria-expanded={isProOrderOpen}
           className={`${navItemClass(false)} text-[#f5c97b] hover:text-[#f5c97b] ${isProOrderOpen ? "bg-[#f5c97b]/15" : "hover:bg-[#f5c97b]/10"}`}
         >
-          <Layers className="size-5" strokeWidth={1.75} aria-hidden />
+          <ProOrderIcon className="size-[22px]" active={isProOrderOpen} />
           <NavLabel>Pro order</NavLabel>
         </button>
-        <NavButton label="Bridge" icon={ArrowLeftRight} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
+        <NavButton label="Bridge" icon={BridgeIcon} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
         <Link href="/settings" title={t("nav.settings")} aria-current={isSettingsOpen ? "page" : undefined} className={navItemClass(isSettingsOpen)}>
-          <Settings className="size-5" strokeWidth={1.75} aria-hidden />
+          <SettingsIcon className={iconClass(isSettingsOpen)} active={isSettingsOpen} />
           <NavLabel>{t("nav.settings")}</NavLabel>
         </Link>
       </nav>
