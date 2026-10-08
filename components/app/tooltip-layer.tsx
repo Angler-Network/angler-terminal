@@ -20,6 +20,10 @@ interface Tip {
  * A component that re-renders under a still mouse can put the title back (React sets it again when the text changes,
  * or replaces the element, e.g. venue chips when quotes arrive), and the browser would show its own tooltip after all:
  * a MutationObserver watches `title` attributes and takes over whatever is under the pointer again.
+ * The observer must never react to the layer's own title changes: with a titled element inside another (a venue logo
+ * in a titled row), moving the title between them woke it again and again, a loop that froze the whole browser on
+ * /swap. So its own changes are dropped (`takeRecords`), an element already taken over counts as "under the pointer"
+ * (`[data-tip]`), and it checks at most once a frame.
  */
 export function TooltipLayer() {
   const [tip, setTip] = useState<Tip | null>(null);
@@ -28,12 +32,21 @@ export function TooltipLayer() {
   useEffect(() => {
     let target: HTMLElement | null = null;
     let timer: number | undefined;
+    // Declared before use: `own` drops the records our own title changes produce.
+    let observer: MutationObserver | null = null;
+    const own = (change: () => void) => {
+      change();
+      observer?.takeRecords();
+    };
 
     const restore = () => {
       window.clearTimeout(timer);
-      if (target?.dataset.tip !== undefined) {
-        target.setAttribute("title", target.dataset.tip);
-        delete target.dataset.tip;
+      const previous = target;
+      if (previous?.dataset.tip !== undefined) {
+        own(() => {
+          previous.setAttribute("title", previous.dataset.tip ?? "");
+          delete previous.dataset.tip;
+        });
       }
       target = null;
       setTip(null);
@@ -49,8 +62,10 @@ export function TooltipLayer() {
       const text = next?.getAttribute("title")?.trim();
       if (!next || !text) return;
       target = next;
-      next.dataset.tip = next.getAttribute("title") ?? "";
-      next.removeAttribute("title");
+      own(() => {
+        next.dataset.tip = next.getAttribute("title") ?? "";
+        next.removeAttribute("title");
+      });
       timer = window.setTimeout(() => {
         if (target !== next || !next.isConnected) return;
         const rect = next.getBoundingClientRect();
@@ -72,18 +87,27 @@ export function TooltipLayer() {
     };
 
     // A title that comes back (or a new element) under the pointer is taken over again before the browser shows it.
-    const observer = new MutationObserver(() => {
+    let frame: number | undefined;
+    const check = () => {
+      frame = undefined;
       if (!pointer) return;
-      if (target?.isConnected && target.hasAttribute("title")) {
-        const text = target.getAttribute("title")?.trim() ?? "";
-        target.dataset.tip = target.getAttribute("title") ?? "";
-        target.removeAttribute("title");
-        setTip((current) => (current && text ? { ...current, text } : current));
+      const current = target;
+      if (current?.isConnected && current.hasAttribute("title")) {
+        const text = current.getAttribute("title")?.trim() ?? "";
+        own(() => {
+          current.dataset.tip = current.getAttribute("title") ?? "";
+          current.removeAttribute("title");
+        });
+        setTip((shown) => (shown && text ? { ...shown, text } : shown));
         return;
       }
-      const under = document.elementFromPoint(pointer.x, pointer.y)?.closest("[title]") as HTMLElement | null;
-      if (under && under !== target) hover(under);
+      // The element already taken over (title moved to data-tip) still counts, so an outer titled element never wins.
+      const under = document.elementFromPoint(pointer.x, pointer.y)?.closest("[title], [data-tip]") as HTMLElement | null;
+      if (under && under !== target && under.hasAttribute("title")) hover(under);
       else if (target && !target.isConnected) restore();
+    };
+    observer = new MutationObserver(() => {
+      if (frame === undefined) frame = window.requestAnimationFrame(check);
     });
     observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["title"] });
 
@@ -112,7 +136,8 @@ export function TooltipLayer() {
     window.addEventListener("blur", onLeave);
     return () => {
       restore();
-      observer.disconnect();
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
       document.removeEventListener("pointerover", onOver, true);
       document.removeEventListener("pointermove", onMove, true);
       document.removeEventListener("pointerout", onOut, true);
