@@ -347,13 +347,41 @@ function Overview() {
 
 /** Your invite codes (one per INVITE_VOLUME traded, single use) and referral stats; a referrer is set only through one (`ReferralInvite`). */
 function ReferralCard() {
-  const { id, profile } = useProfile();
+  const { id, profile, signIn } = useProfile();
   const [copied, setCopied] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
   // Opened from the account menu's Referrals: scroll here once the card has rendered.
   useEffect(() => {
     if (profile && window.location.hash === "#referrals") document.getElementById("referrals")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [profile]);
   if (!id || !profile) return null;
+  // Invite codes only reach their signed-in owner, so nobody can collect and burn someone else's.
+  if (!profile.invites) {
+    return (
+      <section id="referrals" className={`${card} flex h-full scroll-mt-4 flex-col items-start p-4`}>
+        <h2 className="text-[13px] font-semibold text-app-ink">Invites</h2>
+        <p className="mt-1 text-[12px] text-app-muted">
+          Every {compactUsd.format(INVITE_VOLUME)} you trade on perps and spot earns an invite. Each one brings in one trader: you earn 10% of the
+          fees they pay and of their points on perp and spot trades.
+        </p>
+        <p className="mt-3 text-[12px] text-app-muted">Your invite codes are private. Sign in with your wallet to see them: one signature, no fee, good for 30 days.</p>
+        <button
+          type="button"
+          disabled={signing}
+          onClick={async () => {
+            setSigning(true);
+            setSignInError(await signIn());
+            setSigning(false);
+          }}
+          className="mt-3 h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent disabled:opacity-60"
+        >
+          {signing ? "Sign in your wallet…" : "Sign in to see invites"}
+        </button>
+        {signInError && <p className="mt-1.5 text-[12px] text-app-down">{signInError}</p>}
+      </section>
+    );
+  }
   const { codes, nextAt } = profile.invites;
   const available = codes.filter((entry) => !entry.usedBy).length;
   // Invites come from perp and spot volume only (not swaps).

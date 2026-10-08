@@ -11,13 +11,13 @@ describe("invites", () => {
     const second = "0x00000000000000000000000000000000000000c3";
     const trader = "0x00000000000000000000000000000000000000d4";
 
-    expect((await readProfile(inviter)).invites.codes).toEqual([]);
+    expect((await readProfile(inviter, { owner: true })).invites?.codes).toEqual([]);
     await creditVolume(inviter, "hyperliquid", 25_000);
-    const { codes, nextAt } = (await readProfile(inviter)).invites;
+    const { codes, nextAt } = (await readProfile(inviter, { owner: true })).invites!;
     expect(codes).toHaveLength(2);
     expect(nextAt).toBe(30_000);
     // Reading again doesn't mint more.
-    expect((await readProfile(inviter)).invites.codes.map((entry) => entry.code)).toEqual(codes.map((entry) => entry.code));
+    expect((await readProfile(inviter, { owner: true })).invites!.codes.map((entry) => entry.code)).toEqual(codes.map((entry) => entry.code));
 
     const [first] = codes;
     expect(await setReferrer(inviter, first.code)).toMatchObject({ ok: false });
@@ -28,18 +28,20 @@ describe("invites", () => {
     await creditVolume(trader, "lighter", 50);
     expect(await setReferrer(trader, codes[1].code)).toMatchObject({ ok: false, error: "Invites only apply to new profiles." });
 
-    const after = await readProfile(inviter);
+    // Other visitors don't get the codes.
+    expect((await readProfile(inviter)).invites).toBeNull();
+    const after = await readProfile(inviter, { owner: true });
     expect(after.referrals).toBe(1);
-    expect(after.invites.codes.find((entry) => entry.code === first.code)?.usedBy).toBe(newcomer);
+    expect(after.invites!.codes.find((entry) => entry.code === first.code)?.usedBy).toBe(newcomer);
   });
 
   it("pays referrers 10% of the fees on perp and spot trades only, and swaps earn no invites", async () => {
     const inviter = "0x00000000000000000000000000000000000000e5";
     const newcomer = "0x00000000000000000000000000000000000000f6";
     await creditVolume(inviter, "jupiter", 50_000);
-    expect((await readProfile(inviter)).invites.codes).toEqual([]);
+    expect((await readProfile(inviter, { owner: true })).invites!.codes).toEqual([]);
     await creditVolume(inviter, "lighter", 10_000);
-    const [code] = (await readProfile(inviter)).invites.codes;
+    const [code] = (await readProfile(inviter, { owner: true })).invites!.codes;
     expect(await setReferrer(newcomer, code.code)).toMatchObject({ ok: true });
 
     await creditVolume(newcomer, "hyperliquid", 100_000, 35);

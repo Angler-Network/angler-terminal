@@ -36,7 +36,11 @@ export function usernameError(name: string): string | null {
   return null;
 }
 
-export type ProfileAction = { kind: "username"; username: string } | { kind: "link"; profile: string } | { kind: "referral"; code: string };
+export type ProfileAction =
+  | { kind: "username"; username: string }
+  | { kind: "link"; profile: string }
+  | { kind: "referral"; code: string }
+  | { kind: "session" };
 
 /** A referral code: the referrer's username or wallet address. */
 export const REFERRAL_CODE = /^[A-Za-z0-9_]{3,44}$/;
@@ -48,7 +52,9 @@ export function profileMessage(action: ProfileAction, address: string, issuedAt:
       ? `Set username: ${action.username}`
       : action.kind === "link"
         ? `Link this wallet to profile: ${action.profile}`
-        : `Use referral code: ${action.code}`;
+        : action.kind === "referral"
+          ? `Use referral code: ${action.code}`
+          : "Sign in to Angler";
   return ["Angler Terminal profile", what, `Wallet: ${address}`, `Issued at: ${issuedAt}`].join("\n");
 }
 
@@ -63,13 +69,16 @@ export function readProfileMessage(message: string): { action: ProfileAction; ad
   const username = /^Set username: (\S+)$/.exec(lines[1]);
   const link = /^Link this wallet to profile: (\S+)$/.exec(lines[1]);
   const referral = /^Use referral code: (\S+)$/.exec(lines[1]);
+  const session = lines[1] === "Sign in to Angler";
   const action: ProfileAction | null = username
     ? { kind: "username", username: username[1] }
     : link
       ? { kind: "link", profile: link[1] }
       : referral
         ? { kind: "referral", code: referral[1] }
-        : null;
+        : session
+          ? { kind: "session" }
+          : null;
   return action ? { action, address: wallet[1], issuedAt } : null;
 }
 

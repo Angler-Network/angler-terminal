@@ -154,8 +154,11 @@ export interface ProfileView {
   referralPoints: number;
   /** USD a referrer earned: REFERRAL_FEE_SHARE of the fees its referrals paid on perp and spot trades. */
   referralEarnings: number;
-  /** Single-use invite codes, one per INVITE_VOLUME of own volume; a referrer is set only through one. */
-  invites: { codes: Array<{ code: string; usedBy: string | null }>; nextAt: number };
+  /**
+   * Single-use invite codes, one per INVITE_VOLUME of perp and spot volume; a referrer is set only through one. Only
+   * sent to the signed-in owner (`readProfile(id, { owner: true })`), else null.
+   */
+  invites: { codes: Array<{ code: string; usedBy: string | null }>; nextAt: number } | null;
   /** Primary ENS name and avatar (EVM), added by the API route. */
   ens?: EnsIdentity | null;
 }
@@ -191,7 +194,7 @@ async function rankOf(id: string): Promise<number | null> {
   return typeof result === "number" ? result + 1 : null;
 }
 
-export async function readProfile(id: string): Promise<ProfileView> {
+export async function readProfile(id: string, { owner = false }: { owner?: boolean } = {}): Promise<ProfileView> {
   const chain = profileIdOf(id)?.chain ?? "evm";
   const [hash, days, linked, referred] = await Promise.all([
     getHash(id),
@@ -199,7 +202,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
-  const invites = await syncInvites(id, tradingVolumeOf(volumeOf(hash)));
+  const invites = owner ? await syncInvites(id, tradingVolumeOf(volumeOf(hash))) : null;
   const volume = volumeOf(hash);
   const points = pointsOf(hash);
   return {

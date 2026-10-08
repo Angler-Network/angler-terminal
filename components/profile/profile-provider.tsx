@@ -40,6 +40,8 @@ interface ProfileContextValue {
   applyReferral: (code: string) => Promise<string | null>;
   /** Forgets the `?ref=` code without applying it. */
   dismissReferral: () => void;
+  /** Signs the wallet in (one signature, 30 days) so the profile comes with its invite codes. Null or an error. */
+  signIn: () => Promise<string | null>;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -169,6 +171,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sign, evmAddress, load]);
 
+  const signIn = useCallback(async () => {
+    try {
+      const { message, signature } = await sign({ kind: "session" }, evmAddress ? "evm" : "solana");
+      const failure = await postSigned("/api/profile/session", message, signature);
+      if (!failure) void load();
+      return failure;
+    } catch (failure) {
+      return failure instanceof Error ? failure.message : String(failure);
+    }
+  }, [sign, evmAddress, load]);
+
   const dismissReferral = useCallback(() => {
     try {
       window.localStorage.removeItem(REFERRAL_STORAGE_KEY);
@@ -209,8 +222,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       pendingReferral: profile?.referrer || pendingReferral === profile?.username || pendingReferral === id ? null : pendingReferral,
       applyReferral,
       dismissReferral,
+      signIn,
     }),
-    [id, profile, loading, error, load, saveUsername, canLink, linkSolana, pendingReferral, applyReferral, dismissReferral],
+    [id, profile, loading, error, load, saveUsername, canLink, linkSolana, pendingReferral, applyReferral, dismissReferral, signIn],
   );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
