@@ -365,7 +365,7 @@ dependency versions and design are free to diverge from angler-news.
     balance) reaches it through Relay / LI.FI like any token (`bridgeable` in `evm-swap-card.tsx`), not the Across path.
     Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x, Odos and KyberSwap (`KYBERSWAP_CLIENT_ID`, no
     key; GET `/{chain}/api/v1/routes` with our fee as `feeAmount`/`isInBps`/`chargeFeeBy=currency_out`/`feeReceiver`,
-    then POST `route/build` right before signing; chains ethereum/bsc/base/arbitrum, not Robinhood), all quoted with
+    then POST `route/build` right before signing; chains ethereum/bsc/base/arbitrum/robinhood), all quoted with
     Uniswap on every EVM swap and the largest output runs. Each has a Settings switch and an admin off-switch. the spot list adds Uniswap's 300 most traded + 150 deepest (TVL) tokens per chain (Trading API `/tokens?sort=`, max 1000, server
     side with the key; not Robinhood, `listTop: false`), priced by DefiLlama (`lib/spot/llama.ts`: `coins.llama.fi`
     prices + 24h change, free, batches of 60). Volume, liquidity and market cap come from DexScreener
