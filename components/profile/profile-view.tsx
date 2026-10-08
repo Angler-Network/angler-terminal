@@ -325,17 +325,18 @@ function ReferralCard() {
       <h2 className="text-[13px] font-semibold text-app-ink">Referrals</h2>
       <p className="mt-1 text-[12px] text-app-muted">Share your link: you earn 10% of the points of everyone who joins with it.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] text-app-ink">{link}</code>
-        <button type="button" onClick={() => copy("link")} className={copyButton}>
-          {copied === "link" ? "Copied" : "Copy link"}
-        </button>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-[12px] text-app-muted">Your code</span>
-        <code className="min-w-0 max-w-full truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] font-semibold text-app-ink">{profile.username ?? shortAddress(profile.id)}</code>
-        <button type="button" onClick={() => copy("code")} title={ownCode} className={copyButton}>
-          {copied === "code" ? "Copied" : "Copy code"}
-        </button>
+        <code title={ownCode} className="min-w-0 truncate rounded-lg bg-app-chip px-2.5 py-2 text-[12px] font-semibold text-app-ink">
+          {profile.username ?? shortAddress(profile.id)}
+        </code>
+        <span className="ml-auto flex gap-2">
+          <button type="button" onClick={() => copy("link")} title={link} className={copyButton}>
+            {copied === "link" ? "Copied" : "Copy link"}
+          </button>
+          <button type="button" onClick={() => copy("code")} title={ownCode} className={copyButton}>
+            {copied === "code" ? "Copied" : "Copy code"}
+          </button>
+        </span>
       </div>
       {!profile.username && <p className="mt-1.5 text-[11px] text-app-faint">Set a username for a shorter link.</p>}
       <div className="mt-3 grid grid-cols-2 gap-3">
