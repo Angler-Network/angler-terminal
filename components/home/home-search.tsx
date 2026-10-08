@@ -17,6 +17,13 @@ import type { PerpVenueId } from "@/lib/venues/types";
 
 const RESULTS = 12;
 
+/** The empty field's hint per market type: a prompt, then example assets with their icons. */
+const HINTS: Record<Scope, { prompt: string; examples: Array<{ symbol: string; label: string; kind?: "crypto" | "stock" }> }> = {
+  perp: { prompt: "Find a perp:", examples: [{ symbol: "BTC", label: "BTC" }, { symbol: "TSLA", label: "Tesla", kind: "stock" }, { symbol: "GOLD", label: "GOLD", kind: "stock" }] },
+  book: { prompt: "Find a spot market:", examples: [{ symbol: "HYPE", label: "HYPE" }, { symbol: "NVDA", label: "NVDA", kind: "stock" }] },
+  spot: { prompt: "Find a token:", examples: [{ symbol: "SOL", label: "SOL" }, { symbol: "ETH", label: "ETH" }, { symbol: "JUP", label: "JUP" }] },
+};
+
 type Scope = "perp" | "book" | "spot";
 
 const SCOPES: Array<{ value: Scope; label: string }> = [
@@ -194,7 +201,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
         )}
       </div>
       <div ref={boxRef} className="relative">
-        <label className="flex h-11 items-center gap-2.5 rounded-xl border border-app-field-border bg-app-field px-3.5">
+        <label className="relative flex h-11 items-center gap-2.5 rounded-xl border border-app-field-border bg-app-field px-3.5">
           <Search className="size-[18px] text-app-faint" aria-hidden />
           <input
             value={query}
@@ -207,10 +214,22 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
               if (event.key === "Enter") openFirst();
               if (event.key === "Escape") setOpen(false);
             }}
-            placeholder={scope === "perp" ? "Find a perp: BTC, Tesla, GOLD…" : scope === "book" ? "Find a spot market: HYPE, NVDA…" : "Find a token by name, ticker or address"}
             aria-label="Find a market"
             className="min-w-0 flex-1 bg-transparent text-[14px] text-app-ink outline-hidden placeholder:text-app-faint"
           />
+          {!query && (
+            // A placeholder can't hold icons, so the hint sits over the empty field (clicks pass through to it).
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 left-[42px] right-3.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-[14px] text-app-faint">
+              {HINTS[scope].prompt}
+              {HINTS[scope].examples.map((example, index) => (
+                <span key={example.symbol} className="inline-flex items-center gap-1">
+                  <MarketIcon symbol={example.symbol} kind={example.kind} size={16} />
+                  {example.label}
+                  {index < HINTS[scope].examples.length - 1 ? "," : "…"}
+                </span>
+              ))}
+            </span>
+          )}
         </label>
         {typed && open && (
           <ul className="scrollbar-subtle absolute inset-x-0 top-full z-20 mt-1.5 max-h-[380px] overflow-y-auto rounded-xl border border-app-hairline-strong bg-app-card py-1 shadow-[0_16px_40px_rgba(0,0,0,0.4)]">
