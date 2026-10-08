@@ -7,7 +7,7 @@ import { PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { LEVELS } from "@/lib/profile/levels";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
-import type { LeaderboardEntry, ProfileVenue } from "@/lib/profile/store";
+import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
 
@@ -184,6 +184,41 @@ function LevelCard() {
   );
 }
 
+type VolumeRange = "d7" | "d30" | "all";
+
+const VOLUME_RANGES: Array<{ value: VolumeRange; label: string }> = [
+  { value: "d7", label: "7D" },
+  { value: "d30", label: "30D" },
+  { value: "all", label: "All" },
+];
+
+/** Volume through Angler on every venue together, over the last 7 or 30 days or all time. */
+function VolumeCard({ profile }: { profile: ProfileData }) {
+  const [range, setRange] = useState<VolumeRange>("all");
+  const total = range === "all" ? VENUES.reduce((sum, venue) => sum + profile.volume[venue.id], 0) : profile.recentVolume[range];
+  return (
+    <section className={`${card} flex flex-wrap items-end justify-between gap-3 p-4`}>
+      <div>
+        <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
+        <p className="mt-1 text-[26px] font-semibold tabular-nums tracking-tight text-app-ink">{total >= 1_000_000 ? compactUsd.format(total) : usd.format(total)}</p>
+      </div>
+      <div role="group" aria-label="Period" className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+        {VOLUME_RANGES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={range === option.value}
+            onClick={() => setRange(option.value)}
+            className={`h-7 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${range === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Overview() {
   const { id, profile, loading, error, linkSolana } = useProfile();
   const wallets = useWalletModal();
@@ -207,19 +242,7 @@ function Overview() {
   return (
     <>
       <LevelCard />
-      <section className={`${card} p-4`}>
-        <h2 className="text-[13px] font-semibold text-app-ink">Volume through Angler</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {VENUES.map((venue) => (
-            <div key={venue.id} className="rounded-xl bg-app-chip/60 px-3 py-2.5">
-              <p className="text-[11px] text-app-muted">
-                {venue.name} · {venue.kind}
-              </p>
-              <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-app-ink">{profile.volume[venue.id] >= 100_000 ? compactUsd.format(profile.volume[venue.id]) : usd.format(profile.volume[venue.id])}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <VolumeCard profile={profile} />
       {(profile.chain === "evm" && (profile.linkedWallets.length > 0 || linkSolana)) && (
         <section className={`${card} p-4`}>
           <h2 className="text-[13px] font-semibold text-app-ink">Solana wallets</h2>

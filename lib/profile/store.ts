@@ -1,5 +1,6 @@
 import "server-only";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
+import { dayKey, volumeOverDays } from "./days";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
 import type { EnsIdentity } from "./ens";
 import { profileIdOf, type ProfileChain } from "./identity";
@@ -7,6 +8,7 @@ import { profileIdOf, type ProfileChain } from "./identity";
 /**
  * Profiles in Redis (`lib/redis.ts`, memory without it), per deployment so testnet points stay apart:
  *   p:{id}          hash: username, usd:{venue}, cursors, links
+ *   d:{id}          hash: UTC day → volume credited that day (7 and 30 day totals)
  *   points          sorted set: id → points (the leaderboard)
  *   name:{lower}    the id holding a username
  *   claim:{tx}      a Solana swap already credited
@@ -19,6 +21,8 @@ export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "jupiter",
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 const CLAIM_TTL_SECONDS = 400 * 86_400;
+/** Daily buckets outlive the longest window shown; the hash expires after this long without volume. */
+const DAYS_TTL_SECONDS = 400 * 86_400;
 export const SYNC_INTERVAL_SECONDS = 60;
 export const LEADERBOARD_SIZE = 50;
 
@@ -128,6 +132,8 @@ export interface ProfileView {
   /** 1-based leaderboard position, null without points. */
   rank: number | null;
   volume: Record<ProfileVenue, number>;
+  /** All venues over the last 7 and 30 days, by the day volume was credited. */
+  recentVolume: { d7: number; d30: number };
   /** EVM profiles: Solana wallets whose swaps count here. Solana wallets: the profile they count toward. */
   linkedWallets: string[];
   linkedTo: string | null;
@@ -172,8 +178,9 @@ async function rankOf(id: string): Promise<number | null> {
 
 export async function readProfile(id: string): Promise<ProfileView> {
   const chain = profileIdOf(id)?.chain ?? "evm";
-  const [hash, linked, referred] = await Promise.all([
+  const [hash, days, linked, referred] = await Promise.all([
     getHash(id),
+    readDays(id),
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
@@ -187,6 +194,7 @@ export async function readProfile(id: string): Promise<ProfileView> {
     level: levelFor(points),
     rank: points > 0 ? await rankOf(id) : null,
     volume,
+    recentVolume: { d7: volumeOverDays(days, 7), d30: volumeOverDays(days, 30) },
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
@@ -212,16 +220,30 @@ export async function saveCursors(id: string, cursors: { hl?: number; lighter?: 
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 
-/** Adds verified volume to a profile and moves it on the leaderboard. */
+async function readDays(id: string): Promise<Record<string, string>> {
+  if (!redisConfig()) return { ...(memory.hashes.get(key("d", id)) ?? {}) };
+  const [result] = await run([["HGETALL", key("d", id)]]);
+  return toHash(result);
+}
+
+/** Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. */
 export async function creditVolume(id: string, venue: ProfileVenue, usd: number) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
+  const today = dayKey(Date.now());
   if (redisConfig()) {
-    await run([["HINCRBYFLOAT", key("p", id), `usd:${venue}`, amount]]);
+    await run([
+      ["HINCRBYFLOAT", key("p", id), `usd:${venue}`, amount],
+      ["HINCRBYFLOAT", key("d", id), today, amount],
+      ["EXPIRE", key("d", id), DAYS_TTL_SECONDS],
+    ]);
   } else {
     const hash = memory.hashes.get(key("p", id)) ?? {};
     hash[`usd:${venue}`] = String(Number(hash[`usd:${venue}`] ?? 0) + amount);
     memory.hashes.set(key("p", id), hash);
+    const days = memory.hashes.get(key("d", id)) ?? {};
+    days[today] = String(Number(days[today] ?? 0) + amount);
+    memory.hashes.set(key("d", id), days);
   }
   const hash = await getHash(id);
   await setPoints(id, pointsOf(hash));
