@@ -2,7 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
 import { isAdmin } from "./admin";
-import { dayKey, volumeOverDays } from "./days";
+import { dailyVolume, dayKey, volumeOverDays } from "./days";
 import { INVITE_VOLUME } from "./invites";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
 import type { EnsIdentity } from "./ens";
@@ -145,6 +145,8 @@ export interface ProfileView {
   volume: Record<ProfileVenue, number>;
   /** All venues over the last 7 and 30 days, by the day volume was credited. */
   recentVolume: { d7: number; d30: number };
+  /** Volume credited per UTC day over the last 30 days, oldest first (the points history). */
+  daily: Array<{ date: string; usd: number }>;
   /** EVM profiles: Solana wallets whose swaps count here. Solana wallets: the profile they count toward. */
   linkedWallets: string[];
   linkedTo: string | null;
@@ -222,6 +224,7 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     rank: points > 0 ? await rankOf(id) : null,
     volume,
     recentVolume: { d7: volumeOverDays(days, 7), d30: volumeOverDays(days, 30) },
+    daily: dailyVolume(days, 30),
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,

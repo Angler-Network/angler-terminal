@@ -8,6 +8,15 @@ export function dayKey(time: number) {
   return new Date(time).toISOString().slice(0, 10);
 }
 
+/** The last `days` UTC days (oldest first, today last) with the volume credited on each. */
+export function dailyVolume(buckets: Record<string, string>, days: number, now = Date.now()) {
+  return Array.from({ length: days }, (_, index) => {
+    const date = dayKey(now - (days - 1 - index) * 86_400_000);
+    const amount = Number(buckets[date]);
+    return { date, usd: Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : 0 };
+  });
+}
+
 /** Volume over the last `days` UTC days, today included. */
 export function volumeOverDays(buckets: Record<string, string>, days: number, now = Date.now()) {
   const oldest = dayKey(now - (days - 1) * 86_400_000);

@@ -12,13 +12,15 @@ import { INVITE_VOLUME } from "@/lib/profile/invites";
 import type { LeaderboardEntry, ProfileVenue, ProfileView as ProfileData } from "@/lib/profile/store";
 import { AdminView } from "./admin-view";
 import { PortfolioCard } from "./portfolio-card";
+import { RewardsView } from "./rewards-view";
 import { ProfileAvatar } from "./profile-avatar";
 import { useProfile } from "./profile-provider";
 
-export type ProfileTab = "overview" | "portfolio" | "leaderboard" | "admin";
+export type ProfileTab = "overview" | "rewards" | "portfolio" | "leaderboard" | "admin";
 
 const tabs: Array<{ id: ProfileTab; label: string; href: string }> = [
   { id: "overview", label: "Overview", href: "/profile" },
+  { id: "rewards", label: "Rewards", href: "/profile/rewards" },
   { id: "portfolio", label: "Portfolio", href: "/profile/portfolio" },
   { id: "leaderboard", label: "Leaderboard", href: "/profile/leaderboard" },
   { id: "admin", label: "Admin", href: "/profile/admin" },
@@ -562,7 +564,7 @@ export function ProfileView({ tab }: { tab: ProfileTab }) {
         </div>
       ) : (
         <section className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col gap-4 overflow-auto *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
-          {tab === "leaderboard" ? <Leaderboard /> : tab === "admin" ? <AdminView invites={<ReferralCard />} /> : <Overview />}
+          {tab === "leaderboard" ? <Leaderboard /> : tab === "admin" ? <AdminView invites={<ReferralCard />} /> : tab === "rewards" ? <RewardsView /> : <Overview />}
         </section>
       )}
     </div>
