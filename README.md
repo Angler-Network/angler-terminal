@@ -1,219 +1,137 @@
+<p align="center">
+  <img src="public/brand/angler-banner.jpg" alt="Angler Terminal" width="100%" />
+</p>
+
 # Angler Terminal
 
-A multi-venue perp DEX terminal driven by real-time, AI-scored crypto news.
+**Trade every major on-chain market from one screen, with the news that moves it.**
 
-Trade Hyperliquid and Lighter perps, Solana tokens and tokenized stocks from one screen. The terminal picks the
-cheapest venue for you, and every important headline turns into a one-tap trade on the asset it moves.
+Perps, token swaps, spot order books and prediction markets across Hyperliquid, Lighter, Aster, Orderly, Jupiter,
+Uniswap, Polymarket and more. Next to the chart runs a live news feed scored by AI, so you see why a market moves
+and can act on it in two taps.
 
-**Live:** [trade.angler.network](https://trade.angler.network) · **Testnet:**
-[testnet-trade.angler.network](https://testnet-trade.angler.network) · **News API:** [api.angler.network](https://api.angler.network/openapi.yaml)
+**[Open the app →](https://trade.angler.network)** · [Try it on testnet](https://testnet-trade.angler.network) ·
+[Angler News](https://news.angler.network)
 
-> **Alpha.** The terminal runs on testnets by default. Mainnet trades use real funds. Not financial advice: news
-> scores and predictions are model outputs.
+> **Alpha.** Angler Terminal is new and still changing. Start small, or practice on the testnet site with free test
+> funds. Not financial advice: news scores and predictions are model outputs.
 
-## Why Angler Terminal
+## What you can do
 
-Most multi-venue terminals compete on how many venues they connect and how many bots they run for you. Angler
-Terminal is built for people who manage their own on-chain portfolio and want to make the decisions themselves:
+### Perp Dex: perpetual futures on every venue
 
-- **You see why the market moves before you trade it.** Every headline arrives scored, translated and linked to
-  the assets it affects, next to the chart, the order book and your positions on every venue.
-- **You keep the keys and the final say.** Nothing trades without your press unless you write the rule yourself,
-  and no key or fund ever leaves your wallet or browser.
-- **It stays fast and simple.** One screen, one order panel for every venue, live data straight from the venues
-  and a first load of about 200 kB of JavaScript.
+- Long or short crypto, stocks and indices on **Hyperliquid, Lighter, Aster and Orderly** from one order panel:
+  market and limit orders, leverage, cross or isolated margin, take profit and stop loss.
+- **Best price, automatically.** Before a market order, the terminal reads the live order books of every venue that
+  lists the asset, adds each venue's fees and sends your order to the cheapest one. Large orders can be split across
+  venues when that fills cheaper.
+- **One order book for all venues**, colored by venue, so you see the real depth of the market.
+- **Funding rates side by side**, and a one-click funding trade that goes long where funding is low and short where
+  it's high.
 
-## Features
+### Swap: any token, any chain
 
-- **Live news feed.** Headlines stream over WebSocket from the Angler News API and are scored by AI models:
-  importance (0-100), sentiment (-1 to +1), predicted impact per asset and a short summary. Non-English news is
-  shown translated to English. You can filter by asset, sentiment, severity and minimum impact, and get browser
-  notifications for high-impact items.
-- **What happened after similar news.** Important cards show how the asset moved 1h, 4h and 24h after its past news
-  of the same impact over the last ~50 days, and how often it went up.
-- **News rules.** "When bearish BTC news scores 80+, short $50" or "close my position on adverse news": rules
-  watch the feed and alert you, open a perp position or close one, with a one-press prompt unless you make them
-  automatic.
-- **Trade from the news.** Important news about a tradable asset shows Long/Short size buttons. One press arms
-  the order and a second press places it. The asset is resolved to the best venue that lists it. Keyboard
-  shortcuts work too: `L` / `S`, `1`–`4`, `Enter`.
-- **One order panel for every venue.** Market and limit orders, leverage, cross or isolated margin, reduce-only
-  and TP/SL. A summary shows the estimated entry price, slippage, fees, margin, liquidation price and funding.
-- **Merged order book and split orders.** See Hyperliquid and Lighter depth in one book, colored by venue, and
-  split large market orders across both when that fills cheaper.
-- **Best execution.** For market orders the terminal walks the live order books of both perp venues for your size,
-  adds each venue's taker fees and routes to the cheaper one. This is on by default and can be turned off.
-- **Funding.** Funding rates across Hyperliquid, Lighter, Binance and Bybit, a Markets page with spreads, and a
-  one-click delta-neutral funding arbitrage: long on the low-funding venue, short on the high-funding one.
-- **Portfolio across venues.** Positions and orders from every perp venue in one table, with liquidation distance,
-  per-venue account summary, TP/SL editing and close-all.
-- **Funds.** Deposit and withdraw on each venue, and move USDC from Hyperliquid to Lighter in one flow.
-- **Your layout.** Hide the order book, order entry, positions, news or account panel, or start from a preset.
-  Choose sidebar or top navigation, the ticker tape position, a theme and an accent color. You can also switch
-  between the built-in chart (news markers on candles) and TradingView.
+- Swap Solana tokens through **Jupiter** and **Titan**, and EVM tokens on Ethereum, Base, Arbitrum and Robinhood Chain
+  through **Uniswap, 0x and Odos**. The terminal asks several sources and executes the best quote.
+- Go **cross-chain in one step** with Relay, LI.FI and Across: pay with USDC on one chain, receive a token on another.
+- An optional **Private** mode only uses routes that skip the public mempool, to protect you from front-running.
 
-## Venues
+### Spot Dex: order books and stock tokens
 
-| Venue | What you trade | Network | How the terminal signs |
-| --- | --- | --- | --- |
-| [Hyperliquid](https://hyperliquid.xyz) | Perps, including HIP-3 stock perps (NVDA, TSLA, …) | testnet / mainnet | Agent key generated in the browser (can trade, cannot withdraw) |
-| [Lighter](https://lighter.xyz) | Perps | testnet / mainnet | API key generated in the browser, stored encrypted |
-| [Jupiter](https://jup.ag) | Solana spot tokens | mainnet | Your Solana wallet signs each swap |
-| [Titan](https://titan.exchange) | Second quote source for Solana swaps | mainnet | Same as Jupiter; the better quote wins |
-| [Arcus](https://arcus.xyz) | Tokenized stocks and indices on Robinhood Chain | testnet / mainnet | Your EVM wallet signs a gasless Permit2 order |
+- Spot trading on **Hyperliquid and Lighter** order books, with limit orders and open-order management.
+- **Tokenized stocks and indices** (TSLA, NVDA and more) on Robinhood Chain through **Arcus**, trading 24/7.
 
-## How it works
+### Prediction markets
 
-```
-Browser ──WebSocket──▶ Hyperliquid, Lighter      order books, trades, positions, orders
-        ──WebSocket──▶ Angler News (Centrifugo)  raw + enriched news, with a single-use ticket
-        ──HTTPS─────▶ Next.js route handlers ──▶ Angler API, Jupiter, Titan, Arcus, Solana RPC (keys added here)
-```
+- Browse and trade **Polymarket** and **Hyperliquid** outcome markets (elections, sports, crypto prices) from one
+  page, with live trades as they happen.
 
-The browser talks to the venues directly; the server only adds API keys and caches shared data.
+### News that you can trade
 
-## Security
+- Headlines from news sites, X and Telegram arrive in real time, each scored for **importance, sentiment and the assets it
+  affects**. News in other languages is translated to English.
+- Important news shows **Long / Short buttons** for the assets it mentions. One press arms the order, a second press
+  places it.
+- **What happened last time:** important news shows how the asset moved 1 hour, 4 hours and 24 hours after similar
+  news in the past weeks.
+- **News rules:** "alert me when bearish BTC news scores 80+" or "close my position on bad news about it". Rules ask
+  you before trading unless you choose otherwise.
+- Filter by asset, sentiment and impact, and get notified when big news breaks.
 
-Angler Terminal never holds your funds or your keys, and the code that signs your orders is open for anyone to read.
+### Your portfolio, your profile
 
-- **Non-custodial by design.** Funds stay in your wallet and on the venues. There is no deposit contract and no
-  pooled account, and the app can't move your funds: deposits and withdrawals are signed by your own wallet.
-- **Keys are created and kept in your browser.** Hyperliquid and Lighter trading keys are generated locally and
-  used only to sign locally; they are never logged or sent anywhere. A Hyperliquid agent key can trade but cannot
-  withdraw. The Lighter key is stored encrypted (AES-GCM) with a non-extractable WebCrypto key, so the raw key
-  can't be read back out of the browser's storage. Both can be revoked from the account panel at any time.
-- **Official signers only.** Hyperliquid orders are signed with a maintained open-source SDK, Lighter orders with
-  Lighter's own WASM signer built from a pinned commit (`scripts/build-lighter-signer.sh`), and spot swaps by your
-  own wallet (Wallet Standard on Solana, EIP-712 / Permit2 on EVM).
-- **Server secrets stay on the server.** API keys (Angler, Jupiter, Titan, Arcus, RPC) are read only by route
-  handlers and never reach the browser. Only `NEXT_PUBLIC_*` settings are public.
-- **Guard rails on every trade.**
-  - Orders need two presses by default; one-click trading is opt-in.
-  - Automatic news rules are off by default and limited to one trade per rule every five minutes.
-  - Spot swaps are re-quoted right before signing and refused above 3% price impact.
-  - Wallets never connect on page load unless you connected them in this app before.
-- **Little about you is stored.** There is no login. Preferences live in your browser. Your profile (points, level,
-  an optional username) is keyed by your wallet address and built only from the venues' public records of trades
-  placed through Angler. Analytics count trades per venue and side only, with no wallet addresses.
+- **All your positions and orders across venues** in one table, with liquidation distance, account value per venue
+  and close-all.
+- **Move funds between venues and chains** from one window: deposit, withdraw, or bridge USDC from Hyperliquid to
+  Lighter in a single flow.
+- **Earn points** for the volume you trade through Angler, climb ten levels from Minnow to Whale, appear on the
+  leaderboard and invite friends with your referral link.
 
-Found a vulnerability? Report it privately to the maintainers rather than in a public issue.
+### Make it yours
 
-## Performance
+- Choose your layout: hide panels, drag them around, resize columns, or start from the News trader, Pro trader or
+  Minimal preset.
+- Pick a theme and an accent color, sidebar or top navigation, and the built-in chart (with news on the candles) or
+  TradingView.
+- Works on your phone, and can be installed as an app.
 
-Speed comes from what the app doesn't do: no account server sits between you and the venues, and nothing heavy
-loads until you need it.
+## Your keys, your funds
 
-- **Direct to the venues.** Order books, trades, prices and your positions stream from each venue to your browser
-  over WebSockets, with no relay server adding latency. Book updates are batched so the page stays smooth in
-  fast markets.
-- **Realtime news.** Headlines arrive over WebSocket the moment they're ingested, and the analyzed version
-  replaces the raw headline in place.
-- **Light first load.** The terminal page ships about 200 kB of JavaScript on first load (compressed, at the time
-  of writing). Trading SDKs, wallet clients and dialogs load on demand, and the server-rendered price tape streams
-  in without blocking the page.
-- **Better fills.** Market orders are priced from both perp venues' live order books with every fee included,
-  routed to the cheaper venue, and split across venues when that fills cheaper.
-- **Shared, cached data.** Market lists, funding rates, news sources and news reaction stats are cached on the
-  server, so a crowd of users costs the upstream APIs about the same as one.
+Angler Terminal is **non-custodial**. It never holds your money or your private keys.
 
-## Getting started
+- **Your funds stay with you and the venues.** There is no Angler deposit contract or pooled account. Every deposit
+  and withdrawal is signed by your own wallet.
+- **Trading keys live only in your browser.** To trade without a wallet popup on every order, Hyperliquid, Lighter,
+  Aster and Orderly use a trading key created in your browser. It can place orders but can't withdraw your funds,
+  it never leaves your device, and you can revoke it at any time.
+- **Nothing trades by surprise.** Orders need two presses by default, automatic rules are off until you turn them
+  on, and swaps are re-quoted right before you sign and refused if the price impact is too high.
+- **No account, no login.** Connect a wallet and trade. Your settings stay in your browser. The only thing linked to
+  your wallet address is your profile: points, level and an optional username.
+- **Open source.** Every line of the code that signs your orders is public in this repository.
 
-Requirements: Node.js 20+ and npm.
+## Get started
 
-```bash
-git clone https://github.com/Angler-Network/angler-terminal.git
-cd angler-terminal
-npm install
-cp .env.example .env.local   # fill in the values you need (see below)
-npm run dev                  # http://localhost:3000
-```
+1. Open **[trade.angler.network](https://trade.angler.network)**.
+2. Press **Connect** and choose your wallet. EVM wallets (MetaMask, Rabby, Coinbase Wallet…) and Solana wallets
+   (Phantom, Backpack, Solflare…) both work, and wallets that support both chains connect both at once.
+3. Pick a market and trade. The first time you use a perp venue, a short setup creates your trading key with a
+   wallet signature or two.
 
-The only required value is `ANGLER_API_KEY`, for the news feed. Every venue is optional: leave its variables empty
-and it stays off or uses public defaults. `.env.example` documents every variable.
+**Want to practice first?** Open the **[testnet site](https://testnet-trade.angler.network)**, where everything runs
+with free test money. The terminal hands it out for you: **Get test USDC** for Lighter, **Mint mUSDG** for Arcus
+stock tokens, and a link to Hyperliquid's faucet.
 
-| Variable | Scope | Purpose |
-| --- | --- | --- |
-| `ANGLER_API_URL`, `ANGLER_API_KEY` | server | Angler News API (`/v1/news`, `/v1/sources`, `/v1/ws/ticket`) |
-| `ANGLER_WS_URL` | server | Optional realtime endpoint override |
-| `NEXT_PUBLIC_HL_NETWORK` | public | Hyperliquid `testnet` (default) or `mainnet` |
-| `NEXT_PUBLIC_HL_BUILDER_ADDRESS` | public | Builder address added to every Hyperliquid order (required to trade) |
-| `NEXT_PUBLIC_HL_BUILDER_FEE`, `NEXT_PUBLIC_HL_MAX_BUILDER_FEE` | public | Builder fee and the max users approve, in tenths of a bp |
-| `NEXT_PUBLIC_HL_HIP3_DEXES` | public | HIP-3 dexes to list (default `xyz`) |
-| `NEXT_PUBLIC_LIGHTER_NETWORK` | public | Lighter `testnet` (default) or `mainnet` |
-| `NEXT_PUBLIC_LIGHTER_API_KEY_INDEX` | public | API key slot the terminal uses (default 61) |
-| `NEXT_PUBLIC_LIGHTER_INTEGRATOR_*` | public | Optional integrator account and fees |
-| `JUP_API_KEY`, `JUP_REFERRAL_ACCOUNT`, `JUP_REFERRAL_FEE_BPS` | server | Jupiter Swap V2 and its referral fee |
-| `SOLANA_RPC_URL` | server | Solana RPC for balances and Titan transactions |
-| `TITAN_API_KEY` | server | Optional Titan quotes (Jupiter alone without it) |
-| `NEXT_PUBLIC_ARCUS_NETWORK`, `NEXT_PUBLIC_ARCUS_RPC_URL` | public | Arcus network and optional RPC |
-| `ARCUS_API_KEY`, `ARCUS_BUILDER_FEE_BPS` | server | Optional Arcus partner key and fee |
-| `NEXT_PUBLIC_SPOT_SIZE_PRESETS`, `NEXT_PUBLIC_PERP_SIZE_PRESETS` | public | Optional USD size presets |
-| `COINGECKO_API_KEY`, `COINGECKO_API_PLAN`, `COINGECKO_DAILY_BUDGET` | server | Optional: spot token charts from CoinGecko's on-chain API (free GeckoTerminal without it), capped per day |
-| `ANALYTICS_TOKEN` | server | Bearer token for `GET /api/analytics/trade` |
+## FAQ
 
-### Testnet funds
+**Does it cost anything to use?**
+The app is free. You pay each venue's normal trading fees, plus a small Angler fee on some trades, the way other
+trading front ends do. The order summary shows the fees before you confirm.
 
-- Hyperliquid: [app.hyperliquid-testnet.xyz/drip](https://app.hyperliquid-testnet.xyz/drip)
-- Lighter: **Get test USDC** in the account panel or the deposit dialog opens your testnet account with test USDC
-  (the same faucet as [testnet.app.lighter.xyz](https://testnet.app.lighter.xyz))
-- Arcus: test ETH from [faucet.testnet.chain.robinhood.com](https://faucet.testnet.chain.robinhood.com), then
-  **Mint 500 mUSDG** in the account panel's Arcus section (the explorer can't call the token's mint)
+**Which markets are available where I live?**
+Each venue sets its own rules. Some venues, Polymarket for example, are not available in every country, and the
+terminal tells you when a venue is blocked for you.
 
-Jupiter and Titan have no testnet. Use a dedicated wallet with a few dollars.
+**Where does the news come from?**
+From [Angler News](https://news.angler.network), which collects headlines from news sites, X, Telegram and data
+feeds and scores each one with AI models. The scores are a guide, not a promise: models can be wrong.
 
-### Mainnet and testnet sites
+**What's the difference between the two sites?**
+[trade.angler.network](https://trade.angler.network) trades real funds on mainnet.
+[testnet-trade.angler.network](https://testnet-trade.angler.network) is the same app on test networks with free
+test money.
 
-One codebase runs both sites as two Vercel projects on the same repository and branch:
+**I found a bug or a security issue.**
+Bugs and ideas are welcome as [GitHub issues](https://github.com/Angler-Network/angler-terminal/issues). Please
+report security issues privately to the maintainers, not in a public issue.
 
-| Site | `NEXT_PUBLIC_DEPLOYMENT` | What it does |
-| --- | --- | --- |
-| trade.angler.network | `mainnet` | Every venue on mainnet, including Jupiter and Titan |
-| testnet-trade.angler.network | `testnet` | Every venue on testnet with in-app faucets; Jupiter and Titan off |
+## For developers
 
-Set `NEXT_PUBLIC_OTHER_DEPLOYMENT_URL` on each project to link to the other site.
-
-The mainnet site only offers venues whose settings are present: Hyperliquid needs `NEXT_PUBLIC_HL_BUILDER_ADDRESS`,
-Jupiter `JUP_API_KEY`, Titan `TITAN_API_KEY` and Arcus `ARCUS_API_KEY`. Lighter needs nothing. Redeploy after adding
-one.
-
-## Scripts
-
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` / `npm start` | Production build and server |
-| `npm test` | Unit tests (Vitest, `*.test.ts` next to each module) |
-| `npm run typecheck` | TypeScript checks |
-| `scripts/build-lighter-signer.sh` | Rebuilds Lighter's official WASM signer into `public/lighter/` from a pinned commit |
-
-Unit tests cover the pure logic: pricing and order math, order book parsing, routing, funding, TP/SL validation,
-error mapping, storage and the news API parsers. The news API tests run against real API samples in
-`lib/angler/fixtures`.
-
-## Project structure
-
-```
-app/                  pages and API route handlers (news, markets, funding, venue proxies)
-components/app/       shell: top bar, sidebar, settings, onboarding, ticker tape
-components/terminal/  chart column, order panel, order book, positions, wallets, deposits
-components/news/      news feed and cards
-components/markets/   Markets page and funding arbitrage
-lib/angler/           Angler News API types, parsers and the realtime feed
-lib/venues/           Hyperliquid, Lighter, Jupiter, Titan and Arcus integrations
-lib/trading/          execution, funding, order math, order book and TP/SL logic
-docs/                 integration notes
-```
-
-Built with Next.js (App Router), React, TypeScript, Tailwind CSS and GSAP. The project started from
-[angler-news](https://news.angler.network) and is developed independently.
-
-## Contributing
-
-Issues and pull requests are welcome. Before opening a pull request, make sure `npm test`, `npm run typecheck` and
-`npm run build` pass. Never commit keys or a real `.env` file: `.env.example` holds placeholders only.
+Angler Terminal is a Next.js app written in TypeScript. Setup, configuration, scripts and the project layout are in
+**[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 ## Disclaimer
 
-This software is provided as is, without warranty. Trading perpetual futures and tokens carries a high risk of
-loss. News scores, sentiment and impact predictions are model outputs, not financial advice. You are responsible
-for every trade you place.
+This software is provided as is, without warranty. Trading perpetual futures, tokens and prediction markets carries
+a high risk of loss. News scores, sentiment and predictions are model outputs, not financial advice. You are
+responsible for every trade you place.
