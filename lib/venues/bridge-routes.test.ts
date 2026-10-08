@@ -34,6 +34,13 @@ describe("fundsRoute", () => {
     expect(fundsRoute("wallet", "lighterRh", on("arbitrum"), testnet).kind).toBe("testnet");
   });
 
+  it("deposits into Aster through its vault, bridging other chains to Arbitrum first", () => {
+    expect(shape(fundsRoute("wallet", "aster", on("arbitrum"), mainnet))).toEqual(["transfer aster 42161"]);
+    expect(shape(fundsRoute("wallet", "aster", on("ethereum"), mainnet))).toEqual(["transfer aster 1"]);
+    expect(shape(fundsRoute("wallet", "aster", on("base"), mainnet))).toEqual(["across 8453>42161 wallet", "transfer aster 42161"]);
+    expect(shape(fundsRoute("hyperliquid", "aster", on("arbitrum"), mainnet))).toEqual(["hlWithdraw", "transfer aster 42161"]);
+  });
+
   it("converts between the wallet's own chains", () => {
     expect(shape(fundsRoute("wallet", "wallet", on("arbitrum", "robinhood"), mainnet))).toEqual(["across 42161>4663 wallet"]);
     expect(fundsRoute("wallet", "wallet", on("base", "base"), mainnet).kind).toBe("same");

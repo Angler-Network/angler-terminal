@@ -62,13 +62,21 @@ export const MIN_DEPOSIT_USDC = 5;
 export const USDC_DECIMALS = 6;
 
 export type DepositPlan =
-  | { kind: "transfer"; venue: PerpVenueId; sources: SourceChain[]; arrival: string; target: "bridge" | "intent"; minimum: number }
+  | { kind: "transfer"; venue: PerpVenueId; sources: SourceChain[]; arrival: string; target: "bridge" | "intent" | "aster"; minimum: number }
   | { kind: "faucet"; venue: PerpVenueId; url: string; label: string };
 
 /** Lighter on Robinhood's minimum per deposit, in USDG. */
 export const MIN_RH_DEPOSIT_USDG = 1;
 
+/** Aster's deposit vault per chain (its `depositFor` credits the wallet's futures account; docs: demo/aster-deposit-withdrawal.md). */
+export const ASTER_VAULTS: Record<number, `0x${string}`> = {
+  1: "0x604DD02d620633Ae427888d41bfd15e38483736E",
+  42161: "0x9E36CB86a159d479cEd94Fa05036f235Ac40E1d5",
+};
+
 export function depositPlan(venue: PerpVenueId, network: "mainnet" | "testnet"): DepositPlan {
+  // Aster (mainnet only): USDC from Arbitrum or Ethereum through its vault.
+  if (venue === "aster") return { kind: "transfer", venue, sources: [ARBITRUM, ETHEREUM], arrival: "a few minutes", target: "aster", minimum: MIN_DEPOSIT_USDC };
   // Lighter on Robinhood has no faucet: even testnet takes (test) USDG from Robinhood Chain.
   if (venue === "lighterRh") return { kind: "transfer", venue, sources: [ROBINHOOD[network]], arrival: "a few minutes", target: "intent", minimum: MIN_RH_DEPOSIT_USDG };
   if (network === "testnet") {

@@ -5,7 +5,7 @@ import type { WalletClient } from "viem";
 import { bsc } from "viem/chains";
 import { VenueError } from "../types";
 import { asterConfig } from "./config";
-import { asterNonce, walletParams, walletTypedData, type AsterParams } from "./sign";
+import { asterNonce, signAgentRequest, walletParams, walletTypedData, type AsterParams } from "./sign";
 
 /**
  * Aster setup for a wallet, all signed by the wallet itself (typed data on BNB Chain's id, as Aster's demo does):
@@ -115,6 +115,12 @@ export async function approveAsterAgent(wallet: WalletClient, user: `0x${string}
     canWithdraw: false,
   });
   writeRecord(user, { ...readAsterRecord(user), agent: { address: agent.address, privateKey } });
+  // Deposits arrive as USDC: Multi-Assets mode lets it count as margin for the USDT markets. Aster refuses while an
+  // isolated position is open (or when it's already on); then nothing changes.
+  try {
+    const query = await signAgentRequest(agent, user, { multiAssetsMargin: "true" });
+    await fetch(`${asterConfig.apiUrl}/fapi/v3/multiAssetsMargin`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: query });
+  } catch {}
   return agent.address;
 }
 

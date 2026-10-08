@@ -208,7 +208,7 @@ function LighterSection({ venue }: { venue: LighterVenueId }) {
   );
 }
 
-/** Aster perps: balances, setup, and deposits on Aster's own app until the funds window takes Aster. */
+/** Aster perps: balances, deposits through the funds window (withdrawals on Aster's app) and setup. */
 function AsterSection() {
   const { accounts, isVenueReady, openSetup } = useTrading();
   const account = accounts.aster ?? null;
@@ -217,14 +217,16 @@ function AsterSection() {
     <Section title="Aster perps" badge="Mainnet">
       <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
       <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <FundsButton venue="aster" />
       <div className="flex gap-2">
         <a
           href={ASTER_APP_URL}
           target="_blank"
           rel="noopener noreferrer"
+          title="Withdrawals happen on Aster's own app"
           className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-app-hairline-strong text-[12px] font-semibold text-app-ink hover:bg-app-chip"
         >
-          Deposit on Aster
+          Open Aster
           <ExternalLink className="size-3.5" aria-hidden />
         </a>
         {!ready && (

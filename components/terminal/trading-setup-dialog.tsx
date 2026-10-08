@@ -142,7 +142,7 @@ function AsterSteps() {
         index={builder ? 2 : 1}
         Icon={KeyRound}
         title="Create trading key"
-        description="Generates a key in this browser that can place and cancel Aster perp orders but can never withdraw. Deposit on Aster's app first if this wallet has no Aster account yet."
+        description="Generates a key in this browser that can place and cancel Aster perp orders but can never withdraw. It also turns on Multi-Assets mode so USDC deposits count as margin."
         done={agentDone}
         active={builderDone && !agentDone}
         busy={busy === "agent"}

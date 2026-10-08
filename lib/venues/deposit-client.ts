@@ -68,6 +68,42 @@ export async function publicClientOn(source: SourceChain) {
   return createPublicClient({ chain: await chainFor(source), transport: http(RPC_URLS[source.chainId]) });
 }
 
+/**
+ * Deposits USDC into the wallet's Aster futures account: an exact approval of Aster's vault on that chain, then
+ * `depositFor(usdc, wallet, amount, 0)` (broker 0 = futures account).
+ */
+export async function depositToAster(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain, units: bigint) {
+  const { ASTER_VAULTS } = await import("./deposits");
+  const vault = ASTER_VAULTS[source.chainId];
+  if (!vault) throw new VenueError(`Aster doesn't take deposits from ${source.name} here.`);
+  const { createPublicClient, erc20Abi, http } = await import("viem");
+  const { wallet, chain } = await walletOn(provider, account, source);
+  const client = createPublicClient({ chain, transport: http(RPC_URLS[source.chainId]) });
+  const allowance = await client.readContract({ address: source.usdc, abi: erc20Abi, functionName: "allowance", args: [account, vault] });
+  if (allowance < units) {
+    const approval = await wallet.writeContract({ address: source.usdc, abi: erc20Abi, functionName: "approve", args: [vault, units] });
+    if ((await client.waitForTransactionReceipt({ hash: approval })).status !== "success") throw new VenueError(`The ${source.symbol} approval reverted.`);
+  }
+  const vaultAbi = [
+    {
+      type: "function",
+      name: "depositFor",
+      stateMutability: "payable",
+      inputs: [
+        { name: "currency", type: "address" },
+        { name: "forAddress", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "broker", type: "uint256" },
+      ],
+      outputs: [],
+    },
+  ] as const;
+  const hash = await wallet.writeContract({ address: vault, abi: vaultAbi, functionName: "depositFor", args: [source.usdc, account, units, 0n] });
+  const receipt = await client.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new VenueError("The Aster deposit reverted.");
+  return { hash, explorerUrl: `${source.explorer}/tx/${hash}` };
+}
+
 /** Sends USDC on the source chain (switching the wallet to it first) and waits for the receipt. */
 export async function sendUsdc(provider: EIP1193Provider, account: `0x${string}`, source: SourceChain, to: `0x${string}`, units: bigint) {
   const { createPublicClient, erc20Abi, http } = await import("viem");

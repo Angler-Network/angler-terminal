@@ -115,6 +115,11 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         return;
       }
       if (step.kind === "transfer") {
+        if (step.target === "aster") {
+          const { depositToAster } = await import("@/lib/venues/deposit-client");
+          const result = await depositToAster(wallet.provider, address, step.source, current.carry);
+          return advance(current, current.carry, result.explorerUrl);
+        }
         const target = step.target === "bridge" ? HL_BRIDGE : await lighterIntentAddress(lighterConfigs[isLighterVenue(step.venue) ? step.venue : "lighter"], step.source, address);
         const result = await sendUsdc(wallet.provider, address, step.source, target, current.carry);
         return advance(current, current.carry, result.explorerUrl);
