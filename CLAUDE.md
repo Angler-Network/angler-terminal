@@ -248,8 +248,8 @@ dependency versions and design are free to diverge from angler-news.
 - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
     navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
-    rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in onboarding,
-    the layout menu and Settings → Layout.
+    rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in the layout
+    menu and Settings → Layout.
   - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue, a leverage button
     (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
@@ -577,15 +577,10 @@ dependency versions and design are free to diverge from angler-news.
   bar; close/cancel route by `venue`); the setup dialog has a section per perp venue; the account
   panel shows only the venue the order panel trades on (`tradeVenue`, else `preferredPerpVenue`), so more venues
   don't add Deposit buttons.
-- Onboarding (`components/app/alpha-notice.tsx`), once per browser, no skip: Welcome → "Make it yours" (theme,
-  accent, framed or full screen, sidebar or top navigation, tape position; applied live) → "What do you want on your
-  screen?" (`layoutPresets` News trader / Pro trader / Minimal + panel chips, written to `panels`) → a 3-line alpha
-  notice. Bump `ONBOARDING_ACK_KEY` (`lib/onboarding.ts`) to show it again; Settings → About reopens it. Keep it short:
-  no text-heavy slides. It is the first visit's largest paint, so it opens before hydration: `onboardingScript` (head)
-  marks `html[data-welcome]` when the acknowledgement is missing, the server always renders the welcome step, and
-  `openOnboardingScript` (right after it in `layout.tsx`) calls `showModal()` at once. Opening it from React later
-  would move it into the top layer after its first paint (a new, later LCP). The welcome logo is a CSS background
-  (`.welcome-logo`) so it only downloads when the dialog is open.
+- No onboarding: the first visit opens straight on the terminal with the defaults (oled theme, liquid surface, the
+  default panels). The four-step welcome (look, layout presets, alpha notice) was removed so phones aren't covered by a
+  full-screen dialog before they see anything; theme, layout presets and navigation stay in the Layout menu and
+  Settings.
 - Wallets: one Connect button opens `wallet-modal.tsx`, a single screen with no venue step ("Connect Wallet"): one row of wallet
   tiles in an inner panel, faint chain logos behind the card, connected addresses with Disconnect under the tiles.
   Every detected wallet (EVM via EIP-6963, Solana via Wallet Standard) is merged by name, so a wallet with both
@@ -618,8 +613,8 @@ dependency versions and design are free to diverge from angler-news.
   into a key that expires after a minute (`lib/redis.ts` is shared with profiles). POST checks Origin and allows 30
   events a minute per client. The totals are private: only `GET /api/analytics/trade` (`ANALYTICS_TOKEN`) reads
   them (all-time, 7/30-day sums, per day, top news); there is no public stats page.
-- The disclaimer "Not financial advice. Scores are model outputs." lives in the onboarding alpha step and in Settings
-  (Trading, About); the user asked to keep it off the trading screen.
+- The disclaimer "Not financial advice. Scores are model outputs." lives in Settings (Trading, About); the user asked
+  to keep it off the trading screen.
 - Wallets never connect on page load unless the user clicked Connect in this app before (wallet permissions are per
   origin and may come from another app on the same origin).
 - Chart engine: the `chart` preference (Settings → General) picks the Angler chart (Lightweight Charts, news markers)
@@ -702,8 +697,7 @@ dependency versions and design are free to diverge from angler-news.
   browser calls Aster directly only when the route fails). The Markets table renders 60 rows and adds 60 per scroll
   (`PAGE_ROWS`), and waits up to `SETTLE_MS` for every venue so rows don't land above the ones shown.
   Measured with Lighthouse on a production build (`npm run build` + `npm start`, mobile): Markets 42 → 83, /perp first
-  JS 452 → 379 KB; the welcome dialog and invite gate sit first in the body (a first visit's largest paint) and the
-  gate rises without fading in (a paint at opacity 0 doesn't count).
+  JS 452 → 379 KB; the invite gate sits first in the body (on mainnet, a first visit's largest paint) and it rises without fading in (a paint at opacity 0 doesn't count).
 - Security headers (`next.config.mjs`, every path): `frame-ancestors 'none'` + `X-Frame-Options: DENY` (a trading
   screen with one-click orders must never load in another site's frame), `nosniff`, `Referrer-Policy`,
   `Permissions-Policy` (no camera, microphone, geolocation, payment, USB) and HSTS. `htmlLimitedBots: /.*/` keeps
@@ -725,7 +719,7 @@ dependency versions and design are free to diverge from angler-news.
   page has settled (`useMotionPreload` in `lazy-dialogs.tsx`); never import `gsap` statically. `motion()` is null until
   then and under `prefers-reduced-motion`, so content never waits on an animation. Entrances clear their inline styles
   when done (`ENTER_PROPS`: a leftover transform breaks `position: fixed` children) and revert on cleanup. Used for
-  overlay dialogs (`useModalEnter` on the backdrop), native dialogs and popovers (`riseIn`), onboarding steps, toasts
+  overlay dialogs (`useModalEnter` on the backdrop), native dialogs and popovers (`riseIn`), toasts
   (enter, collapse on dismiss), news arrivals and new position/order rows (`useListEnter`: never the first render,
   at most `MAX_ANIMATED_ARRIVALS` at once) and mobile view switches.
 - Chart refresh: every 30s the chart fetches only from the last closed candle (`since`) and merges it

@@ -66,7 +66,7 @@ export function navModeChange(next: NavMode, tapePosition: TapePosition): { navM
   return { navMode: next, tapePosition: next === "top" && tapePosition === "top" ? "bottom" : tapePosition };
 }
 
-/** One-tap layouts offered in onboarding and the layout menu; the chart is always shown. */
+/** One-tap layouts offered in the layout menu and Settings → Layout; the chart is always shown. */
 export const layoutPresets: Array<{ id: string; name: string; description: string; panels: TerminalPanels }> = [
   {
     id: "news",

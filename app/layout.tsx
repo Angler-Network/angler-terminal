@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { preconnect, preload } from "react-dom";
-import { AlphaNotice } from "@/components/app/alpha-notice";
 import { PreferencesProvider } from "@/components/app/preferences-provider";
 import { LazyDialogs } from "@/components/app/lazy-dialogs";
 import { LayoutRevealButtons } from "@/components/app/layout-toggles";
@@ -22,7 +21,6 @@ import { WalletModalProvider } from "@/components/terminal/wallet-modal";
 import { WalletProvider } from "@/components/terminal/wallet-provider";
 import { I18nProvider } from "@/lib/i18n/client";
 import { CHART_COOKIE, parseChartCookie } from "@/lib/markets/model";
-import { onboardingScript, openOnboardingScript } from "@/lib/onboarding";
 import { preferencesScript } from "@/lib/preferences";
 import { isIndexable, siteUrl } from "@/lib/site";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
@@ -63,7 +61,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en-US" data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preferencesScript }} />
-        <script dangerouslySetInnerHTML={{ __html: onboardingScript }} />
       </head>
       <body className="app-frame h-dvh overflow-hidden font-sans antialiased">
         <I18nProvider>
@@ -76,10 +73,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <WalletModalProvider>
                   <TradeTicketProvider>
                   <ProfileProvider>
-                    {/* First in the HTML: a first visit's largest paint is one of these (the welcome dialog, the invite gate), and
-                        they show before the terminal's markup is even parsed (both sit on top wherever they are in the page). */}
-                    <AlphaNotice />
-                    <script dangerouslySetInnerHTML={{ __html: openOnboardingScript }} />
+                    {/* First in the HTML: on mainnet the invite gate is a first visit's largest paint, and it shows before the
+                        terminal's markup is even parsed (a fixed overlay sits on top wherever it is in the page). */}
                     <AccessGate />
                     <div className="app-shell relative flex h-full overflow-hidden bg-linear-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <LayoutRevealButtons />

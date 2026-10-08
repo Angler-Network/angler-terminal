@@ -23,7 +23,6 @@ import type { Market } from "@/lib/markets/model";
 import { defaultNewsFilters, sentiments, severities, type NewsFilters, type Sentiment } from "@/lib/news/filter";
 import { describeRule, MAX_RULES, type NewsRule, type RuleAction, type RuleSentiment } from "@/lib/news/rules";
 import type { Severity } from "@/lib/types";
-import { openWelcomeTour } from "./alpha-notice";
 import { AppearanceSettings } from "./appearance-settings";
 import { MarketIcon } from "./market-icon";
 import { NumberStepper, SegmentedControl, SelectField, SettingRow, Toggle } from "./form-controls";
@@ -869,23 +868,10 @@ function NotificationSettings() {
 }
 
 function AboutSettings() {
-  const { closeSettings } = usePreferences();
   return (
     <>
       <SettingRow title="Version" description="The terminal checks for new deployments and asks you to refresh.">
         <span className="font-mono text-[13px] text-app-muted">{shortCommitSha || "dev"}</span>
-      </SettingRow>
-      <SettingRow title="Onboarding" description="The welcome screen, the layout picker and the alpha notice.">
-        <button
-          type="button"
-          onClick={() => {
-            closeSettings();
-            openWelcomeTour();
-          }}
-          className="inline-flex h-10 items-center rounded-xl border border-app-field-border bg-app-field px-4 text-[14px] text-app-ink hover:bg-app-field-hover"
-        >
-          Show again
-        </button>
       </SettingRow>
       <SettingRow title="Angler News" description="The news feed behind the terminal.">
         <a
