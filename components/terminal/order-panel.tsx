@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Sparkles } from "lucide-react";
+import { CoinIcon } from "./token-icon";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -76,6 +77,68 @@ function Segmented<T extends string>({
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Site icons for the venue chips (Robinhood Chain's badge on Lighter RH). */
+const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> = {
+  hyperliquid: { domain: "hyperliquid.xyz" },
+  lighter: { domain: "lighter.xyz" },
+  lighterRh: { domain: "lighter.xyz", chain: 4663 },
+  solana: { domain: "jup.ag", chain: "solana" },
+  arcus: { domain: "arcus.xyz", chain: 4663 },
+};
+
+/**
+ * The venue picker as icon chips: one small chip per venue (its name in the tooltip) plus "Auto", which routes each
+ * market order to the best price. Stays one row however many venues join; the chosen venue's name sits beside it.
+ */
+function VenueChips({
+  choices,
+  value,
+  auto,
+  onPick,
+  onAuto,
+}: {
+  choices: Array<{ id: string; name: string; network: string }>;
+  value: string;
+  auto: boolean;
+  onPick: (id: string) => void;
+  onAuto: () => void;
+}) {
+  const chosen = choices.find((entry) => entry.id === value);
+  const chip = (active: boolean) =>
+    `flex size-8 shrink-0 items-center justify-center rounded-lg border transition-all ${
+      active ? "border-app-accent/70 bg-app-accent/10 shadow-[0_0_0_2px_rgb(var(--app-accent)/0.12)]" : "border-transparent bg-app-chip hover:border-app-field-border"
+    }`;
+  return (
+    <div role="radiogroup" aria-label="Venue" className="flex min-w-0 items-center gap-1.5">
+      <button type="button" role="radio" aria-checked={auto} title="Auto: each market order goes to the venue with the best price" onClick={onAuto} className={chip(auto)}>
+        <Sparkles className={`size-3.5 ${auto ? "text-app-accent" : "text-app-muted"}`} aria-hidden />
+      </button>
+      <span aria-hidden className="h-5 w-px shrink-0 bg-app-hairline" />
+      <div className="scrollbar-none flex max-w-[75%] shrink-0 gap-1.5 overflow-x-auto">
+        {choices.map((entry) => {
+          const icon = VENUE_ICONS[entry.id];
+          const active = entry.id === value;
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={entry.name}
+              title={`${entry.name} · ${entry.network}${active && auto ? " (picked by Auto)" : ""}`}
+              onClick={() => onPick(entry.id)}
+              className={`${chip(active)} ${active ? "" : "opacity-60 hover:opacity-100"}`}
+            >
+              {icon ? <CoinIcon src={`/api/favicon?domain=${icon.domain}`} symbol={entry.name} chain={icon.chain} size={18} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {chosen && <span className="ml-auto min-w-0 truncate pl-1 text-[12px] font-semibold text-app-ink">{auto ? `Auto · ${chosen.name}` : chosen.name}</span>}
     </div>
   );
 }
@@ -555,11 +618,12 @@ export function OrderPanel() {
             <div className="flex items-center gap-2">
               {kindChoices.length > 1 && (
                 <div className="min-w-0 flex-1">
-                  <Segmented
-                    label="Venue"
+                  <VenueChips
+                    choices={kindChoices}
                     value={choice!.id}
-                    options={kindChoices.map((entry) => ({ value: entry.id, label: entry.name, title: `${entry.kind === "perp" ? "Perpetual" : "Spot"} · ${entry.network}` }))}
-                    onChange={pickVenue}
+                    auto={Boolean(routed)}
+                    onPick={(id) => pickVenue(id as VenueChoice["id"])}
+                    onAuto={() => updatePreference("autoRoute", true)}
                   />
                 </div>
               )}
