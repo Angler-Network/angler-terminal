@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readBotUsername } from "./channels";
+import { readBotUsername } from "./settings";
 
 describe("readBotUsername", () => {
   it("reads the username however it was entered", () => {

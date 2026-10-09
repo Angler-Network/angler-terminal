@@ -1,5 +1,5 @@
 import "server-only";
-import { isDiscordWebhook, type AlertSettings } from "./settings";
+import { isDiscordWebhook, readBotUsername, type AlertSettings } from "./settings";
 
 /**
  * Sends alert messages to a profile's channels: its Discord webhook and/or the Telegram chat linked to the bot
@@ -10,19 +10,6 @@ const TIMEOUT_MS = 8_000;
 // Discord caps a message at 2,000 characters, Telegram at 4,096.
 const DISCORD_LIMIT = 1_900;
 const TELEGRAM_LIMIT = 4_000;
-
-/**
- * The bot's username from however it was entered: "angleralertsbot", "@angleralertsbot" or a t.me link. A full link in
- * the setting once made the bot link "t.me/https://t.me/…", so Connect Telegram opened nothing.
- */
-export function readBotUsername(value: string | undefined) {
-  const name = (value ?? "")
-    .trim()
-    .replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, "")
-    .replace(/^@/, "")
-    .replace(/[/?#].*$/, "");
-  return /^\w{5,32}$/.test(name) ? name : null;
-}
 
 export function telegramConfig() {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();

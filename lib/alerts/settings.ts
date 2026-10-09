@@ -132,3 +132,16 @@ export function parseStoredSettings(raw: string | undefined | null): AlertSettin
 export function hasChannel(settings: AlertSettings) {
   return Boolean(settings.discordWebhook || settings.telegramChatId);
 }
+
+/**
+ * The bot's username from however it was entered: "angleralertsbot", "@angleralertsbot" or a t.me link. A full link in
+ * the setting once made the bot link "t.me/https://t.me/…", so Connect Telegram opened nothing.
+ */
+export function readBotUsername(value: string | undefined) {
+  const name = (value ?? "")
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, "")
+    .replace(/^@/, "")
+    .replace(/[/?#].*$/, "");
+  return /^\w{5,32}$/.test(name) ? name : null;
+}
