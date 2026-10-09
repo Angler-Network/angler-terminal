@@ -252,6 +252,8 @@ export interface TransferArgs {
   amount: number;
   /** `transferFeeInfo`'s fee, charged on top; it must match exactly. */
   usdcFee: number;
+  /** 32 bytes as 64 hex characters (no 0x); zeros unless set (a fast withdrawal puts the payout address here). */
+  memo?: string;
 }
 
 /** Moves an asset between accounts or, to the same account, between its perps and spot routes. */
@@ -265,7 +267,7 @@ export async function signTransfer(context: SignerContext, transfer: TransferArg
       transfer.toRoute,
       transfer.amount,
       transfer.usdcFee,
-      "0".repeat(64), // memo: 32 zero bytes, hex
+      transfer.memo ?? "0".repeat(64), // memo: 32 bytes, hex
       0, // skipNonce
       nonce,
       context.apiKeyIndex,

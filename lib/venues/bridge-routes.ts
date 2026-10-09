@@ -56,6 +56,8 @@ export type FundsStep =
   | { kind: "hlWithdraw" }
   /** Orderly's withdrawal to the wallet's USDC on Arbitrum (wallet signature, Orderly's 1 USDC fee, a few minutes). */
   | { kind: "orderlyWithdraw" }
+  /** Lighter's fast withdrawal to the wallet: USDC on Arbitrum (core) or USDG on Robinhood Chain (RH). */
+  | { kind: "lighterWithdraw"; venue: LighterVenueId }
   /** Across from the wallet on `from` to `to`, paid to the wallet or to a Lighter instance's deposit address. */
   | { kind: "across"; from: SourceChain; to: SourceChain; recipient: "wallet" | LighterVenueId }
   /** A transfer from the wallet into a venue (Hyperliquid's bridge contract or a Lighter deposit address). */
@@ -121,6 +123,23 @@ export function fundsRoute(
     if (networkOf("orderly") !== "mainnet") return { kind: "testnet" };
     return steps("withdraw", [{ kind: "orderlyWithdraw" }], ARBITRUM, ARBITRUM);
   }
+  if (from === "lighter" || from === "lighterRh") {
+    if (networkOf(from) !== "mainnet") return { kind: "testnet" };
+    const landed = venueAsset(from);
+    const out: FundsStep = { kind: "lighterWithdraw", venue: from };
+    if (to === "wallet") {
+      const target = fundsChainSource(chains.to);
+      if (target.chainId === landed.chainId) return steps("withdraw", [out], landed, landed);
+      return steps("withdraw", [out, { kind: "across", from: landed, to: target, recipient: "wallet" }], landed, target);
+    }
+    if (to === "lighter" || to === "lighterRh") return steps("move", [out, { kind: "across", from: landed, to: venueAsset(to), recipient: to }], landed, venueAsset(to));
+    const plan = depositPlan(to, "mainnet");
+    if (plan.kind !== "transfer") return { kind: "soon" };
+    // Hyperliquid, Aster and Orderly take USDC on Arbitrum: core Lighter lands there; RH bridges to the wallet first.
+    return landed.chainId === ARBITRUM.chainId
+      ? steps("move", [out, transfer(to, plan, ARBITRUM)], landed, ARBITRUM)
+      : steps("move", [out, { kind: "across", from: landed, to: ARBITRUM, recipient: "wallet" }, transfer(to, plan, ARBITRUM)], landed, ARBITRUM);
+  }
   if (from !== "hyperliquid") return { kind: "soon" };
   const hlMainnet = networkOf("hyperliquid") === "mainnet";
   if (to === "wallet") {
@@ -169,6 +188,11 @@ export function stepsError(steps: FundsStep[], amount: number, withdrawable: num
     const after = amount - HL_WITHDRAW_FEE_USDC;
     const minimum = second?.kind === "transfer" ? second.minimum : second?.kind === "across" ? Math.max(1, acrossRecipientMinimum(second.recipient)) : 0;
     if (after <= 0 || after < minimum) return `Move at least ${HL_WITHDRAW_FEE_USDC + Math.max(minimum, 1)} USDC (1 USDC withdrawal fee${minimum ? ` + ${minimum} USDC minimum` : ""}).`;
+  }
+  if (first.kind === "lighterWithdraw") {
+    if (withdrawable !== undefined && amount > withdrawable) return "More than Lighter can withdraw right now.";
+    const minimum = first.venue === "lighter" ? 4 : 1;
+    if (amount < minimum) return `The minimum fast withdrawal is ${minimum} ${symbol}.`;
   }
   if (first.kind === "transfer" && amount < first.minimum) return `The minimum deposit is ${first.minimum} ${symbol}.`;
   return null;

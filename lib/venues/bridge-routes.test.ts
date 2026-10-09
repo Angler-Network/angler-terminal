@@ -52,8 +52,11 @@ describe("fundsRoute", () => {
     expect(shape(fundsRoute("hyperliquid", "lighter", on("arbitrum"), mainnet))).toEqual(["hlWithdraw", "transfer lighter 42161"]);
     expect(shape(fundsRoute("hyperliquid", "lighterRh", on("arbitrum"), mainnet))).toEqual(["hlWithdraw", "across 42161>4663 lighterRh"]);
     expect(fundsRoute("hyperliquid", "lighterRh", on("arbitrum"), testnet).kind).toBe("testnet");
-    expect(fundsRoute("lighter", "hyperliquid", on("arbitrum"), mainnet).kind).toBe("soon");
-    expect(fundsRoute("lighter", "wallet", on("arbitrum"), mainnet).kind).toBe("soon");
+    // Lighter withdraws fast to Arbitrum (core) or Robinhood Chain (RH), then bridges or deposits on from there.
+    expect(fundsRoute("lighter", "wallet", on("arbitrum"), mainnet)).toMatchObject({ kind: "steps", steps: [{ kind: "lighterWithdraw" }] });
+    expect(fundsRoute("lighter", "hyperliquid", on("arbitrum"), mainnet)).toMatchObject({ kind: "steps", steps: [{ kind: "lighterWithdraw" }, { kind: "transfer" }] });
+    expect(fundsRoute("lighterRh", "wallet", on("arbitrum", "robinhood"), mainnet)).toMatchObject({ kind: "steps", steps: [{ kind: "lighterWithdraw" }] });
+    expect(fundsRoute("lighterRh", "hyperliquid", on("arbitrum"), mainnet)).toMatchObject({ kind: "steps", steps: [{ kind: "lighterWithdraw" }, { kind: "across" }, { kind: "transfer" }] });
   });
 
   it("names the flow, checks amounts and presets the shortcuts", () => {

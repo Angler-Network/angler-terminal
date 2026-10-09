@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
-import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, decimalsOf, fromTokenUnits, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
+import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, ROBINHOOD, decimalsOf, fromTokenUnits, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { acrossRecipientMinimum, type FundsStep } from "@/lib/venues/bridge-routes";
@@ -21,7 +21,7 @@ const FILL_TIMEOUT_MS = 15 * 60_000;
 
 /** Something the run waits on before its next step: Hyperliquid's withdrawal landing, or the bridge (Across, Relay or LI.FI) filling. */
 export type Wait =
-  | { kind: "arrival"; before: bigint; expected: bigint; since: number }
+  | { kind: "arrival"; before: bigint; expected: bigint; since: number; on?: SourceChain }
   | { kind: "fill"; leg: BridgeLegRef; origin: SourceChain; to: SourceChain; before: bigint | null; expected: bigint; since: number };
 
 /** A route being carried out: `carry` is what the next step moves (the previous step's output). */
@@ -37,8 +37,11 @@ export interface Run {
 export const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 
 /** The token a step moves (what `carry` counts in) and the one it delivers. */
-const stepInput = (step: FundsStep): SourceChain => (step.kind === "transfer" ? step.source : step.kind === "across" ? step.from : ARBITRUM);
-const stepOutput = (step: FundsStep): SourceChain => (step.kind === "transfer" ? step.source : step.kind === "across" ? step.to : ARBITRUM);
+const lighterLanding = (venue: "lighter" | "lighterRh"): SourceChain => (venue === "lighterRh" ? ROBINHOOD.mainnet : ARBITRUM);
+const stepInput = (step: FundsStep): SourceChain =>
+  step.kind === "transfer" ? step.source : step.kind === "across" ? step.from : step.kind === "lighterWithdraw" ? lighterLanding(step.venue) : ARBITRUM;
+const stepOutput = (step: FundsStep): SourceChain =>
+  step.kind === "transfer" ? step.source : step.kind === "across" ? step.to : step.kind === "lighterWithdraw" ? lighterLanding(step.venue) : ARBITRUM;
 /** `carry` as a number of the step's token (USDT on BNB Chain has 18 decimals). */
 export const carryAmount = (carry: bigint, source: SourceChain) => fromTokenUnits(carry, decimalsOf(source));
 
@@ -54,6 +57,10 @@ const gasCoin = (source: SourceChain) => EVM_SWAP_CHAINS.find((chain) => chain.i
 export function stepLabel(step: FundsStep) {
   if (step.kind === "hlWithdraw") return "Withdraw from Hyperliquid (signature, no gas, 1 USDC fee), lands on Arbitrum in 3-4 min";
   if (step.kind === "orderlyWithdraw") return "Withdraw from Orderly (signature, no gas, 1 USDC fee), lands on Arbitrum in a few minutes";
+  if (step.kind === "lighterWithdraw")
+    return step.venue === "lighterRh"
+      ? "Fast withdrawal from Lighter RH (signature, no gas), USDG lands on Robinhood Chain in minutes"
+      : "Fast withdrawal from Lighter (signature, no gas), USDC lands on Arbitrum in minutes";
   if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ${gasCoin(step.source)} for gas)`;
   const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
   const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
@@ -64,6 +71,7 @@ export function continueLabel(step: FundsStep, carry: bigint) {
   const amount = carryAmount(carry, stepInput(step)).toFixed(2);
   if (step.kind === "transfer") return `Deposit ${amount} ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]}`;
   if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
+  if (step.kind === "lighterWithdraw") return `Withdraw ${amount} ${stepInput(step).symbol} from ${PERP_VENUE_NAMES[step.venue]}`;
   return step.kind === "orderlyWithdraw" ? `Withdraw ${amount} USDC from Orderly` : "Withdraw from Hyperliquid";
 }
 
@@ -120,6 +128,19 @@ export function useFundsRun(callbacks: FundsRunOptions) {
         setRun(null);
         toast({ tone: "success", title: "Orderly withdrawal requested", message: `${units6(current.carry).toFixed(2)} USDC minus Orderly's 1 USDC fee lands on Arbitrum in a few minutes.` });
         return options.current.onWithdrawOnly?.();
+      }
+      if (step.kind === "lighterWithdraw") {
+        const landed = lighterLanding(step.venue);
+        const before = await readUsdcBalance(landed, address);
+        const { fastWithdrawLighter } = await import("@/lib/venues/lighter/withdraw");
+        await fastWithdrawLighter(step.venue, lighterConfigs[step.venue], wallet.provider, address, current.carry);
+        toast({ tone: "success", title: `${PERP_VENUE_NAMES[step.venue]} withdrawal sent`, message: `${units6(current.carry).toFixed(2)} ${landed.symbol} lands on ${landed.name} in minutes.` });
+        if (current.steps.length === 1 && !options.current.waitForWithdrawal) {
+          setRun(null);
+          return options.current.onWithdrawOnly?.();
+        }
+        setRun({ ...current, phase: "waiting", wait: { kind: "arrival", before, expected: current.carry, since: Date.now(), on: landed } });
+        return;
       }
       if (step.kind === "hlWithdraw") {
         const before = await readUsdcBalance(ARBITRUM, address);
@@ -182,11 +203,12 @@ export function useFundsRun(callbacks: FundsRunOptions) {
     const timer = window.setInterval(
       async () => {
         if (wait.kind === "arrival") {
-          const now = await readUsdcBalance(ARBITRUM, address).catch(() => null);
+          const on = wait.on ?? ARBITRUM;
+          const now = await readUsdcBalance(on, address).catch(() => null);
           if (now !== null && withdrawalArrived(wait.before, now, wait.expected)) {
             const last = current.index + 1 >= current.steps.length;
             advance(current, wait.expected);
-            if (!last) toast({ tone: "info", title: "USDC arrived on Arbitrum", message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
+            if (!last) toast({ tone: "info", title: `${on.symbol} arrived on ${on.name}`, message: "Continue to finish the move.", action: { label: "Continue", onClick: resume }, durationMs: 15_000 });
           } else if (Date.now() - wait.since > ARRIVAL_TIMEOUT_MS) {
             toast({ tone: "error", title: "Withdrawal is taking longer than usual", message: "Check your wallet on Arbitrum, then continue from Funds." });
             setRun(null);

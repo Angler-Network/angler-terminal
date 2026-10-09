@@ -142,7 +142,7 @@ export function DepositDialog() {
   const value = Number(amount);
   // In the token the route starts with (BNB Chain's USDT has 18 decimals).
   const units = tokenUnits(amount, input ? decimalsOf(input) : 6);
-  const withdrawable = from === "hyperliquid" ? accounts.hyperliquid?.withdrawable : undefined;
+  const withdrawable = from === "hyperliquid" || from === "lighter" || from === "lighterRh" ? accounts[from]?.withdrawable : undefined;
   const fromWallet = from === "wallet" && input !== null;
   const error =
     route.kind !== "steps"
@@ -152,7 +152,7 @@ export function DepositDialog() {
   // The Across leg's quote preview: what it would pay out for this amount (after the withdrawal fee when it follows one).
   const acrossIndex = steps.findIndex((step) => step.kind === "across");
   const acrossStep = acrossIndex >= 0 ? (steps[acrossIndex] as Extract<FundsStep, { kind: "across" }>) : null;
-  const acrossInput = acrossStep && units !== null ? (acrossIndex === 0 ? units : usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6))) : null;
+  const acrossInput = acrossStep && units !== null ? (acrossIndex === 0 || steps[0].kind !== "hlWithdraw" ? units : usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6))) : null;
   const quoteKey = acrossStep && acrossInput && acrossInput > 0n && address ? `${acrossStep.from.chainId}>${acrossStep.to.chainId}:${acrossStep.recipient}:${acrossInput}:${address}` : null;
 
   const enabled = (venue: PerpVenueId) =>
@@ -295,7 +295,7 @@ export function DepositDialog() {
   // What the From side holds: the wallet's balance of the token, or what Hyperliquid lets you withdraw.
   const destination =
     to === "wallet" ? (toBalance !== null && output ? fromTokenUnits(toBalance, decimalsOf(output)) : null) : isPerpEndpoint(to) ? (accounts[to]?.withdrawable ?? null) : null;
-  const available = fromWallet && balance !== null ? fromTokenUnits(balance, decimalsOf(input)) : from === "hyperliquid" && withdrawable !== undefined ? withdrawable : null;
+  const available = fromWallet && balance !== null ? fromTokenUnits(balance, decimalsOf(input)) : withdrawable !== undefined ? withdrawable : null;
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const endpointPill =
     "inline-flex h-7 items-center gap-1.5 rounded-full bg-app-chip pl-1 pr-2 text-[13px] font-semibold text-app-ink hover:bg-app-selected disabled:opacity-60 disabled:hover:bg-app-chip";
@@ -483,6 +483,8 @@ export function DepositDialog() {
               <p className="text-[12px] text-app-muted">
                 {steps[0].kind === "hlWithdraw"
                   ? "Your wallet signs once (no gas). Hyperliquid sends it to your wallet on Arbitrum in 3-4 minutes and charges a 1 USDC fee."
+                  : steps[0].kind === "lighterWithdraw"
+                    ? `Fast withdrawal: your wallet signs once (no gas) and ${output?.symbol ?? "USDC"} lands in your wallet on ${output?.name ?? "Arbitrum"} in minutes. ${PERP_VENUE_NAMES[steps[0].venue]} adds a small transfer fee on top.`
                   : steps[0].kind === "transfer" && steps[0].target === "bridge"
                     ? `Sent to Hyperliquid's bridge contract; credited to this wallet in ${steps[0].arrival}. Less than ${steps[0].minimum} USDC is lost. A little ETH for gas.`
                     : steps[0].kind === "transfer"
