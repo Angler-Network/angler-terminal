@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { useWallet } from "@/components/terminal/wallet-provider";
@@ -9,6 +10,10 @@ import { TRADE_EVENT } from "@/lib/profile/client";
 import type { ProfileView } from "@/lib/profile/store";
 import { setVipRate, vipFor } from "@/lib/profile/vip";
 
+/**
+ * Profile pages refresh every few minutes. Elsewhere the profile loads once per wallet and again after a trade: a sync
+ * reads every venue's fills from our server, so syncing every open tab on a timer was the bulk of that traffic.
+ */
 const REFRESH_MS = 5 * 60_000;
 /** A `?ref=` code seen in a link, kept until the visitor applies it (or another one replaces it). */
 const REFERRAL_STORAGE_KEY = "angler-terminal:referral";
@@ -22,6 +27,8 @@ function storedReferral() {
   }
 }
 const AFTER_TRADE_MS = 8_000;
+/** Opening a profile page reloads unless the last load is this recent. */
+const ARRIVAL_FRESH_MS = 30_000;
 
 interface ProfileContextValue {
   /** The connected wallet's profile id: the EVM address, else the Solana one. */
@@ -74,6 +81,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
+  const lastLoad = useRef(0);
   const [pendingReferral, setPendingReferral] = useState<string | null>(null);
 
   // A `?ref=code` link remembers the code so it can be applied once the visitor connects a wallet.
@@ -90,6 +98,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(async () => {
     if (!id) return;
     const ticket = ++request.current;
+    lastLoad.current = Date.now();
     setLoading(true);
     try {
       const response = await fetch(`/api/profile/${encodeURIComponent(id)}?sync=1`, { cache: "no-store" });
@@ -112,7 +121,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     if (!id) return;
     void load();
-    const timer = window.setInterval(() => void load(), REFRESH_MS);
     let pending: number | null = null;
     const onTrade = () => {
       if (pending !== null) window.clearTimeout(pending);
@@ -120,11 +128,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener(TRADE_EVENT, onTrade);
     return () => {
-      window.clearInterval(timer);
       if (pending !== null) window.clearTimeout(pending);
       window.removeEventListener(TRADE_EVENT, onTrade);
     };
   }, [id, load]);
+
+  // On a profile page: fresh numbers on arrival (unless a load just ran), then every few minutes.
+  const onProfile = usePathname()?.startsWith("/profile") ?? false;
+  useEffect(() => {
+    if (!id || !onProfile) return;
+    if (Date.now() - lastLoad.current > ARRIVAL_FRESH_MS) void load();
+    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [id, onProfile, load]);
 
   const sign = useCallback(
     async (action: ProfileAction, wallet: "evm" | "solana") => {
