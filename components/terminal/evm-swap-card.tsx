@@ -71,9 +71,10 @@ const rpcFor = (chainId: number | null) => (chainId === null ? null : (evmSwapCh
 const chainNameOf = (chainId: number) => (chainId === LIFI_SOLANA_CHAIN ? "Solana" : undefined) ?? evmSwapChain(chainId)?.name ?? sourceChainById(chainId)?.name ?? `Chain ${chainId}`;
 
 /**
- * The last "Pay with" / "Receive" token the user picked, kept across tokens: the form is rebuilt for every token, and
- * picking a BNB Chain token after choosing USDC on Base used to drop back to BNB Chain's own USDT, so a cross-chain
- * swap looked impossible.
+ * The "Pay with" / "Receive" token last shown, kept across tokens like Uniswap keeps the input token: the form is
+ * rebuilt for every token, and picking a BNB Chain token after choosing USDC on Base used to drop back to BNB Chain's
+ * own USDT, so a cross-chain swap looked impossible. A default counts too: on a Base token the card starts on USDC ·
+ * Base, and picking a Robinhood token then fell back to USDG · Robinhood instead of bridging from Base.
  */
 let chosenCounter: Counter | null = null;
 
@@ -353,6 +354,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     if (kept?.kind === "token" && !(kept.chainId === chain.id && sameAddress(kept.address, token.address))) return kept;
     return DOLLARS.has(token.symbol) && bridgeable ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
+  useEffect(() => {
+    chosenCounter = counter;
+  }, [counter]);
   const [side, setSide] = useState<OrderSide>("buy");
   /** The unverified token the user ticked "I checked this token" for. */
   const [acknowledged, setAcknowledged] = useState<string | null>(null);
