@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
-import { ROW_CHAINS, TokenIcon, rowChain, rowHasAddress, useSpotRows, type MarketRow, type RowChain } from "@/components/terminal/market-rows";
+import { TokenIcon, networkOptions, rowChain, rowHasAddress, rowOnNetwork, useSpotRows, type MarketRow, type NetworkKey } from "@/components/terminal/market-rows";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { CoinIcon } from "@/components/terminal/token-icon";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
@@ -51,8 +51,7 @@ interface Filter {
   icon: React.ReactNode;
 }
 
-function chainIcon(key: RowChain) {
-  const logo = ROW_CHAINS.find((chain) => chain.key === key)?.logo ?? `/chains/${key}.svg`;
+function chainIcon(logo: string) {
   return <img src={logo} alt="" width={16} height={16} className="size-4 rounded-full" />;
 }
 
@@ -120,8 +119,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
         icon: <CoinIcon src={`/api/favicon?domain=${PERP_MARKS[id].domain}`} symbol={PERP_VENUE_NAMES[id]} chain={PERP_MARKS[id].chain} size={16} />,
       }));
     }
-    const present = new Set((spotRows ?? []).map(rowChain));
-    return ROW_CHAINS.filter((chain) => present.has(chain.key)).map((chain) => ({ id: chain.key, label: chain.name.replace(/ \(.*\)$/, ""), icon: chainIcon(chain.key) }));
+    return networkOptions(spotRows ?? []).map((option) => ({ id: option.key, label: option.name, icon: chainIcon(option.logo) }));
   }, [scope, venueIds, spotRows]);
 
   const perpResults = useMemo(() => {
@@ -135,7 +133,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
     const wanted = query.trim().toUpperCase();
     const matched = spotRows.filter(
       (row) =>
-        (!filter || rowChain(row) === filter) &&
+        rowOnNetwork(row, filter as NetworkKey | null) &&
         (row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || row.asset.includes(wanted) || rowHasAddress(row, query)),
     );
     // Verified tokens first, then the busiest.

@@ -39,17 +39,19 @@ export interface MarketRow {
   stable?: boolean;
   /** Spot rows: the chain the token lives on (the search's chain filter). */
   chain?: RowChain;
+  /** Spot rows: the launchpad the token started on (Jupiter's `launchpad`, e.g. "pump.fun"; "pons" on Robinhood Chain). */
+  launchpad?: string;
   watch: WatchlistEntry;
 }
 
 /** "arcus": Arcus's stock tokens, on Robinhood Chain but filtered on their own ("robinhood" is the chain's Uniswap tokens). */
-export type RowChain = "solana" | EvmSwapChainKey | BookSpotVenue | "arcus" | "pons";
+export type RowChain = "solana" | EvmSwapChainKey | BookSpotVenue | "arcus";
 
 /**
  * The chains the spot search filters by, in the order the filter shows them (logos in `public/chains`; Lighter, an
  * exchange rather than a chain, uses its site icon). Hyperliquid and Lighter hold their own order-book spot markets.
  */
-export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> = [
+export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string; group?: "venue" }> = [
   { key: "solana", name: "Solana" },
   { key: "ethereum", name: "Ethereum" },
   { key: "base", name: "Base" },
@@ -69,11 +71,74 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string }> =
   { key: "megaeth", name: "MegaETH" },
   { key: "etherlink", name: "Etherlink" },
   { key: "robinhood", name: "Robinhood Chain" },
-  { key: "arcus", name: "Arcus (stock tokens on Robinhood Chain)", logo: "/api/favicon?domain=arcus.xyz" },
-  { key: "pons", name: "Pons (Robinhood Chain launchpad)", logo: "/api/favicon?domain=poonsfamily.com" },
-  { key: "hyperliquid", name: "Hyperliquid" },
-  { key: "lighter", name: "Lighter", logo: "/api/favicon?domain=lighter.xyz" },
+  { key: "arcus", name: "Arcus (stock tokens on Robinhood Chain)", logo: "/api/favicon?domain=arcus.xyz", group: "venue" },
+  { key: "hyperliquid", name: "Hyperliquid", group: "venue" },
+  { key: "lighter", name: "Lighter", logo: "/api/favicon?domain=lighter.xyz", group: "venue" },
 ];
+
+/**
+ * Launchpads the search filters by, keyed by Jupiter's `launchpad` value (checked against its top lists) or "pons".
+ * A launchpad nobody lists right now isn't offered.
+ */
+export const LAUNCHPADS: Array<{ key: string; name: string; domain: string; chain: RowChain }> = [
+  { key: "pump.fun", name: "Pump.fun", domain: "pump.fun", chain: "solana" },
+  { key: "pons", name: "Pons", domain: "poonsfamily.com", chain: "robinhood" },
+  { key: "letsbonk.fun", name: "LetsBonk", domain: "letsbonk.fun", chain: "solana" },
+  { key: "met-dbc", name: "Meteora DBC", domain: "meteora.ag", chain: "solana" },
+  { key: "Believe", name: "Believe", domain: "believeapp.com", chain: "solana" },
+  { key: "bags.fun", name: "Bags", domain: "bags.fm", chain: "solana" },
+];
+
+/** A search network filter: a chain or venue key, or `lp:<launchpad>`. */
+export type NetworkKey = RowChain | `lp:${string}`;
+
+export interface NetworkOption {
+  key: NetworkKey;
+  name: string;
+  logo: string;
+  group: "chain" | "launchpad" | "venue";
+  /** The launchpad's chain (its logo badges the launchpad's). */
+  chain?: RowChain;
+  count: number;
+}
+
+export function chainLogo(key: RowChain) {
+  return ROW_CHAINS.find((chain) => chain.key === key)?.logo ?? `/chains/${key}.svg`;
+}
+
+/** Whether a row belongs to a network filter (none = every row). */
+export function rowOnNetwork(row: MarketRow, key: NetworkKey | null) {
+  if (!key) return true;
+  return key.startsWith("lp:") ? row.launchpad === key.slice(3) : rowChain(row) === key;
+}
+
+/** The chains, launchpads and venues the rows actually carry, in the filter's order, with their row counts. */
+export function networkOptions(rows: MarketRow[], extraChains: Iterable<RowChain | undefined> = []): NetworkOption[] {
+  const counts = new Map<string, number>();
+  const add = (key: string) => counts.set(key, (counts.get(key) ?? 0) + 1);
+  for (const row of rows) {
+    const chain = rowChain(row);
+    if (chain) add(chain);
+    if (row.launchpad) add(`lp:${row.launchpad}`);
+  }
+  for (const chain of extraChains) if (chain && !counts.has(chain)) counts.set(chain, 0);
+  const chains: NetworkOption[] = ROW_CHAINS.filter((chain) => counts.has(chain.key)).map((chain) => ({
+    key: chain.key,
+    name: chain.name.replace(/ \(.*\)$/, ""),
+    logo: chainLogo(chain.key),
+    group: chain.group ?? "chain",
+    count: counts.get(chain.key) ?? 0,
+  }));
+  const launchpads: NetworkOption[] = LAUNCHPADS.filter((pad) => counts.has(`lp:${pad.key}`)).map((pad) => ({
+    key: `lp:${pad.key}`,
+    name: pad.name,
+    logo: `/api/favicon?domain=${pad.domain}`,
+    group: "launchpad",
+    chain: pad.chain,
+    count: counts.get(`lp:${pad.key}`) ?? 0,
+  }));
+  return [...chains, ...launchpads];
+}
 
 /** Whether a pasted address is the row's token: a Solana mint as is, an EVM token by the address in its ref (any case). */
 export function rowHasAddress(row: MarketRow, query: string) {
@@ -160,7 +225,8 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     venues: [listing.pons ? (listing.pons === "curve" ? "Pons · On curve" : "Pons") : evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
     verified: listing.verified,
     stable: listing.stable,
-    chain: listing.pons ? "pons" : listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "arcus" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
+    chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "arcus" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
+    ...(listing.pons ? { launchpad: "pons" } : listing.launchpad ? { launchpad: listing.launchpad } : {}),
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }

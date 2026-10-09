@@ -14,6 +14,11 @@ const listing = (symbol: string, name: string, liquidity?: number, extra: Partia
 });
 
 describe("fromJupRecord", () => {
+  it("keeps the launchpad a token started on", () => {
+    expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "pump.fun" })?.launchpad).toBe("pump.fun");
+    expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "<b>" })?.launchpad).toBeUndefined();
+  });
+
   it("reads price, 24h stats and the stock tag", () => {
     const parsed = fromJupRecord({
       id: "mint1",

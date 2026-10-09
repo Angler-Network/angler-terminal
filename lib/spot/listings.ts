@@ -38,6 +38,8 @@ export interface SpotListing {
   stable?: boolean;
   /** A Pons launch on Robinhood Chain: still on its bonding curve, or graduated to its Uniswap v4 pool. */
   pons?: "curve" | "graduated";
+  /** The launchpad a Solana token started on, as Jupiter names it ("pump.fun", "letsbonk.fun", "met-dbc"…). */
+  launchpad?: string;
 }
 
 /** The parts of a Jupiter Tokens V2 record the listings read. */
@@ -51,6 +53,7 @@ export interface JupListingRecord {
   mcap?: number;
   isVerified?: boolean;
   tags?: string[];
+  launchpad?: string;
   stats24h?: { priceChange?: number; buyVolume?: number; sellVolume?: number };
 }
 
@@ -82,6 +85,7 @@ export function fromJupRecord(record: JupListingRecord): SpotListing | null {
     liquidity: finite(record.liquidity),
     marketCap: finite(record.mcap),
     ...(isDollarToken(record) && { stable: true }),
+    ...(typeof record.launchpad === "string" && /^[\w.-]{1,40}$/.test(record.launchpad) && { launchpad: record.launchpad }),
   };
 }
 

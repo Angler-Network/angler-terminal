@@ -11,7 +11,8 @@ import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
 import { onSpotView } from "@/lib/spot/book-spot";
 import { evmSwapChain } from "@/lib/venues/uniswap/chains";
-import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, rowHasAddress, usePerpRows, useSpotRows, type MarketRow, type RowChain } from "./market-rows";
+import { Change, TokenIcon, VenueMarks, networkOptions, rowChain, rowHasAddress, rowOnNetwork, usePerpRows, useSpotRows, type MarketRow, type NetworkKey } from "./market-rows";
+import { NetworkFilter } from "./network-filter";
 import { useSelectedAsset } from "./selected-asset";
 import type { TokenChoice, TokenPickRequest } from "./asset-search";
 
@@ -96,8 +97,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   const [tab, setTab] = useState<Tab>("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [sort, setSort] = useState<SortState>(null);
-  // The one chain to show (a press again shows every chain); empty = every chain.
-  const [chains, setChains] = useState<RowChain[]>([]);
+  // The one chain, launchpad or venue to show; null = every network.
+  const [network, setNetwork] = useState<NetworkKey | null>(null);
   const [active, setActive] = useState(0);
   const [limit, setLimit] = useState(PAGE_ROWS);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -132,14 +133,13 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
               watch: entry,
             }))
         : [];
-    const onChain = (row: MarketRow) => chains.length === 0 || chains.includes(rowChain(row) as RowChain);
     const matches = (row: MarketRow) =>
-      onChain(row) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || rowHasAddress(row, query));
+      rowOnNetwork(row, network) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || rowHasAddress(row, query));
     const filtered = [...source, ...extra].filter(
       (row) =>
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
-        // Pons launches are new tokens, nearly all unverified: the Pons filter shows them anyway (buying one asks for a tick).
-        (!isSpot || !verifiedOnly || row.verified || (chains.includes("pons") && row.chain === "pons")) &&
+        // Launchpad tokens are new, nearly all unverified: a launchpad filter shows them anyway (buying one asks for a tick).
+        (!isSpot || !verifiedOnly || row.verified || Boolean(network?.startsWith("lp:"))) &&
         matches(row) &&
         (!pick || row.mint !== pick.exclude),
     );
@@ -159,33 +159,31 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
-  }, [isSpot, isBook, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, chains]);
+  }, [isSpot, isBook, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, network]);
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
     const byCategory: Partial<Record<MarketCategory, number>> = {};
     for (const row of (isSpot ? spotRows : perpRows) ?? []) {
-      if (isSpot && verifiedOnly && !row.verified) continue;
-      if (chains.length > 0 && !chains.includes(rowChain(row) as RowChain)) continue;
+      if (isSpot && verifiedOnly && !row.verified && !network?.startsWith("lp:")) continue;
+      if (!rowOnNetwork(row, network)) continue;
       byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
     }
     return byCategory;
-  }, [isSpot, spotRows, perpRows, verifiedOnly, chains]);
+  }, [isSpot, spotRows, perpRows, verifiedOnly, network]);
 
-  // The chain filter lists only chains the spot rows actually have (a Solana token picker shows none).
+  // The network filter lists only the chains, launchpads and venues the spot rows actually have (a Solana token picker
+  // shows none).
   const chainOptions = useMemo(() => {
     if (!isSpot) return [];
-    const present = new Set((spotRows ?? []).map(rowChain));
-    for (const token of pick?.pinned ?? []) if (token.chainId) present.add(evmSwapChain(token.chainId)?.key);
-    const options = ROW_CHAINS.filter((chain) => present.has(chain.key));
+    const options = networkOptions(spotRows ?? [], (pick?.pinned ?? []).map((token) => (token.chainId ? evmSwapChain(token.chainId)?.key : undefined)));
     return options.length > 1 ? options : [];
   }, [isSpot, spotRows, pick]);
-  const toggleChain = (chain: RowChain) => setChains((current) => (current.includes(chain) ? [] : [chain]));
 
   useEffect(() => {
     setActive(0);
     setLimit(PAGE_ROWS);
-  }, [query, tab, verifiedOnly, sort, chains]);
+  }, [query, tab, verifiedOnly, sort, network]);
   const visible = useMemo(() => rows.slice(0, limit), [rows, limit]);
   // The next 50 load as the list scrolls near its end.
   useEffect(() => {
@@ -315,24 +313,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
           ))}
           {pick && <span className={`shrink-0 pl-3 text-[12px] font-semibold text-app-muted ${chainOptions.length ? "" : "ml-auto"}`}>{pick.title}</span>}
           {chainOptions.length > 0 && (
-            <div role="group" aria-label="Chains" className="ml-auto flex shrink-0 items-center gap-1 pl-3">
-              {chainOptions.map((chain) => {
-                const on = chains.includes(chain.key);
-                return (
-                  <button
-                    key={chain.key}
-                    type="button"
-                    aria-pressed={on}
-                    title={chain.name}
-                    onClick={() => toggleChain(chain.key)}
-                    className={`grid size-8 shrink-0 place-items-center rounded-lg transition-[background-color,opacity] ${
-                      on ? "bg-app-chip opacity-100" : chains.length ? "opacity-35 hover:opacity-80" : "opacity-80 hover:bg-app-chip/60 hover:opacity-100"
-                    }`}
-                  >
-                    <img src={chain.logo ?? `/chains/${chain.key}.svg`} alt={chain.name} width={18} height={18} className="size-[18px] rounded-full" />
-                  </button>
-                );
-              })}
+            <div className="sticky right-0 ml-auto shrink-0 bg-app-dialog pl-3">
+              <NetworkFilter options={chainOptions} value={network} onChange={setNetwork} />
             </div>
           )}
         </div>
@@ -393,7 +375,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
                       <span className="block truncate text-[11px] text-app-muted">{row.name}</span>
                     </span>
                   </span>
-                  <span className="text-right">{row.price !== undefined ? formatPrice(row.price) : "—"}</span>
+                  <span className="truncate text-right">{row.price !== undefined ? formatPrice(row.price) : "—"}</span>
                   <span className="text-right">
                     <Change value={row.change24h} />
                   </span>

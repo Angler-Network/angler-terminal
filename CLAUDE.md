@@ -577,8 +577,12 @@ dependency versions and design are free to diverge from angler-news.
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
-  a chain filter on the right of the tabs (spot only: Solana / Ethereum / Base / Arbitrum / Robinhood (its Uniswap tokens) / Arcus (the stock tokens, a filter of their own) / Hyperliquid / Lighter logos, one at a time (press again for all),
-  only chains present; `rowChain`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  a network filter on the right of the tabs (spot only; `network-filter.tsx`: one "All networks" button opening a
+  searchable panel grouped into Chains, Launchpads and Order books & stock tokens, with row counts; one at a time;
+  only networks present, `networkOptions` / `rowOnNetwork` in `market-rows.tsx`). Launchpads come from Jupiter's
+  `launchpad` (pump.fun, letsbonk.fun, met-dbc…, `LAUNCHPADS`) and Pons (`launchpad: "pons"`, chain Robinhood); a
+  launchpad filter shows unverified tokens too. The list renders 50 rows and adds 50 as it scrolls (`PAGE_ROWS`).
+  Symbols may be any script (`ASSET_SYMBOL`, so 龙虾 can be picked); tiny prices print as "$0.0₁₃246" (`formatPrice`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
 - History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid
