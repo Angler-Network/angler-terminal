@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { mapLimit } from "@/lib/async";
 import { venueAvailable } from "@/lib/deployment";
 import { pickQuote } from "@/lib/markets/model";
 import { getMarkets } from "@/lib/markets/server";
@@ -39,6 +40,14 @@ const TOP_LIMIT = 100;
 /** Uniswap tokens listed per EVM chain: the most traded, plus the deepest pools (the API allows up to 1000 each). */
 const UNISWAP_TOP_LIMIT = 300;
 const UNISWAP_TVL_LIMIT = 150;
+/**
+ * Chains loaded at once. All 25 at once sent ~50 Uniswap requests together, and the rate limit dropped whole chains
+ * (Ethereum, Robinhood and with it every Pons launch) from the list.
+ */
+const UNISWAP_CHAIN_CONCURRENCY = 5;
+const UNISWAP_RETRY_MS = 1500;
+/** Each chain's last good list (per server instance): a chain that fails a refresh keeps it instead of vanishing. */
+const lastChainListings = new Map<number, SpotListing[]>();
 const LLAMA_URL = "https://coins.llama.fi";
 const DEXSCREENER_URL = "https://api.dexscreener.com";
 const DEXSCREENER_TIMEOUT_MS = 10_000;
@@ -234,10 +243,16 @@ async function llamaMarkets(chain: string, addresses: string[]) {
 async function uniswapListings(): Promise<SpotListing[]> {
   const { apiKey } = readUniswapServerConfig(process.env);
   if (!venueAvailable("uniswap") || !apiKey) return [];
-  const lists = await Promise.allSettled(
-    EVM_SWAP_CHAINS.map(async (chain) => {
+  const lists = await mapLimit([...EVM_SWAP_CHAINS], UNISWAP_CHAIN_CONCURRENCY, (chain) =>
+    (async () => {
       const ranked = async (sort: "volume_24h" | "tvl", limit: number) => {
-        const response = await uniswapFetch(`/tokens?${new URLSearchParams({ sort, limit: String(limit), chainId: String(chain.id) })}`, apiKey);
+        const path = `/tokens?${new URLSearchParams({ sort, limit: String(limit), chainId: String(chain.id) })}`;
+        let response = await uniswapFetch(path, apiKey);
+        // One retry after a short wait when rate limited.
+        if (response.status === 429) {
+          await new Promise((resolve) => setTimeout(resolve, UNISWAP_RETRY_MS));
+          response = await uniswapFetch(path, apiKey);
+        }
         if (!response.ok) throw new Error(`Uniswap tokens (${chain.name}, ${sort}) responded ${response.status}`);
         return (((await response.json()) as { tokens?: UniswapTokenRecord[] }).tokens ?? []).filter((record) => record?.chainId === chain.id);
       };
@@ -278,10 +293,18 @@ async function uniswapListings(): Promise<SpotListing[]> {
         const named = native && typeof record.address === "string" && isNativeToken(record.address) ? { ...record, symbol: native.symbol, name: chain.nativeName } : record;
         return fromUniswapToken(named, marketOf(String(record.address))) ?? [];
       });
-    }),
+    })().then(
+      (listings) => {
+        if (listings.length > 0) lastChainListings.set(chain.id, listings);
+        return listings.length > 0 ? listings : (lastChainListings.get(chain.id) ?? []);
+      },
+      (error: unknown) => {
+        console.error(`[spot] uniswap list failed (${chain.name}):`, error);
+        return lastChainListings.get(chain.id) ?? [];
+      },
+    ),
   );
-  for (const list of lists) if (list.status === "rejected") console.error("[spot] uniswap list failed:", list.reason);
-  return lists.flatMap((list) => (list.status === "fulfilled" ? list.value : []));
+  return lists.flat();
 }
 
 /**

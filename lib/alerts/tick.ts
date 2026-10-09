@@ -1,4 +1,5 @@
 import "server-only";
+import { mapLimit } from "@/lib/async";
 import { venueAvailable } from "@/lib/deployment";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { deliver } from "./channels";
@@ -31,20 +32,6 @@ const LIGHTER_CONFIGS: LighterConfig[] = [
   ...(venueAvailable("lighter") ? [lighterConfig] : []),
   ...(venueAvailable("lighterRh") ? [lighterRhConfig] : []),
 ];
-
-async function mapLimit<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>) {
-  const results: R[] = [];
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (next < items.length) {
-        const index = next++;
-        results[index] = await run(items[index]);
-      }
-    }),
-  );
-  return results;
-}
 
 /**
  * Current positions by key. A venue that can't be read keeps its last known positions, so a timeout never reads as
