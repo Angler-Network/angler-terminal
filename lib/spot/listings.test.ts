@@ -15,7 +15,8 @@ const listing = (symbol: string, name: string, liquidity?: number, extra: Partia
 
 describe("fromJupRecord", () => {
   it("keeps the launchpad a token started on", () => {
-    expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "pump.fun" })?.launchpad).toBe("pump.fun");
+    expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "pump.fun" })).toMatchObject({ launchpad: "pump.fun", launchStage: "curve" });
+    expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "pump.fun", graduatedPool: "pool" })?.launchStage).toBe("graduated");
     expect(fromJupRecord({ id: "m", symbol: "X", launchpad: "<b>" })?.launchpad).toBeUndefined();
   });
 

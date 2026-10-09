@@ -41,6 +41,8 @@ export interface MarketRow {
   chain?: RowChain;
   /** Spot rows: the launchpad the token started on (Jupiter's `launchpad`, e.g. "pump.fun"; "pons" on Robinhood Chain). */
   launchpad?: string;
+  /** Launchpad rows: on the bonding curve or graduated (every launchpad token is unverified, so this is the tag there). */
+  launchStage?: "curve" | "graduated";
   watch: WatchlistEntry;
 }
 
@@ -77,17 +79,15 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string; gro
 ];
 
 /**
- * Launchpads the search filters by, keyed by Jupiter's `launchpad` value (checked against its top lists) or "pons".
+ * Launchpads the search filters by, keyed by Jupiter's `launchpad` value or "pons". Only the major ones: Jupiter also
+ * names a dozen small ones (letsbonk.fun, met-dbc, Believe, stonkfun…) with a token or two each, which read as noise.
  * A launchpad nobody lists right now isn't offered.
  */
 export const LAUNCHPADS: Array<{ key: string; name: string; domain: string; chain: RowChain }> = [
   { key: "pump.fun", name: "Pump.fun", domain: "pump.fun", chain: "solana" },
   { key: "pons", name: "Pons", domain: "poonsfamily.com", chain: "robinhood" },
-  { key: "letsbonk.fun", name: "LetsBonk", domain: "letsbonk.fun", chain: "solana" },
-  { key: "met-dbc", name: "Meteora DBC", domain: "meteora.ag", chain: "solana" },
-  { key: "Believe", name: "Believe", domain: "believeapp.com", chain: "solana" },
-  { key: "bags.fun", name: "Bags", domain: "bags.fm", chain: "solana" },
 ];
+const LAUNCHPAD_KEYS = new Set(LAUNCHPADS.map((pad) => pad.key));
 
 /** A search network filter: a chain or venue key, or `lp:<launchpad>`. */
 export type NetworkKey = RowChain | `lp:${string}`;
@@ -226,7 +226,11 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     verified: listing.verified,
     stable: listing.stable,
     chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "arcus" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
-    ...(listing.pons ? { launchpad: "pons" } : listing.launchpad ? { launchpad: listing.launchpad } : {}),
+    ...(listing.pons
+      ? { launchpad: "pons", launchStage: listing.pons }
+      : listing.launchpad && LAUNCHPAD_KEYS.has(listing.launchpad)
+        ? { launchpad: listing.launchpad, launchStage: listing.launchStage }
+        : {}),
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },
   };
 }

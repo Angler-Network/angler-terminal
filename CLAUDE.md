@@ -580,8 +580,10 @@ dependency versions and design are free to diverge from angler-news.
   a network filter on the right of the tabs (spot only; `network-filter.tsx`: one "All networks" button opening a
   searchable panel grouped into Chains, Launchpads and Order books & stock tokens, with row counts; one at a time;
   only networks present, `networkOptions` / `rowOnNetwork` in `market-rows.tsx`). Launchpads come from Jupiter's
-  `launchpad` (pump.fun, letsbonk.fun, met-dbc…, `LAUNCHPADS`) and Pons (`launchpad: "pons"`, chain Robinhood); a
-  launchpad filter and the "Launchpads" category tab (every launchpad token) show unverified tokens too. The list renders 50 rows and adds 50 as it scrolls (`PAGE_ROWS`).
+  `launchpad` (only Pump.fun in `LAUNCHPADS`; the small ones read as noise) and Pons (`launchpad: "pons"`, chain
+  Robinhood; its last good list kept in Redis, `ponsTokens`). Launchpad tokens are all unverified, so in a launchpad view
+  ("Launchpads" tab or a launchpad filter) "Verified only" becomes All / On curve / Graduated (`launchStage`: Jupiter's
+  `graduatedPool`, Pons's `pons`) and rows are tagged by stage. The list renders 50 rows and adds 50 as it scrolls (`PAGE_ROWS`).
   Symbols may be any script (`ASSET_SYMBOL`, so 龙虾 can be picked); tiny prices print as "$0.0₁₃246" (`formatPrice`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.

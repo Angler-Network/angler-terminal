@@ -96,6 +96,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
+  // Launchpad views: every token there is unverified, so they filter by bonding-curve stage instead.
+  const [stage, setStage] = useState<"curve" | "graduated" | null>(null);
   const [sort, setSort] = useState<SortState>(null);
   // The one chain, launchpad or venue to show; null = every network.
   const [network, setNetwork] = useState<NetworkKey | null>(null);
@@ -105,6 +107,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   // /spot lists order-book markets (Hyperliquid, Lighter) and Arcus stock tokens; /swap the pools and aggregators.
   const isBook = kind === "book" && !pick;
   const isSpot = kind === "spot" || kind === "book" || Boolean(pick);
+  const launchpadView = isSpot && (tab === "launchpads" || Boolean(network?.startsWith("lp:")));
 
   const perpRows = usePerpRows(!isSpot);
   const { rows: spotRows, searching } = useSpotRows(isSpot, query, pick ? (pick.scope === "evm" ? ["uniswap", "jupiter"] : ["jupiter"]) : isBook ? ["hyperliquid", "lighter", "arcus"] : ["jupiter", "uniswap"]);
@@ -140,7 +143,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
         (tab === "all" || (tab === "favorites" ? watched.has(row.id) : tab === "launchpads" ? Boolean(row.launchpad) : row.category === tab)) &&
         // Launchpad tokens are new, nearly all unverified: the Launchpads tab and a launchpad filter show them anyway
         // (buying one asks for a tick).
-        (!isSpot || !verifiedOnly || row.verified || tab === "launchpads" || Boolean(network?.startsWith("lp:"))) &&
+        (launchpadView ? !stage || row.launchStage === stage : !isSpot || !verifiedOnly || row.verified) &&
         matches(row) &&
         (!pick || row.mint !== pick.exclude),
     );
@@ -160,7 +163,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
         ? [pinnedRow({ mint: address, symbol: `${address.slice(0, 4)}…${address.slice(-4)}`, name: "Use this address", verified: false }, "Address")]
         : [];
     return [...pasted, ...pinned, ...rest];
-  }, [isSpot, isBook, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, network]);
+  }, [isSpot, isBook, spotRows, perpRows, query, tab, verifiedOnly, watchlist, kind, sort, pick, network, launchpadView, stage]);
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
@@ -170,10 +173,11 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
       // Launchpad tokens count whatever "Verified only" says, like the tab shows them.
       if (isSpot && row.launchpad) byCategory.launchpads = (byCategory.launchpads ?? 0) + 1;
       if (isSpot && verifiedOnly && !row.verified && !network?.startsWith("lp:")) continue;
+      if (network?.startsWith("lp:") && stage && row.launchStage !== stage) continue;
       byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
     }
     return byCategory;
-  }, [isSpot, spotRows, perpRows, verifiedOnly, network]);
+  }, [isSpot, spotRows, perpRows, verifiedOnly, network, stage]);
 
   // The network filter lists only the chains, launchpads and venues the spot rows actually have (a Solana token picker
   // shows none).
@@ -186,7 +190,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   useEffect(() => {
     setActive(0);
     setLimit(PAGE_ROWS);
-  }, [query, tab, verifiedOnly, sort, network]);
+  }, [query, tab, verifiedOnly, sort, network, stage]);
   const visible = useMemo(() => rows.slice(0, limit), [rows, limit]);
   // The next 50 load as the list scrolls near its end.
   useEffect(() => {
@@ -276,7 +280,27 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
             aria-activedescendant={rows[active] ? `asset-search-${active}` : undefined}
             className="min-w-0 flex-1 bg-transparent text-[15px] outline-hidden placeholder:text-app-faint"
           />
-          {isSpot && !isBook && (
+          {launchpadView ? (
+            <div role="group" aria-label="Bonding curve" className="flex shrink-0 items-center rounded-lg bg-app-chip/50 p-0.5 text-[12px] font-semibold">
+              {(
+                [
+                  [null, "All"],
+                  ["curve", "On curve"],
+                  ["graduated", "Graduated"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={stage === value}
+                  onClick={() => setStage(value)}
+                  className={`rounded-md px-2.5 py-1 transition-colors ${stage === value ? "bg-app-chip text-app-ink" : "text-app-muted hover:text-app-ink"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : isSpot && !isBook && (
             <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] font-semibold text-app-muted">
               <input type="checkbox" checked={verifiedOnly} onChange={(event) => setVerifiedOnly(event.target.checked)} className="size-3.5 accent-[rgb(var(--app-accent))]" />
               Verified only
@@ -375,7 +399,15 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate font-semibold">{row.symbol}</span>
-                        {isSpot && !row.verified && <span className="rounded bg-[#f5c97b]/15 px-1 text-[9px] font-semibold uppercase text-[#f5c97b]">Unverified</span>}
+                        {launchpadView && row.launchStage ? (
+                          <span
+                            className={`rounded px-1 text-[9px] font-semibold uppercase ${row.launchStage === "graduated" ? "bg-app-up/15 text-app-up" : "bg-[#9db4ff]/15 text-[#9db4ff]"}`}
+                          >
+                            {row.launchStage === "graduated" ? "Graduated" : "On curve"}
+                          </span>
+                        ) : (
+                          isSpot && !row.verified && <span className="rounded bg-[#f5c97b]/15 px-1 text-[9px] font-semibold uppercase text-[#f5c97b]">Unverified</span>
+                        )}
                       </span>
                       <span className="block truncate text-[11px] text-app-muted">{row.name}</span>
                     </span>

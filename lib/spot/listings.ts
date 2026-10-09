@@ -40,6 +40,8 @@ export interface SpotListing {
   pons?: "curve" | "graduated";
   /** The launchpad a Solana token started on, as Jupiter names it ("pump.fun", "letsbonk.fun", "met-dbc"…). */
   launchpad?: string;
+  /** A launchpad token's stage: still on its bonding curve, or graduated to a pool (Jupiter's `graduatedPool`). */
+  launchStage?: "curve" | "graduated";
 }
 
 /** The parts of a Jupiter Tokens V2 record the listings read. */
@@ -54,6 +56,7 @@ export interface JupListingRecord {
   isVerified?: boolean;
   tags?: string[];
   launchpad?: string;
+  graduatedPool?: string;
   stats24h?: { priceChange?: number; buyVolume?: number; sellVolume?: number };
 }
 
@@ -85,7 +88,8 @@ export function fromJupRecord(record: JupListingRecord): SpotListing | null {
     liquidity: finite(record.liquidity),
     marketCap: finite(record.mcap),
     ...(isDollarToken(record) && { stable: true }),
-    ...(typeof record.launchpad === "string" && /^[\w.-]{1,40}$/.test(record.launchpad) && { launchpad: record.launchpad }),
+    ...(typeof record.launchpad === "string" &&
+      /^[\w.-]{1,40}$/.test(record.launchpad) && { launchpad: record.launchpad, launchStage: record.graduatedPool ? "graduated" : "curve" }),
   };
 }
 
