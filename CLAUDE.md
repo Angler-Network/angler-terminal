@@ -687,8 +687,9 @@ dependency versions and design are free to diverge from angler-news.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
-- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Prediction, Markets, Layout,
-  News link, Pro order, Bridge, Settings; the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
+- Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Spot, CEX (Soon badge, `/cex` is
+  a coming-soon page until the view exists; `soon` in `market-nav.ts`), Prediction, Markets, Vaults, Layout, Pro order,
+  Bridge, Settings, then small marks for the news site and the community links; the rail scrolls on short screens; the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
   page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
   URL each: `/settings`, `/settings/rules`…; `openSettings(section)` navigates there, `closeSettings` returns to the
   page the user came from, the terminal when they landed on it), built from the copied angler-news `form-controls`,

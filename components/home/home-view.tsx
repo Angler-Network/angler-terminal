@@ -31,6 +31,7 @@ const TAGLINES: Record<string, string> = {
   "/perp": "Leverage on every perp DEX",
   "/swap": "Best route for any token",
   "/spot": "Order-book spot trading",
+  "/cex": "Centralized exchanges, coming soon",
   "/prediction": "Trade on what happens next",
 };
 
@@ -239,8 +240,8 @@ export function HomeView() {
           </div>
         </section>
 
-        <nav aria-label="Trade" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {marketNav.map(({ href, label, icon: Icon }) => (
+        <nav aria-label="Trade" className="grid grid-cols-2 gap-2 lg:grid-cols-[repeat(auto-fit,minmax(0,1fr))]">
+          {marketNav.map(({ href, label, icon: Icon, soon }) => (
             <Link key={href} href={href} className={`${panel} group flex items-center gap-2.5 px-3 py-3 transition-colors hover:border-app-hairline-strong sm:gap-3.5 sm:px-4 sm:py-3.5`}>
               <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-chip text-app-ink sm:size-11">
                 <Icon className="size-[18px] sm:size-[22px]" strokeWidth={1.75} aria-hidden />
@@ -248,6 +249,7 @@ export function HomeView() {
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 whitespace-nowrap text-[14px] font-semibold text-app-ink sm:text-[16px]">
                   {label}
+                  {soon && <span className="rounded bg-app-accent/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-app-accent">Soon</span>}
                   <ArrowRight className="hidden size-4 text-app-faint transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden />
                 </span>
                 {/* Phones have room for the name only. */}

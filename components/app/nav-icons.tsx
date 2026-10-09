@@ -35,6 +35,9 @@ export const SwapIcon = solar("swap");
 /** Spot Dex (solar:book-2). */
 export const SpotDexIcon = solar("spot-dex");
 
+/** CEX: centralized exchanges (a Solar-style exchange building). */
+export const CexIcon = solar("cex");
+
 /** Prediction (solar:target). */
 export const PredictionIcon = solar("prediction");
 

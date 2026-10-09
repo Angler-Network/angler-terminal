@@ -1,4 +1,4 @@
-import { PerpDexIcon, PredictionIcon, SpotDexIcon, SwapIcon, type NavIcon } from "./nav-icons";
+import { CexIcon, PerpDexIcon, PredictionIcon, SpotDexIcon, SwapIcon, type NavIcon } from "./nav-icons";
 import { predictionViewAvailable, swapViewAvailable } from "@/lib/deployment";
 import { terminalKindOf } from "@/lib/terminal-kind";
 
@@ -17,5 +17,6 @@ export const marketNav: MarketNavItem[] = ([] as MarketNavItem[]).concat([
   { href: "/perp", label: "Perp Dex", title: "Perpetual futures on Hyperliquid and Lighter", icon: PerpDexIcon, isActive: (pathname) => terminalKindOf(pathname) === "perp" },
   { href: "/swap", label: "Swap", title: "Swap tokens and tokenized stocks", icon: SwapIcon, isActive: (pathname) => terminalKindOf(pathname) === "spot" },
   { href: "/spot", label: "Spot Dex", title: "Spot on Hyperliquid and Lighter order books, and Arcus stock tokens", icon: SpotDexIcon, isActive: (pathname) => terminalKindOf(pathname) === "book" },
+  { href: "/cex", label: "CEX", title: "Centralized exchanges: coming soon", icon: CexIcon, soon: true, isActive: (pathname) => pathname === "/cex" },
   { href: "/prediction", label: "Prediction", title: "Prediction markets: Polymarket and Hyperliquid", icon: PredictionIcon, isActive: (pathname) => pathname === "/prediction" },
 ]).filter((item) => (item.href !== "/swap" || swapViewAvailable()) && (item.href !== "/prediction" || predictionViewAvailable()));

@@ -10,7 +10,7 @@ import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
-import { SOCIALS, SocialIcons } from "./social-links";
+import { SOCIALS, SocialIcon } from "./social-links";
 import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, VaultsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
@@ -38,6 +38,8 @@ function iconClass(active: boolean) {
   return `size-[22px] transition-colors ${active ? "text-app-accent" : ""}`;
 }
 
+const smallMark = "flex size-6 items-center justify-center rounded-md text-app-faint transition-colors hover:bg-app-card/60 hover:text-app-ink";
+
 function NavButton({ label, icon: Icon, active = false, onClick }: { label: string; icon: NavIcon; active?: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-haspopup="dialog" aria-expanded={active} className={navItemClass(active)}>
@@ -48,7 +50,8 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
 }
 
 /**
- * The rail: market views (perp, swap, prediction), markets, the news site and settings. Wallets, the profile and the
+ * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, layout, then pro order, bridge,
+ * settings and small marks for the news site and the community links. It scrolls when a short screen can't fit it. Wallets, the profile and the
  * portfolio sit in the top bar's account menu.
  */
 export function Sidebar() {
@@ -60,7 +63,7 @@ export function Sidebar() {
   const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
 
   return (
-    <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
+    <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-x-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] scrollbar-none overflow-y-auto lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
       <Link href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
         <Image src="/blacklogo.png" alt="Angler" width={30} height={30} className="[html[data-tone=dark]_&]:hidden" />
         <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} priority className="hidden [html[data-tone=dark]_&]:block" />
@@ -71,7 +74,11 @@ export function Sidebar() {
           <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
             <span className="relative">
               <Icon className={iconClass(isActive(pathname))} active={isActive(pathname)} />
-              {soon && <span aria-hidden className="absolute -right-1 -top-0.5 size-1.5 rounded-full bg-app-accent" />}
+              {soon && (
+                <span className="absolute -right-4 -top-1.5 rounded-[4px] bg-app-accent px-1 py-px text-[8px] font-bold uppercase leading-none tracking-wide text-app-on-accent">
+                  Soon
+                </span>
+              )}
             </span>
             <NavLabel>{label}</NavLabel>
           </Link>
@@ -86,10 +93,6 @@ export function Sidebar() {
           <NavLabel>Vaults</NavLabel>
         </Link>
         <LayoutMenu className={navItemClass(false)} iconClassName="size-[22px]" labelNode={<NavLabel>Layout</NavLabel>} />
-        <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>
-          <NewsIcon className={iconClass(false)} />
-          <NavLabel>News</NavLabel>
-        </a>
       </nav>
 
       <nav aria-label={t("nav.secondary")} className="mt-auto flex flex-col gap-1 pt-[clamp(0.5rem,2vh,1rem)]">
@@ -110,13 +113,18 @@ export function Sidebar() {
           <SettingsIcon className={iconClass(isSettingsOpen)} active={isSettingsOpen} />
           <NavLabel>{t("nav.settings")}</NavLabel>
         </Link>
-        {SOCIALS.length > 0 && (
-          <>
-            <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
-            {/* Community links: three small marks fit the rail's width side by side. */}
-            <SocialIcons className="justify-center gap-0.5" itemClassName="flex size-6 items-center justify-center rounded-md text-app-faint transition-colors hover:bg-app-card/60 hover:text-app-ink" iconClassName="size-3.5" />
-          </>
-        )}
+        <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
+        {/* The news site and the community links as small marks, two a row in the rail's width. */}
+        <div className="flex flex-wrap justify-center gap-0.5">
+          <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" aria-label="Angler News" className={smallMark}>
+            <NewsIcon className="size-3.5" />
+          </a>
+          {SOCIALS.map((social) => (
+            <a key={social.id} href={social.url} target="_blank" rel="noopener noreferrer" title={`Angler on ${social.label}`} aria-label={`Angler on ${social.label}`} className={smallMark}>
+              <SocialIcon id={social.id} className="size-3.5" />
+            </a>
+          ))}
+        </div>
       </nav>
     </aside>
   );
