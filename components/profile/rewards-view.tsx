@@ -71,7 +71,7 @@ export function RewardsView() {
               <Sparkles className="size-3.5" strokeWidth={1.75} aria-hidden />
               Total points
               {profile.closedBeta && (
-                <span title="Trades placed during the closed beta earn double points" className="ml-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] tracking-normal normal-case">
+                <span title="Trades placed during the closed beta earn double points: 0.02 per $100 instead of 0.01. Back to 0.01 once the beta opens; points already earned stay." className="ml-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] tracking-normal normal-case">
                   {BETA_POINTS_MULTIPLIER}x closed beta
                 </span>
               )}
@@ -132,7 +132,7 @@ export function RewardsView() {
           icon={<TrendingUp className="size-5" strokeWidth={1.75} aria-hidden />}
           title="Trading"
           value={number.format(tradingPoints)}
-          detail="Earn 10 points per $100,000 traded."
+          detail={profile.closedBeta ? `Earn 20 points per $100,000 traded during the closed beta (${BETA_POINTS_MULTIPLIER}x), 10 after it.` : "Earn 10 points per $100,000 traded."}
           cta={{ label: "Trade now", href: "/perp" }}
         />
         <SourceCard
