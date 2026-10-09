@@ -569,6 +569,21 @@ dependency versions and design are free to diverge from angler-news.
     `/api/geoblock` runs in the browser first; blocked or unreachable (Turkey's DNS block) means no trading. Funding:
     `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
     there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume doesn't earn profile points yet.
+- Vaults (`/vaults`, sidebar/top bar/phone menu; `lib/vaults/*`, `components/vaults/vaults-view.tsx`): every perp venue's
+  vaults in one table, read-only (Deposit opens the venue's own page), public like `/` (the invite gate skips it; in the
+  sitemap). Sources, all keyless: Hyperliquid `stats-data.hyperliquid.xyz/{Mainnet|Testnet}/vaults` (every vault ever,
+  ~14 MB, 10-15s: fetched no-store and only the parsed rows cached) + `vaultDetails`; Lighter and Lighter RH
+  `publicPoolsMetadata` (pages of 100 running down from index 281474976710655) + the public `pnl` chart; Orderly
+  `api-sv.orderly.org/v1/public/strategy_vault/vault/{info,performance}` (no value history). `GET /api/vaults` = open
+  vaults ≥ $1k, one `unstable_cache` entry per venue (15 min; a failing venue keeps its last list and is named in
+  `failed`); `GET /api/vaults/[venue]/[id]` = history (5 min). The list's APR is each venue's own figure (HL APR, Lighter
+  APY, Orderly 30-day APY) and says so; the opened row computes 7d/30d/90d/1y returns and max drawdown the same way for
+  all from a growth index: Lighter's exact share price ((inflow - outflow + trade PnL) / shares), Hyperliquid's PnL over
+  capital per step (Modified Dietz, all-time steps stitched with the month's and week's). HLP's children are left out;
+  HL leaders keep 10% (HLP 0), locks 4 days (HLP) / 1 day. "Established only" (default) = ≥ $10k and 30+ days, venue
+  vaults always shown. "Your vaults": HL `userVaultEquities` and Lighter `account?by=l1_address` shares, from the browser.
+  No fee on vault deposits, so no points; in-app deposits (HL vault transfer, Lighter mint/burn shares, Orderly vault
+  deposits) are phase 2.
 - Hyperliquid and Lighter spot (`lib/spot/book-spot.ts`, `lib/venues/hyperliquid/spot.ts`, `lib/venues/lighter/spot.ts`,
   `components/terminal/book-spot-card.tsx`, the /spot view): order-book spot markets against USDC on both networks. /spot
   (`spot-order-panel.tsx`, `use-book-spot.ts`: `useBookSpotRef` = the picked `book:` market, else the asset's busiest

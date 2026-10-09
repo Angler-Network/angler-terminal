@@ -1,0 +1,73 @@
+{
+ "code": 200,
+ "public_pools": [
+  {
+   "code": 0,
+   "account_index": 281474976710654,
+   "created_at": 1737098583,
+   "master_account_index": 1,
+   "account_type": 3,
+   "name": "Lighter Liquidity Provider (LLP)",
+   "l1_address": "0x0000000000000000000000000000000000000000",
+   "annual_percentage_yield": 15.351288518753005,
+   "sharpe_ratio": 3.84190801986,
+   "status": 0,
+   "operator_fee": "0.0000",
+   "total_asset_value": "84882610.42059699",
+   "total_spot_value": "2522187.876065",
+   "total_perps_value": "84882610.420597",
+   "total_shares": 24123418906
+  },
+  {
+   "code": 0,
+   "account_index": 281474976710653,
+   "created_at": 1737101233,
+   "master_account_index": 4,
+   "account_type": 2,
+   "name": "ETH 3x long",
+   "l1_address": "0xb01CD2bf96559C3Ca27C844B88E36Ea47465DBa0",
+   "annual_percentage_yield": -81.6206883465729,
+   "sharpe_ratio": -0.8410812700182249,
+   "status": 0,
+   "operator_fee": "0.0000",
+   "total_asset_value": "132.448746",
+   "total_spot_value": "0",
+   "total_perps_value": "132.448746",
+   "total_shares": 16671037
+  },
+  {
+   "code": 0,
+   "account_index": 281474976710652,
+   "created_at": 1737101412,
+   "master_account_index": 4,
+   "account_type": 2,
+   "name": "ETH 3x short",
+   "l1_address": "0xb01CD2bf96559C3Ca27C844B88E36Ea47465DBa0",
+   "annual_percentage_yield": 260.9144412194461,
+   "sharpe_ratio": 1.6607222161402373,
+   "status": 0,
+   "operator_fee": "0.0000",
+   "total_asset_value": "96.182016",
+   "total_spot_value": "0",
+   "total_perps_value": "96.182016",
+   "total_shares": 173168
+  },
+  {
+   "code": 0,
+   "account_index": 281474976710651,
+   "created_at": 1737101702,
+   "master_account_index": 4,
+   "account_type": 2,
+   "name": "BTC 3x long",
+   "l1_address": "0xb01CD2bf96559C3Ca27C844B88E36Ea47465DBa0",
+   "annual_percentage_yield": -52.4525919089133,
+   "sharpe_ratio": -1.2484486431769306,
+   "status": 0,
+   "operator_fee": "0.0000",
+   "total_asset_value": "98.379108",
+   "total_spot_value": "0",
+   "total_perps_value": "98.379108",
+   "total_shares": 1523118
+  }
+ ]
+}

@@ -1,0 +1,155 @@
+{
+ "success": true,
+ "data": {
+  "rows": [
+   {
+    "vault_id": "0xa3426a1cef4052c056fced18099be899d93f1427d13b9a1df1806b91fad3d0c2",
+    "vault_address": "0x70fe7d65ac7c1a1732f64d2e6fc0e33622d0c991",
+    "vault_type": "protocol",
+    "vault_name": "Orderly OmniVault",
+    "description": "Earn passive yields effortlessly, no trading expertise required. Deposit USDC fr",
+    "sp_address": "0xc33fefd77012cbcf61f63e9c4745cadaadbe12f3",
+    "sp_name": "Vovega",
+    "asset": "USDC",
+    "vault_age": 562,
+    "status": "live",
+    "vault_start_time": 1743040800000,
+    "performance_fee_rate": 0,
+    "supported_chains": [
+     {
+      "chain_id": "42161",
+      "chain_name": "Arbitrum"
+     },
+     {
+      "chain_id": "10",
+      "chain_name": "Optimism"
+     },
+     {
+      "chain_id": "8453",
+      "chain_name": "Base"
+     },
+     {
+      "chain_id": "1329",
+      "chain_name": "Sei Network"
+     }
+    ],
+    "tvl": 5827136.819394,
+    "valid_hpr": 30,
+    "lifetime_apy": 0.104739,
+    "vault_lifetime_net_pnl": 1036836.71569,
+    "lp_counts": 264,
+    "total_main_shares": 4730983.609957,
+    "est_main_share_price": 1.157979,
+    "lock_duration": 48,
+    "broker_id": "orderly",
+    "min_deposit_amount": 10,
+    "min_withdrawal_amount": 10,
+    "gate_threshold_pct": 0.1,
+    "gate_triggered": false,
+    "hide_trades": false,
+    "sp_account_id": "0xab5306558388f890e32f19751e6cd0118f3a525f3aed34877732b5babaea1a1d",
+    "30d_apy": 0.340487,
+    "recovery_30d_apy": 0.340487
+   },
+   {
+    "vault_id": "0xe983638959ffd486bcbfe527396f52a2bce173614a96c641c139561efa75f565",
+    "vault_address": "0xf62ed1c0dd53d499ae11acded24415cc48443630",
+    "vault_type": "community",
+    "vault_name": "Smaug",
+    "description": "Smaug implements a quantitative strategy that leverages a multi-factor system to",
+    "sp_address": "0xb774f1d84e728c2043c2dd2f6b6dbd4b2996b056",
+    "sp_name": "Vovega",
+    "asset": "USDC",
+    "vault_age": 332,
+    "status": "live",
+    "vault_start_time": 1762912800000,
+    "performance_fee_rate": 0.3,
+    "supported_chains": [
+     {
+      "chain_id": "42161",
+      "chain_name": "Arbitrum"
+     },
+     {
+      "chain_id": "10",
+      "chain_name": "Optimism"
+     },
+     {
+      "chain_id": "8453",
+      "chain_name": "Base"
+     },
+     {
+      "chain_id": "1329",
+      "chain_name": "Sei Network"
+     }
+    ],
+    "tvl": 591324.945594,
+    "valid_hpr": 30,
+    "lifetime_apy": 0.218977,
+    "vault_lifetime_net_pnl": 91990.871807,
+    "lp_counts": 10,
+    "total_main_shares": 337419.494348,
+    "est_main_share_price": 1.138816,
+    "lock_duration": 168,
+    "broker_id": "orderly",
+    "min_deposit_amount": 1000,
+    "min_withdrawal_amount": 1000,
+    "gate_threshold_pct": 0.9,
+    "gate_triggered": false,
+    "hide_trades": false,
+    "sp_account_id": "0x959e2e043e408ae2ca4c4142032e699d69ff29d02084ce196d2ee8dd4f579d5f",
+    "30d_apy": 0.371964,
+    "recovery_30d_apy": 0.371964
+   },
+   {
+    "vault_id": "0xc02a58c70f714fafca18866d4f77efb9dde983805ad3ea9e5061271ef3bbac73",
+    "vault_address": "0xa37e01d3089e9dd9010da99a6f4a80cb01f2f88f",
+    "vault_type": "community",
+    "vault_name": "Kronos QLS",
+    "description": "Kronos Market Neutral Strategy is a cross-sectional strategy that systematically",
+    "sp_address": "0xeb9977f80eff17fd00dddde4339e60d4e7d1ffa0",
+    "sp_name": "Kronos Research",
+    "asset": "USDC",
+    "vault_age": 326,
+    "status": "closed",
+    "vault_start_time": 1763452800000,
+    "performance_fee_rate": 0.3,
+    "supported_chains": [
+     {
+      "chain_id": "42161",
+      "chain_name": "Arbitrum"
+     },
+     {
+      "chain_id": "10",
+      "chain_name": "Optimism"
+     },
+     {
+      "chain_id": "8453",
+      "chain_name": "Base"
+     },
+     {
+      "chain_id": "1329",
+      "chain_name": "Sei Network"
+     }
+    ],
+    "tvl": 98.612171,
+    "valid_hpr": 0,
+    "lifetime_apy": -0.15675,
+    "vault_lifetime_net_pnl": -162359.127479,
+    "lp_counts": 1,
+    "total_main_shares": 118.448084,
+    "est_main_share_price": 0.832534,
+    "lock_duration": 168,
+    "broker_id": "orderly",
+    "min_deposit_amount": 100,
+    "min_withdrawal_amount": 100,
+    "gate_threshold_pct": 1.0,
+    "gate_triggered": false,
+    "hide_trades": true,
+    "sp_account_id": "0x61ce74a2d32b3c81603cbd003d371d6c6bb672cbb5b46f275e3deaee8e10fa95",
+    "30d_apy": 0,
+    "recovery_30d_apy": 0
+   }
+  ]
+ },
+ "timestamp": 1791547346571
+}

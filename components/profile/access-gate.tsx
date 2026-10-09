@@ -50,7 +50,8 @@ export function AccessGate() {
   }, [pendingReferral]);
 
   // The wallet picker (and its signature prompts) open over the gate.
-  if (deployment === "testnet" || pathname === "/" || wallets.isOpen) return null;
+  // Home and Vaults (read-only, meant to be found by search) stay open to everyone.
+  if (deployment === "testnet" || pathname === "/" || pathname === "/vaults" || wallets.isOpen) return null;
   const needsWallet = !id;
   const needsInvite = Boolean(id && profile && !profile.access);
   if (!needsWallet && !needsInvite) return null;

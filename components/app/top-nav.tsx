@@ -7,7 +7,7 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon } from "./nav-icons";
+import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, VaultsIcon } from "./nav-icons";
 
 function itemClass(active: boolean) {
   return `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium transition-colors ${
@@ -37,6 +37,10 @@ export function TopNav() {
       <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
         <MarketsIcon className={`size-[18px] ${pathname === "/markets" ? "text-app-accent" : ""}`} active={pathname === "/markets"} />
         <span className={label}>Markets</span>
+      </Link>
+      <Link href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={itemClass(pathname === "/vaults")}>
+        <VaultsIcon className={`size-[18px] ${pathname === "/vaults" ? "text-app-accent" : ""}`} active={pathname === "/vaults"} />
+        <span className={label}>Vaults</span>
       </Link>
       <LayoutMenu placement="below" className={itemClass(false)} iconClassName="size-[18px]" labelNode={<span className={label}>Layout</span>} />
       <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={itemClass(false)}>

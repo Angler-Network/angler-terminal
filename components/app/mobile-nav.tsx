@@ -16,6 +16,7 @@ import {
   BridgeIcon,
   ChartIcon,
   MarketsIcon,
+  VaultsIcon,
   MenuIcon,
   NewsIcon,
   PieChartIcon,
@@ -130,6 +131,10 @@ export function MobileNav() {
             <Link href="/markets" className={`${sheetItem} ${pathname === "/markets" ? "bg-app-chip" : ""}`}>
               <MarketsIcon className={sheetIconClass(pathname === "/markets")} active={pathname === "/markets"} />
               Markets & funding
+            </Link>
+            <Link href="/vaults" className={`${sheetItem} ${pathname === "/vaults" ? "bg-app-chip" : ""}`}>
+              <VaultsIcon className={sheetIconClass(pathname === "/vaults")} active={pathname === "/vaults"} />
+              Vaults
             </Link>
             <Link href="/profile" className={`${sheetItem} ${pathname === "/profile" ? "bg-app-chip" : ""}`}>
               <ProfileIcon className={sheetIconClass(pathname === "/profile")} active={pathname === "/profile"} />

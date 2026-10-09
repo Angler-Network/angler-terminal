@@ -1,0 +1,40 @@
+{
+ "success": true,
+ "data": {
+  "rows": [
+   {
+    "time_range": "24h",
+    "incremental_net_pnl": 274.730663,
+    "pnl_max_drawdown": 0.000584,
+    "max_drawdown": 0.0006,
+    "fees": 0,
+    "volume": 6589979.399817
+   },
+   {
+    "time_range": "7d",
+    "incremental_net_pnl": 18487.624202,
+    "pnl_max_drawdown": 0.000856,
+    "max_drawdown": 0.0009,
+    "fees": 0,
+    "volume": 18202402.583931
+   },
+   {
+    "time_range": "30d",
+    "incremental_net_pnl": 120515.485825,
+    "pnl_max_drawdown": 0.000955,
+    "max_drawdown": 0.001,
+    "fees": 0,
+    "volume": 69815261.297722
+   },
+   {
+    "time_range": "all_time",
+    "incremental_net_pnl": 1036836.71569,
+    "pnl_max_drawdown": 0.072025,
+    "max_drawdown": 0.0848,
+    "fees": 0,
+    "volume": 859905901.708044
+   }
+  ]
+ },
+ "timestamp": 1791547348063
+}

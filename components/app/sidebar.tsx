@@ -11,7 +11,7 @@ import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
 import { SOCIALS, SocialIcons } from "./social-links";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, type NavIcon } from "./nav-icons";
+import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, VaultsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -80,6 +80,10 @@ export function Sidebar() {
         <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
           <MarketsIcon className={iconClass(pathname === "/markets")} active={pathname === "/markets"} />
           <NavLabel>Markets</NavLabel>
+        </Link>
+        <Link href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={navItemClass(pathname === "/vaults")}>
+          <VaultsIcon className={iconClass(pathname === "/vaults")} active={pathname === "/vaults"} />
+          <NavLabel>Vaults</NavLabel>
         </Link>
         <LayoutMenu className={navItemClass(false)} iconClassName="size-[22px]" labelNode={<NavLabel>Layout</NavLabel>} />
         <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={navItemClass(false)}>

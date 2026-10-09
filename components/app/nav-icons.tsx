@@ -38,6 +38,9 @@ export const SpotDexIcon = solar("spot-dex");
 /** Prediction (solar:target). */
 export const PredictionIcon = solar("prediction");
 
+/** Vaults (a safe in Solar's style; see the sprite). */
+export const VaultsIcon = solar("vaults");
+
 /** Markets (solar:chart-2). */
 export const MarketsIcon = solar("markets");
 
