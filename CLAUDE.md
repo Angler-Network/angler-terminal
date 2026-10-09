@@ -783,7 +783,13 @@ dependency versions and design are free to diverge from angler-news.
   our referral account received, priced by Jupiter, over our rate. Polymarket (`polymarket-volume.ts`): the public
   `clob.polymarket.com/builder/trades?builder_code=` (one shared read a minute), trades whose `maker` is the wallet's
   Deposit Wallet (`lib/venues/polymarket/deposit-wallet.ts`, CREATE2 as the SDK does, both proxy kinds, pinned by a test
-  against the SDK bundle), rate `POLYMARKET_BUILDER_FEE_BPS`. Points scale with our fee (`pointsShareFor`: our bps / 3.5,
+  against the SDK bundle), rate `POLYMARKET_BUILDER_FEE_BPS`. Relay and LI.FI (`bridge-points.ts` +
+  `bridge-points-server.ts`, `POST /api/profile/bridge`): their fee isn't paid in the transaction (Relay accrues app fees,
+  LI.FI's fee collector holds them), so the proof is their record: Relay `/requests/v2?id=` with `status: success` and an
+  app fee to `RELAY_FEE_RECIPIENT` (volume `currencyIn.amountUsd`, rate the fee's bps), LI.FI `/v1/status?txHash=` with
+  `DONE` and `metadata.integrator` = `LIFI_INTEGRATOR` (volume `sending.amountUSD`, rate `LIFI_FEE_BPS`). Claimed from
+  `relayRequestState` / `lifiTxState` when they report filled (every bridge leg and direct swap goes through them) and
+  after a same-chain LI.FI swap; the server retries the record a few times, once per route. Points scale with our fee (`pointsShareFor`: our bps / 3.5,
   `POINTS_BASE_FEE_BPS`, capped at 1x; the rest stored as `less:{venue}`), volume always counts in full. Perp volume syncs when the profile loads (`GET /api/profile/{id}?sync=1`, at most once a minute per profile,
   cursors per venue); swaps are claimed after they confirm (`claimSwapPoints` → `POST /api/profile/swap`). A Solana
   wallet can be linked to an EVM profile (signed by the Solana wallet): its volume moves over and later swaps count

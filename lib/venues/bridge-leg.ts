@@ -128,7 +128,10 @@ export async function lifiTxState(txHash: string, fromChain: number, toChain: nu
   // Not indexed yet answers 404: keep waiting.
   if (response.status === 404) return "pending" as const;
   if (!response.ok) throw new VenueError(lifiErrorMessage(body, response.status));
-  return lifiFillState(body);
+  const state = lifiFillState(body);
+  // Profile points: the server reads LI.FI's record and counts it when it carries our integrator.
+  if (state === "filled") void import("@/lib/profile/client").then(({ claimBridgePoints }) => claimBridgePoints("lifi", txHash));
+  return state;
 }
 
 /** Sends a Relay quote's transactions on its origin chain, each confirmed before the next; resolves to the last hash. */
@@ -202,7 +205,10 @@ export async function relayRequestState(requestId: string) {
   const response = await fetch(`/api/relay/intents/status/v2?requestId=${requestId}`, { cache: "no-store" });
   const body = (await response.json().catch(() => ({}))) as { status?: unknown };
   if (!response.ok) throw new VenueError(relayErrorMessage(body, response.status));
-  return relayFillState(body.status);
+  const state = relayFillState(body.status);
+  // Profile points: the server reads Relay's record and counts it when it carries our app fee.
+  if (state === "filled") void import("@/lib/profile/client").then(({ claimBridgePoints }) => claimBridgePoints("relay", requestId));
+  return state;
 }
 
 /** Signs a base64 Solana transaction with the connected wallet (`useSolanaWallet().signTransaction`). */

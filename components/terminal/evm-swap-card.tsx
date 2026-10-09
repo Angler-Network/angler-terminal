@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { trackTrade } from "@/lib/analytics/client";
-import { claimEvmSwapPoints } from "@/lib/profile/client";
+import { claimBridgePoints, claimEvmSwapPoints } from "@/lib/profile/client";
 import { formatPrice } from "@/lib/format";
 import { uniswapListingId } from "@/lib/spot/listings";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
@@ -692,6 +692,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       recordSwap(owner, { tx: result.txHash, at: Date.now(), chain: chain.key, token: token.address, symbol: token.symbol, side: bought ? "buy" : "sell", amount: tokenAmount, usd });
       // Points: the server reads the swap on-chain and counts it when it paid our fee.
       if (source === "uniswap" || source === "zerox" || source === "kyberswap") claimEvmSwapPoints(chain.id, result.txHash, source, owner);
+      // A same-chain LI.FI swap is in LI.FI's records like a bridge (the server waits for it to show up there).
+      else if (source === "lifi") claimBridgePoints("lifi", result.txHash);
       trackTrade({ venue: source, side: bought ? "buy" : "sell", usd: Math.round(usd * 100) / 100, feeBps: null, newsId: null, oneClick: preferences.oneClickTrading });
       return result.outAmount;
     } catch (caught) {
