@@ -137,11 +137,22 @@ export function AlertsView() {
 
   const connectTelegram = async () => {
     setBusy("telegram");
+    // The tab opens during the click: opened after the request, it's no longer a click and popup blockers drop it
+    // without a word (the button then seemed to do nothing).
+    const tab = window.open("", "_blank");
     const response = await fetch("/api/alerts/telegram/link", { method: "POST" }).catch(() => null);
     setBusy(null);
     const body = (await response?.json().catch(() => null)) as { url?: string; error?: string } | null;
-    if (!response?.ok || !body?.url) return toast({ tone: "error", title: "Couldn't start Telegram", message: body?.error });
-    window.open(body.url, "_blank", "noopener");
+    if (!response?.ok || !body?.url) {
+      tab?.close();
+      return toast({ tone: "error", title: "Couldn't start Telegram", message: body?.error ?? "Try again in a moment." });
+    }
+    if (tab) {
+      tab.opener = null;
+      tab.location.href = body.url;
+    } else {
+      toast({ tone: "info", title: "Open the bot to finish", message: "Press Start in Telegram to link this chat.", link: { href: body.url, label: "Open Telegram" } });
+    }
     // Wait for the bot to link the chat (the user presses Start there), up to the code's lifetime.
     if (poll.current) window.clearInterval(poll.current);
     setWaiting(true);
