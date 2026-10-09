@@ -317,8 +317,8 @@ dependency versions and design are free to diverge from angler-news.
     balance pinned first). USDG pays as is; another wallet chain's USDC or the Hyperliquid balance takes the bridge path
     below; any other token on any chain (`payFrom: "other"`, SOL and USDC on Solana too) is one `quoteDirectSwap` route
     (Relay or LI.FI) to USDG on Robinhood paid to the EVM wallet, then the Arcus press with what landed (as below).
-    All three swap cards share the pay token (`pay-memory.ts`): the EVM card remembers what it shows, the Solana and Arcus
-    cards what the user picks, and each starts from it, so USDC · Base or SOL stays the pay token when the Buy side
+    All three swap cards share the pay token (`pay-memory.ts`): each remembers what it shows, defaults included (/swap opens
+    on USDC · Solana and that must carry over too), and each starts from it, so USDC · Base or SOL stays the pay token when the Buy side
     moves to another chain's token (it used to fall back to that chain's own dollar). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
     with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →
     USDG to the wallet), with the Across quote previewed in the Buy box; when the USDG lands (`onDone`) the card asks

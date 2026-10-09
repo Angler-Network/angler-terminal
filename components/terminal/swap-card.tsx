@@ -512,10 +512,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const [payState, setPayState] = useState(() => arcusPay(rememberedPay(), usdg));
   const payFrom = payState.payFrom;
   const anyPay = payState.other;
-  const choosePay = (next: { payFrom: PayFrom; other: PayToken | null }) => {
-    setPayState(next);
-    rememberPay(payChoiceOf(next.payFrom, next.other, usdg));
-  };
+  const choosePay = (next: { payFrom: PayFrom; other: PayToken | null }) => setPayState(next);
   // USDG that a cross-chain run delivered to the wallet on Robinhood, waiting for the swap press.
   const [bridged, setBridged] = useState<bigint | null>(null);
   const [crossQuote, setCrossQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; error?: string } | null>(null);
@@ -562,6 +559,14 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     else setPayState(arcusPay(rememberedPay(), usdg));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per token shown
   }, [cardKey]);
+  // What this card shows is remembered, a default included: /swap opens on a Solana token paying USDC · Solana, and
+  // picking a Robinhood token from there used to fall back to USDG because that untouched default was never kept.
+  // (Declared after the sync above, so a token change reads the memory before this writes the old card's value.)
+  useEffect(() => {
+    if (isSolana) rememberPay(picked ? (payChoiceOfPick(picked) ?? SOLANA_USDC) : SOLANA_USDC);
+    else rememberPay(payChoiceOf(payState.payFrom, payState.other, usdg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the shown pay token
+  }, [isSolana, picked, payState]);
   // A token on another chain (BNB Chain's USDT, ETH on Base…): the swap crosses chains in one LI.FI route.
   const foreign = isSolana ? foreignFromChoice(picked) : null;
   const payMint = isSolana && picked && !foreign && picked.mint !== choice.token.mint ? picked.mint : USDC_MINT;
@@ -1033,8 +1038,6 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           exclude: choice.token.mint,
           onPick: (token) => {
             setPicked(token);
-            const remembered = payChoiceOfPick(token);
-            if (remembered) rememberPay(remembered);
             setAmount("");
           },
         })
