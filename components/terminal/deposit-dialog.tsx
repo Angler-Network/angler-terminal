@@ -24,6 +24,7 @@ import {
   isPerpEndpoint,
   presetRoute,
   stepsError,
+  WITHDRAW_FEES,
   type FundsEndpoint,
   type FundsKind,
   type FundsStep,
@@ -142,7 +143,7 @@ export function DepositDialog() {
   const value = Number(amount);
   // In the token the route starts with (BNB Chain's USDT has 18 decimals).
   const units = tokenUnits(amount, input ? decimalsOf(input) : 6);
-  const withdrawable = from === "hyperliquid" || from === "lighter" || from === "lighterRh" || from === "aster" ? accounts[from]?.withdrawable : undefined;
+  const withdrawable = from === "hyperliquid" || from === "lighter" || from === "lighterRh" || from === "aster" || from === "orderly" ? accounts[from]?.withdrawable : undefined;
   const fromWallet = from === "wallet" && input !== null;
   const error =
     route.kind !== "steps"
@@ -152,7 +153,8 @@ export function DepositDialog() {
   // The Across leg's quote preview: what it would pay out for this amount (after the withdrawal fee when it follows one).
   const acrossIndex = steps.findIndex((step) => step.kind === "across");
   const acrossStep = acrossIndex >= 0 ? (steps[acrossIndex] as Extract<FundsStep, { kind: "across" }>) : null;
-  const acrossInput = acrossStep && units !== null ? (acrossIndex === 0 || steps[0].kind !== "hlWithdraw" ? units : usdcUnits(String(Math.floor((value - HL_WITHDRAW_FEE_USDC) * 1e6) / 1e6))) : null;
+  const firstFee = steps[0] && steps[0].kind in WITHDRAW_FEES ? WITHDRAW_FEES[steps[0].kind as keyof typeof WITHDRAW_FEES] : 0;
+  const acrossInput = acrossStep && units !== null ? (acrossIndex === 0 || firstFee === 0 ? units : usdcUnits(String(Math.floor((value - firstFee) * 1e6) / 1e6))) : null;
   const quoteKey = acrossStep && acrossInput && acrossInput > 0n && address ? `${acrossStep.from.chainId}>${acrossStep.to.chainId}:${acrossStep.recipient}:${acrossInput}:${address}` : null;
 
   const enabled = (venue: PerpVenueId) =>

@@ -119,17 +119,18 @@ export function fundsRoute(
       : steps("deposit", [{ kind: "across", from: source, to: target, recipient: to }], source, target);
   }
 
-  if (from === "aster") {
-    // Aster pays out on Arbitrum here; other wallet chains and venues aren't wired from it yet.
-    if (to !== "wallet" || chains.to !== "arbitrum") return { kind: "soon" };
-    if (networkOf("aster") !== "mainnet") return { kind: "testnet" };
-    return steps("withdraw", [{ kind: "asterWithdraw" }], ARBITRUM, ARBITRUM);
-  }
-  if (from === "orderly") {
-    // Orderly pays out on Arbitrum; other wallet chains and venues aren't wired from it yet.
-    if (to !== "wallet" || chains.to !== "arbitrum") return { kind: "soon" };
-    if (networkOf("orderly") !== "mainnet") return { kind: "testnet" };
-    return steps("withdraw", [{ kind: "orderlyWithdraw" }], ARBITRUM, ARBITRUM);
+  if (from === "aster" || from === "orderly") {
+    // Both pay out USDC on Arbitrum; the run waits for it there, then bridges or deposits it on.
+    if (networkOf(from) !== "mainnet") return { kind: "testnet" };
+    const out: FundsStep = { kind: from === "aster" ? "asterWithdraw" : "orderlyWithdraw" };
+    if (to === "wallet") {
+      const target = fundsChainSource(chains.to);
+      if (target.chainId === ARBITRUM.chainId) return steps("withdraw", [out], ARBITRUM, ARBITRUM);
+      return steps("withdraw", [out, { kind: "across", from: ARBITRUM, to: target, recipient: "wallet" }], ARBITRUM, target);
+    }
+    if (to === "lighterRh") return steps("move", [out, { kind: "across", from: ARBITRUM, to: venueAsset(to), recipient: to }], ARBITRUM, venueAsset(to));
+    const plan = depositPlan(to, "mainnet");
+    return plan.kind === "transfer" ? steps("move", [out, transfer(to, plan, ARBITRUM)], ARBITRUM, ARBITRUM) : { kind: "soon" };
   }
   if (from === "lighter" || from === "lighterRh") {
     if (networkOf(from) !== "mainnet") return { kind: "testnet" };
@@ -180,6 +181,9 @@ export function fundsKind(route: FundsRoute): FundsKind | null {
 }
 
 /** The least a venue credits when Across pays it directly (Lighter's deposit minimums). */
+/** What each venue withdrawal takes off before the USDC lands (Aster's is quoted live; about this much). */
+export const WITHDRAW_FEES = { hlWithdraw: HL_WITHDRAW_FEE_USDC, orderlyWithdraw: 1, asterWithdraw: 0.5 } as const;
+
 export function acrossRecipientMinimum(recipient: "wallet" | LighterVenueId) {
   return recipient === "lighterRh" ? 1 : recipient === "lighter" ? MIN_DEPOSIT_USDC : 0;
 }
@@ -197,7 +201,12 @@ export function stepsError(steps: FundsStep[], amount: number, withdrawable: num
     const minimum = second?.kind === "transfer" ? second.minimum : second?.kind === "across" ? Math.max(1, acrossRecipientMinimum(second.recipient)) : 0;
     if (after <= 0 || after < minimum) return `Move at least ${HL_WITHDRAW_FEE_USDC + Math.max(minimum, 1)} USDC (1 USDC withdrawal fee${minimum ? ` + ${minimum} USDC minimum` : ""}).`;
   }
-  if (first.kind === "asterWithdraw" && withdrawable !== undefined && amount > withdrawable) return "More than Aster can withdraw right now.";
+  if (first.kind === "asterWithdraw" || first.kind === "orderlyWithdraw") {
+    if (withdrawable !== undefined && amount > withdrawable) return `More than ${first.kind === "asterWithdraw" ? "Aster" : "Orderly"} can withdraw right now.`;
+    const fee = WITHDRAW_FEES[first.kind];
+    const minimum = second?.kind === "transfer" ? second.minimum : second?.kind === "across" ? Math.max(1, acrossRecipientMinimum(second.recipient)) : 0;
+    if (amount - fee < Math.max(minimum, 0.01)) return `Move at least ${Math.ceil((fee + Math.max(minimum, 1)) * 100) / 100} USDC (about ${fee} USDC withdrawal fee${minimum ? ` + ${minimum} USDC minimum` : ""}).`;
+  }
   if (first.kind === "lighterWithdraw") {
     if (withdrawable !== undefined && amount > withdrawable) return "More than Lighter can withdraw right now.";
     const minimum = first.venue === "lighter" ? 4 : 1;

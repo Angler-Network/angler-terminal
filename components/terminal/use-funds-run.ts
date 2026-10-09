@@ -5,7 +5,7 @@ import { useToast } from "@/components/app/toast-provider";
 import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, ROBINHOOD, decimalsOf, fromTokenUnits, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
-import { acrossRecipientMinimum, type FundsStep } from "@/lib/venues/bridge-routes";
+import { acrossRecipientMinimum, WITHDRAW_FEES, type FundsStep } from "@/lib/venues/bridge-routes";
 import { BRIDGE_PROVIDER_NAMES, noRouteReason, type BridgeLegRef } from "@/lib/venues/bridge-leg";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import { EVM_SWAP_CHAINS, isNativeToken } from "@/lib/venues/uniswap/chains";
@@ -74,7 +74,7 @@ export function continueLabel(step: FundsStep, carry: bigint) {
   if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
   if (step.kind === "lighterWithdraw") return `Withdraw ${amount} ${stepInput(step).symbol} from ${PERP_VENUE_NAMES[step.venue]}`;
   if (step.kind === "asterWithdraw") return `Withdraw ${amount} USDC from Aster`;
-  return step.kind === "orderlyWithdraw" ? `Withdraw ${amount} USDC from Orderly` : "Withdraw from Hyperliquid";
+  return step.kind === "orderlyWithdraw" ? `Withdraw ${amount} USDC from Orderly` : step.kind === "hlWithdraw" ? "Withdraw from Hyperliquid" : `Withdraw ${amount}`;
 }
 
 interface FundsRunOptions {
@@ -123,21 +123,26 @@ export function useFundsRun(callbacks: FundsRunOptions) {
     const step = current.steps[current.index];
     setRun({ ...current, phase: "busy" });
     try {
-      if (step.kind === "asterWithdraw") {
-        const { withdrawAsterUsdc } = await import("@/lib/venues/aster/venue");
-        const { fee } = await withdrawAsterUsdc(wallet.provider, address, units6(current.carry));
-        // Aster pays out by itself: the run ends at the request.
-        setRun(null);
-        toast({ tone: "success", title: "Aster withdrawal requested", message: `${units6(current.carry).toFixed(2)} USDC (Aster's fee ${fee} USDC) lands on Arbitrum in a few minutes.` });
-        return options.current.onWithdrawOnly?.();
-      }
-      if (step.kind === "orderlyWithdraw") {
-        const { withdrawOrderly } = await import("@/lib/venues/orderly/withdraw");
-        await withdrawOrderly(wallet.provider, address, current.carry);
-        // Orderly pays out by itself, like Hyperliquid: the run ends at the request.
-        setRun(null);
-        toast({ tone: "success", title: "Orderly withdrawal requested", message: `${units6(current.carry).toFixed(2)} USDC minus Orderly's 1 USDC fee lands on Arbitrum in a few minutes.` });
-        return options.current.onWithdrawOnly?.();
+      if (step.kind === "asterWithdraw" || step.kind === "orderlyWithdraw") {
+        const before = await readUsdcBalance(ARBITRUM, address);
+        let fee: number = WITHDRAW_FEES.orderlyWithdraw;
+        if (step.kind === "asterWithdraw") {
+          const { withdrawAsterUsdc } = await import("@/lib/venues/aster/venue");
+          fee = (await withdrawAsterUsdc(wallet.provider, address, units6(current.carry))).fee;
+        } else {
+          const { withdrawOrderly } = await import("@/lib/venues/orderly/withdraw");
+          await withdrawOrderly(wallet.provider, address, current.carry);
+        }
+        const name = step.kind === "asterWithdraw" ? "Aster" : "Orderly";
+        toast({ tone: "success", title: `${name} withdrawal requested`, message: `${units6(current.carry).toFixed(2)} USDC minus ${name}'s ${fee} USDC fee lands on Arbitrum in a few minutes.` });
+        // A lone withdrawal ends at the request (the venue pays out by itself); a move waits for the USDC, then goes on.
+        if (current.steps.length === 1 && !options.current.waitForWithdrawal) {
+          setRun(null);
+          return options.current.onWithdrawOnly?.();
+        }
+        const expected = usdcUnits(String(Math.floor((units6(current.carry) - fee) * 1e6) / 1e6)) ?? 0n;
+        setRun({ ...current, phase: "waiting", wait: { kind: "arrival", before, expected, since: Date.now() } });
+        return;
       }
       if (step.kind === "lighterWithdraw") {
         const landed = lighterLanding(step.venue);

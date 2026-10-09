@@ -85,7 +85,9 @@ describe("Orderly funds", () => {
     expect(shape(fundsRoute("wallet", "orderly", on("base"), mainnet))).toEqual(["transfer orderly 8453"]);
     expect(shape(fundsRoute("hyperliquid", "orderly", on("arbitrum"), mainnet))).toEqual(["hlWithdraw", "transfer orderly 42161"]);
     expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "arbitrum"), mainnet))).toEqual(["orderlyWithdraw"]);
-    expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "base"), mainnet))).toBe("soon");
+    expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "base"), mainnet))).toEqual(["orderlyWithdraw", "across 42161>8453 wallet"]);
+    expect(shape(fundsRoute("orderly", "aster", on("arbitrum"), mainnet))).toEqual(["orderlyWithdraw", "transfer aster 42161"]);
+    expect(shape(fundsRoute("aster", "hyperliquid", on("arbitrum"), mainnet))).toEqual(["asterWithdraw", "transfer hyperliquid 42161"]);
     expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "arbitrum"), testnet))).toBe("testnet");
   });
 });
