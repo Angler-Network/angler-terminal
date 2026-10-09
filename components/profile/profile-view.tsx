@@ -368,6 +368,9 @@ function ReferralCard() {
   const [copied, setCopied] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [signing, setSigning] = useState(false);
+  // The full list stays folded: at $1M of volume it's 100 codes. Codes handed out here move the featured one along.
+  const [showAll, setShowAll] = useState(false);
+  const [handed, setHanded] = useState<string[]>([]);
   const [signInError, setSignInError] = useState<string | null>(null);
   // Opened from the account menu's Referrals: scroll here once the card has rendered.
   useEffect(() => {
@@ -401,13 +404,27 @@ function ReferralCard() {
     );
   }
   const { codes, nextAt } = profile.invites;
-  const available = codes.filter((entry) => !entry.usedBy).length;
+  const unused = codes.filter((entry) => !entry.usedBy);
+  const available = unused.length;
+  const used = codes.length - available;
+  // The next code to give: the first unused one not handed out in this visit (or the first unused once all were).
+  const featured = unused.find((entry) => !handed.includes(entry.code)) ?? unused[0] ?? null;
+  // Unused first, used ones last.
+  const listed = [...unused, ...codes.filter((entry) => entry.usedBy)];
   // Invites come from perp and spot volume only (not swaps).
   const ownVolume = profile.volume.hyperliquid + profile.volume.lighter + profile.volume.lighterRh + profile.volume.aster + profile.volume.orderly;
   // `copied` is "link:CODE" or "code:CODE", so each button says "Copied" on its own.
   const copy = (code: string, what: "link" | "code") =>
     void navigator.clipboard?.writeText(what === "link" ? `${window.location.origin}/?ref=${code}` : code).then(() => {
       setCopied(`${what}:${code}`);
+      window.setTimeout(() => {
+        setCopied(null);
+        setHanded((current) => (current.includes(code) ? current : [...current, code]));
+      }, 1500);
+    });
+  const copyAll = () =>
+    void navigator.clipboard?.writeText(unused.map((entry) => `${window.location.origin}/?ref=${entry.code}`).join("\n")).then(() => {
+      setCopied("all");
       window.setTimeout(() => setCopied(null), 1500);
     });
   return (
@@ -417,7 +434,9 @@ function ReferralCard() {
           Invites
           {profile.admin && <span className="rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-app-accent">Admin</span>}
         </h2>
-        <span className="ml-auto rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">{available} available</span>
+        <span className="ml-auto rounded-md bg-app-chip px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-app-muted">
+          {available} unused{used > 0 ? ` · ${used} used` : ""}
+        </span>
         {profile.admin && (
           <button
             type="button"
@@ -442,33 +461,67 @@ function ReferralCard() {
         fees they pay and of their points on perp and spot trades.
       </p>
       {codes.length > 0 ? (
-        <ul className="scrollbar-subtle mt-3 flex max-h-[168px] flex-col gap-1.5 overflow-y-auto">
-          {codes.map((entry) => (
-            <li key={entry.code} className="flex items-center gap-2 rounded-lg bg-app-chip/60 px-2.5 py-1.5">
-              <code className={`text-[13px] font-semibold tracking-wider ${entry.usedBy ? "text-app-faint line-through" : "text-app-ink"}`}>{entry.code}</code>
-              {entry.usedBy ? (
-                <span className="ml-auto text-[11px] text-app-faint">Used by {shortAddress(entry.usedBy)}</span>
-              ) : (
-                <span className="ml-auto flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => copy(entry.code, "code")}
-                    className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
-                  >
-                    {copied === `code:${entry.code}` ? "Copied" : "Copy code"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => copy(entry.code, "link")}
-                    className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
-                  >
-                    {copied === `link:${entry.code}` ? "Copied" : "Copy link"}
-                  </button>
-                </span>
+        <>
+          {featured ? (
+            // The next code to hand out; the rest wait under "Show all".
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-app-chip/60 px-2.5 py-2">
+              <span className="text-[11px] text-app-muted">Next invite</span>
+              <code className="text-[14px] font-semibold tracking-wider text-app-ink">{featured.code}</code>
+              <span className="ml-auto flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => copy(featured.code, "code")}
+                  className="h-7 rounded-lg border border-app-hairline-strong px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-selected/70"
+                >
+                  {copied === `code:${featured.code}` ? "Copied" : "Copy code"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copy(featured.code, "link")}
+                  className="h-7 rounded-lg bg-app-accent px-2.5 text-[12px] font-semibold text-app-on-accent hover:opacity-90"
+                >
+                  {copied === `link:${featured.code}` ? "Copied" : "Copy link"}
+                </button>
+              </span>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">Every invite has been used.</p>
+          )}
+          <div className="mt-1.5 flex items-center gap-3 text-[12px]">
+            <button type="button" onClick={() => setShowAll((open) => !open)} aria-expanded={showAll} className="font-semibold text-app-muted hover:text-app-ink">
+              {showAll ? "Hide all" : `Show all (${codes.length})`}
+            </button>
+            {available > 1 && (
+              <button type="button" onClick={copyAll} title="Every unused invite link, one per line" className="font-semibold text-app-muted hover:text-app-ink">
+                {copied === "all" ? "Copied" : `Copy all ${available} links`}
+              </button>
+            )}
+          </div>
+          {showAll && (
+            <ul className="scrollbar-subtle mt-2 grid max-h-[180px] grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
+              {listed.map((entry) =>
+                entry.usedBy ? (
+                  <li key={entry.code} title={`Used by ${shortAddress(entry.usedBy)}`} className="flex items-center gap-1.5 rounded-lg bg-app-chip/30 px-2 py-1.5">
+                    <code className="text-[12px] font-semibold tracking-wider text-app-faint line-through">{entry.code}</code>
+                    <span className="ml-auto text-[10px] text-app-faint">Used</span>
+                  </li>
+                ) : (
+                  <li key={entry.code}>
+                    <button
+                      type="button"
+                      onClick={() => copy(entry.code, "link")}
+                      title="Copy this invite's link"
+                      className="flex w-full items-center gap-1.5 rounded-lg bg-app-chip/60 px-2 py-1.5 text-left hover:bg-app-selected/70"
+                    >
+                      <code className={`text-[12px] font-semibold tracking-wider ${handed.includes(entry.code) ? "text-app-muted" : "text-app-ink"}`}>{entry.code}</code>
+                      <span className="ml-auto text-[10px] text-app-faint">{copied === `link:${entry.code}` ? "Copied" : handed.includes(entry.code) ? "Copied before" : "Copy"}</span>
+                    </button>
+                  </li>
+                ),
               )}
-            </li>
-          ))}
-        </ul>
+            </ul>
+          )}
+        </>
       ) : (
         <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">No invites yet.</p>
       )}
@@ -592,7 +645,8 @@ export function ProfileView({ tab }: { tab: ProfileTab }) {
           <PortfolioView />
         </div>
       ) : (
-        <section className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col gap-4 overflow-auto *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
+        // Vertical scroll only: BorderGlow's glow layer reaches past the cards' edges and used to add a sideways scroll.
+        <section className="surface-panel scrollbar-subtle flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden *:shrink-0 rounded-2xl border border-app-card/80 bg-app-card/55 p-4 sm:p-5">
           {tab === "leaderboard" ? <Leaderboard /> : tab === "admin" ? <AdminView invites={<ReferralCard />} /> : tab === "rewards" ? <RewardsView /> : tab === "alerts" ? <AlertsView /> : <Overview />}
         </section>
       )}
