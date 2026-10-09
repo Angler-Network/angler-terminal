@@ -1,18 +1,19 @@
 /**
- * Points and levels. 0.001 point per $100 traded through the terminal (a point per $100,000); levels follow the angler theme, from a
- * minnow to a whale. Thresholds grow roughly ×4-5 per level so the top ones stay rare.
+ * Points and levels. 10 points per $100,000 traded through the terminal (0.01 per $100); a multiplier for holding
+ * positions comes later. Levels follow the angler theme, from a minnow to a whale, set by volume: Perch at $1k, Pike at
+ * $100k, Whale at $100M (multipliers reach them sooner). Thresholds grow roughly ×4-5 per level so the top ones stay rare.
  */
 export const LEVELS = [
   { name: "Minnow", points: 0 },
-  { name: "Perch", points: 10 },
-  { name: "Trout", points: 50 },
-  { name: "Bass", points: 250 },
-  { name: "Pike", points: 1_000 },
-  { name: "Salmon", points: 2_500 },
-  { name: "Tuna", points: 10_000 },
-  { name: "Swordfish", points: 50_000 },
-  { name: "Shark", points: 250_000 },
-  { name: "Whale", points: 1_000_000 },
+  { name: "Perch", points: 0.1 },
+  { name: "Trout", points: 0.5 },
+  { name: "Bass", points: 2.5 },
+  { name: "Pike", points: 10 },
+  { name: "Salmon", points: 25 },
+  { name: "Tuna", points: 100 },
+  { name: "Swordfish", points: 500 },
+  { name: "Shark", points: 2_500 },
+  { name: "Whale", points: 10_000 },
 ] as const;
 
 export interface LevelInfo {
@@ -37,11 +38,11 @@ export const REFERRAL_SHARE = 0.1;
 export const BETA_POINTS_MULTIPLIER = 2;
 
 /** Points per dollar of volume. */
-export const POINTS_PER_USD = 0.00001;
+export const POINTS_PER_USD = 0.0001;
 
-/** Points earned for a dollar volume: 0.001 per whole $100, kept to three decimals. */
+/** Points earned for a dollar volume: 0.01 per whole $100, kept to two decimals. */
 export function pointsFor(usd: number) {
-  return Number.isFinite(usd) && usd > 0 ? Math.floor(usd / 100) / 1000 : 0;
+  return Number.isFinite(usd) && usd > 0 ? Math.floor(usd / 100) / 100 : 0;
 }
 
 export function levelFor(points: number): LevelInfo {

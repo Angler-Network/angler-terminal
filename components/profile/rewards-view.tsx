@@ -8,7 +8,7 @@ import { BETA_POINTS_MULTIPLIER, pointsFor } from "@/lib/profile/levels";
 import { vipFor } from "@/lib/profile/vip";
 import { useProfile } from "./profile-provider";
 
-const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
+const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
 /** Angler gold, for the cards' edge glow. */
@@ -57,7 +57,7 @@ export function RewardsView() {
   const tradingPoints = Math.max(0, profile.points - profile.referralPoints);
   const vip = vipFor(profile.recentVolume.d30);
   const history = profile.daily.map((day) => ({ ...day, points: pointsFor(day.usd + (day.bonusUsd ?? 0)) }));
-  const max = Math.max(0.001, ...history.map((day) => day.points));
+  const max = Math.max(0.01, ...history.map((day) => day.points));
   const earned30 = history.reduce((sum, day) => sum + day.points, 0);
   const active = [...history].reverse().filter((day) => day.points > 0);
 
@@ -132,7 +132,7 @@ export function RewardsView() {
           icon={<TrendingUp className="size-5" strokeWidth={1.75} aria-hidden />}
           title="Trading"
           value={number.format(tradingPoints)}
-          detail="Earn 0.001 point per $100 traded."
+          detail="Earn 10 points per $100,000 traded."
           cta={{ label: "Trade now", href: "/perp" }}
         />
         <SourceCard

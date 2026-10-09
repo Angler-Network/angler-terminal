@@ -43,8 +43,8 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
 /** Angler's Discord (`NEXT_PUBLIC_DISCORD_URL`): referral earnings are withdrawn through a ticket there. */
 const DISCORD_URL = DISCORD?.url ?? null;
-// Points carry three decimals (0.001 per $100).
-const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
+// Points carry two decimals (0.01 per $100).
+const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const usd2 = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -351,7 +351,7 @@ function Overview() {
       <section className={`${card} p-4 text-[12px] leading-relaxed text-app-muted`}>
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
-          <li>0.001 point per $100 traded through Angler (a point per $100,000), on every venue the terminal routes to.</li>
+          <li>10 points per $100,000 traded through Angler (0.01 per $100), on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Aster trades with Angler&apos;s builder code, Orderly volume under Angler&apos;s broker (a day after it closes), Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Lighter trades from a Standard account (which pays no trading fee) earn half points; Plus and Premium accounts earn full points. Your Lighter account card can switch to Plus.</li>
           <li>Closed beta: trades placed while the beta is closed earn {BETA_POINTS_MULTIPLIER}x points, even when they show up here later. Volume totals, VIP tiers and invites still count it once.</li>

@@ -766,7 +766,7 @@ dependency versions and design are free to diverge from angler-news.
   top bar's avatar button (`profile-button.tsx`, once a wallet connects) leads to it. A profile is keyed by the wallet
   (EVM address lowercase, else the Solana address; `identity.ts`). Usernames (3-20 `[A-Za-z0-9_]`, unique ignoring
   case) are set by signing a plain-text message (`profileMessage`, EVM `personal_sign` or Solana `signMessage`,
-  accepted for 10 minutes; no gas, no login). Points: 0.001 per $100 traded through Angler (`pointsFor`, a point per $100,000; 2x during the closed beta) (`levels.ts`, ten fishing
+  accepted for 10 minutes; no gas, no login). Points: 10 per $100,000 traded through Angler (`pointsFor`, 0.01 per $100; 2x during the closed beta; a position-holding multiplier is planned; levels set by volume, Perch $1k to Whale $100M) (`levels.ts`, ten fishing
   levels Minnow → Whale), only from the venues' own records (`volume.ts`, `server.ts`): Hyperliquid fills whose
   `builderFee` matches our builder rate (`userFillsByTime`, the last 10,000 fills on first sync), Lighter trades whose
   own side's client order index ends in `ANGLER_CLIENT_TAG` (`lighter/pricing.ts`; counted from 2026-10-07, earlier

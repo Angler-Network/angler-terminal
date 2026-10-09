@@ -60,7 +60,7 @@ export function ProfileButton() {
         <ProfileAvatar id={shownId} size={22} image={profile?.ens?.avatar} />
         <span className="hidden max-w-[120px] truncate sm:inline">{profile?.username ?? profile?.ens?.name ?? shortAddress(shownId)}</span>
         {profile && (
-          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 3 })} points`} className="hidden rounded-md bg-app-accent/25 px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00] sm:inline [html[data-tone=dark]_&]:bg-app-accent/20 [html[data-tone=dark]_&]:text-app-accent">
+          <span title={`${profile.level.name} · ${profile.points.toLocaleString("en-US", { maximumFractionDigits: 2 })} points`} className="hidden rounded-md bg-app-accent/25 px-1.5 py-0.5 text-[10px] font-bold text-[#8a5a00] sm:inline [html[data-tone=dark]_&]:bg-app-accent/20 [html[data-tone=dark]_&]:text-app-accent">
             Lv {profile.level.level}
           </span>
         )}
