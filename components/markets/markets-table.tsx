@@ -15,10 +15,13 @@ import { useSpotListings } from "@/components/terminal/use-spot-listings";
 import { formatPrice } from "@/lib/format";
 import { MARKET_CATEGORIES, type MarketCategory } from "@/lib/markets/category";
 import { assetNames, assetRows, matchesQuery, type AssetRow } from "@/lib/markets/rows";
-import { FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
+import { FUNDING_VENUES, TRADABLE_FUNDING_VENUES, bestFundingArb, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { FundingArbDialog } from "./funding-arb-dialog";
+
+/** The tradable venues listing a row's asset: an arb needs two of them. */
+const arbVenues = (row: { venues: Partial<Record<PerpVenueId, unknown>> }) => TRADABLE_FUNDING_VENUES.filter((venue) => Boolean(row.venues[venue as PerpVenueId]));
 
 const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
 
@@ -92,7 +95,7 @@ export function MarketsTable() {
       assetRows(marketsByVenue).map((row) => {
         const rates = funding?.[row.symbol] ?? {};
         // A spread is only actionable when both venues we hedge across list the asset.
-        return { ...row, rates, arb: row.venues.hyperliquid && row.venues.lighter ? bestFundingArb(rates) : null };
+        return { ...row, rates, arb: arbVenues(row).length >= 2 ? bestFundingArb(rates, arbVenues(row)) : null };
       }),
     [marketsByVenue, funding],
   );

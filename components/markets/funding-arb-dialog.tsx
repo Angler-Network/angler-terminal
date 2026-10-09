@@ -56,7 +56,8 @@ export function FundingArbDialog({
   const notional = Number(size);
   const price = long.midPx ?? long.markPx ?? short.midPx ?? short.markPx ?? 0;
   const base = arbLegSize(notional, price, [long.szDecimals, short.szDecimals]);
-  const lighter = long.venue === "lighter" ? long : short.venue === "lighter" ? short : null;
+  const isLighter = (venue: string) => venue === "lighter" || venue === "lighterRh";
+  const lighter = isLighter(long.venue) ? long : isLighter(short.venue) ? short : null;
   const lighterMinimum = lighter && price ? minimumSize(lighter, price) : 0;
   const tooSmall = base <= 0 || base < lighterMinimum;
   const openingFees = notional * (takerFeeFor(long) + takerFeeFor(short));
