@@ -32,6 +32,20 @@ export const ORDERLY_VAULTS: Record<OrderlyNetwork, { chainId: number; vault: `0
 /** Orderly's base taker fee; our broker fee is charged on top of it. */
 export const ORDERLY_BASE_TAKER_FEE = 0.0003;
 
+/** The example account id in Orderly's WebSocket docs: accepted by the public stream on mainnet and testnet. */
+export const ORDERLY_DOCS_STREAM_ID = "OqdphuyCtYWxwzhxyLLjOWNdFP7sQt8RPWzmb5xY";
+
+/**
+ * Ids for the public stream's URL path, in the order to try them. Orderly closes the socket on an id it doesn't know
+ * (it used to take any), so ours (`NEXT_PUBLIC_ORDERLY_STREAM_ID`, an Orderly account id) goes first when set and the
+ * docs' example is the fallback.
+ */
+export function orderlyStreamIds(value: string | undefined) {
+  const own = value?.trim() ?? "";
+  const valid = /^(0x[0-9a-fA-F]{64}|[A-Za-z0-9]{8,80})$/.test(own);
+  return valid && own !== ORDERLY_DOCS_STREAM_ID ? [own, ORDERLY_DOCS_STREAM_ID] : [ORDERLY_DOCS_STREAM_ID];
+}
+
 export function readOrderlyNetwork(value: string | undefined): OrderlyNetwork {
   return value === "mainnet" ? "mainnet" : "testnet";
 }
@@ -51,6 +65,7 @@ export function readOrderlyConfig(env: Record<string, string | undefined>, pinne
     takerFee,
     apiUrl: ENDPOINTS[network].api,
     wsUrl: ENDPOINTS[network].ws,
+    streamIds: orderlyStreamIds(env.NEXT_PUBLIC_ORDERLY_STREAM_ID),
     appUrl: ENDPOINTS[network].app,
     /** Chain id the wallet signs registration and keys for (Arbitrum, where deposits go). */
     signChainId: ORDERLY_VAULTS[network].chainId,
@@ -64,4 +79,5 @@ export const orderlyConfig = readOrderlyConfig({
   NEXT_PUBLIC_ORDERLY_NETWORK: process.env.NEXT_PUBLIC_ORDERLY_NETWORK,
   NEXT_PUBLIC_ORDERLY_BROKER_ID: process.env.NEXT_PUBLIC_ORDERLY_BROKER_ID,
   NEXT_PUBLIC_ORDERLY_TAKER_FEE: process.env.NEXT_PUBLIC_ORDERLY_TAKER_FEE,
+  NEXT_PUBLIC_ORDERLY_STREAM_ID: process.env.NEXT_PUBLIC_ORDERLY_STREAM_ID,
 });

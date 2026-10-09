@@ -3,7 +3,7 @@ import { base58, base64urlnopad } from "@scure/base";
 import { describe, expect, it } from "vitest";
 import futures from "./fixtures/public-futures.json";
 import info from "./fixtures/public-info.json";
-import { ORDERLY_TESTNET_DEMO_BROKER, readOrderlyConfig } from "./config";
+import { ORDERLY_DOCS_STREAM_ID, ORDERLY_TESTNET_DEMO_BROKER, orderlyStreamIds, readOrderlyConfig } from "./config";
 import { orderlyFundingRows } from "./funding";
 import { orderlyBase, readOrderlyAccount, readOrderlyBook, readOrderlyCandles, readOrderlyMarkets, readOrderlyTrade, roundToTick, tickDecimals } from "./markets";
 import { newOrderlyKey, orderlyAccountId, orderlyHash, orderlyHeaders, orderlyMessage } from "./sign";
@@ -106,5 +106,19 @@ describe("Orderly funding", () => {
       { exchange: "orderly", symbol: "BTC", rate: 0.00001 },
       { exchange: "orderly", symbol: "DOGE", rate: 0.0004 },
     ]);
+  });
+});
+
+describe("orderlyStreamIds", () => {
+  const own = `0x${"ab".repeat(32)}`;
+  it("tries our account id first, the docs' example after it", () => {
+    expect(orderlyStreamIds(own)).toEqual([own, ORDERLY_DOCS_STREAM_ID]);
+    expect(orderlyStreamIds(` ${own} `)).toEqual([own, ORDERLY_DOCS_STREAM_ID]);
+  });
+  it("falls back to the docs' example when unset or malformed", () => {
+    expect(orderlyStreamIds(undefined)).toEqual([ORDERLY_DOCS_STREAM_ID]);
+    expect(orderlyStreamIds("")).toEqual([ORDERLY_DOCS_STREAM_ID]);
+    expect(orderlyStreamIds("angler/../x")).toEqual([ORDERLY_DOCS_STREAM_ID]);
+    expect(orderlyStreamIds(ORDERLY_DOCS_STREAM_ID)).toEqual([ORDERLY_DOCS_STREAM_ID]);
   });
 });

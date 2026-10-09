@@ -158,7 +158,9 @@ dependency versions and design are free to diverge from angler-news.
   `/v1/orders?status=INCOMPLETE` every 3s, candles `/tv/history`. TP/SL: POST `/v1/algo/order` `POSITIONAL_TP_SL` (mark price, `CLOSE_POSITION`
   children) placed after a market fill or from the position row; a resting limit entry can't carry one. Funding rates
   (`orderly/funding.ts`, `/v1/public/futures` + `/info`, normalized to 8h) join the Markets table. The REST book needs a signed account,
-  so the order book and best execution read the public WebSocket (`stream.ts`: one shared socket, any id in the path,
+  so the order book and best execution read the public WebSocket (`stream.ts`: one shared socket; the path needs an
+  account id Orderly knows (it refuses others since Oct 2026): `NEXT_PUBLIC_ORDERLY_STREAM_ID` first when set, else the
+  docs' example id, `orderlyStreamIds`; a socket closed before its first message moves to the next,
   `{symbol}@orderbook` full snapshots + `@trade`, answers pings). Deposits (`depositToOrderly`): USDC approve + vault
   `deposit(VaultDepositFE{accountId, brokerHash, tokenHash, amount})` with `getDepositFee` as the value, Arbitrum or
   Base (vault `0x816f…67e9` on both); testnet points to Orderly's testnet app. Withdrawals (`withdraw.ts`, the funds window's Orderly → Wallet on
@@ -529,7 +531,8 @@ dependency versions and design are free to diverge from angler-news.
   (Jupiter and Arcus are AMM/routers) and shows the spot venues' balances in the account card; /perp the perp ones.
 - Prediction (`/prediction`, `components/prediction/*`, `lib/prediction/*`): Polymarket and Hyperliquid HIP-4
   outcome markets in one shape (`types.ts`: event → binary markets → two outcomes with price = probability and the
-  traded asset). Polymarket is where the volume is (HIP-4 traded ~$51M in September, about 0.07% of Polymarket +
+  traded asset). Off on the testnet site (`predictionViewAvailable`: no nav entry, `/prediction` redirects home):
+  Polymarket has no testnet, so the page would show and trade real Polygon markets there. Polymarket is where the volume is (HIP-4 traded ~$51M in September, about 0.07% of Polymarket +
   Kalshi), HIP-4 trades with the account the terminal already has. Polymarket is blocked by ISPs in Turkey (DNS points
   at a block page): develop it over a VPN exit outside Polymarket's geoblock list, and never route orders through
   our server to get around a block.

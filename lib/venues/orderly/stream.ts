@@ -9,12 +9,12 @@ import { readOrderlyBook, readOrderlyTrade } from "./markets";
  * `{symbol}@orderbook` stream (a full depth-100 snapshot every second) and `{symbol}@trade`. Topics are subscribed while
  * someone listens and dropped a minute after the last one leaves; the socket answers Orderly's pings and reconnects.
  * The URL path takes an account id, and Orderly now closes the socket (1000) on any id it doesn't know ("angler-public"
- * worked until October 2026), so it's the example id from Orderly's own WebSocket docs, accepted on mainnet and testnet.
+ * worked until October 2026): `orderlyConfig.streamIds` lists ours (when set) and the docs' example, and a socket closed
+ * before its first message moves on to the next id.
  */
 
 type Listener = { book?: (book: BookSide) => void; trade?: (trade: TapeTrade) => void };
 
-const STREAM_ID = "OqdphuyCtYWxwzhxyLLjOWNdFP7sQt8RPWzmb5xY";
 const RETRY_MS = 3_000;
 const IDLE_UNSUBSCRIBE_MS = 60_000;
 
@@ -25,6 +25,7 @@ const latest = new Map<string, BookSide>();
 const subscribed = new Set<string>();
 const idle = new Map<string, ReturnType<typeof setTimeout>>();
 let tradeCount = 0;
+let streamIndex = 0;
 
 function send(message: Record<string, unknown>) {
   if (socket && open) socket.send(JSON.stringify(message));
@@ -38,8 +39,10 @@ function subscribe(topic: string) {
 
 function connect() {
   if (socket || typeof WebSocket === "undefined") return;
-  const ws = new WebSocket(`${orderlyConfig.wsUrl}/${STREAM_ID}`);
+  const ids = orderlyConfig.streamIds;
+  const ws = new WebSocket(`${orderlyConfig.wsUrl}/${ids[streamIndex % ids.length]}`);
   socket = ws;
+  let heard = false;
   ws.onopen = () => {
     open = true;
     const topics = [...subscribed];
@@ -47,6 +50,7 @@ function connect() {
     for (const topic of topics) subscribe(topic);
   };
   ws.onmessage = (event) => {
+    heard = true;
     let message: { event?: string; topic?: string; ts?: number; data?: unknown };
     try {
       message = JSON.parse(String(event.data));
@@ -71,6 +75,8 @@ function connect() {
   ws.onclose = () => {
     socket = null;
     open = false;
+    // Closed before saying anything: the id was refused, so the next connect tries the next one.
+    if (!heard) streamIndex += 1;
     // Topics stay in `subscribed`, so a reconnect resubscribes them.
     if (listeners.size > 0) setTimeout(connect, RETRY_MS);
   };
