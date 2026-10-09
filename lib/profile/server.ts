@@ -4,7 +4,7 @@ import { address, getAddressEncoder, getBase58Encoder, getProgramDerivedAddress 
 import { verifyMessage } from "viem";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
-import { jupServerConfig } from "@/lib/venues/jupiter/server";
+import { jupFetch, jupServerConfig } from "@/lib/venues/jupiter/server";
 import { readAccountIndex } from "@/lib/venues/lighter/account";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
@@ -14,8 +14,10 @@ import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
 import { tierFee, tierFees, vipFor } from "./vip";
+import { pointsShareFor } from "./levels";
 import { syncAster } from "./aster-volume";
 import { syncOrderly } from "./orderly-volume";
+import { syncPolymarket } from "./polymarket-volume";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -101,12 +103,13 @@ export async function syncProfile(id: string) {
   // Trades placed while the closed beta was on earn bonus points, whenever they're synced.
   const beta = await readBetaWindow();
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
-  const [hl, lighter, lighterRh, aster, orderly] = await Promise.allSettled([
+  const [hl, lighter, lighterRh, aster, orderly, polymarket] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl, beta),
     syncLighter(lighterConfig, id, cursors.lighter, beta),
     syncLighter(lighterRhConfig, id, cursors.lighterRh, beta),
     syncAster(id, cursors.aster, (time) => inBeta(beta, time)),
     syncOrderly(id, cursors.orderly, Date.now(), (day) => dayInBeta(beta, day)),
+    syncPolymarket(id, cursors.polymarket, (time) => inBeta(beta, time)),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
     await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee, 0, { betaUsd: hl.value.betaUsd });
@@ -137,6 +140,11 @@ export async function syncProfile(id: string) {
     await creditVolume(id, "orderly", orderly.value.usd, orderly.value.fee, 0, { betaUsd: orderly.value.betaUsd });
     await saveCursors(id, { orderly: orderly.value.cursor });
   } else if (orderly.status === "rejected") console.warn(`[profile] Orderly sync failed: ${String(orderly.reason)}`);
+  if (polymarket.status === "fulfilled" && polymarket.value) {
+    // Builder trades of the wallet's Deposit Wallet; points scale with our builder fee (full at the perp base or above).
+    await creditVolume(id, "polymarket", polymarket.value.usd, polymarket.value.fee, 0, { betaUsd: polymarket.value.betaUsd, pointsShare: pointsShareFor(polymarket.value.bps) });
+    await saveCursors(id, { polymarket: polymarket.value.lastTime });
+  } else if (polymarket.status === "rejected") console.warn(`[profile] Polymarket sync failed: ${String(polymarket.reason)}`);
 }
 
 async function referralAccounts(referral: string, mints: string[]) {
@@ -171,6 +179,15 @@ async function fetchTransaction(signature: string): Promise<ParsedSolanaTx | nul
   return null;
 }
 
+/** A Solana token amount in USD at Jupiter's price (its token search carries `usdPrice`). */
+async function tokenUsd(mint: string, amount: bigint, decimals: number) {
+  const response = await jupFetch(`/tokens/v2/search?query=${encodeURIComponent(mint)}`).catch(() => null);
+  if (!response?.ok) return null;
+  const list = (await response.json().catch(() => [])) as Array<{ id?: string; usdPrice?: number }>;
+  const price = Array.isArray(list) ? list.find((token) => token.id === mint)?.usdPrice : undefined;
+  return price && price > 0 ? (Number(amount) / 10 ** decimals) * price : null;
+}
+
 export type SwapClaim = { ok: true; venue: "jupiter" | "titan"; usd: number; profile: string } | { ok: false; error: string; status: number };
 
 /** Credits a Solana swap that paid our Jupiter referral or Titan fee, once per transaction. */
@@ -191,14 +208,18 @@ export async function claimSwap(signature: string): Promise<SwapClaim> {
       : null;
   const swap = jupiter ?? titan;
   if (!swap) return { ok: false, error: "Not a swap placed through Angler.", status: 422 };
+  const venue = jupiter ? "jupiter" : "titan";
+  const feeBps = jupiter ? (referral?.feeBps ?? 0) : (titanFee?.bps ?? 0);
+  // A swap that didn't touch USDC: its volume from our fee (what the referral account received, priced) and our rate.
+  const usd = swap.usd > 0 ? swap.usd : swap.fee && feeBps > 0 ? ((await tokenUsd(swap.fee.mint, swap.fee.amount, swap.fee.decimals)) ?? 0) / (feeBps / 10_000) : 0;
+  if (!(usd > 0)) return { ok: false, error: "Couldn't price the swap.", status: 422 };
   if (!(await claimTransaction(signature))) return { ok: false, error: "Already counted.", status: 409 };
   try {
     const profile = await creditTarget(swap.signer);
-    const venue = jupiter ? "jupiter" : "titan";
     // The swap's block time (claims come right after confirming, so now when the RPC leaves it out).
     const time = tx.blockTime ? tx.blockTime * 1000 : Date.now();
-    await creditVolume(profile, venue, swap.usd, 0, 0, { betaUsd: inBeta(await readBetaWindow(), time) ? swap.usd : 0 });
-    return { ok: true, venue, usd: swap.usd, profile };
+    await creditVolume(profile, venue, usd, (usd * feeBps) / 10_000, 0, { betaUsd: inBeta(await readBetaWindow(), time) ? usd : 0, pointsShare: pointsShareFor(feeBps) });
+    return { ok: true, venue, usd, profile };
   } catch (error) {
     await releaseTransaction(signature);
     throw error;

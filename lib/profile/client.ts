@@ -18,3 +18,13 @@ export function claimSwapPoints(signature: string) {
     .then(() => announceTrade())
     .catch(() => {});
 }
+
+/**
+ * The same for an EVM swap (Uniswap, 0x, KyberSwap, Arcus): the server reads the transaction on that chain and counts it
+ * once when it paid our fee. Fire-and-forget.
+ */
+export function claimEvmSwapPoints(chainId: number, hash: string, provider: "uniswap" | "zerox" | "kyberswap" | "arcus", wallet: string) {
+  void fetch("/api/profile/evm-swap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chainId, hash, provider, wallet }), keepalive: true })
+    .then(() => announceTrade())
+    .catch(() => {});
+}

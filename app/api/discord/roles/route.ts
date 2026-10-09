@@ -1,14 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { desiredRoles, managedRoles } from "@/lib/discord/roles";
+import { desiredRoles, managedRoles, rolesKey } from "@/lib/discord/roles";
 import { discordConfig, syncDiscordRoles } from "@/lib/discord/server";
 import { SESSION_COOKIE, sessionId } from "@/lib/profile/session";
-import { readDiscordLink, readProfile, takeDiscordClaim, volume30d } from "@/lib/profile/store";
+import { readDiscordLink, readProfile, saveDiscordSync, takeDiscordClaim, volume30d } from "@/lib/profile/store";
 import { vipFor } from "@/lib/profile/vip";
 import { sameOrigin } from "@/lib/same-origin";
 
 /**
  * "Claim roles": the bot gives the linked Discord account the roles of the profile's level and 30-day VIP tier now and
- * takes back the ones it moved past. Only on this request (opt-in); nothing changes roles on its own.
+ * takes back the ones it moved past. After that the alerts tick keeps them current (`lib/discord/auto.ts`); this
+ * press just does it at once.
  */
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -21,7 +22,9 @@ export async function POST(request: NextRequest) {
   if (!(await takeDiscordClaim(id))) return NextResponse.json({ error: "Roles were just updated. Try again in a few seconds." }, { status: 429 });
   const [profile, volume] = await Promise.all([readProfile(id), volume30d(id)]);
   const standing = { level: profile.level.level, vip: vipFor(volume).level };
-  const result = await syncDiscordRoles(config, link.id, desiredRoles(config, standing), managedRoles(config));
+  const desired = desiredRoles(config, standing);
+  const result = await syncDiscordRoles(config, link.id, desired, managedRoles(config));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
+  await saveDiscordSync(id, rolesKey(desired));
   return NextResponse.json({ level: profile.level.name, vip: standing.vip, added: result.added.length, removed: result.removed.length });
 }

@@ -29,7 +29,7 @@ import { profileIdOf, type ProfileChain } from "./identity";
  */
 const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 
-export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan"] as const;
+export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan", "uniswap", "zerox", "kyberswap", "arcus", "polymarket"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 /** Perp and order-book spot venues: only their volume earns invites and referral rewards (not swaps or bridges). */
@@ -229,12 +229,17 @@ function referralUsdOf(hash: Record<string, string>) {
  */
 export const STANDARD_POINTS_SHARE = 0.5;
 
-/** Volume that earned only part of its points (`half:{venue}`), less the share it did earn. */
+/**
+ * Volume that earned only part of its points: `half:{venue}` (Standard Lighter, less the share it did earn) and
+ * `less:{venue}` (volume left out of points where our fee is below the perp base, `pointsShareFor`).
+ */
 function reducedUsdOf(hash: Record<string, string>) {
   let reduced = 0;
   for (const venue of PROFILE_VENUES) {
-    const value = Number(hash[`half:${venue}`] ?? 0);
-    if (Number.isFinite(value) && value > 0) reduced += value * (1 - STANDARD_POINTS_SHARE);
+    const half = Number(hash[`half:${venue}`] ?? 0);
+    if (Number.isFinite(half) && half > 0) reduced += half * (1 - STANDARD_POINTS_SHARE);
+    const less = Number(hash[`less:${venue}`] ?? 0);
+    if (Number.isFinite(less) && less > 0) reduced += less;
   }
   return reduced;
 }
@@ -311,16 +316,17 @@ export async function readCursors(id: string) {
     const value = Number(hash[field]);
     return Number.isFinite(value) ? value : null;
   };
-  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor"), aster: number("asterCursor"), orderly: number("orderlyCursor") };
+  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor"), aster: number("asterCursor"), orderly: number("orderlyCursor"), polymarket: number("polymarketCursor") };
 }
 
-export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number; orderly?: number }) {
+export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number; orderly?: number; polymarket?: number }) {
   const fields: Record<string, string> = {};
   if (cursors.hl !== undefined) fields.hlCursor = String(cursors.hl);
   if (cursors.lighter !== undefined) fields.lighterCursor = String(cursors.lighter);
   if (cursors.lighterRh !== undefined) fields.lighterRhCursor = String(cursors.lighterRh);
   if (cursors.aster !== undefined) fields.asterCursor = String(cursors.aster);
   if (cursors.orderly !== undefined) fields.orderlyCursor = String(cursors.orderly);
+  if (cursors.polymarket !== undefined) fields.polymarketCursor = String(cursors.polymarket);
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 
@@ -342,8 +348,9 @@ export async function volume30d(id: string) {
  * Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. On perp and spot
  * venues the referrer, if any, earns a share of the points and REFERRAL_FEE_SHARE of `feeUsd`, the Angler fee paid.
  * `betaUsd` (of which `betaStandardUsd` on a Standard Lighter account) is the part traded while the closed beta was on
- * (`beta-points.ts`, by the trade's own time): it earns BETA_POINTS_MULTIPLIER times its points. Volume moved from a
- * linked wallet passes none: its bonus moves on its own.
+ * (`beta-points.ts`, by the trade's own time): it earns BETA_POINTS_MULTIPLIER times its points. `pointsShare` (0-1,
+ * `pointsShareFor` our fee) scales the points where our fee is below the perp base; the volume still counts in full.
+ * Volume moved from a linked wallet passes none: its bonus moves on its own.
  */
 export async function creditVolume(
   id: string,
@@ -351,22 +358,26 @@ export async function creditVolume(
   usd: number,
   feeUsd = 0,
   standardUsd = 0,
-  { betaUsd = 0, betaStandardUsd = 0 }: { betaUsd?: number; betaStandardUsd?: number } = {},
+  { betaUsd = 0, betaStandardUsd = 0, pointsShare = 1 }: { betaUsd?: number; betaStandardUsd?: number; pointsShare?: number } = {},
 ) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
+  const shareOfPoints = Number.isFinite(pointsShare) ? Math.min(1, Math.max(0, pointsShare)) : 1;
   // Part of `usd` traded on a Standard Lighter account: recorded so points count it at STANDARD_POINTS_SHARE.
   const standard = Math.round(Math.min(Math.max(0, standardUsd), usd) * 100) / 100;
-  // What the volume is worth in points, for the referrer's share too.
-  const pointsAmount = Math.round((amount - standard * (1 - STANDARD_POINTS_SHARE)) * 100) / 100;
+  const afterStandard = amount - standard * (1 - STANDARD_POINTS_SHARE);
+  // What the volume is worth in points, for the referrer's share too; `less` is what our lower fee leaves out.
+  const pointsAmount = Math.round(afterStandard * shareOfPoints * 100) / 100;
+  const less = Math.round((afterStandard - pointsAmount) * 100) / 100;
   // Closed beta: the extra points, kept as volume that counts for points only.
-  const betaPoints = Math.min(pointsAmount, Math.max(0, betaUsd - Math.max(0, betaStandardUsd) * (1 - STANDARD_POINTS_SHARE)));
+  const betaPoints = Math.min(pointsAmount, Math.max(0, (betaUsd - Math.max(0, betaStandardUsd) * (1 - STANDARD_POINTS_SHARE)) * shareOfPoints));
   const bonusUsd = Math.round(betaPoints * (BETA_POINTS_MULTIPLIER - 1) * 100) / 100;
   const today = dayKey(Date.now());
   if (redisConfig()) {
     await run([
       ["HINCRBYFLOAT", key("p", id), `usd:${venue}`, amount],
       ...(standard > 0 ? [["HINCRBYFLOAT", key("p", id), `half:${venue}`, standard] as RedisCommand] : []),
+      ...(less > 0 ? [["HINCRBYFLOAT", key("p", id), `less:${venue}`, less] as RedisCommand] : []),
       ...(bonusUsd > 0
         ? [
             ["HINCRBYFLOAT", key("p", id), "bonusUsd", bonusUsd] as RedisCommand,
@@ -381,6 +392,7 @@ export async function creditVolume(
     const hash = memory.hashes.get(key("p", id)) ?? {};
     hash[`usd:${venue}`] = String(Number(hash[`usd:${venue}`] ?? 0) + amount);
     if (standard > 0) hash[`half:${venue}`] = String(Number(hash[`half:${venue}`] ?? 0) + standard);
+    if (less > 0) hash[`less:${venue}`] = String(Number(hash[`less:${venue}`] ?? 0) + less);
     if (bonusUsd > 0) hash.bonusUsd = String(Number(hash.bonusUsd ?? 0) + bonusUsd);
     memory.hashes.set(key("p", id), hash);
     const days = memory.hashes.get(key("d", id)) ?? {};
@@ -545,13 +557,19 @@ export async function linkWallet(solanaId: string, evmId: string) {
   const hash = await getHash(solanaId);
   const volume = volumeOf(hash);
   // The bonus it earned moves with it; moved volume earns no second bonus.
-  for (const venue of PROFILE_VENUES) if (volume[venue] > 0) await creditVolume(evmId, venue, volume[venue]);
+  for (const venue of PROFILE_VENUES) {
+    if (!(volume[venue] > 0)) continue;
+    // Volume our lower fee left out of points stays out after the move.
+    const less = Number(hash[`less:${venue}`] ?? 0);
+    const pointsShare = Number.isFinite(less) && less > 0 ? Math.max(0, 1 - less / volume[venue]) : 1;
+    await creditVolume(evmId, venue, volume[venue], 0, 0, { pointsShare });
+  }
   const bonusUsd = bonusUsdOf(hash);
   if (bonusUsd > 0) {
     await setFields(evmId, { bonusUsd: String(bonusUsdOf(await getHash(evmId)) + bonusUsd) });
     await setPoints(evmId, pointsOf(await getHash(evmId)));
   }
-  await deleteFields(solanaId, [...PROFILE_VENUES.map((venue) => `usd:${venue}`), "bonusUsd"]);
+  await deleteFields(solanaId, [...PROFILE_VENUES.flatMap((venue) => [`usd:${venue}`, `less:${venue}`]), "bonusUsd"]);
   await setPoints(solanaId, 0);
   if (hash.linkedTo && hash.linkedTo !== evmId) {
     if (redisConfig()) await run([["SREM", key("links", hash.linkedTo), solanaId]]);
@@ -693,6 +711,8 @@ export async function linkDiscord(id: string, discordId: string, name: string): 
   if (previous && previous !== discordId) await dropKey(key("discord", previous));
   await putKey(key("discord", discordId), id);
   await setFields(id, { discordId, discordName: name.slice(0, 64) });
+  await deleteFields(id, ["discordRoles", "discordRetry"]);
+  await addToSet(key("dlinked"), id);
   return { ok: true };
 }
 
@@ -707,8 +727,58 @@ export async function unlinkDiscord(id: string) {
   const link = await readDiscordLink(id);
   if (!link) return null;
   await dropKey(key("discord", link.id));
-  await deleteFields(id, ["discordId", "discordName"]);
+  await deleteFields(id, ["discordId", "discordName", "discordRoles", "discordRetry"]);
+  if (redisConfig()) await run([["SREM", key("dlinked"), id]]);
+  else memory.sets.get(key("dlinked"))?.delete(id);
   return link.id;
+}
+
+/**
+ * Profiles with a linked Discord account (`dlinked` set). Links made before the set existed are added once, from the
+ * `discord:<id>` index.
+ */
+export async function discordLinkedIds(): Promise<string[]> {
+  if (!(await getKey(key("dlinked-v1")))) {
+    if (redisConfig()) {
+      let cursor = "0";
+      const found: string[] = [];
+      do {
+        const [result] = await run([["SCAN", cursor, "MATCH", key("discord", "*"), "COUNT", 500]]);
+        const [next, keys] = Array.isArray(result) ? (result as [string, string[]]) : ["0", []];
+        cursor = String(next);
+        if (keys.length) found.push(...((await run(keys.map((name) => ["GET", name]))) as unknown[]).filter((value): value is string => typeof value === "string"));
+      } while (cursor !== "0");
+      if (found.length) await run([["SADD", key("dlinked"), ...found]]);
+    } else {
+      for (const [name, entry] of memory.strings) if (name.startsWith(key("discord", ""))) await addToSet(key("dlinked"), entry.value);
+    }
+    await putKey(key("dlinked-v1"), "1");
+  }
+  return members(key("dlinked"));
+}
+
+/** What the automatic role refresh needs about a profile: its Discord account, level, 30-day volume and last sync. */
+export async function readDiscordStanding(id: string) {
+  const hash = await getHash(id);
+  if (!hash.discordId) return null;
+  const retry = Number(hash.discordRetry ?? 0);
+  return {
+    discordId: hash.discordId,
+    level: levelFor(pointsOf(hash)).level,
+    volume30d: await volume30d(id),
+    roles: hash.discordRoles ?? null,
+    retryAt: Number.isFinite(retry) ? retry : 0,
+  };
+}
+
+/** Records the roles a profile's Discord account now holds (sorted ids), or when to try again after a failure. */
+export async function saveDiscordSync(id: string, roles: string | null, retryAt = 0) {
+  await setFields(id, { ...(roles !== null ? { discordRoles: roles } : {}), discordRetry: String(retryAt) });
+}
+
+/** True when the automatic role refresh may run now (once every 5 minutes across instances). */
+export function takeDiscordAuto() {
+  return takeKey(key("dauto"), 300);
 }
 
 /** True when this profile may claim roles now (DISCORD_CLAIM_SECONDS between claims). */

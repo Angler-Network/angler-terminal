@@ -127,7 +127,9 @@ export interface ParsedSolanaTx {
 
 /**
  * A swap that paid us: it succeeded, `feeAccounts` (our fee token accounts) appear in it or a `feeOwners` wallet's
- * token balance grew, and the volume is the signer's USDC change. Null when it isn't one.
+ * token balance grew, and the volume is the signer's USDC change. A swap that didn't touch USDC (SOL → a token) has no
+ * USDC change: `usd` is 0 and `fee` is what our fee account received (mint and amount), for the caller to price.
+ * Null when it isn't one.
  */
 export function readAnglerSwap(tx: ParsedSolanaTx, proof: { feeAccounts: Set<string>; feeOwners: Set<string> }, usdcMint: string) {
   if (!tx.meta || tx.meta.err !== null) return null;
@@ -149,5 +151,17 @@ export function readAnglerSwap(tx: ParsedSolanaTx, proof: { feeAccounts: Set<str
     decimals = [...pre, ...post].find((entry) => entry.accountIndex === index)?.uiTokenAmount.decimals ?? decimals;
   }
   const usd = Math.abs(Number(change)) / 10 ** decimals;
-  return usd > 0 ? { signer, usd } : null;
+  if (usd > 0) return { signer, usd, fee: null };
+  // No USDC moved: what our fee account received instead.
+  const paid = post.find(
+    (entry) =>
+      (proof.feeAccounts.has(keys[entry.accountIndex]?.pubkey ?? "") || (entry.owner !== undefined && proof.feeOwners.has(entry.owner))) &&
+      amount(post, entry.accountIndex) > amount(pre, entry.accountIndex),
+  );
+  if (!paid) return null;
+  return {
+    signer,
+    usd: 0,
+    fee: { mint: paid.mint, amount: amount(post, paid.accountIndex) - amount(pre, paid.accountIndex), decimals: paid.uiTokenAmount.decimals },
+  };
 }

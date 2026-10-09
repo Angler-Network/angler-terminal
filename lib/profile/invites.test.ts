@@ -19,6 +19,22 @@ describe("Lighter Standard volume", () => {
   });
 });
 
+describe("points scaled by our fee", () => {
+  it("gives a lower-fee venue its share of points, full points at the perp base or above", async () => {
+    const trader = "0x00000000000000000000000000000000000000f1";
+    // Uniswap at 1 bp: 1 / 3.5 of the points; 0x at 10 bps: capped at full points; the volume counts in full.
+    await creditVolume(trader, "uniswap", 35_000, 3.5, 0, { pointsShare: 1 / 3.5 });
+    await creditVolume(trader, "zerox", 10_000, 10, 0, { pointsShare: 1 });
+    const profile = await readProfile(trader);
+    expect(profile.volume.uniswap).toBe(35_000);
+    expect(profile.points).toBe(2);
+    // During the beta the share is doubled too: 35,000 × (1 / 3.5) × 2.
+    const beta = "0x00000000000000000000000000000000000000f2";
+    await creditVolume(beta, "uniswap", 35_000, 3.5, 0, { betaUsd: 35_000, pointsShare: 1 / 3.5 });
+    expect((await readProfile(beta)).points).toBe(2);
+  });
+});
+
 describe("closed beta points", () => {
   it("doubles the points of volume traded during the beta, not the volume", async () => {
     const trader = "0x00000000000000000000000000000000000000e2";

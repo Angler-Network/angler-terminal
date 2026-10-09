@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desiredRoles, discordAuthorizeUrl, discordName, managedRoles, readDiscordConfig, roleChanges } from "./roles";
+import { desiredRoles, discordAuthorizeUrl, discordName, managedRoles, readDiscordConfig, roleChanges, rolesKey } from "./roles";
 
 const ID = (n: number) => `1${String(n).padStart(18, "0")}`;
 const base = { DISCORD_CLIENT_ID: ID(1), DISCORD_CLIENT_SECRET: "secret", DISCORD_BOT_TOKEN: "bot", DISCORD_GUILD_ID: ID(2) };
@@ -60,5 +60,12 @@ describe("Discord helpers", () => {
   it("shows the display name, else the username", () => {
     expect(discordName({ username: "fisher", global_name: "Big Fisher" })).toBe("Big Fisher");
     expect(discordName({ username: "fisher", global_name: null })).toBe("fisher");
+  });
+});
+
+describe("rolesKey", () => {
+  it("is the same for the same roles in any order", () => {
+    expect(rolesKey([ID(12), ID(10)])).toBe(rolesKey([ID(10), ID(12)]));
+    expect(rolesKey([])).toBe("");
   });
 });

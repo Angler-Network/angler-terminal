@@ -23,7 +23,7 @@ import { arcusConfig } from "@/lib/venues/arcus/config";
 import { quoteRobinhood } from "@/lib/venues/robinhood-quotes";
 import { ROBINHOOD_SOURCE_NAMES, robinhoodSources, type RobinhoodSource } from "@/lib/venues/robinhood-sources";
 import { PERP_VENUE_NAMES, pickPerpMarket } from "@/lib/venues/routing";
-import { claimSwapPoints } from "@/lib/profile/client";
+import { claimEvmSwapPoints, claimSwapPoints } from "@/lib/profile/client";
 import type { OrderSide, PerpVenueId, SpotQuote, SpotToken, SpotVenueId } from "@/lib/venues/types";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useTrading } from "./trading-provider";
@@ -282,6 +282,7 @@ export function useNewsTrader() {
           amount: fromBaseUnits(bought ? boughtLeg.amount : soldLeg.amount, token.decimals),
           usd,
         });
+        claimEvmSwapPoints(arcusConfig.chainId, swapped.txHash, source === "uniswap" ? "uniswap" : "arcus", evmAddress);
         return { venue: source, usd, feeBps: null } satisfies Placed;
       } catch (error) {
         toast({

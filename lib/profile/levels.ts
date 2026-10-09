@@ -37,6 +37,17 @@ export const REFERRAL_SHARE = 0.1;
  */
 export const BETA_POINTS_MULTIPLIER = 2;
 
+/**
+ * The perp fee points are set against (VIP base, 3.5 bps). A venue where our fee is lower earns that share of points
+ * (Uniswap at 1 bp: 1/3.5); a higher fee never earns more than full points, and no fee earns none.
+ */
+export const POINTS_BASE_FEE_BPS = 3.5;
+
+/** The share of points (0-1) volume earns at our fee of `feeBps` on it. */
+export function pointsShareFor(feeBps: number | null | undefined) {
+  return Number.isFinite(feeBps) && (feeBps as number) > 0 ? Math.min(1, (feeBps as number) / POINTS_BASE_FEE_BPS) : 0;
+}
+
 /** Points per dollar of volume. */
 export const POINTS_PER_USD = 0.0001;
 

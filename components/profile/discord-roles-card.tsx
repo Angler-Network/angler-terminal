@@ -20,7 +20,8 @@ const LINK_RESULTS: Record<string, { tone: "ok" | "error"; text: string }> = {
 
 /**
  * Discord roles for the level and VIP tier, opt-in: connect the Discord account once (Discord's own consent page,
- * identify only), then "Claim roles" asks the bot for the current ones (it also takes back the ones moved past). Hidden
+ * identify only), then "Claim roles" asks the bot for the current ones (it also takes back the ones moved past); the
+ * alerts tick keeps them current after that (`lib/discord/auto.ts`). Hidden
  * when the site has no Discord bot set up (`lib/discord/roles.ts`).
  */
 export function DiscordRolesCard() {
@@ -78,7 +79,7 @@ export function DiscordRolesCard() {
           ) : (
             " and, from VIP 1, your VIP tier"
           )}
-          . Claim again after you level up.
+          . Once claimed, they follow your level and VIP tier on their own within a few minutes.
           {linked && <span className="text-app-faint"> Connected as {linked}.</span>}
         </p>
         {message && <p className={`mt-1 text-[12px] ${message.tone === "ok" ? "text-app-up" : "text-app-down"}`}>{message.text}</p>}

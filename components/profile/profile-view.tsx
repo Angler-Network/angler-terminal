@@ -39,6 +39,11 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
   { id: "orderly", name: "Orderly", kind: "Perps" },
   { id: "jupiter", name: "Jupiter", kind: "Swap" },
   { id: "titan", name: "Titan", kind: "Swap" },
+  { id: "uniswap", name: "Uniswap", kind: "Swap" },
+  { id: "zerox", name: "0x", kind: "Swap" },
+  { id: "kyberswap", name: "KyberSwap", kind: "Swap" },
+  { id: "arcus", name: "Arcus", kind: "Stock tokens" },
+  { id: "polymarket", name: "Polymarket", kind: "Prediction" },
 ];
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
@@ -370,7 +375,8 @@ function Overview() {
         <h2 className="mb-1.5 text-[13px] font-semibold text-app-ink">How points work</h2>
         <ul className="list-disc space-y-1 pl-4">
           <li>10 points per $100,000 traded through Angler (0.01 per $100), on every venue the terminal routes to.</li>
-          <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Aster trades with Angler&apos;s builder code, Orderly volume under Angler&apos;s broker (a day after it closes), Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
+          <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Aster trades with Angler&apos;s builder code, Orderly volume under Angler&apos;s broker (a day after it closes), Solana and EVM swaps (Jupiter, Titan, Uniswap, 0x, KyberSwap, Arcus) that paid Angler&apos;s fee on-chain, Polymarket trades carrying Angler&apos;s builder code. Trading in other apps doesn&apos;t count.</li>
+          <li>Where Angler&apos;s fee is below the perp base of 3.5 bps, volume earns that share of points (a 1 bp fee earns 1/3.5); a higher fee never earns more than full points.</li>
           <li>Lighter trades from a Standard account (which pays no trading fee) earn half points; Plus and Premium accounts earn full points. Your Lighter account card can switch to Plus.</li>
           <li>Closed beta: trades placed while the beta is closed earn {BETA_POINTS_MULTIPLIER}x points: 20 points per $100,000 (0.02 per $100), even when they show up here later. Once the beta opens, new trades go back to 10 per $100,000 (0.01 per $100); points already earned stay. Volume totals, VIP tiers and invites still count it once.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>

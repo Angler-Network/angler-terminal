@@ -117,10 +117,16 @@ describe("Solana swaps", () => {
   it("reads the signer's USDC change on swaps that paid us", () => {
     // Jupiter: our referral token account is in the transaction.
     const jupiter = tx(["User", "ReferralAta", "Pool"], [balance(3, "User", USDC, "250000000")], [balance(3, "User", USDC, "150000000")]);
-    expect(readAnglerSwap(jupiter, proof, USDC)).toEqual({ signer: "User", usd: 100 });
+    expect(readAnglerSwap(jupiter, proof, USDC)).toEqual({ signer: "User", usd: 100, fee: null });
     // Titan: the fee wallet's USDC balance grows.
     const titan = tx(["User", "Pool"], [balance(1, "FeeWallet", USDC, "0"), balance(2, "User", USDC, "0")], [balance(1, "FeeWallet", USDC, "30000"), balance(2, "User", USDC, "120000000")]);
-    expect(readAnglerSwap(titan, proof, USDC)).toEqual({ signer: "User", usd: 120 });
+    expect(readAnglerSwap(titan, proof, USDC)).toEqual({ signer: "User", usd: 120, fee: null });
+  });
+
+  it("hands back our fee when the swap didn't touch USDC (SOL → a token)", () => {
+    const SOL = "So11111111111111111111111111111111111111112";
+    const swap = tx(["User", "ReferralAta", "Pool"], [balance(1, "ReferralPda", SOL, "1000")], [balance(1, "ReferralPda", SOL, "6000")]);
+    expect(readAnglerSwap(swap, proof, USDC)).toEqual({ signer: "User", usd: 0, fee: { mint: SOL, amount: BigInt(5000), decimals: 6 } });
   });
 
   it("refuses swaps that didn't pay us or failed", () => {

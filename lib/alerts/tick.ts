@@ -2,6 +2,7 @@ import "server-only";
 import { mapLimit } from "@/lib/async";
 import { venueAvailable } from "@/lib/deployment";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
+import { refreshDiscordRoles } from "@/lib/discord/auto";
 import { deliver } from "./channels";
 import { alertPrices } from "./coins";
 import {
@@ -121,6 +122,8 @@ export async function runAlertsTick(now = Date.now()) {
 
     await saveStates(results.filter((result) => result.changed).map(({ id, state }) => ({ id, state })));
     if (newest > cursor) await saveNewsCursor(newest);
+    // Discord level and VIP roles follow the profiles on their own (every 5 minutes, only changed ones call Discord).
+    await refreshDiscordRoles(now).catch((error) => console.error("discord: role refresh failed", error));
     return { skipped: false as const, profiles: profiles.length, messages: results.reduce((sum, result) => sum + result.sent, 0), news: news.length };
   } finally {
     await releaseTickLock();

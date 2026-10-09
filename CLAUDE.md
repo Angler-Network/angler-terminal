@@ -775,7 +775,16 @@ dependency versions and design are free to diverge from angler-news.
   own side's client order index ends in `ANGLER_CLIENT_TAG` (`lighter/pricing.ts`; counted from 2026-10-07, earlier
   orders weren't tagged), Solana swaps whose transaction pays our Jupiter referral token account (PDA
   `referral_ata` + account + mint) or Titan fee USDC account, volume = the signer's USDC change, each transaction
-  once. Perp volume syncs when the profile loads (`GET /api/profile/{id}?sync=1`, at most once a minute per profile,
+  once. EVM swaps (`claimEvmSwapPoints` → `POST /api/profile/evm-swap`, `evm-swap.ts` + `evm-swap-server.ts`): the
+  server reads the transaction on that chain's public RPC and counts it when our fee recipient is in it (in the calldata
+  for Uniswap `UNISWAP_FEE_RECIPIENT` and 0x/KyberSwap `AGGREGATOR_FEE_RECIPIENT`, as a token transfer to
+  `ARCUS_FEE_RECIPIENT` for Arcus; unset, no points) and the wallet took part; volume is the wallet's side priced (the
+  chain's dollars at $1, else DefiLlama). Solana swaps that didn't touch USDC (SOL → token) take their volume from what
+  our referral account received, priced by Jupiter, over our rate. Polymarket (`polymarket-volume.ts`): the public
+  `clob.polymarket.com/builder/trades?builder_code=` (one shared read a minute), trades whose `maker` is the wallet's
+  Deposit Wallet (`lib/venues/polymarket/deposit-wallet.ts`, CREATE2 as the SDK does, both proxy kinds, pinned by a test
+  against the SDK bundle), rate `POLYMARKET_BUILDER_FEE_BPS`. Points scale with our fee (`pointsShareFor`: our bps / 3.5,
+  `POINTS_BASE_FEE_BPS`, capped at 1x; the rest stored as `less:{venue}`), volume always counts in full. Perp volume syncs when the profile loads (`GET /api/profile/{id}?sync=1`, at most once a minute per profile,
   cursors per venue); swaps are claimed after they confirm (`claimSwapPoints` → `POST /api/profile/swap`). A Solana
   wallet can be linked to an EVM profile (signed by the Solana wallet): its volume moves over and later swaps count
   there. Stored in Redis per deployment (`store.ts`, memory without Redis): the one place wallet addresses are kept.
@@ -808,7 +817,10 @@ dependency versions and design are free to diverge from angler-news.
   account (`discord:<id>` index), stored as `discordId`/`discordName` on the profile and named to its owner only
   (`ProfileView.discord`; `enabled` is public so the card can ask to sign in). "Claim roles" (`POST /api/discord/roles`,
   once per 20s) has the bot give the role of the current level and 30-day VIP tier and take back managed roles moved
-  past (`roleChanges`: roles the feature doesn't manage are never touched); unlinking takes them all back. No gateway
+  past (`roleChanges`: roles the feature doesn't manage are never touched); unlinking takes them all back. After a
+  claim the alerts tick keeps them current (`lib/discord/auto.ts`, every 5 minutes: linked profiles in the `dlinked`
+  set, roles worked out from stored points and 30-day volume, Discord called only when they differ from `discordRoles`,
+  at most 15 a run; a failure waits 6 hours). No gateway
   or always-on bot: plain REST calls with `DISCORD_BOT_TOKEN`. Env in `.env.example` (`DISCORD_CLIENT_ID/SECRET`,
   `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_LEVEL_ROLES`, `DISCORD_VIP_ROLES`); unset, or on the testnet site
   (`readDiscordConfig` checks `NEXT_PUBLIC_DEPLOYMENT`), the card is hidden.

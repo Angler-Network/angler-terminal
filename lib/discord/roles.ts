@@ -3,8 +3,8 @@ import { LEVELS } from "@/lib/profile/levels";
 /**
  * Discord roles for levels and VIP tiers (pure, unit-tested; the calls are in `server.ts`). Optional: a trader links
  * their Discord account from the profile (OAuth, `identify` only) and presses "Claim roles"; the bot then gives the role
- * of their current level and VIP tier and takes back the ones they've moved past. One role per group at a time, and
- * roles this feature doesn't manage are never touched.
+ * of their current level and VIP tier and takes back the ones they've moved past. After that the alerts tick keeps them
+ * current on its own (`auto.ts`). One role per group at a time, and roles this feature doesn't manage are never touched.
  *
  * Env (all server side; the feature is off unless every required one is set):
  * - DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET: the Discord application (OAuth2 → redirect `<site>/api/discord/callback`).
@@ -79,6 +79,9 @@ export function desiredRoles(config: Pick<DiscordConfig, "levelRoles" | "vipRole
   if (vip) roles.push(vip);
   return roles;
 }
+
+/** A role set as stored after a sync: sorted ids, comma separated, so an unchanged standing needs no Discord call. */
+export const rolesKey = (roles: string[]) => [...roles].sort().join(",");
 
 /** What to add and take back, given the member's roles now: only managed roles ever move. */
 export function roleChanges(current: string[], managed: Set<string>, desired: string[]) {
