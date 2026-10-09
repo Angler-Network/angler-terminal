@@ -309,11 +309,11 @@ export function MarketsTable() {
         {(!settled || shown.length === 0) &&
           (!settled || rows.length === 0 ? <LoadingState label="Loading markets…" /> : <p className="p-6 text-center text-[12px] text-app-muted">No market matches.</p>)}
       </div>
-      {arbRow?.arb && arbRow.venues.hyperliquid && arbRow.venues.lighter && (
+      {arbRow?.arb && arbRow.venues[arbRow.arb.longVenue as PerpVenueId] && arbRow.venues[arbRow.arb.shortVenue as PerpVenueId] && (
         <FundingArbDialog
           symbol={arbRow.symbol}
           arb={arbRow.arb}
-          markets={{ hyperliquid: arbRow.venues.hyperliquid, lighter: arbRow.venues.lighter }}
+          markets={arbRow.venues}
           onClose={() => setArbRow(null)}
         />
       )}
