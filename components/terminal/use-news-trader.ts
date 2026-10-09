@@ -141,7 +141,7 @@ export function useNewsTrader() {
         const input = { inputToken, outputToken, amount, taker: solanaAddress, slippageBps: trade.slippageBps };
         // Jupiter and Titan quote the same swap; the one with more output is executed.
         const [balances, jupiter, titan] = await Promise.all([
-          jupiterVenue.getBalances(solanaAddress, [payToken.mint, token.mint]),
+          jupiterVenue.getBalances(solanaAddress, [payToken.mint, token.mint], { fresh: true }),
           trade.spotSource === "titan" ? Promise.resolve(null) : jupiterVenue.getQuote(input).catch((error: unknown) => error),
           // Private (MEV-protected) swaps land through Jupiter's Beam only.
           preferences.venueTitan && !preferences.privateSwap && trade.spotSource !== "jupiter" ? getTitanQuote(input) : Promise.resolve(null),

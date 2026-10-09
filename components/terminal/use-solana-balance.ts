@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readSolanaBalances } from "@/lib/venues/jupiter/balance-cache";
 import { WSOL_MINT } from "@/lib/venues/jupiter/config";
 
 const BALANCE_REFRESH_MS = 15_000;
@@ -16,9 +17,7 @@ export function useSolanaBalance(owner: string | null, mint: string | null, refr
     let active = true;
     const load = async () => {
       try {
-        const response = await fetch(`/api/solana/balances?owner=${owner}&mints=${mint === WSOL_MINT ? "" : mint}`, { cache: "no-store" });
-        const body = (await response.json()) as { lamports?: string; tokens?: Record<string, string> };
-        if (!response.ok || body.lamports === undefined) return;
+        const body = await readSolanaBalances(owner, mint === WSOL_MINT ? [] : [mint]);
         const lamports = BigInt(body.lamports);
         const amount = mint === WSOL_MINT ? (lamports > SOL_RESERVE_LAMPORTS ? lamports - SOL_RESERVE_LAMPORTS : 0n) : BigInt(body.tokens?.[mint] ?? "0");
         if (active) setState({ key, amount });

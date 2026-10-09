@@ -2,6 +2,7 @@
 
 import type { SpotBalances, SpotQuote, SpotQuoteInput, SpotToken, SpotVenue, TransactionSigner } from "../types";
 import { VenueError } from "../types";
+import { readSolanaBalances } from "./balance-cache";
 import { SOLSCAN_TX_URL, USDC_MINT } from "./config";
 import { executeErrorMessage, walletErrorMessage } from "./errors";
 import { toSpotQuote, type JupOrderResponse } from "./quote";
@@ -98,11 +99,13 @@ async function executeQuote(quote: SpotQuote, sign: TransactionSigner) {
   };
 }
 
-async function getBalances(owner: string, mints: string[]): Promise<SpotBalances> {
-  const params = new URLSearchParams({ owner, mints: mints.join(",") });
-  const response = await fetch(`/api/solana/balances?${params}`, { cache: "no-store" });
-  const body = await readJson<{ lamports: string; tokens: Record<string, string> }>(response);
-  if (!response.ok) throw new VenueError(body.error ?? "Couldn't load balances.");
+async function getBalances(owner: string, mints: string[], options?: { fresh?: boolean }): Promise<SpotBalances> {
+  let body: Awaited<ReturnType<typeof readSolanaBalances>>;
+  try {
+    body = await readSolanaBalances(owner, mints, options);
+  } catch (error) {
+    throw new VenueError(error instanceof Error ? error.message : "Couldn't load balances.");
+  }
   return {
     lamports: BigInt(body.lamports),
     tokens: Object.fromEntries(Object.entries(body.tokens).map(([mint, amount]) => [mint, BigInt(amount)])),

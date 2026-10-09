@@ -5,6 +5,10 @@ import { jupServerConfig } from "@/lib/venues/jupiter/server";
 import { rateLimited } from "@/lib/rate-limit";
 
 const MAX_MINTS = 4;
+// The same wallet open in several tabs asks for the same balances: one RPC read per few seconds per instance serves them.
+const FRESH_MS = 4_000;
+const MAX_ENTRIES = 2_000;
+const reads = new Map<string, { at: number; body: Promise<{ lamports: string; tokens: Record<string, string> }> }>();
 
 async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T> {
   const response = await fetch(url, {
@@ -32,7 +36,9 @@ export async function GET(request: NextRequest) {
   if (!isSolanaAddress(owner) || !mints.every(isSolanaAddress)) return NextResponse.json({ error: "Invalid owner or mints" }, { status: 400 });
 
   const { rpcUrl } = jupServerConfig();
-  try {
+  const key = `${owner}|${[...mints].sort().join(",")}`;
+  const hit = reads.get(key);
+  const load = async () => {
     const [balance, ...accounts] = await Promise.all([
       rpc<{ value: number }>(rpcUrl, "getBalance", [owner, { commitment: "confirmed" }]),
       ...mints.map((mint) =>
@@ -44,7 +50,18 @@ export async function GET(request: NextRequest) {
       ),
     ]);
     const tokens = Object.fromEntries(mints.map((mint, index) => [mint, sumTokenAccounts(accounts[index].value).toString()]));
-    return NextResponse.json({ lamports: String(balance.value), tokens }, { headers: { "cache-control": "no-store" } });
+    return { lamports: String(balance.value), tokens };
+  };
+  // `fresh`: right before or after a trade, never a copy.
+  let body = hit && Date.now() - hit.at < FRESH_MS && params.get("fresh") !== "1" ? hit.body : null;
+  if (!body) {
+    body = load();
+    reads.set(key, { at: Date.now(), body });
+    body.catch(() => reads.delete(key));
+    if (reads.size > MAX_ENTRIES) reads.delete(reads.keys().next().value!);
+  }
+  try {
+    return NextResponse.json(await body, { headers: { "cache-control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Couldn't read balances from Solana RPC." }, { status: 502 });
   }

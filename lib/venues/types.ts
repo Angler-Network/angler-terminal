@@ -235,7 +235,8 @@ export interface SpotVenue {
   resolveToken(query: { symbol: string; mint?: string }): Promise<SpotToken | null>;
   getQuote(input: SpotQuoteInput): Promise<SpotQuote>;
   executeQuote(quote: SpotQuote, sign: TransactionSigner): Promise<SpotSwapResult>;
-  getBalances(owner: string, mints: string[]): Promise<SpotBalances>;
+  /** `fresh` skips the shared copy other panels may have read in the last few seconds (right before a trade). */
+  getBalances(owner: string, mints: string[], options?: { fresh?: boolean }): Promise<SpotBalances>;
 }
 
 export type Venue = PerpVenue | SpotVenue;
