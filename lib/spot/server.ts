@@ -191,6 +191,18 @@ const STATS_EXPIRE_SECONDS = 24 * 60 * 60;
 const memoryStats = new Map<string, string>();
 
 /** GeckoTerminal stats for tokens nothing else covered; a failed batch (429 included) only leaves those bare. */
+/**
+ * GeckoTerminal stats run at most once per chain every few hours per instance: on every 2-minute refresh they took up to
+ * 50 calls, which used up a keyed CoinGecko budget within hours. What they fill is remembered for 6 hours anyway.
+ */
+const GECKO_STATS_EVERY_MS = 3 * 60 * 60 * 1000;
+const geckoStatsAt = new Map<number, number>();
+function geckoStatsDue(chainId: number, now = Date.now()) {
+  if (now - (geckoStatsAt.get(chainId) ?? 0) < GECKO_STATS_EVERY_MS) return false;
+  geckoStatsAt.set(chainId, now);
+  return true;
+}
+
 async function geckoStats(network: PoolNetwork, addresses: string[]) {
   const markets = new Map<string, TokenMarket>();
   for (let index = 0; index < addresses.length; index += GECKO_TOKENS_BATCH) {
@@ -338,7 +350,7 @@ async function uniswapListings(): Promise<SpotListing[]> {
       const [prices, pools, remembered] = await Promise.all([llamaMarkets(chain.llama, wanted), dexMarkets(chain.dexscreener, wanted), recallStats(chain.id, wanted)]);
       // GeckoTerminal fills what DexScreener left bare and nothing recent remembers, a few calls at most per refresh.
       const lacking = wanted.filter((address) => needsStats(pools.get(address.toLowerCase())) && needsStats(remembered.get(address.toLowerCase())));
-      const gecko = await geckoStats(chain.pool, lacking.slice(0, GECKO_MAX_TOKENS_PER_CHAIN));
+      const gecko = geckoStatsDue(chain.id) ? await geckoStats(chain.pool, lacking.slice(0, GECKO_MAX_TOKENS_PER_CHAIN)) : new Map<string, TokenMarket>();
       const fresh = new Map(wanted.map((address) => [address.toLowerCase(), fillMarket(pools.get(address.toLowerCase()), gecko.get(address.toLowerCase()))]));
       await rememberStats(chain.id, fresh);
       // Native ETH has no pool of its own: it trades at WETH's price. DefiLlama's price first, then the pool sources'.

@@ -572,7 +572,9 @@ dependency versions and design are free to diverge from angler-news.
   `COINGECKO_API_KEY`, `COINGECKO_API_PLAN=pro` for paid plans). Calls are scarce (free: ~10/min site-wide; keyed:
   monthly credits possibly shared with the Angler API), so the server fetches 1000 base candles per pool and timeframe
   once every 5 minutes and slices them for every interval and refresh, pools are cached an hour, and a keyed setup
-  stops at `COINGECKO_DAILY_BUDGET` calls a day (`takeDailyBudget`, Redis). Between fetches `applyLivePrice` moves the
+  stops at `COINGECKO_DAILY_BUDGET` calls a day (`takeDailyBudget`, Redis); past it, or when the key is refused
+  or rate limited, `onchainJson` falls back to GeckoTerminal's free API (same paths). The spot list's GeckoTerminal
+  stats run once per chain every 3 hours per instance (`geckoStatsDue`), pool lists (Pons, `poolTop`) every 30 minutes. Between fetches `applyLivePrice` moves the
   last candle with the token's live price. Any failure falls back to the asset's market chart. Intervals
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp

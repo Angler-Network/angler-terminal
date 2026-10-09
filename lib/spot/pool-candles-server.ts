@@ -21,7 +21,7 @@ const DEFAULT_DAILY_BUDGET = 2500;
  */
 function source() {
   const key = process.env.COINGECKO_API_KEY?.trim();
-  if (!key) return { base: "https://api.geckoterminal.com/api/v2", headers: {} as Record<string, string>, budget: null };
+  if (!key) return { base: PUBLIC_BASE, headers: {} as Record<string, string>, budget: null };
   const pro = process.env.COINGECKO_API_PLAN?.trim() === "pro";
   const budget = Math.round(Number(process.env.COINGECKO_DAILY_BUDGET));
   return {
@@ -31,10 +31,23 @@ function source() {
   };
 }
 
+const PUBLIC_BASE = "https://api.geckoterminal.com/api/v2";
+
 async function onchainJson(path: string): Promise<unknown> {
   const { base, headers, budget } = source();
-  if (budget !== null && !(await takeDailyBudget("coingecko", budget))) throw new Error("Daily CoinGecko budget used up");
-  const response = await fetch(`${base}${path}`, { headers: { accept: "application/json", ...headers }, cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const get = (root: string, extra: Record<string, string>) =>
+    fetch(`${root}${path}`, { headers: { accept: "application/json", ...extra }, cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (budget !== null) {
+    if (await takeDailyBudget("coingecko", budget)) {
+      const response = await get(base, headers);
+      if (response.ok) return response.json();
+      if (![401, 403, 429].includes(response.status)) throw new Error(`On-chain data responded ${response.status} for ${path.split("?")[0]}`);
+      console.error(`[spot] coingecko key refused (${response.status}); using GeckoTerminal's free API`);
+    }
+    // Over the day's budget, or the key refused or rate limited: GeckoTerminal's free API answers the same paths. Before
+    // this, a used-up budget failed every read, which dropped Pons and the GeckoTerminal-only chains from the list.
+  }
+  const response = await get(PUBLIC_BASE, {});
   // Throwing (429 included) keeps the cache's last good answer instead of storing the failure.
   if (!response.ok) throw new Error(`On-chain data responded ${response.status} for ${path.split("?")[0]}`);
   return response.json();
@@ -95,7 +108,7 @@ export const getTopPoolTokens = unstable_cache(
     return pages.flatMap((page) => readGeckoPoolTokens(page, chainId)).filter((token) => !seen.has(token.address!.toLowerCase()) && Boolean(seen.add(token.address!.toLowerCase())));
   },
   ["spot-top-pool-tokens-v1"],
-  { revalidate: 15 * 60 },
+  { revalidate: 30 * 60 },
 );
 
 /**
@@ -116,7 +129,7 @@ export const getPonsTokens = unstable_cache(
     );
   },
   ["spot-pons-tokens-v1"],
-  { revalidate: 15 * 60 },
+  { revalidate: 30 * 60 },
 );
 
 /**
