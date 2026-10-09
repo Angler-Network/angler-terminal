@@ -629,7 +629,10 @@ dependency versions and design are free to diverge from angler-news.
   trades as the most traded verified token that represents it (24h volume first, pool liquidity second: WBTC parks
   more liquidity, cbBTC trades ~4x more) (`representsAsset`: same
   ticker, a wrapper named "wrapped"/"bridged" or after the asset, a tokenized stock; staked/leveraged versions never)
-  — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; the watchlist highlights that token. Unverified tokens never win: Jupiter's
+  — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; /swap and /spot `preload` the list
+  (`SPOT_LISTINGS_PATH`) with the HTML so the search and chart don't wait for hydration (keep `loadSpotListings`'s
+  fetch on the same URL and credentials, or the preload goes unused), and the order panel fetches the swap card's
+  chunk alongside the token lookup; the watchlist highlights that token. Unverified tokens never win: Jupiter's
   search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
   `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.
 - Spot charts: on /swap the chart header and candles are the traded token's (`use-spot-chart-token.ts`: cbBTC with its

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
+import { SPOT_LISTINGS_PATH } from "@/lib/spot/listings";
 
 export const metadata: Metadata = {
   title: "Spot Dex",
@@ -7,5 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function SpotPage() {
+  // The token search and the order panel read the spot listings (~300 kB): start them with the HTML, not after hydration.
+  preload(SPOT_LISTINGS_PATH, { as: "fetch", crossOrigin: "anonymous" });
   return <h1 className="sr-only">Angler Terminal: spot</h1>;
 }

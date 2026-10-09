@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { SpotListing } from "@/lib/spot/listings";
+import { SPOT_LISTINGS_PATH, type SpotListing } from "@/lib/spot/listings";
 
 const TTL_MS = 60_000;
 const SEARCH_DELAY_MS = 250;
@@ -11,7 +11,8 @@ let cache: { at: number; promise: Promise<SpotListing[]> } | null = null;
 /** One shared /api/spot/listings request for every consumer (search, watchlist), refreshed at most every minute. */
 export function loadSpotListings() {
   if (!cache || Date.now() - cache.at > TTL_MS) {
-    const promise = fetch("/api/spot/listings")
+    // Same URL and credentials mode as the pages' `preload`, so the first read reuses that in-flight response.
+    const promise = fetch(SPOT_LISTINGS_PATH)
       .then((response) => (response.ok ? (response.json() as Promise<{ listings: SpotListing[] }>) : { listings: [] }))
       .then((body) => (Array.isArray(body.listings) ? body.listings : []));
     cache = { at: Date.now(), promise };

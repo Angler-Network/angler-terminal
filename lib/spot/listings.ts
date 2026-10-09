@@ -6,6 +6,9 @@
 
 import { ASSET_SYMBOL } from "../markets/model";
 
+/** Every listing in one response (`app/api/spot/listings`), preloaded by /swap and /spot and read by `useSpotListings`. */
+export const SPOT_LISTINGS_PATH = "/api/spot/listings";
+
 /** Pool and router venues, plus the order-book spot markets of Hyperliquid and Lighter (`book-spot.ts`). */
 export type SpotVenueKey = "jupiter" | "arcus" | "uniswap" | "hyperliquid" | "lighter";
 

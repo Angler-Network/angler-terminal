@@ -373,6 +373,10 @@ export function OrderPanel() {
   const [venueId, setVenueId] = useState<VenueChoice["id"] | null>(null);
   // Perp or spot comes from the sidebar (/perp, /swap), then a venue of that kind.
   const activeKind = terminalKindOf(usePathname()) ?? "perp";
+  // /swap always ends on the swap card: fetch its chunk alongside the Jupiter token lookup, not after it.
+  useEffect(() => {
+    if (activeKind === "spot" && !isEvmRef(mint)) void import("./swap-card");
+  }, [activeKind, mint]);
   const otherKind = activeKind === "perp" ? "spot" : "perp";
   const hasKind = (value: "perp" | "spot") => choices.some((entry) => entry.kind === value);
   const kindChoices = choices.filter((entry) => entry.kind === activeKind);
