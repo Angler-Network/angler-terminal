@@ -768,7 +768,9 @@ dependency versions and design are free to diverge from angler-news.
   Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Lighter and Lighter RH volume from a
   Standard account (the trade's own-side `maker_fee`/`taker_fee` is zero or absent: no Lighter fee, so none of ours)
   earns half points (`STANDARD_POINTS_SHARE`, stored as `half:{venue}`; the volume itself counts in full for totals,
-  VIP and invites). The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts
+  VIP and invites). While the closed beta is on (`readClosedBeta`), credited volume earns `BETA_POINTS_MULTIPLIER` (2x)
+  points: the extra is stored as `bonusUsd` (+ per day in `bd:{id}`), so volume, VIP, invites and referrers' shares stay
+  1x; volume moved from a linked wallet carries its bonus but earns none again. The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts
   (`LighterTierCard`): `changeAccountTier` with `new_tier: "plus"` (Lighter's docs only show "premium"/"standard";
   verify on the first real switch) and the browser key's auth token, then `approveLighterIntegrator` again (Standard
   approved a zero fee; `integratorState` asks again once the tier is paid). The setup state carries `tier` from

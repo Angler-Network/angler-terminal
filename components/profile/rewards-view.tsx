@@ -4,7 +4,7 @@ import { ArrowRight, Gift, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import Link from "next/link";
 import BorderGlow from "@/components/fx/border-glow";
 import Counter from "@/components/fx/counter";
-import { pointsFor } from "@/lib/profile/levels";
+import { BETA_POINTS_MULTIPLIER, pointsFor } from "@/lib/profile/levels";
 import { vipFor } from "@/lib/profile/vip";
 import { useProfile } from "./profile-provider";
 
@@ -56,7 +56,7 @@ export function RewardsView() {
   const { level } = profile;
   const tradingPoints = Math.max(0, profile.points - profile.referralPoints);
   const vip = vipFor(profile.recentVolume.d30);
-  const history = profile.daily.map((day) => ({ ...day, points: pointsFor(day.usd) }));
+  const history = profile.daily.map((day) => ({ ...day, points: pointsFor(day.usd + (day.bonusUsd ?? 0)) }));
   const max = Math.max(0.01, ...history.map((day) => day.points));
   const earned30 = history.reduce((sum, day) => sum + day.points, 0);
   const active = [...history].reverse().filter((day) => day.points > 0);
@@ -70,6 +70,11 @@ export function RewardsView() {
             <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-app-accent">
               <Sparkles className="size-3.5" strokeWidth={1.75} aria-hidden />
               Total points
+              {profile.closedBeta && (
+                <span title="Volume traded during the closed beta earns double points" className="ml-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] tracking-normal normal-case">
+                  {BETA_POINTS_MULTIPLIER}x closed beta
+                </span>
+              )}
             </p>
             {/* Digits roll to each new total. */}
             <div className="mt-1 -ml-2 font-semibold tracking-tight text-app-ink">

@@ -30,6 +30,12 @@ export interface LevelInfo {
 /** Share of a referred user's volume that counts toward the referrer's points (their own points are untouched). */
 export const REFERRAL_SHARE = 0.1;
 
+/**
+ * Points multiplier while the closed beta is on (mainnet): volume credited then earns this many times its points. The
+ * extra is stored apart (`bonusUsd`), so volume totals, VIP tiers, invites and referrers' shares stay at 1x.
+ */
+export const BETA_POINTS_MULTIPLIER = 2;
+
 /** Points per dollar of volume. */
 export const POINTS_PER_USD = 0.01;
 

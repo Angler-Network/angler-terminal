@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
-import { LEVELS } from "@/lib/profile/levels";
+import { BETA_POINTS_MULTIPLIER, LEVELS } from "@/lib/profile/levels";
 import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import { INVITE_VOLUME } from "@/lib/profile/invites";
@@ -354,6 +354,7 @@ function Overview() {
           <li>0.01 point per dollar (a point per $100) traded through Angler, on every venue the terminal routes to.</li>
           <li>Counted from the venues&apos; own records: Hyperliquid fills that carry Angler&apos;s builder fee, Lighter orders sent from the terminal, Aster trades with Angler&apos;s builder code, Orderly volume under Angler&apos;s broker (a day after it closes), Solana swaps that paid Angler&apos;s fee on-chain. Trading in other apps doesn&apos;t count.</li>
           <li>Lighter trades from a Standard account (which pays no trading fee) earn half points; Plus and Premium accounts earn full points. Your Lighter account card can switch to Plus.</li>
+          <li>Closed beta: volume credited while the beta is closed earns {BETA_POINTS_MULTIPLIER}x points. Volume totals, VIP tiers and invites still count it once.</li>
           <li>Perp volume updates within a minute or two of a trade, swaps as soon as they confirm.</li>
           <li>Invites: every $10K you trade on perps and spot earns a single-use invite. You earn 10% of the Angler fees and 10% of the points of everyone who joins with one, from their perp and spot trades after they join (swaps and bridges don&apos;t count). Their own fees and points stay the same.</li>
         </ul>

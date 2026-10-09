@@ -7,14 +7,15 @@ import { isAdmin } from "./admin";
 import { hasAccess, inviteUsable, mintsInvites } from "./beta";
 import { dailyVolume, dayKey, volumeOverDays } from "./days";
 import { INVITE_VOLUME } from "./invites";
-import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
+import { BETA_POINTS_MULTIPLIER, levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
 import type { EnsIdentity } from "./ens";
 import { profileIdOf, type ProfileChain } from "./identity";
 
 /**
  * Profiles in Redis (`lib/redis.ts`, memory without it), per deployment so testnet points stay apart:
- *   p:{id}          hash: username, usd:{venue}, cursors, links
+ *   p:{id}          hash: username, usd:{venue}, bonusUsd (closed beta extra), cursors, links
  *   d:{id}          hash: UTC day → volume credited that day (7 and 30 day totals)
+ *   bd:{id}         hash: UTC day → closed beta bonus volume credited that day (the points history)
  *   inv:{id}        hash: invite code → the profile that used it ("" while unused)
  *   invite:{code}   the profile that owns an invite code; invite-used:{code} the profile that used it
  *   earners         set: profiles that earned referral fees (the admin payout list)
@@ -150,8 +151,11 @@ export interface ProfileView {
   volume: Record<ProfileVenue, number>;
   /** All venues over the last 7 and 30 days, by the day volume was credited. */
   recentVolume: { d7: number; d30: number };
-  /** Volume credited per UTC day over the last 30 days, oldest first (the points history). */
-  daily: Array<{ date: string; usd: number }>;
+  /**
+   * Volume credited per UTC day over the last 30 days, oldest first (the points history), with the closed beta bonus
+   * volume (`bonusUsd`: extra volume that earns points only) credited that day.
+   */
+  daily: Array<{ date: string; usd: number; bonusUsd: number }>;
   /** EVM profiles: Solana wallets whose swaps count here. Solana wallets: the profile they count toward. */
   linkedWallets: string[];
   linkedTo: string | null;
@@ -223,7 +227,14 @@ function reducedUsdOf(hash: Record<string, string>) {
   return reduced;
 }
 
-const pointsOf = (hash: Record<string, string>) => pointsFor(Math.max(0, totalOf(volumeOf(hash)) - reducedUsdOf(hash)) + referralUsdOf(hash));
+/** Extra volume credited during the closed beta (`BETA_POINTS_MULTIPLIER`): it earns points and nothing else. */
+function bonusUsdOf(hash: Record<string, string>) {
+  const value = Number(hash.bonusUsd ?? 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+const pointsOf = (hash: Record<string, string>) =>
+  pointsFor(Math.max(0, totalOf(volumeOf(hash)) - reducedUsdOf(hash)) + bonusUsdOf(hash) + referralUsdOf(hash));
 
 async function rankOf(id: string): Promise<number | null> {
   if (!redisConfig()) {
@@ -246,9 +257,10 @@ function referralBalance(hash: Record<string, string>) {
 
 export async function readProfile(id: string, { owner = false }: { owner?: boolean } = {}): Promise<ProfileView> {
   const chain = profileIdOf(id)?.chain ?? "evm";
-  const [hash, days, linked, referred] = await Promise.all([
+  const [hash, days, bonusDays, linked, referred] = await Promise.all([
     getHash(id),
     readDays(id),
+    readDays(id, "bd"),
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
@@ -265,7 +277,7 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     rank: points > 0 ? await rankOf(id) : null,
     volume,
     recentVolume: { d7: volumeOverDays(days, 7), d30: volumeOverDays(days, 30) },
-    daily: dailyVolume(days, 30),
+    daily: withBonus(dailyVolume(days, 30), dailyVolume(bonusDays, 30)),
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
@@ -299,9 +311,12 @@ export async function saveCursors(id: string, cursors: { hl?: number; lighter?: 
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 
-async function readDays(id: string): Promise<Record<string, string>> {
-  if (!redisConfig()) return { ...(memory.hashes.get(key("d", id)) ?? {}) };
-  const [result] = await run([["HGETALL", key("d", id)]]);
+const withBonus = (days: Array<{ date: string; usd: number }>, bonus: Array<{ date: string; usd: number }>) =>
+  days.map((day, index) => ({ ...day, bonusUsd: bonus[index]?.usd ?? 0 }));
+
+async function readDays(id: string, name: "d" | "bd" = "d"): Promise<Record<string, string>> {
+  if (!redisConfig()) return { ...(memory.hashes.get(key(name, id)) ?? {}) };
+  const [result] = await run([["HGETALL", key(name, id)]]);
   return toHash(result);
 }
 
@@ -313,19 +328,37 @@ export async function volume30d(id: string) {
 /**
  * Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. On perp and spot
  * venues the referrer, if any, earns a share of the points and REFERRAL_FEE_SHARE of `feeUsd`, the Angler fee paid.
+ * While the closed beta is on, the volume earns BETA_POINTS_MULTIPLIER times its points (`bonus: false` for volume
+ * moved from a linked wallet, which already earned its bonus there).
  */
-export async function creditVolume(id: string, venue: ProfileVenue, usd: number, feeUsd = 0, standardUsd = 0) {
+export async function creditVolume(
+  id: string,
+  venue: ProfileVenue,
+  usd: number,
+  feeUsd = 0,
+  standardUsd = 0,
+  { bonus = true }: { bonus?: boolean } = {},
+) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
   // Part of `usd` traded on a Standard Lighter account: recorded so points count it at STANDARD_POINTS_SHARE.
   const standard = Math.round(Math.min(Math.max(0, standardUsd), usd) * 100) / 100;
   // What the volume is worth in points, for the referrer's share too.
   const pointsAmount = Math.round((amount - standard * (1 - STANDARD_POINTS_SHARE)) * 100) / 100;
+  // Closed beta: the extra points, kept as volume that counts for points only.
+  const bonusUsd = bonus && (await readClosedBeta()) ? Math.round(pointsAmount * (BETA_POINTS_MULTIPLIER - 1) * 100) / 100 : 0;
   const today = dayKey(Date.now());
   if (redisConfig()) {
     await run([
       ["HINCRBYFLOAT", key("p", id), `usd:${venue}`, amount],
       ...(standard > 0 ? [["HINCRBYFLOAT", key("p", id), `half:${venue}`, standard] as RedisCommand] : []),
+      ...(bonusUsd > 0
+        ? [
+            ["HINCRBYFLOAT", key("p", id), "bonusUsd", bonusUsd] as RedisCommand,
+            ["HINCRBYFLOAT", key("bd", id), today, bonusUsd] as RedisCommand,
+            ["EXPIRE", key("bd", id), DAYS_TTL_SECONDS] as RedisCommand,
+          ]
+        : []),
       ["HINCRBYFLOAT", key("d", id), today, amount],
       ["EXPIRE", key("d", id), DAYS_TTL_SECONDS],
     ]);
@@ -333,10 +366,16 @@ export async function creditVolume(id: string, venue: ProfileVenue, usd: number,
     const hash = memory.hashes.get(key("p", id)) ?? {};
     hash[`usd:${venue}`] = String(Number(hash[`usd:${venue}`] ?? 0) + amount);
     if (standard > 0) hash[`half:${venue}`] = String(Number(hash[`half:${venue}`] ?? 0) + standard);
+    if (bonusUsd > 0) hash.bonusUsd = String(Number(hash.bonusUsd ?? 0) + bonusUsd);
     memory.hashes.set(key("p", id), hash);
     const days = memory.hashes.get(key("d", id)) ?? {};
     days[today] = String(Number(days[today] ?? 0) + amount);
     memory.hashes.set(key("d", id), days);
+    if (bonusUsd > 0) {
+      const bonusDays = memory.hashes.get(key("bd", id)) ?? {};
+      bonusDays[today] = String(Number(bonusDays[today] ?? 0) + bonusUsd);
+      memory.hashes.set(key("bd", id), bonusDays);
+    }
   }
   const hash = await getHash(id);
   await setPoints(id, pointsOf(hash));
@@ -490,8 +529,14 @@ export async function setUsername(id: string, username: string): Promise<Usernam
 export async function linkWallet(solanaId: string, evmId: string) {
   const hash = await getHash(solanaId);
   const volume = volumeOf(hash);
-  for (const venue of PROFILE_VENUES) if (volume[venue] > 0) await creditVolume(evmId, venue, volume[venue]);
-  await deleteFields(solanaId, PROFILE_VENUES.map((venue) => `usd:${venue}`));
+  // The bonus it earned moves with it; moved volume earns no second bonus.
+  for (const venue of PROFILE_VENUES) if (volume[venue] > 0) await creditVolume(evmId, venue, volume[venue], 0, 0, { bonus: false });
+  const bonusUsd = bonusUsdOf(hash);
+  if (bonusUsd > 0) {
+    await setFields(evmId, { bonusUsd: String(bonusUsdOf(await getHash(evmId)) + bonusUsd) });
+    await setPoints(evmId, pointsOf(await getHash(evmId)));
+  }
+  await deleteFields(solanaId, [...PROFILE_VENUES.map((venue) => `usd:${venue}`), "bonusUsd"]);
   await setPoints(solanaId, 0);
   if (hash.linkedTo && hash.linkedTo !== evmId) {
     if (redisConfig()) await run([["SREM", key("links", hash.linkedTo), solanaId]]);

@@ -6,6 +6,9 @@ const { creditVolume, readProfile, setReferrer } = await import("./store");
 const { setClosedBeta } = await import("@/lib/ops/beta");
 
 describe("Lighter Standard volume", () => {
+  beforeAll(() => setClosedBeta(false));
+  afterAll(() => setClosedBeta(true));
+
   it("earns half points but counts in full as volume", async () => {
     const trader = "0x00000000000000000000000000000000000000ab";
     // $10,000 on Lighter, $4,000 of it on a Standard account: 6,000 + 4,000 / 2 = $8,000 worth of points.
@@ -13,6 +16,28 @@ describe("Lighter Standard volume", () => {
     const profile = await readProfile(trader);
     expect(profile.volume.lighter).toBe(10_000);
     expect(profile.points).toBe(80);
+  });
+});
+
+describe("closed beta points", () => {
+  it("doubles points while the beta is closed, not volume", async () => {
+    const trader = "0x00000000000000000000000000000000000000e2";
+    await setClosedBeta(true);
+    await creditVolume(trader, "hyperliquid", 10_000);
+    await creditVolume(trader, "lighter", 10_000, 0, 4_000);
+    let profile = await readProfile(trader);
+    expect(profile.volume.hyperliquid).toBe(10_000);
+    expect(profile.volume.lighter).toBe(10_000);
+    // (10,000 + 8,000) × 2.
+    expect(profile.points).toBe(360);
+    expect(profile.daily.at(-1)).toMatchObject({ usd: 20_000, bonusUsd: 18_000 });
+    expect(profile.recentVolume.d30).toBe(20_000);
+
+    await setClosedBeta(false);
+    await creditVolume(trader, "hyperliquid", 1_000);
+    profile = await readProfile(trader);
+    expect(profile.points).toBe(370);
+    await setClosedBeta(true);
   });
 });
 
