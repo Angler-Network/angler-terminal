@@ -1,5 +1,7 @@
 "use client";
 
+import { rememberPay, rememberedPay, type PayChoice } from "./pay-memory";
+import { useSolanaDecimals } from "./use-cross-swap";
 import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
 import { onUserBack, userIdle } from "@/lib/activity";
 import { useRouter } from "next/navigation";
@@ -56,7 +58,7 @@ const evmSide = (side: Side) => side as Pick<EvmSwapToken, "address" | "symbol" 
  * bridge plus Uniswap; anything else across chains, Solana included (`LIFI_SOLANA_CHAIN`, a mint as the address) → Relay
  * or LI.FI in one go), or the Hyperliquid balance (a withdrawal).
  */
-type Counter = { kind: "token"; chainId: number; address: string; symbol: string; decimals?: number; icon?: string; price?: number } | { kind: "hyperliquid" };
+type Counter = PayChoice;
 
 const HL_PICK = "hyperliquid";
 const RELAY_POLL_MS = 3_000;
@@ -70,13 +72,6 @@ const ROBINHOOD_RPC = "https://rpc.mainnet.chain.robinhood.com";
 const rpcFor = (chainId: number | null) => (chainId === null ? null : (evmSwapChain(chainId)?.rpc ?? (chainId === 4663 ? ROBINHOOD_RPC : null)));
 const chainNameOf = (chainId: number) => (chainId === LIFI_SOLANA_CHAIN ? "Solana" : undefined) ?? evmSwapChain(chainId)?.name ?? sourceChainById(chainId)?.name ?? `Chain ${chainId}`;
 
-/**
- * The "Pay with" / "Receive" token last shown, kept across tokens like Uniswap keeps the input token: the form is
- * rebuilt for every token, and picking a BNB Chain token after choosing USDC on Base used to drop back to BNB Chain's
- * own USDT, so a cross-chain swap looked impossible. A default counts too: on a Base token the card starts on USDC ·
- * Base, and picking a Robinhood token then fell back to USDG · Robinhood instead of bridging from Base.
- */
-let chosenCounter: Counter | null = null;
 
 function tokenCounter(chainId: number, token: { address: string; symbol: string; decimals: number }, icon?: string): Counter {
   return { kind: "token", chainId, address: token.address, symbol: token.symbol, decimals: token.decimals, icon };
@@ -211,24 +206,6 @@ function useAcrossPreview(step: Extract<FundsStep, { kind: "across" }> | null, u
   return key && state?.key === key ? state : null;
 }
 
-/** Decimals of a Solana token picked from the search (Jupiter's token data). */
-function useSolanaDecimals(mint: string | null) {
-  const [state, setState] = useState<{ mint: string; decimals: number } | null>(null);
-  useEffect(() => {
-    if (!mint) return;
-    let active = true;
-    void fetch(`/api/jup/token?mint=${mint}`)
-      .then((response) => response.json() as Promise<{ token?: { decimals?: number } | null }>)
-      .then((body) => {
-        if (active && Number.isInteger(body.token?.decimals)) setState({ mint, decimals: body.token!.decimals! });
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [mint]);
-  return mint && state?.mint === mint ? state.decimals : undefined;
-}
 
 /**
  * A debounced cross-chain quote for any token pair (the "direct" route): Relay and LI.FI asked together, the larger
@@ -349,14 +326,16 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   };
   // A dollar token starts on another chain's dollar (a bridge); anything else on this chain's first pay token.
   const [counter, setCounterState] = useState<Counter>(() => {
-    const kept = chosenCounter;
+    // The pay token shown before, in this card or the Solana one (`pay-memory.ts`): a token on another chain makes it
+    // a cross-chain swap rather than falling back to this chain's dollar.
+    const kept = rememberedPay();
     if (kept?.kind === "hyperliquid" && bridgeable && hlNetwork === "mainnet") return kept;
     if (kept?.kind === "token" && !(kept.chainId === chain.id && sameAddress(kept.address, token.address))) return kept;
     return DOLLARS.has(token.symbol) && bridgeable ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
-  useEffect(() => {
-    chosenCounter = counter;
-  }, [counter]);
+  // Remembered as shown, a default included: on a Base token the card starts on USDC · Base, and picking a Robinhood token
+  // then fell back to USDG · Robinhood instead of bridging from Base.
+  useEffect(() => rememberPay(counter), [counter]);
   const [side, setSide] = useState<OrderSide>("buy");
   /** The unverified token the user ticked "I checked this token" for. */
   const [acknowledged, setAcknowledged] = useState<string | null>(null);
@@ -821,10 +800,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       pinned: pinnedCounters,
       exclude: evmRef(chain.id, token.address),
       onPick: (picked) => {
-        const setCounter = (next: Counter) => {
-          chosenCounter = next;
-          setCounterState(next);
-        };
+        const setCounter = (next: Counter) => setCounterState(next);
         if (picked.mint === HL_PICK) setCounter({ kind: "hyperliquid" });
         else if (!picked.mint.startsWith("evm:")) {
           // A Solana mint: crossed with LI.FI.

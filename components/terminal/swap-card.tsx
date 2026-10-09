@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberPay, rememberedPay, type PayChoice } from "./pay-memory";
 import { ArrowDown, ChevronDown, Fuel, Settings2, Shield, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -8,7 +9,7 @@ import { useToast } from "@/components/app/toast-provider";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
 import { fundsRoute, stepsError } from "@/lib/venues/bridge-routes";
 import { readUsdcBalance } from "@/lib/venues/deposit-client";
-import { ARBITRUM, BASE, HL_WITHDRAW_FEE_USDC, ROBINHOOD, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
+import { ARBITRUM, BASE, HL_WITHDRAW_FEE_USDC, ROBINHOOD, sourceChainById, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
 import { LIFI_NATIVE_SOL, LIFI_SOLANA_CHAIN } from "@/lib/venues/lifi";
 import type { BridgeLegRef } from "@/lib/venues/bridge-leg";
 import { venueAvailable } from "@/lib/deployment";
@@ -32,8 +33,8 @@ import { Picker, type PickerOption } from "./inline-picker";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useSolanaBalance } from "./use-solana-balance";
-import { foreignFromChoice, useCrossSwap } from "./use-cross-swap";
-import { EVM_SWAP_CHAINS, evmRef, isNativeToken } from "@/lib/venues/uniswap/chains";
+import { foreignFromChoice, useCrossSwap, useForeignToken, useSolanaDecimals } from "./use-cross-swap";
+import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, isNativeToken, parseEvmRef } from "@/lib/venues/uniswap/chains";
 import { CoinIcon } from "./token-icon";
 import { useTrading } from "./trading-provider";
 import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
@@ -88,7 +89,56 @@ function usePayToken(mint: string | null) {
  * Where an Arcus buy is paid from: USDG already on Robinhood, USDC elsewhere that is bridged in first, or USDC / SOL
  * on Solana, crossed to USDG on Robinhood by LI.FI in one Solana signature.
  */
-type PayFrom = "direct" | "arbitrum" | "base" | "hyperliquid" | "solanaUsdc" | "solanaSol";
+/**
+ * How the Arcus card is paid: USDG on Robinhood as is, another wallet chain's USDC or the Hyperliquid balance through the
+ * bridge path (`fundsRoute`), or any other token on any chain (`other`, SOL and USDC on Solana included) through one
+ * Relay or LI.FI route to USDG on Robinhood.
+ */
+type PayFrom = "direct" | "arbitrum" | "base" | "hyperliquid" | "solanaUsdc" | "solanaSol" | "other";
+type PayToken = Extract<PayChoice, { kind: "token" }>;
+
+const HL_PAY = "hyperliquid";
+const SOLANA_SOL: PayToken = { kind: "token", chainId: LIFI_SOLANA_CHAIN, address: WSOL_MINT, symbol: "SOL", decimals: 9, icon: "/chains/solana.svg" };
+const SOLANA_USDC: PayToken = { kind: "token", chainId: LIFI_SOLANA_CHAIN, address: USDC_MINT, symbol: "USDC", decimals: 6 };
+
+/** The Arcus card's "Pay with" for a pay token chosen anywhere (`pay-memory.ts`): USDC on Base stays USDC on Base. */
+function arcusPay(remembered: PayChoice | null, usdg: { chainId: number; address: string }): { payFrom: PayFrom; other: PayToken | null } {
+  if (!remembered) return { payFrom: "direct", other: null };
+  if (remembered.kind === "hyperliquid") return { payFrom: "hyperliquid", other: null };
+  const is = (chainId: number, address: string) => remembered.chainId === chainId && remembered.address.toLowerCase() === address.toLowerCase();
+  if (is(usdg.chainId, usdg.address)) return { payFrom: "direct", other: null };
+  if (is(BASE.chainId, BASE.usdc)) return { payFrom: "base", other: null };
+  if (is(ARBITRUM.chainId, ARBITRUM.usdc)) return { payFrom: "arbitrum", other: null };
+  if (is(LIFI_SOLANA_CHAIN, WSOL_MINT)) return { payFrom: "solanaSol", other: null };
+  if (is(LIFI_SOLANA_CHAIN, USDC_MINT)) return { payFrom: "solanaUsdc", other: null };
+  return { payFrom: "other", other: remembered };
+}
+
+/** What an Arcus "Pay with" choice is, for the other cards. */
+function payChoiceOf(payFrom: PayFrom, other: PayToken | null, usdg: PayToken): PayChoice {
+  if (payFrom === "hyperliquid") return { kind: "hyperliquid" };
+  if (payFrom === "base") return { kind: "token", chainId: BASE.chainId, address: BASE.usdc, symbol: "USDC", decimals: 6 };
+  if (payFrom === "arbitrum") return { kind: "token", chainId: ARBITRUM.chainId, address: ARBITRUM.usdc, symbol: "USDC", decimals: 6 };
+  if (payFrom === "solanaSol") return SOLANA_SOL;
+  if (payFrom === "solanaUsdc") return SOLANA_USDC;
+  return payFrom === "other" && other ? other : usdg;
+}
+
+/** The Solana card's pay token for the one chosen before: a Solana mint, or an EVM token (a cross-chain swap). */
+function pickedFromMemory(remembered: PayChoice | null): TokenChoice | null {
+  if (!remembered || remembered.kind !== "token") return null;
+  const base = { symbol: remembered.symbol, icon: remembered.icon, decimals: remembered.decimals, price: remembered.price, verified: true };
+  if (remembered.chainId === LIFI_SOLANA_CHAIN) return remembered.address === USDC_MINT ? null : { ...base, mint: remembered.address };
+  return { ...base, mint: evmRef(remembered.chainId, remembered.address), chainId: remembered.chainId };
+}
+
+/** A Solana card pick, for the other cards. */
+function payChoiceOfPick(token: TokenChoice): PayChoice | null {
+  const ref = parseEvmRef(token.mint);
+  if (ref) return { kind: "token", chainId: ref.chain.id, address: ref.address, symbol: token.symbol, decimals: token.decimals, icon: token.icon, price: token.price };
+  if (token.chainId) return { kind: "token", chainId: token.chainId, address: token.mint, symbol: token.symbol, decimals: token.decimals, icon: token.icon, price: token.price };
+  return { kind: "token", chainId: LIFI_SOLANA_CHAIN, address: token.mint, symbol: token.symbol, decimals: token.decimals, icon: token.icon, price: token.price };
+}
 /** Solana's sample address: LI.FI quotes before a Solana wallet connects. */
 const QUOTE_ONLY_SOLANA = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const QUOTE_ONLY_EVM = "0x000000000000000000000000000000000000dEaD";
@@ -442,13 +492,20 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const toast = useToast();
   const router = useRouter();
   const { network: hlNetwork, accounts } = useTrading();
-  const [payFrom, setPayFrom] = useState<PayFrom>("direct");
+  const usdg: PayToken = { kind: "token", chainId: ROBINHOOD[arcusConfig.network].chainId, address: ROBINHOOD[arcusConfig.network].usdc, symbol: arcusConfig.quoteSymbol, decimals: 6 };
+  const [payState, setPayState] = useState(() => arcusPay(rememberedPay(), usdg));
+  const payFrom = payState.payFrom;
+  const anyPay = payState.other;
+  const choosePay = (next: { payFrom: PayFrom; other: PayToken | null }) => {
+    setPayState(next);
+    rememberPay(payChoiceOf(next.payFrom, next.other, usdg));
+  };
   // USDG that a cross-chain run delivered to the wallet on Robinhood, waiting for the swap press.
   const [bridged, setBridged] = useState<bigint | null>(null);
   const [crossQuote, setCrossQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; error?: string } | null>(null);
   // Paying from Solana: LI.FI's quote (USDG out) and, once sent, the route being followed until the USDG lands.
   const [solQuote, setSolQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; name?: string; error?: string } | null>(null);
-  const [solPending, setSolPending] = useState<{ ref: BridgeLegRef; before: bigint; since: number; explorerUrl: string } | null>(null);
+  const [solPending, setSolPending] = useState<{ ref: BridgeLegRef; fromChain: number; fromName: string; before: bigint; since: number; explorerUrl: string } | null>(null);
   const { run, setRun, execute } = useFundsRun({
     resume: () => router.push(choices[0]?.id === "arcus" ? TERMINAL_PATHS.book : TERMINAL_PATHS.spot),
     onDone: (carry) => {
@@ -480,7 +537,15 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     ? { symbol: choice.token.symbol, icon: choice.token.icon, chain: "solana" as const, chainName: "Solana", kind: undefined }
     : { symbol: choice.arcusToken.symbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood", kind: "stock" as const };
   // Solana swaps pay with (or pay out in) any token: USDC by default, SOL, USDT or another priced token in the wallet.
-  const [picked, setPicked] = useState<TokenChoice | null>(null);
+  const [picked, setPicked] = useState<TokenChoice | null>(() => pickedFromMemory(rememberedPay()));
+  // Another token (here or in the EVM card) keeps the pay token chosen before rather than starting over on the
+  // venue's dollar: USDC on Base for a Robinhood stock token bridges from Base, SOL pays through LI.FI.
+  const cardKey = isSolana ? `solana:${choice.token.mint}` : `arcus:${choice.arcusToken.symbol}`;
+  useEffect(() => {
+    if (isSolana) setPicked(pickedFromMemory(rememberedPay()));
+    else setPayState(arcusPay(rememberedPay(), usdg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per token shown
+  }, [cardKey]);
   // A token on another chain (BNB Chain's USDT, ETH on Base…): the swap crosses chains in one LI.FI route.
   const foreign = isSolana ? foreignFromChoice(picked) : null;
   const payMint = isSolana && picked && !foreign && picked.mint !== choice.token.mint ? picked.mint : USDC_MINT;
@@ -514,7 +579,27 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   });
   // Buying an Arcus stock with dollars held elsewhere: bridge to USDG on Robinhood first (`bridge-routes.ts`), then swap.
   const crossAllowed = !isSolana && side === "buy" && arcusConfig.network === "mainnet";
-  const solPay = crossAllowed && (payFrom === "solanaUsdc" || payFrom === "solanaSol");
+  // Any other token on any chain (SOL, USDC on Solana, ETH on Base, USDT on BNB Chain...): one Relay or LI.FI route to
+  // USDG on Robinhood paid to the EVM wallet, then the Arcus press with what landed.
+  const directSource: PayToken | null = !crossAllowed
+    ? null
+    : payFrom === "solanaSol"
+      ? SOLANA_SOL
+      : payFrom === "solanaUsdc"
+        ? SOLANA_USDC
+        : payFrom === "other"
+          ? anyPay
+          : null;
+  const fromSolana = directSource?.chainId === LIFI_SOLANA_CHAIN;
+  const directChain = directSource && !fromSolana ? evmSwapChain(directSource.chainId) : null;
+  const directChainName = !directSource ? "" : fromSolana ? "Solana" : (directChain?.name ?? sourceChainById(directSource.chainId)?.name ?? `chain ${directSource.chainId}`);
+  const directInfo = useForeignToken(
+    directSource && directChain ? { chain: directChain, address: directSource.address as `0x${string}`, symbol: directSource.symbol, decimals: directSource.decimals } : null,
+    evmAddress,
+    refresh,
+  );
+  const directSolanaDecimals = useSolanaDecimals(fromSolana && directSource?.decimals === undefined ? directSource.address : null);
+  const solPay = directSource !== null;
   const cross = crossAllowed && payFrom !== "direct" && !solPay;
   const crossRoute = cross
     ? fundsRoute(payFrom === "hyperliquid" ? "hyperliquid" : "wallet", "wallet", { from: payFrom === "base" ? "base" : "arbitrum", to: "robinhood" }, () => hlNetwork)
@@ -526,15 +611,18 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const crossBusy = run !== null && run.phase !== "done";
   const locked = crossBusy || bridged !== null || solPending !== null;
   const units = usdcUnits(amount);
-  const solMint = payFrom === "solanaSol" ? WSOL_MINT : USDC_MINT;
-  const solDecimals = payFrom === "solanaSol" ? 9 : 6;
-  const solBalanceUnits = useSolanaBalance(solPay ? solanaAddress : null, solPay ? solMint : null, refresh);
-  const solBalance = solBalanceUnits === undefined ? null : fromBaseUnits(solBalanceUnits, solDecimals);
+  const solDecimals = !directSource ? null : (directSource.decimals ?? (fromSolana ? directSolanaDecimals : directInfo?.decimals) ?? null);
+  const solBalanceUnits = useSolanaBalance(fromSolana ? solanaAddress : null, fromSolana && directSource ? directSource.address : null, refresh);
+  const directUnits = fromSolana ? solBalanceUnits : (directInfo?.balance ?? undefined);
+  const solBalance = directUnits === undefined || directUnits === null || solDecimals === null ? null : fromBaseUnits(directUnits, solDecimals);
   let solUnits: bigint | null = null;
   try {
-    solUnits = solPay && Number(amount) > 0 ? toBaseUnits(amount, solDecimals) : null;
+    solUnits = solPay && solDecimals !== null && Number(amount) > 0 ? toBaseUnits(amount, solDecimals) : null;
   } catch {}
-  const solKey = solPay && solUnits && solUnits > 0n ? `${payFrom}:${solUnits}:${solanaAddress ?? ""}:${evmAddress ?? ""}` : null;
+  // LI.FI's address for native SOL differs from its mint.
+  const directFromToken = !directSource ? "" : fromSolana && directSource.address === WSOL_MINT ? LIFI_NATIVE_SOL : directSource.address;
+  const solKey =
+    directSource && solUnits && solUnits > 0n ? `${directSource.chainId}:${directSource.address}:${solUnits}:${solanaAddress ?? ""}:${evmAddress ?? ""}` : null;
   const solLine = solQuote && solQuote.key === solKey ? solQuote : null;
   const solOut = solLine?.out !== undefined ? units6(solLine.out) : null;
   const acrossIndex = crossSteps.findIndex((step) => step.kind === "across");
@@ -587,8 +675,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   // Before a quote lands: the USD size at the asset's price (buys) or the pay token's (sells).
   const estimated = side === "buy" ? estimateReceive("buy", sizeUsd, price) : payPrice ? sizeUsd / payPrice : null;
   const receive = foreign ? crossSwap.receive : sizeUsd > 0 ? (cross || solPay ? estimateReceive("buy", sizeUsd, price) : (quoted ?? estimated)) : null;
-  const payToken = solPay
-    ? { symbol: payFrom === "solanaSol" ? "SOL" : "USDC", chain: "solana" as const, chainName: "Solana" }
+  const payToken = directSource
+    ? { symbol: directSource.symbol, icon: directSource.icon, chain: fromSolana ? ("solana" as const) : directSource.chainId, chainName: directChainName }
     : {
         symbol: "USDC",
         chain: payFrom === "hyperliquid" ? ("hyperliquid" as const) : paySource.chainId,
@@ -603,7 +691,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const receiveUsd =
     receive === null ? null : foreign ? (side === "buy" ? (price ? receive * price : null) : sizeUsd || null) : side === "buy" ? (solPay ? solOut : cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
   // What one asset token costs in this swap (the quote's own rate once it's in).
-  const rate = receive && value > 0 ? (side === "buy" ? value / receive : receive / value) : price;
+  // Paying with a token elsewhere, the rate is in the USDG it becomes (what Arcus prices), not in that token.
+  const rate = receive && value > 0 ? (solPay ? (sizeUsd > 0 ? sizeUsd / receive : price) : side === "buy" ? value / receive : receive / value) : price;
   // Arcus alone (no Uniswap to compare, e.g. testnet) and it has no quote: say so before any amount is typed.
   const arcusUnavailable = !isSolana && !compareRh && rhSource === "arcus" && !arcusPrice && arcusQuote?.error ? arcusQuote.error : null;
   const error = arcusUnavailable
@@ -631,7 +720,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const needsAck = unverified !== null && side === "buy" && acknowledged !== unverified.mint;
   const viaRoute = foreign ? crossSwap.route : hasQuotes ? routeText(selected?.route) : null;
   // Paying from Solana needs both wallets: Solana signs, the EVM wallet receives the USDG and signs the Arcus swap.
-  const needsSolana = solPay && !solanaAddress;
+  const needsSolana = fromSolana && !solanaAddress;
   // Crossing chains needs both wallets: one sends, the other receives.
   const needsEvm = foreign !== null && !evmAddress;
   const canSwap =
@@ -658,7 +747,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
   }, [crossKey, locked]);
 
-  // Debounced LI.FI quote for paying from Solana: what USDG lands on Robinhood for this USDC or SOL.
+  // Debounced Relay / LI.FI quote for paying with a token elsewhere: what USDG lands on Robinhood for it.
   useEffect(() => {
     if (!solKey || !solUnits || locked) return setSolQuote(null);
     let active = true;
@@ -666,12 +755,12 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       try {
         const { quoteDirectSwap } = await import("@/lib/venues/bridge-leg");
         const result = await quoteDirectSwap({
-          fromChain: LIFI_SOLANA_CHAIN,
+          fromChain: directSource!.chainId,
           toChain: ROBINHOOD.mainnet.chainId,
-          fromToken: payFrom === "solanaSol" ? LIFI_NATIVE_SOL : USDC_MINT,
+          fromToken: directFromToken,
           toToken: ROBINHOOD.mainnet.usdc,
           amount: solUnits,
-          fromAddress: solanaAddress ?? QUOTE_ONLY_SOLANA,
+          fromAddress: fromSolana ? (solanaAddress ?? QUOTE_ONLY_SOLANA) : (evmAddress ?? QUOTE_ONLY_EVM),
           toAddress: evmAddress ?? QUOTE_ONLY_EVM,
           slippageBps,
         });
@@ -679,7 +768,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         setSolQuote(
           result.best
             ? { key: solKey, out: result.best.raw.expectedOut, feeUsd: result.best.raw.feeUsd, name: result.best.name }
-            : { key: solKey, error: result.error ?? "No route from Solana right now." },
+            : { key: solKey, error: result.error ?? `No route from ${directChainName} right now.` },
         );
       } catch (caught) {
         if (active) setSolQuote({ key: solKey, error: errorMessage(caught) });
@@ -692,13 +781,13 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the key covers every input
   }, [solKey, locked]);
 
-  // After the Solana send: follow LI.FI until it fills, then hand the USDG that arrived to the Arcus swap press.
+  // After the send: follow the route until it fills, then hand the USDG that arrived to the Arcus swap press.
   useEffect(() => {
     if (!solPending || !evmAddress) return;
     const pending = solPending;
     const timer = window.setInterval(async () => {
       const { bridgeLegState } = await import("@/lib/venues/bridge-leg");
-      const state = await bridgeLegState(pending.ref, LIFI_SOLANA_CHAIN).catch(() => "pending" as const);
+      const state = await bridgeLegState(pending.ref, pending.fromChain).catch(() => "pending" as const);
       if (state === "pending" && Date.now() - pending.since < SOLANA_FILL_TIMEOUT_MS) return;
       setSolPending(null);
       setRefresh((count) => count + 1);
@@ -721,8 +810,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       } else {
         toast({
           tone: "error",
-          title: state === "failed" ? "Refunded on Solana" : "The bridge is taking longer than usual",
-          message: state === "failed" ? "LI.FI couldn't fill it and returned the funds to your Solana wallet." : "Check the transaction; LI.FI refunds on Solana if it can't fill.",
+          title: state === "failed" ? `Refunded on ${pending.fromName}` : "The bridge is taking longer than usual",
+          message: state === "failed" ? `The route couldn't fill and returned the funds on ${pending.fromName}.` : `Check the transaction; the route refunds on ${pending.fromName} if it can't fill.`,
           link: { href: pending.explorerUrl, label: "View transaction" },
         });
       }
@@ -789,27 +878,33 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       return;
     }
     if (cross && units !== null) return void execute({ steps: crossSteps, index: 0, phase: "ready", carry: units });
-    if (solPay) {
-      if (!solUnits || !evmAddress || !evmWallet || !signSolana) return;
+    if (solPay && directSource) {
+      if (!solUnits || !evmAddress || !evmWallet || (fromSolana && !signSolana)) return;
       setIsPlacing(true);
       try {
         const [{ quoteDirectSwap, sendDirectSwap }, { readUsdcBalance }] = await Promise.all([import("@/lib/venues/bridge-leg"), import("@/lib/venues/deposit-client")]);
         const before = await readUsdcBalance(ROBINHOOD.mainnet, evmAddress).catch(() => 0n);
         const fresh = await quoteDirectSwap({
-          fromChain: LIFI_SOLANA_CHAIN,
+          fromChain: directSource.chainId,
           toChain: ROBINHOOD.mainnet.chainId,
-          fromToken: payFrom === "solanaSol" ? LIFI_NATIVE_SOL : USDC_MINT,
+          fromToken: directFromToken,
           toToken: ROBINHOOD.mainnet.usdc,
           amount: solUnits,
-          fromAddress: solanaAddress!,
+          fromAddress: fromSolana ? solanaAddress! : evmAddress,
           toAddress: evmAddress,
           slippageBps,
         });
-        if (!fresh.best) throw new Error(fresh.error ?? "No route from Solana right now.");
-        const sent = await sendDirectSwap(fresh.best, { provider: evmWallet.provider, account: evmAddress, source: null, solana: signSolana, units: solUnits });
-        setSolPending({ ref: sent.ref, before, since: Date.now(), explorerUrl: sent.explorerUrl });
+        if (!fresh.best) throw new Error(fresh.error ?? `No route from ${directChainName} right now.`);
+        const sent = await sendDirectSwap(fresh.best, {
+          provider: evmWallet.provider,
+          account: evmAddress,
+          source: fromSolana ? null : sourceChainById(directSource.chainId),
+          solana: signSolana ?? null,
+          units: solUnits,
+        });
+        setSolPending({ ref: sent.ref, fromChain: directSource.chainId, fromName: directChainName, before, since: Date.now(), explorerUrl: sent.explorerUrl });
       } catch (caught) {
-        toast({ tone: "error", title: "Couldn't send from Solana", message: errorMessage(caught) });
+        toast({ tone: "error", title: `Couldn't send from ${directChainName}`, message: errorMessage(caught) });
       } finally {
         setIsPlacing(false);
       }
@@ -922,6 +1017,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           exclude: choice.token.mint,
           onPick: (token) => {
             setPicked(token);
+            const remembered = payChoiceOfPick(token);
+            if (remembered) rememberPay(remembered);
             setAmount("");
           },
         })
@@ -936,25 +1033,38 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       {stableFace}
     </span>
   );
-  const payOptions: Array<PickerOption<PayFrom>> = [
-    { value: "direct", label: `${arcusConfig.quoteSymbol} · Robinhood`, icon: <CoinIcon symbol={arcusConfig.quoteSymbol} chain={arcusConfig.chainId} size={20} /> },
-    { value: "arbitrum", label: "USDC · Arbitrum", icon: <CoinIcon symbol="USDC" chain={ARBITRUM.chainId} size={20} />, note: "bridge" },
-    { value: "base", label: "USDC · Base", icon: <CoinIcon symbol="USDC" chain={BASE.chainId} size={20} />, note: "bridge" },
-    { value: "solanaUsdc", label: "USDC · Solana", icon: <CoinIcon symbol="USDC" chain="solana" size={20} />, note: "LI.FI" },
-    { value: "solanaSol", label: "SOL · Solana", icon: <CoinIcon symbol="SOL" chain="solana" size={20} />, note: "LI.FI" },
+  // Any token on any chain, like the other swap cards: the dollars the bridge path takes and Solana's first, then every
+  // chain's dollar and gas coin; the search finds the rest.
+  const arcusPinned: TokenChoice[] = [
+    { mint: evmRef(usdg.chainId, usdg.address), chainId: usdg.chainId, symbol: usdg.symbol, name: `${usdg.symbol} on Robinhood Chain`, decimals: 6, verified: true, source: "Robinhood" },
+    { mint: evmRef(BASE.chainId, BASE.usdc), chainId: BASE.chainId, symbol: "USDC", name: "USDC on Base (bridge)", decimals: 6, verified: true, source: "Base" },
+    { mint: evmRef(ARBITRUM.chainId, ARBITRUM.usdc), chainId: ARBITRUM.chainId, symbol: "USDC", name: "USDC on Arbitrum (bridge)", decimals: 6, verified: true, source: "Arbitrum" },
+    { mint: WSOL_MINT, symbol: "SOL", name: "SOL on Solana", icon: "/chains/solana.svg", decimals: 9, verified: true, source: "Solana" },
+    { mint: USDC_MINT, symbol: "USDC", name: "USDC on Solana", decimals: 6, verified: true, source: "Solana" },
     // Hyperliquid withdrawals only bridge onward from mainnet.
-    ...(hlNetwork === "mainnet"
-      ? [{ value: "hyperliquid" as const, label: "USDC · Hyperliquid", icon: <CoinIcon symbol="USDC" chain="hyperliquid" size={20} />, note: "bridge" }]
-      : []),
+    ...(hlNetwork === "mainnet" ? [{ mint: HL_PAY, symbol: "USDC", name: "Your Hyperliquid balance (withdrawal)", decimals: 6, verified: true, source: "Hyperliquid" }] : []),
   ];
+  const pickArcusPay = () =>
+    pickToken({
+      title: "Pay with",
+      scope: "evm",
+      pinned: [...arcusPinned, ...pinnedOtherChains.filter((entry) => !arcusPinned.some((pin) => pin.mint.toLowerCase() === entry.mint.toLowerCase()))],
+      onPick: (token) => {
+        const remembered: PayChoice | null = token.mint === HL_PAY ? { kind: "hyperliquid" } : payChoiceOfPick(token);
+        if (!remembered) return;
+        choosePay(arcusPay(remembered, usdg));
+        setAmount("");
+      },
+    });
   const payPill = (
-    <Picker label="Pay with" value={payFrom} options={payOptions} onChange={setPayFrom} disabled={locked} buttonClassName={`${pillClass} hover:bg-app-selected disabled:opacity-60`}>
-      <CoinIcon symbol={sell.symbol} chain={sell.chain} size={24} />
+    <button type="button" aria-label="Pay with" title="Pick any token on any chain" onClick={pickArcusPay} disabled={locked} className={`${pillClass} hover:bg-app-selected disabled:opacity-60`}>
+      <CoinIcon src={"icon" in sell ? sell.icon : undefined} symbol={sell.symbol} chain={sell.chain} size={24} />
       <span className="flex flex-col items-start leading-tight">
         {sell.symbol}
         <span className="text-[10px] font-medium text-app-muted">{sell.chainName}</span>
       </span>
-    </Picker>
+      <ChevronDown className="size-4 text-app-muted" aria-hidden />
+    </button>
   );
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const walletName = isSolana ? "Solana" : "EVM";
@@ -1059,13 +1169,13 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       {solPay && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline p-2.5">
           <p className="text-[12px] text-app-ink">
-            Your {payToken.symbol} on Solana is crossed to {arcusConfig.quoteSymbol} on Robinhood Chain (sent to your EVM wallet), then swapped for {asset.symbol} on
-            Arcus. Both wallets are needed.
+            Your {payToken.symbol} on {directChainName} becomes {arcusConfig.quoteSymbol} on Robinhood Chain (sent to your EVM wallet), then is swapped for{" "}
+            {asset.symbol} on Arcus.{fromSolana ? " Both wallets are needed." : ""}
             {solLine?.feeUsd !== undefined && <span className="text-app-muted"> Route fee {solLine.feeUsd < 0.01 ? "< $0.01" : `$${solLine.feeUsd.toFixed(2)}`}.</span>}
           </p>
           <ol className="flex flex-col gap-1">
             {[
-              `${solLine?.name ?? "LI.FI"}: ${payToken.symbol} on Solana → ${arcusConfig.quoteSymbol} on Robinhood (one Solana signature, seconds to minutes)`,
+              `${solLine?.name ?? (fromSolana ? "LI.FI" : "Relay or LI.FI")}: ${payToken.symbol} on ${directChainName} → ${arcusConfig.quoteSymbol} on Robinhood (one signature, seconds to minutes)`,
               `Swap ${arcusConfig.quoteSymbol} → ${asset.symbol} on Arcus (signature, gasless)`,
             ].map((label, index) => {
               const at = bridged !== null ? 1 : solPending ? 0 : -1;

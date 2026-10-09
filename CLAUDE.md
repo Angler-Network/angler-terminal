@@ -312,8 +312,14 @@ dependency versions and design are free to diverge from angler-news.
     row picks that token) with PnL against the average cost of what was bought here (`costBasis`, `unrealizedPnl`;
     "—" for tokens bought elsewhere, "*" when only part of the holding has a known cost). The free GeckoTerminal API
     allows about 10 calls a minute site-wide: set `COINGECKO_API_KEY` before traffic grows.
-    Cross-chain buys (Arcus mainnet only): the Sell pill is a "Pay with" picker (USDG · Robinhood, USDC · Arbitrum /
-    Base / Hyperliquid). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
+    Cross-chain buys (Arcus mainnet only): the Sell pill is the same any-token-any-chain picker as the other cards
+    (`pickToken({ scope: "evm" })`, USDG · Robinhood, USDC · Base / Arbitrum, SOL / USDC · Solana and the Hyperliquid
+    balance pinned first). USDG pays as is; another wallet chain's USDC or the Hyperliquid balance takes the bridge path
+    below; any other token on any chain (`payFrom: "other"`, SOL and USDC on Solana too) is one `quoteDirectSwap` route
+    (Relay or LI.FI) to USDG on Robinhood paid to the EVM wallet, then the Arcus press with what landed (as below).
+    All three swap cards share the pay token (`pay-memory.ts`): the EVM card remembers what it shows, the Solana and Arcus
+    cards what the user picks, and each starts from it, so USDC · Base or SOL stays the pay token when the Buy side
+    moves to another chain's token (it used to fall back to that chain's own dollar). Other dollars run the funds steps first through `use-funds-run.ts` (the step runner shared
     with the funds window: `fundsRoute(... → wallet on Robinhood)`, i.e. Hyperliquid withdrawal and/or Across USDC →
     USDG to the wallet), with the Across quote previewed in the Buy box; when the USDG lands (`onDone`) the card asks
     for one more press to swap it on Arcus (rounded down to the cent). The card says plainly that USDC becomes USDG.

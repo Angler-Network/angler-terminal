@@ -39,8 +39,27 @@ export function foreignFromChoice(choice: TokenChoice | null): ForeignToken | nu
   return null;
 }
 
+/** Decimals of a Solana token picked from the search (Jupiter's token data). */
+export function useSolanaDecimals(mint: string | null) {
+  const [state, setState] = useState<{ mint: string; decimals: number } | null>(null);
+  useEffect(() => {
+    if (!mint) return;
+    let active = true;
+    void fetch(`/api/jup/token?mint=${mint}`)
+      .then((response) => response.json() as Promise<{ token?: { decimals?: number } | null }>)
+      .then((body) => {
+        if (active && Number.isInteger(body.token?.decimals)) setState({ mint, decimals: body.token!.decimals! });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [mint]);
+  return mint && state?.mint === mint ? state.decimals : undefined;
+}
+
 /** The foreign token's decimals and the EVM wallet's balance of it (read from its chain). */
-function useForeignToken(token: ForeignToken | null, owner: `0x${string}` | null, refresh: number) {
+export function useForeignToken(token: ForeignToken | null, owner: `0x${string}` | null, refresh: number) {
   const key = token ? `${token.chain.id}:${token.address}:${owner ?? ""}:${refresh}` : null;
   const [state, setState] = useState<{ key: string; decimals: number; balance: bigint | null } | null>(null);
   useEffect(() => {
