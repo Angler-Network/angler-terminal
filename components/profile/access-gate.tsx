@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { DISCORD, SocialIcon } from "@/components/app/social-links";
+import { useClosedBeta } from "@/components/app/service-status";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { deployment } from "@/lib/deployment";
 import { REFERRAL_CODE } from "@/lib/profile/identity";
@@ -33,12 +34,14 @@ function Step({ index, label, state }: { index: number; label: string; state: "d
 }
 
 /**
- * Closed beta: every page but the home page asks for a connected wallet with access (an accepted invite, an admin, or
- * a profile that traded before the beta). A wallet without access joins with an invite code here, prefilled from a
- * `?ref=` link. If the profile can't be read the gate stays open rather than locking everyone out. The testnet site has
+ * Closed beta (while an admin keeps it on, `lib/ops/beta.ts`): every page but the home page and Vaults asks for a
+ * connected wallet with access (an accepted invite, an admin, or a profile that traded before the beta). A wallet
+ * without access joins with an invite code here (an admin's, while the beta is closed), prefilled from a `?ref=` link. If the profile can't be read the gate stays open rather than locking everyone out. The testnet site has
  * no gate: anyone can try it there.
  */
-export function AccessGate() {
+export function AccessGate({ closedBeta: renderedClosed }: { closedBeta: boolean }) {
+  // Admins open or close the beta (Profile → Admin); open, there's no gate at all.
+  const closedBeta = useClosedBeta(renderedClosed);
   const pathname = usePathname();
   const { id, profile, error, pendingReferral, applyReferral } = useProfile();
   const wallets = useWalletModal();
@@ -51,7 +54,7 @@ export function AccessGate() {
 
   // The wallet picker (and its signature prompts) open over the gate.
   // Home and Vaults (read-only, meant to be found by search) stay open to everyone.
-  if (deployment === "testnet" || pathname === "/" || pathname === "/vaults" || wallets.isOpen) return null;
+  if (deployment === "testnet" || !closedBeta || pathname === "/" || pathname === "/vaults" || wallets.isOpen) return null;
   const needsWallet = !id;
   const needsInvite = Boolean(id && profile && !profile.access);
   if (!needsWallet && !needsInvite) return null;
@@ -133,7 +136,7 @@ export function AccessGate() {
         </div>
 
         <p className="mt-6 text-[12px] text-app-muted">
-          No invite yet? Traders on Angler earn one for every $10K they trade. {DISCORD ? "Ask for one on our Discord." : "Ask one."}
+          No invite yet? During the closed beta the Angler team hands them out. {DISCORD ? "Ask for one on our Discord." : "Ask the team for one."}
         </p>
         {DISCORD && (
           <a

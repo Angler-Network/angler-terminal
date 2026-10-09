@@ -776,8 +776,13 @@ dependency versions and design are free to diverge from angler-news.
   `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
   under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in
   the home page footer, and on the invite gate as "Get an invite on Discord".
-- Closed beta gate (`components/profile/access-gate.tsx`, root layout): every page but `/` needs a wallet with
-  `access` (admin, accepted invite or referral, or past volume). Mainnet only: on the testnet site the gate never shows
+- Closed beta gate (`components/profile/access-gate.tsx`, root layout): every page but `/` and `/vaults` needs a wallet
+  with `access` (admin, accepted invite or referral, or past volume). Admins switch it (Profile → Admin → Closed beta,
+  `POST /api/admin/beta`; `lib/ops/beta.ts`, Redis `angler:ops:<deployment>:closed-beta`, unset = closed, read with a
+  15s per-instance copy; rules in `lib/profile/beta.ts`). Closed: only admins get invite codes (`createAdminInvite`;
+  volume earns none, `invites.paused`, codes from before wait) and only an admin's code is accepted (`setReferrer`).
+  Open: no gate, volume earns codes again and any trader's code works as a referral. The layout renders the gate with
+  the server's value and `/api/status` (`closedBeta`, `useClosedBeta`) carries a switch to open tabs within a minute. Mainnet only: on the testnet site the gate never shows
   and `readProfile` reports `access: true`. Profiles, invites and referrals are stored per deployment (Redis prefix
   `angler:profile:<deployment>`), so a testnet code never unlocks mainnet and the two never collide.
 - Alerts (Profile → Alerts, `components/profile/alerts-view.tsx`; `lib/alerts/settings.ts`, `rules.ts`, `sources.ts`,

@@ -2,7 +2,9 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { deployment } from "@/lib/deployment";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
+import { readClosedBeta } from "@/lib/ops/beta";
 import { isAdmin } from "./admin";
+import { hasAccess, inviteUsable, mintsInvites } from "./beta";
 import { dailyVolume, dayKey, volumeOverDays } from "./days";
 import { INVITE_VOLUME } from "./invites";
 import { levelFor, pointsFor, REFERRAL_SHARE, type LevelInfo } from "./levels";
@@ -174,7 +176,14 @@ export interface ProfileView {
    * Single-use invite codes, one per INVITE_VOLUME of perp and spot volume; a referrer is set only through one. Only
    * sent to the signed-in owner (`readProfile(id, { owner: true })`), else null.
    */
-  invites: { codes: Array<{ code: string; usedBy: string | null }>; nextAt: number } | null;
+  invites: {
+    codes: Array<{ code: string; usedBy: string | null }>;
+    nextAt: number;
+    /** Closed beta: only admins hand out invites, so trading earns none until it opens (codes from before wait). */
+    paused: boolean;
+  } | null;
+  /** The closed beta is on (`lib/ops/beta.ts`): the gate shows and only admins' invites let people in. */
+  closedBeta: boolean;
   /** Primary ENS name and avatar (EVM), added by the API route. */
   ens?: EnsIdentity | null;
 }
@@ -243,7 +252,8 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     chain === "evm" ? members(key("links", id)) : Promise.resolve([]),
     members(key("refs", id)),
   ]);
-  const invites = owner ? await syncInvites(id, tradingVolumeOf(volumeOf(hash))) : null;
+  const closedBeta = await readClosedBeta();
+  const invites = owner ? await syncInvites(id, tradingVolumeOf(volumeOf(hash)), closedBeta) : null;
   const volume = volumeOf(hash);
   const points = pointsOf(hash);
   return {
@@ -259,8 +269,9 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     linkedWallets: linked,
     linkedTo: hash.linkedTo || null,
     referrer: hash.referrer || null,
-    // The testnet site is open to everyone (no real funds); the closed beta gates mainnet only.
-    access: deployment === "testnet" || isAdmin(id) || Boolean(hash.referrer) || totalOf(volume) > 0,
+    // The testnet site is open to everyone (no real funds); the closed beta gates mainnet only, while it's on.
+    access: hasAccess({ testnet: deployment === "testnet", closedBeta, admin: isAdmin(id), referred: Boolean(hash.referrer), traded: totalOf(volume) > 0 }),
+    closedBeta,
     admin: isAdmin(id),
     referrals: referred.length,
     ...referralBalance(hash),
@@ -388,9 +399,13 @@ export async function createAdminInvite(id: string) {
   return isAdmin(id) ? mintInvite(id) : null;
 }
 
-/** Tops a profile up to the invite codes its volume earned, and lists them (unused first). */
-async function syncInvites(id: string, volume: number): Promise<ProfileView["invites"]> {
+/**
+ * Tops a profile up to the invite codes its volume earned, and lists them (unused first). During the closed beta only
+ * admins hand out invites: everyone else gets no new codes and sees none (codes from before come back when it opens).
+ */
+async function syncInvites(id: string, volume: number, closedBeta: boolean): Promise<ProfileView["invites"]> {
   const earned = Math.floor(volume / INVITE_VOLUME);
+  if (!mintsInvites({ closedBeta, admin: isAdmin(id) })) return { codes: [], nextAt: (earned + 1) * INVITE_VOLUME, paused: true };
   const codes = await readInvites(id);
   let missing = Math.min(MAX_NEW_INVITES, earned - Object.keys(codes).length);
   while (missing > 0) {
@@ -399,7 +414,7 @@ async function syncInvites(id: string, volume: number): Promise<ProfileView["inv
   }
   const list = Object.entries(codes).map(([code, usedBy]) => ({ code, usedBy: usedBy || null }));
   list.sort((a, b) => Number(Boolean(a.usedBy)) - Number(Boolean(b.usedBy)) || a.code.localeCompare(b.code));
-  return { codes: list, nextAt: (earned + 1) * INVITE_VOLUME };
+  return { codes: list, nextAt: (earned + 1) * INVITE_VOLUME, paused: false };
 }
 
 export type ReferralResult = { ok: true; referrer: string } | { ok: false; error: string };
@@ -417,6 +432,10 @@ export async function setReferrer(id: string, code: string): Promise<ReferralRes
   const referrer = await getKey(key("invite", invite));
   if (!referrer) return { ok: false, error: "That invite code doesn't exist." };
   if (referrer === id) return { ok: false, error: "You can't use your own invite." };
+  // Closed beta: only the team's invites let people in (a trader's earned codes wait until it opens).
+  if (!inviteUsable({ closedBeta: await readClosedBeta(), ownerIsAdmin: isAdmin(referrer) })) {
+    return { ok: false, error: "During the closed beta only invites from the Angler team work. Ask for one on Discord." };
+  }
   if ((await getHash(referrer)).referrer === id) return { ok: false, error: "That profile was referred by you." };
   // One use per code: the first claim wins.
   if (!(await takeKey(key("invite-used", invite), INVITE_TTL_SECONDS, id))) return { ok: false, error: "That invite was already used." };

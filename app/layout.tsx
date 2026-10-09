@@ -13,6 +13,7 @@ import { SelectedAssetProvider } from "@/components/terminal/selected-asset";
 import { TradeTicketProvider } from "@/components/terminal/trade-ticket";
 import { ProfileProvider } from "@/components/profile/profile-provider";
 import { AccessGate } from "@/components/profile/access-gate";
+import { readClosedBeta } from "@/lib/ops/beta";
 import { NavIconSprite } from "@/components/app/nav-icon-sprite";
 import { ServiceStatus } from "@/components/app/service-status";
 import { DebugTrail } from "@/components/app/debug-trail";
@@ -59,6 +60,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Sent with the HTML (as a Link header), so the text font loads in parallel with the CSS instead of after it.
   preload("/fonts/sora-latin.3dc379dc.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   const chart = parseChartCookie((await cookies()).get(CHART_COOKIE)?.value);
+  // Rendered with the gate's real state, so an open beta never flashes the invite screen on first paint.
+  const closedBeta = await readClosedBeta().catch(() => true);
   return (
     <html lang="en-US" data-theme="oled" data-surface="liquid" data-tone="dark" suppressHydrationWarning>
       <head>
@@ -78,7 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <ProfileProvider>
                     {/* First in the HTML: on mainnet the invite gate is a first visit's largest paint, and it shows before the
                         terminal's markup is even parsed (a fixed overlay sits on top wherever it is in the page). */}
-                    <AccessGate />
+                    <AccessGate closedBeta={closedBeta} />
                     <div className="app-shell relative flex h-full overflow-hidden bg-linear-to-b from-app-shell-top to-app-shell-bottom text-app-ink">
                       <LayoutRevealButtons />
                       <Sidebar />

@@ -403,7 +403,7 @@ function ReferralCard() {
       </section>
     );
   }
-  const { codes, nextAt } = profile.invites;
+  const { codes, nextAt, paused } = profile.invites;
   const unused = codes.filter((entry) => !entry.usedBy);
   const available = unused.length;
   const used = codes.length - available;
@@ -460,7 +460,13 @@ function ReferralCard() {
         Every {compactUsd.format(INVITE_VOLUME)} you trade on perps and spot earns an invite. Each one brings in one trader: you earn 10% of the
         fees they pay and of their points on perp and spot trades.
       </p>
-      {codes.length > 0 ? (
+      {paused ? (
+        // Closed beta: the team hands out invites; trading still counts toward the ones earned once it opens.
+        <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">
+          During the closed beta only the Angler team hands out invites. Your volume still counts: when the beta opens you get one for every{" "}
+          {compactUsd.format(INVITE_VOLUME)} you&apos;ve traded.
+        </p>
+      ) : codes.length > 0 ? (
         <>
           {featured ? (
             // The next code to hand out; the rest wait under "Show all".
@@ -525,7 +531,7 @@ function ReferralCard() {
       ) : (
         <p className="mt-3 rounded-lg bg-app-chip/60 px-3 py-2.5 text-[12px] text-app-muted">No invites yet.</p>
       )}
-      <p className="mt-1.5 text-[11px] text-app-faint">Next invite at {compactUsd.format(nextAt)} of perp and spot volume ({compactUsd.format(Math.max(0, nextAt - ownVolume))} to go).</p>
+      <p className={`mt-1.5 text-[11px] text-app-faint ${paused ? "hidden" : ""}`}>Next invite at {compactUsd.format(nextAt)} of perp and spot volume ({compactUsd.format(Math.max(0, nextAt - ownVolume))} to go).</p>
       <div className="mt-auto grid grid-cols-3 gap-3 pt-3">
         <div className="rounded-xl bg-app-chip/60 px-3 py-2.5">
           <p className="text-[11px] text-app-muted">Referred</p>

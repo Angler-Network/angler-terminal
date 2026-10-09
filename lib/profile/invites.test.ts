@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
 const { creditVolume, readProfile, setReferrer } = await import("./store");
+const { setClosedBeta } = await import("@/lib/ops/beta");
 
 describe("Lighter Standard volume", () => {
   it("earns half points but counts in full as volume", async () => {
@@ -16,6 +17,10 @@ describe("Lighter Standard volume", () => {
 });
 
 describe("invites", () => {
+  // Referral invites as they work once the closed beta is open.
+  beforeAll(() => setClosedBeta(false));
+  afterAll(() => setClosedBeta(true));
+
   it("earns one single-use code per $10K and only lets new profiles join with one", async () => {
     const inviter = "0x00000000000000000000000000000000000000a1";
     const newcomer = "0x00000000000000000000000000000000000000b2";
@@ -89,6 +94,34 @@ describe("closed beta", () => {
       expect(await setReferrer(stranger, code!)).toEqual({ ok: true, referrer: admin });
       expect((await readProfile(stranger)).access).toBe(true);
     } finally {
+      delete process.env.ANGLER_ADMINS;
+    }
+  });
+
+  it("gives traders no codes while closed and accepts only admins' codes; opening it lets everyone in", async () => {
+    const admin = "0x00000000000000000000000000000000000000ae";
+    const trader = "0x0000000000000000000000000000000000000c33";
+    const newcomer = "0x0000000000000000000000000000000000000d44";
+    process.env.ANGLER_ADMINS = admin;
+    try {
+      // A code the trader earned while the beta was open...
+      await setClosedBeta(false);
+      await creditVolume(trader, "hyperliquid", 10_000);
+      const [earned] = (await readProfile(trader, { owner: true })).invites!.codes;
+      // ...waits while it's closed: none shown, none minted, and it doesn't let anyone in.
+      await setClosedBeta(true);
+      await creditVolume(trader, "hyperliquid", 20_000);
+      expect((await readProfile(trader, { owner: true })).invites).toMatchObject({ codes: [], paused: true });
+      expect(await setReferrer(newcomer, earned.code)).toMatchObject({ ok: false });
+      expect((await readProfile(newcomer)).access).toBe(false);
+      // Admins still mint at will, volume or not.
+      expect((await readProfile(admin, { owner: true })).invites).toMatchObject({ paused: false });
+
+      await setClosedBeta(false);
+      expect(await readProfile(newcomer)).toMatchObject({ access: true, closedBeta: false });
+      expect((await readProfile(trader, { owner: true })).invites!.codes).toHaveLength(3);
+    } finally {
+      await setClosedBeta(true);
       delete process.env.ANGLER_ADMINS;
     }
   });

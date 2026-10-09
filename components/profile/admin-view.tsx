@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { RevenueReport, RevenueSummary } from "@/lib/analytics/revenue";
 import { shortAddress } from "@/lib/profile/identity";
 import type { Payable } from "@/lib/profile/store";
-import { useOffServices } from "@/components/app/service-status";
+import { announceClosedBeta, useClosedBeta, useOffServices } from "@/components/app/service-status";
 import { VenueLogo } from "@/components/terminal/venue-logo";
 import { useProfile } from "./profile-provider";
 
@@ -60,6 +60,57 @@ const SERVICES: Array<{ id: string; name: string }> = [
   { id: "swap:zerox", name: "0x" },
   { id: "swap:kyberswap", name: "KyberSwap" },
 ];
+
+/**
+ * The closed beta switch (`lib/ops/beta.ts`). On: every page but home and Vaults asks for access, and only admins'
+ * invite codes let people in (trading earns none). Off: no gate, and invites work as referrals again.
+ */
+function ClosedBetaPanel() {
+  const { profile, refresh } = useProfile();
+  const closed = useClosedBeta(profile?.closedBeta ?? true);
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const flip = async () => {
+    if (!armed) return setArmed(true);
+    setArmed(false);
+    setBusy(true);
+    setMessage(null);
+    const response = await fetch("/api/admin/beta", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ closed: !closed }) });
+    const body = (await response.json().catch(() => ({}))) as { closedBeta?: unknown; error?: string };
+    if (response.ok && typeof body.closedBeta === "boolean") announceClosedBeta(body.closedBeta);
+    else setMessage(body.error ?? "Couldn't change it.");
+    refresh();
+    setBusy(false);
+  };
+  return (
+    <section className={`${card} p-4`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`size-2 rounded-full ${closed ? "bg-[#f5c97b]" : "bg-app-up"}`} aria-hidden />
+        <h3 className="text-[13px] font-semibold text-app-ink">Closed beta</h3>
+        <span className="text-[12px] text-app-muted">{closed ? "On: invite only" : "Off: open to everyone"}</span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void flip()}
+          onBlur={() => setArmed(false)}
+          className={`ml-auto h-7 rounded-lg px-2.5 text-[12px] font-semibold disabled:opacity-60 ${
+            armed ? "bg-app-down text-white" : closed ? "bg-app-up text-black" : "border border-app-hairline-strong text-app-ink hover:bg-app-selected/70"
+          }`}
+        >
+          {busy ? "Saving…" : armed ? (closed ? "Confirm: open to everyone" : "Confirm: invite only") : closed ? "Open the beta" : "Close the beta"}
+        </button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-app-faint">
+        {closed
+          ? "Every page but home and Vaults asks for access. Only admins create invite codes, and only theirs let people in; trading earns none for now."
+          : "No gate: anyone can trade. Trading earns invite codes again and any trader's code works as a referral."}{" "}
+        Open tabs follow within a minute.
+      </p>
+      {message && <p className="mt-2 text-[12px] text-app-down">{message}</p>}
+    </section>
+  );
+}
 
 /** Kill switches: turn a service off for everyone at once (a hacked or failing bridge); browsers drop it within a minute. */
 function ServicesPanel() {
@@ -349,6 +400,7 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
         {invites}
       </div>
       {status === "ready" && <PayoutsPanel />}
+      {status === "ready" && <ClosedBetaPanel />}
       {status === "ready" && <ServicesPanel />}
     </>
   );
