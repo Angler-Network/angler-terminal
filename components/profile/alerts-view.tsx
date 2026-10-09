@@ -3,7 +3,10 @@
 import { Bell, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SelectField, SettingRow, Toggle } from "@/components/app/form-controls";
+import { MarketIcon } from "@/components/app/market-icon";
+import { SearchableSelect } from "@/components/app/searchable-select";
 import { useToast } from "@/components/app/toast-provider";
+import type { AlertCoin } from "@/lib/alerts/coins";
 import { displayCoin } from "@/lib/alerts/rules";
 import {
   DEFAULT_ALERT_SETTINGS,
@@ -19,19 +22,37 @@ import { formatPrice } from "@/lib/format";
 import { useProfile } from "./profile-provider";
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
-const field = "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] text-app-ink outline-hidden placeholder:text-app-faint focus:border-app-ink";
+const field = "h-9 rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] text-app-ink outline-hidden placeholder:text-app-faint focus:border-app-ink";
 const button = "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold disabled:opacity-50";
 
 type Loaded = { settings: AlertSettings; fired: string[]; telegram: boolean; evm: boolean };
 
 const offOr = (steps: readonly number[], unit: string) => [{ value: "off", label: "Off" }, ...steps.map((step) => ({ value: String(step), label: `${step}${unit}` }))];
 
-/** Price alert entry: coin, above/below, price. */
+/** Hyperliquid's coins for the picker, fetched once per page. */
+function useAlertCoins() {
+  const [coins, setCoins] = useState<AlertCoin[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/alerts/coins")
+      .then((response) => response.json() as Promise<{ coins?: AlertCoin[] }>)
+      .then((body) => live && setCoins(Array.isArray(body.coins) ? body.coins : []))
+      .catch(() => live && setCoins([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return coins;
+}
+
+/** Price alert entry: any Hyperliquid coin (main dex and HIP-3 stocks), above/below, price. */
 function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => void; disabled: boolean }) {
-  const [coin, setCoin] = useState("");
+  const coins = useAlertCoins();
+  const [coin, setCoin] = useState("BTC");
   const [direction, setDirection] = useState<PriceAlert["direction"]>("above");
   const [price, setPrice] = useState("");
   const normalized = normalizeCoin(coin);
+  const current = coins?.find((entry) => entry.coin === normalized)?.mid;
   const value = Number(price);
   const valid = Boolean(normalized) && value > 0;
   return (
@@ -41,11 +62,36 @@ function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => voi
         event.preventDefault();
         if (!valid || disabled) return;
         onAdd({ id: `p${Date.now().toString(36)}`, coin: normalized!, direction, price: value });
-        setCoin("");
         setPrice("");
       }}
     >
-      <input aria-label="Coin" className={`${field} w-28`} placeholder="BTC" value={coin} onChange={(event) => setCoin(event.target.value)} />
+      {coins && coins.length > 0 ? (
+        <SearchableSelect<AlertCoin>
+          compact
+          className="w-full sm:w-48"
+          items={coins}
+          value={coin}
+          onChange={setCoin}
+          getKey={(entry) => entry.coin}
+          getSearchText={(entry) => `${entry.coin} ${displayCoin(entry.coin)}`}
+          getDisplayValue={(entry) => displayCoin(entry.coin)}
+          renderSelectedIcon={(entry) => <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.dex ? "stock" : "crypto"} size={18} />}
+          renderOption={(entry) => (
+            <>
+              <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.dex ? "stock" : "crypto"} size={20} />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-app-ink">{displayCoin(entry.coin)}</span>
+              {entry.dex && <span className="rounded bg-app-chip px-1 text-[10px] font-semibold uppercase text-app-muted">{entry.dex}</span>}
+              <span className="text-[12px] tabular-nums text-app-muted">{formatPrice(entry.mid)}</span>
+            </>
+          )}
+          label="Coin"
+          placeholder="Coin"
+          searchPlaceholder="Search coins"
+          emptyMessage="No coin matches."
+        />
+      ) : (
+        <input aria-label="Coin" className={`${field} w-full sm:w-48`} placeholder={coins ? "Coin (e.g. BTC)" : "Loading coins…"} value={coin} onChange={(event) => setCoin(event.target.value)} />
+      )}
       <SelectField<PriceAlert["direction"]>
         size="sm"
         label="Direction"
@@ -56,10 +102,18 @@ function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => voi
         ]}
         onChange={setDirection}
       />
-      <input aria-label="Price" inputMode="decimal" className={`${field} w-32 tabular-nums`} placeholder="Price" value={price} onChange={(event) => setPrice(event.target.value.replace(/[^0-9.]/g, ""))} />
+      <input
+        aria-label="Price"
+        inputMode="decimal"
+        className={`${field} min-w-0 flex-1 tabular-nums sm:w-36 sm:flex-none`}
+        placeholder={current ? formatPrice(current) : "Price"}
+        value={price}
+        onChange={(event) => setPrice(event.target.value.replace(/[^0-9.]/g, ""))}
+      />
       <button type="submit" disabled={!valid || disabled} className={`${button} bg-app-chip text-app-ink hover:bg-app-selected`}>
         Add
       </button>
+      {current !== undefined && <span className="text-[12px] text-app-muted">Now <span className="tabular-nums text-app-ink">{formatPrice(current)}</span></span>}
     </form>
   );
 }

@@ -46,18 +46,22 @@ export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
 
 // Discord's own hosts only: the server posts to this URL, so anything else would let a profile make it call any host.
 const DISCORD_WEBHOOK = /^https:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/api\/webhooks\/\d{5,30}\/[\w-]{20,100}$/;
-const COIN = /^(?:[a-z0-9]{1,12}:)?[A-Z0-9]{1,20}$/;
+const COIN = /^(?:[a-z0-9]{1,12}:)?k?[A-Z0-9]{1,20}$/;
 const ALERT_ID = /^[\w-]{1,40}$/;
 
 export function isDiscordWebhook(url: string) {
   return DISCORD_WEBHOOK.test(url);
 }
 
-/** Normalizes a typed coin ("btc", "xyz:nvda") to Hyperliquid's naming, or null when it isn't one. */
+/**
+ * Normalizes a typed coin ("btc", "xyz:nvda") to Hyperliquid's naming, or null when it isn't one. Hyperliquid's
+ * thousand-unit coins keep their lowercase "k" (kPEPE, kBONK) when given that way.
+ */
 export function normalizeCoin(value: string) {
   const trimmed = value.trim();
-  const [dex, name] = trimmed.includes(":") ? trimmed.split(":", 2) : [null, trimmed];
-  const coin = dex ? `${dex.toLowerCase()}:${name.toUpperCase()}` : name.toUpperCase();
+  const [dex, raw] = trimmed.includes(":") ? trimmed.split(":", 2) : [null, trimmed];
+  const name = /^k[A-Z0-9]+$/.test(raw) ? raw : raw.toUpperCase();
+  const coin = dex ? `${dex.toLowerCase()}:${name}` : name;
   return COIN.test(coin) ? coin : null;
 }
 

@@ -35,6 +35,8 @@ describe("helpers", () => {
     expect(normalizeCoin(" btc ")).toBe("BTC");
     expect(normalizeCoin("XYZ:nvda")).toBe("xyz:NVDA");
     expect(normalizeCoin("not a coin")).toBeNull();
+    expect(normalizeCoin("kPEPE")).toBe("kPEPE");
+    expect(normalizeCoin("kpepe")).toBe("KPEPE");
   });
 
   it("falls back to defaults for broken stored data", () => {
