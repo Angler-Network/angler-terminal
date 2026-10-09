@@ -62,7 +62,13 @@ const nextConfig = {
       // The portfolio moved into the profile.
       { source: "/portfolio", destination: "/profile/portfolio", permanent: true },
       // The testnet site has no Swap view (lib/deployment.ts swapViewAvailable).
-      ...(process.env.NEXT_PUBLIC_DEPLOYMENT === "testnet" ? [{ source: "/swap/:path*", destination: "/", permanent: false }] : []),
+      // Nor Prediction (predictionViewAvailable): Polymarket is mainnet only.
+      ...(process.env.NEXT_PUBLIC_DEPLOYMENT === "testnet"
+        ? [
+            { source: "/swap/:path*", destination: "/", permanent: false },
+            { source: "/prediction/:path*", destination: "/", permanent: false },
+          ]
+        : []),
     ];
   },
   // Self-hosted fonts carry a content hash in their name.

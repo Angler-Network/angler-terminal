@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pinnedNetwork, readConfiguredVenues, readDeployment, swapViewAvailable, venueAvailable } from "./deployment";
+import { pinnedNetwork, predictionViewAvailable, readConfiguredVenues, readDeployment, swapViewAvailable, venueAvailable } from "./deployment";
 
 describe("deployment", () => {
   it("reads the deployment", () => {
@@ -41,5 +41,11 @@ describe("deployment", () => {
     expect(swapViewAvailable("testnet")).toBe(false);
     expect(swapViewAvailable("mainnet")).toBe(true);
     expect(swapViewAvailable(null)).toBe(true);
+  });
+
+  it("has no Prediction view on the testnet site", () => {
+    expect(predictionViewAvailable("testnet")).toBe(false);
+    expect(predictionViewAvailable("mainnet")).toBe(true);
+    expect(predictionViewAvailable(null)).toBe(true);
   });
 });

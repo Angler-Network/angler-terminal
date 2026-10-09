@@ -58,6 +58,14 @@ export function swapViewAvailable(pinned: Deployment | null = deployment) {
   return pinned !== "testnet";
 }
 
+/**
+ * Whether this build has the Prediction view. Not on the testnet site: Polymarket has no testnet, so its odds and orders
+ * there would be real money on Polygon mainnet behind a "Testnet" badge (only HIP-4 follows the testnet network).
+ */
+export function predictionViewAvailable(pinned: Deployment | null = deployment) {
+  return pinned !== "testnet";
+}
+
 function readUrl(value: string | undefined) {
   if (!value) return null;
   try {
