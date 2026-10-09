@@ -35,7 +35,9 @@ export function Picker<T extends string>({
   /** Replaces the button's icon and label (the swap card shows the token's symbol and chain). */
   children?: ReactNode;
 }) {
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  // Below the button, or above it when there's more room there; capped to the window and scrolled inside (the chain
+  // lists outgrew the screen).
+  const [anchor, setAnchor] = useState<{ top?: number; bottom?: number; left: number; maxHeight: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const listRef = useRef<HTMLSpanElement>(null);
   const current = options.find((option) => option.value === value);
@@ -57,8 +59,18 @@ export function Picker<T extends string>({
   }, [open]);
   const toggle = () => {
     const rect = ref.current?.getBoundingClientRect();
-    setAnchor(open || !rect ? null : { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 248) });
+    if (open || !rect) return setAnchor(null);
+    const left = Math.min(rect.left, window.innerWidth - 248);
+    const below = window.innerHeight - rect.bottom - 12;
+    const above = rect.top - 12;
+    const up = below < 240 && above > below;
+    const maxHeight = Math.max(160, Math.min(420, up ? above : below));
+    setAnchor(up ? { bottom: window.innerHeight - rect.top + 4, left, maxHeight } : { top: rect.bottom + 4, left, maxHeight });
   };
+  // The chosen option starts in view in a long list.
+  useEffect(() => {
+    if (open) listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [open]);
   return (
     <span ref={ref} className="relative inline-block">
       <button
@@ -80,7 +92,7 @@ export function Picker<T extends string>({
       </button>
       {open &&
         createPortal(
-          <span ref={listRef} role="listbox" style={anchor ?? undefined} className="surface-menu fixed z-50 flex w-60 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 shadow-lg">
+          <span ref={listRef} role="listbox" style={anchor ?? undefined} className="surface-menu scrollbar-subtle fixed z-50 flex w-60 flex-col overflow-y-auto overscroll-contain rounded-xl border border-app-hairline-strong bg-app-dialog p-1 shadow-lg">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -92,7 +104,7 @@ export function Picker<T extends string>({
                   onChange(option.value);
                   setAnchor(null);
                 }}
-                className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] ${
+                className={`flex shrink-0 items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] ${
                   option.value === value ? "bg-app-chip text-app-ink" : "text-app-ink hover:bg-app-chip"
                 } disabled:cursor-default disabled:text-app-faint disabled:hover:bg-transparent`}
               >
