@@ -120,10 +120,38 @@ export interface OrderlyOrderRow {
   executed?: number;
   reduce_only?: boolean | null;
   created_time?: number;
+  /** Set when the order belongs to an algo order (a bracket's entry). */
+  algo_order_id?: number | null;
 }
 
-/** Positions (`/v1/positions`), open orders (`/v1/orders?status=INCOMPLETE`) and collateral as one snapshot. */
-export function readOrderlyAccount(markets: VenueMarket[], positions: OrderlyPositionsData, orders: OrderlyOrderRow[]): AccountSnapshot {
+/** A row of `/v1/algo/orders` (only the fields a bracket entry needs). */
+export interface OrderlyAlgoRow {
+  algo_order_id: number;
+  symbol: string;
+  algo_type?: string;
+  side?: string;
+  type?: string;
+  price?: number | null;
+  quantity?: number;
+  total_executed_quantity?: number;
+  algo_status?: string;
+  parent_algo_order_id?: number;
+  created_time?: number | string;
+}
+
+const OPEN_ALGO = new Set(["NEW", "PARTIAL_FILLED", "REPLACED"]);
+
+/**
+ * Bracket entries (a limit order placed with its TP/SL as one `BRACKET` algo order) still waiting: shown as open orders
+ * with a negative `oid` (minus the algo order id), so cancelling one cancels the whole bracket through
+ * `/v1/algo/order` instead of leaving its TP/SL behind.
+ */
+export function orderlyBracketOrders(algos: OrderlyAlgoRow[]) {
+  return algos.filter((row) => row.algo_type === "BRACKET" && !row.parent_algo_order_id && OPEN_ALGO.has(row.algo_status ?? "NEW"));
+}
+
+/** Positions (`/v1/positions`), open orders (`/v1/orders?status=INCOMPLETE` and bracket entries) and collateral as one snapshot. */
+export function readOrderlyAccount(markets: VenueMarket[], positions: OrderlyPositionsData, orders: OrderlyOrderRow[], algos: OrderlyAlgoRow[] = []): AccountSnapshot {
   const symbolOf = (coin: string) => markets.find((market) => market.coin === coin)?.symbol ?? orderlyBase(coin) ?? coin;
   const open: VenuePosition[] = (positions.rows ?? []).flatMap((row) => {
     const size = num(row.position_qty) ?? 0;
@@ -152,7 +180,28 @@ export function readOrderlyAccount(markets: VenueMarket[], positions: OrderlyPos
       },
     ];
   });
-  const resting: VenueOpenOrder[] = orders.map((row) => {
+  const brackets = orderlyBracketOrders(algos);
+  const bracketIds = new Set(brackets.map((row) => row.algo_order_id));
+  // A bracket's entry can also show as a plain order: it's listed once, as the bracket (cancel takes its TP/SL too).
+  const plain = orders.filter((row) => !(row.algo_order_id && bracketIds.has(row.algo_order_id)));
+  const bracketRows: VenueOpenOrder[] = brackets.map((row) => {
+    const quantity = num(row.quantity) ?? 0;
+    return {
+      venue: "orderly",
+      coin: row.symbol,
+      symbol: symbolOf(row.symbol),
+      dex: "",
+      oid: -row.algo_order_id,
+      side: row.side === "SELL" ? "sell" : "buy",
+      limitPx: num(row.price) ?? 0,
+      size: Math.max(0, quantity - (num(row.total_executed_quantity) ?? 0)),
+      origSize: quantity,
+      orderType: "limit · tp/sl",
+      reduceOnly: false,
+      timestamp: num(row.created_time) ?? 0,
+    };
+  });
+  const resting: VenueOpenOrder[] = plain.map((row) => {
     const quantity = num(row.quantity) ?? 0;
     return {
       venue: "orderly",
@@ -171,7 +220,7 @@ export function readOrderlyAccount(markets: VenueMarket[], positions: OrderlyPos
   });
   return {
     positions: open,
-    orders: resting,
+    orders: [...resting, ...bracketRows],
     accountValue: num(positions.total_collateral_value) ?? 0,
     withdrawable: num(positions.free_collateral) ?? 0,
   };

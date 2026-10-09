@@ -2,7 +2,7 @@
 
 import { VenueError, type AccountHandlers, type Candle, type OrderResult, type PerpVenue, type PlaceOrderInput, type PositionRef, type PositionTpsl, type VenueMarket, type VenueOpenOrder } from "../types";
 import { ORDERLY_BASE_TAKER_FEE, orderlyConfig } from "./config";
-import { readOrderlyAccount, readOrderlyCandles, readOrderlyMarkets, roundToTick, type OrderlyFuturesRow, type OrderlyInfoRow, type OrderlyOrderRow, type OrderlyPositionsData, type OrderlySteps } from "./markets";
+import { readOrderlyAccount, readOrderlyCandles, readOrderlyMarkets, roundToTick, type OrderlyFuturesRow, type OrderlyInfoRow, type OrderlyAlgoRow, type OrderlyOrderRow, type OrderlyPositionsData, type OrderlySteps } from "./markets";
 import { orderlyKey } from "./store";
 
 /**
@@ -118,6 +118,18 @@ function createOrderlyVenue(): PerpVenue {
     throw new VenueError("Orderly accepted the order but hasn't confirmed the fill yet. Check your positions before trying again.");
   }
 
+  /** TP and SL children of a TP/SL or bracket algo order: reduce-only, triggered by the mark price. */
+  function bracketChildren(coin: string, closeSide: "BUY" | "SELL", quoteTick: number, levels: Pick<PositionTpsl, "takeProfit" | "stopLoss">, type = "CLOSE_POSITION") {
+    return (
+      [
+        ["TAKE_PROFIT", levels.takeProfit],
+        ["STOP_LOSS", levels.stopLoss],
+      ] as const
+    ).flatMap(([algoType, price]) =>
+      price ? [{ symbol: coin, algo_type: algoType, side: closeSide, type, trigger_price_type: "MARK_PRICE", trigger_price: roundToTick(price, quoteTick), reduce_only: true }] : [],
+    );
+  }
+
   /**
    * TP/SL on the whole position: Orderly's `POSITIONAL_TP_SL` algo order, one child per level, each closing the
    * position at market when the mark price crosses it. With `levels.size` it's a `TP_SL` order for that quantity.
@@ -126,26 +138,7 @@ function createOrderlyVenue(): PerpVenue {
     const steps = await stepsOf(market.coin);
     const quantity = levels.size === undefined ? undefined : roundToTick(levels.size, steps.baseTick);
     if (quantity !== undefined && !(quantity > 0)) throw new VenueError(`TP/SL size is below ${market.symbol}'s lot on Orderly (${steps.baseTick}).`);
-    const children = (
-      [
-        ["TAKE_PROFIT", levels.takeProfit],
-        ["STOP_LOSS", levels.stopLoss],
-      ] as const
-    ).flatMap(([type, price]) =>
-      price
-        ? [
-            {
-              symbol: market.coin,
-              algo_type: type,
-              side: closeSide,
-              type: quantity === undefined ? "CLOSE_POSITION" : "MARKET",
-              trigger_price_type: "MARK_PRICE",
-              trigger_price: roundToTick(price, steps.quoteTick),
-              reduce_only: true,
-            },
-          ]
-        : [],
-    );
+    const children = bracketChildren(market.coin, closeSide, steps.quoteTick, levels, quantity === undefined ? "CLOSE_POSITION" : "MARKET");
     if (children.length === 0) return;
     await signed(user, "POST", "/v1/algo/order", {
       symbol: market.coin,
@@ -158,12 +151,28 @@ function createOrderlyVenue(): PerpVenue {
   async function placeOrder(user: `0x${string}`, input: PlaceOrderInput): Promise<OrderResult> {
     const { market } = input;
     const withTpsl = Boolean(input.takeProfit || input.stopLoss);
-    // Orderly's TP/SL attaches to a position, so a resting limit entry can't carry one yet.
-    if (withTpsl && input.kind === "limit") throw new VenueError("On Orderly, add TP/SL after the limit order fills (TP/SL on the position row).");
     const steps = await stepsOf(market.coin);
     const quantity = roundToTick(input.size, steps.baseTick);
     if (!(quantity > 0)) throw new VenueError(`Size is below ${market.symbol}'s lot on Orderly (${steps.baseTick}).`);
     await applySettings(user, market, input);
+    // A limit entry with TP/SL is one `BRACKET` algo order: the TP/SL (on the whole position, mark price) arm once it fills.
+    if (withTpsl && input.kind === "limit" && input.limitPx && !input.reduceOnly) {
+      const side = input.side === "buy" ? "BUY" : "SELL";
+      const closeSide = side === "BUY" ? "SELL" : "BUY";
+      const children = bracketChildren(market.coin, closeSide, steps.quoteTick, { takeProfit: input.takeProfit, stopLoss: input.stopLoss });
+      const placed = await signed<{ rows?: Array<{ order_id?: number; algo_type?: string }> }>(user, "POST", "/v1/algo/order", {
+        symbol: market.coin,
+        algo_type: "BRACKET",
+        side,
+        type: "LIMIT",
+        price: roundToTick(input.limitPx, steps.quoteTick),
+        quantity,
+        child_orders: [{ symbol: market.coin, algo_type: "POSITIONAL_TP_SL", child_orders: children }],
+      });
+      const id = placed.rows?.find((row) => row.algo_type === "BRACKET")?.order_id;
+      if (!id) throw new VenueError("Orderly didn't confirm the limit order with TP/SL.");
+      return { status: "resting", oid: -id };
+    }
     const order = await signed<{ order_id: number }>(user, "POST", "/v1/order", {
       symbol: market.coin,
       side: input.side === "buy" ? "BUY" : "SELL",
@@ -184,7 +193,9 @@ function createOrderlyVenue(): PerpVenue {
   }
 
   async function cancelOrder(user: `0x${string}`, order: Pick<VenueOpenOrder, "coin" | "oid">) {
-    await signed(user, "DELETE", `/v1/order?order_id=${order.oid}&symbol=${order.coin}`);
+    // A negative id is a bracket (limit entry with TP/SL): cancelling the algo order takes its TP/SL too.
+    if (order.oid < 0) await signed(user, "DELETE", `/v1/algo/order?order_id=${-order.oid}&symbol=${order.coin}`);
+    else await signed(user, "DELETE", `/v1/order?order_id=${order.oid}&symbol=${order.coin}`);
   }
 
   async function closePosition(user: `0x${string}`, position: PositionRef, size?: number): Promise<OrderResult> {
@@ -210,12 +221,14 @@ function createOrderlyVenue(): PerpVenue {
         return;
       }
       try {
-        const [markets, positions, orders] = await Promise.all([
+        const [markets, positions, orders, algos] = await Promise.all([
           listMarkets(),
           signed<OrderlyPositionsData>(user, "GET", "/v1/positions"),
           signed<{ rows?: OrderlyOrderRow[] }>(user, "GET", "/v1/orders?status=INCOMPLETE&size=100"),
+          // Bracket entries (limit + TP/SL); a failure here leaves just the plain orders.
+          signed<{ rows?: OrderlyAlgoRow[] }>(user, "GET", "/v1/algo/orders?status=INCOMPLETE&algo_type=BRACKET&size=100").catch(() => ({ rows: [] })),
         ]);
-        if (active) handlers.onSnapshot(readOrderlyAccount(markets, positions, orders.rows ?? []));
+        if (active) handlers.onSnapshot(readOrderlyAccount(markets, positions, orders.rows ?? [], algos.rows ?? []));
       } catch (error) {
         if (active) handlers.onError?.(error);
       }

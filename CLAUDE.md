@@ -160,7 +160,11 @@ dependency versions and design are free to diverge from angler-news.
   (`roundToTick`). Orders POST `/v1/order` (MARKET/LIMIT; read back from `/v1/order/{id}` until final), leverage POST
   `/v1/client/leverages` per symbol, cancel DELETE `/v1/order?order_id&symbol`, account = `/v1/positions` +
   `/v1/orders?status=INCOMPLETE` every 3s, candles `/tv/history`. TP/SL: POST `/v1/algo/order` `POSITIONAL_TP_SL` (mark price, `CLOSE_POSITION`
-  children) placed after a market fill or from the position row; a resting limit entry can't carry one. Funding rates
+  children) placed after a market fill or from the position row. A limit entry with TP/SL is one `BRACKET` algo order
+  (`LIMIT` + a `POSITIONAL_TP_SL` child, per the create-algo-order docs), listed from `/v1/algo/orders?status=INCOMPLETE&
+  algo_type=BRACKET` as an open order with a negative `oid` (cancel → `DELETE /v1/algo/order`, which takes the TP/SL too;
+  a plain-order copy carrying its `algo_order_id` is dropped). Not yet seen live: testnet's faucet never funded the test
+  account, so check the first real bracket shows and cancels. Funding rates
   (`orderly/funding.ts`, `/v1/public/futures` + `/info`, normalized to 8h) join the Markets table. The REST book needs a signed account,
   so the order book and best execution read the public WebSocket (`stream.ts`: one shared socket; the path needs an
   account id Orderly knows (it refuses others since Oct 2026): `NEXT_PUBLIC_ORDERLY_STREAM_ID` first when set, else the

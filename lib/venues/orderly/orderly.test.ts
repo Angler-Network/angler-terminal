@@ -59,6 +59,26 @@ describe("Orderly account and streams", () => {
     expect(snapshot).toMatchObject({ accountValue: 120, withdrawable: 80 });
   });
 
+  it("lists a waiting bracket (limit + TP/SL) once, as a negative id that cancels the whole bracket", () => {
+    const { markets } = readOrderlyMarkets(info.rows, futures.rows);
+    const snapshot = readOrderlyAccount(
+      markets,
+      { rows: [] },
+      // The same entry may also come back as a plain order carrying its algo id: it's dropped there.
+      [
+        { order_id: 9, symbol: "PERP_ETH_USDC", side: "BUY", type: "LIMIT", price: 1737.8, quantity: 0.01, algo_order_id: 85600723 },
+        { order_id: 10, symbol: "PERP_ETH_USDC", side: "SELL", type: "LIMIT", price: 3000, quantity: 0.02 },
+      ],
+      [
+        { algo_order_id: 85600723, symbol: "PERP_ETH_USDC", algo_type: "BRACKET", side: "BUY", type: "LIMIT", price: 1737.8, quantity: 0.01, algo_status: "NEW", parent_algo_order_id: 0 },
+        { algo_order_id: 85600724, symbol: "PERP_ETH_USDC", algo_type: "POSITIONAL_TP_SL", side: "SELL", algo_status: "NEW", parent_algo_order_id: 85600723 },
+        { algo_order_id: 85600800, symbol: "PERP_ETH_USDC", algo_type: "BRACKET", side: "BUY", type: "LIMIT", price: 1500, quantity: 0.01, algo_status: "REJECTED", parent_algo_order_id: 0 },
+      ],
+    );
+    expect(snapshot.orders.map((order) => order.oid)).toEqual([10, -85600723]);
+    expect(snapshot.orders[1]).toMatchObject({ symbol: "ETH", side: "buy", limitPx: 1737.8, size: 0.01, orderType: "limit · tp/sl" });
+  });
+
   it("reads candles, book snapshots and trades", () => {
     expect(readOrderlyCandles({ s: "ok", t: [10], o: [1], h: [2], l: [0.5], c: [1.5], v: [3] })).toEqual([{ time: 10_000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 3 }]);
     expect(readOrderlyCandles({ s: "no_data" })).toEqual([]);
