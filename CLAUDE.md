@@ -118,8 +118,8 @@ dependency versions and design are free to diverge from angler-news.
     Robinhood Chain to the RH intent address (`createIntentAddress` chain_id 4663, ≥ 1 USDG; `ROBINHOOD` source,
     viem chain from `arcus/config`). The trading provider runs `useLighterInstance` per exchange; the account
     panel, setup dialog, deposit dialog, merged order book (up to three venues), best execution, chart candles and
-    profile points (same client-order tag) handle both. Order and position history cover both (`fromLighterOrder` / `fromLighterTrade` take the venue). Still
-    core-only: the testnet faucet, funding rates (the feed has no RH).
+    profile points (same client-order tag) handle both. Order and position history cover both (`fromLighterOrder` / `fromLighterTrade` take the venue). Funding: `/api/funding` adds RH's own feed (`api.rh.lighter.xyz`,
+    its "lighter" rows as venue `lighterRh`). Still core-only: the testnet faucet.
   - Network from `NEXT_PUBLIC_LIGHTER_NETWORK` (testnet default, chain 300; mainnet 304), per-browser override
     `LIGHTER_NETWORK_OVERRIDE_KEY`. Markets from `orderBookDetails`, cached 60s by `/api/lighter/markets`. Ids,
     decimals and minimums always come from the API.
