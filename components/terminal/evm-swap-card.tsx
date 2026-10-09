@@ -892,7 +892,6 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
-      {routeOptions.length > 1 && <RouteList options={routeOptions} pick={routePick} onPick={setRoutePick} loading={loading} />}
       {/* USDC from another chain meeting a Robinhood token (chain 4663): it becomes, or comes from, USDG there. */}
       {chain.id === 4663 && (cross || direct) && /^USDC/i.test(pay.symbol) && <RobinhoodDollarNote selling={side === "sell"} otherChain={remoteChainName} />}
       {!pureBridge && !direct && <GaslessNote />}
@@ -1029,6 +1028,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
           )}
         </div>
       )}
+      {/* Routes where the Solana and Arcus cards keep theirs: right above the summary. */}
+      {routeOptions.length > 1 && <RouteList options={routeOptions} pick={routePick} onPick={setRoutePick} loading={loading} />}
       {value > 0 && (
         <div className="flex flex-col gap-1 rounded-xl border border-app-hairline p-2.5">
           <DetailRow label="You sell">

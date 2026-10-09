@@ -1285,28 +1285,6 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           {crossSwap.pending && <span className="text-app-muted"> On its way… we&apos;ll tell you when it lands.</span>}
         </p>
       )}
-      {/* Every route for paying with a token elsewhere (Relay, LI.FI and its bridges), the Solana card's cross-chain swap too. */}
-      {solPay && (solQuoted?.options?.length ?? 0) > 1 && (
-        <RouteList
-          options={solQuoted!.options!.map((option) => ({ id: option.id, ...directRouteLabel(option), domain: directRouteDomain(option.provider), out: units6(option.out), symbol: arcusConfig.quoteSymbol }))}
-          pick={directPick}
-          onPick={setDirectPick}
-        />
-      )}
-      {foreign && crossSwap.options.length > 1 && crossSwap.receivedDecimals !== null && (
-        <RouteList
-          options={crossSwap.options.map((option) => ({
-            id: option.id,
-            ...directRouteLabel({ provider: option.provider, name: option.name, toolName: option.provider === "lifi" ? option.raw.toolName : undefined }),
-            domain: directRouteDomain(option.provider),
-            out: fromBaseUnits(option.raw.expectedOut, crossSwap.receivedDecimals!),
-            symbol: buy.symbol,
-          }))}
-          pick={crossSwap.pick}
-          onPick={crossSwap.setPick}
-          loading={crossSwap.quoting}
-        />
-      )}
       {!isSolana && side === "buy" && (cross || solPay) && /^USDC/i.test(sell.symbol) && <RobinhoodDollarNote selling={false} otherChain={sell.chainName} />}
       {solPay && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline p-2.5">
@@ -1408,6 +1386,28 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       )}
       {isSolana && !unverified && choice.token.launchpad && (
         <p className="text-[11px] text-app-faint">Launched on {choice.token.launchpad}.</p>
+      )}
+      {/* Every route for paying with a token elsewhere (Relay, LI.FI and its bridges), the Solana card's cross-chain swap too. */}
+      {solPay && (solQuoted?.options?.length ?? 0) > 1 && (
+        <RouteList
+          options={solQuoted!.options!.map((option) => ({ id: option.id, ...directRouteLabel(option), domain: directRouteDomain(option.provider), out: units6(option.out), symbol: arcusConfig.quoteSymbol }))}
+          pick={directPick}
+          onPick={setDirectPick}
+        />
+      )}
+      {foreign && crossSwap.options.length > 1 && crossSwap.receivedDecimals !== null && (
+        <RouteList
+          options={crossSwap.options.map((option) => ({
+            id: option.id,
+            ...directRouteLabel({ provider: option.provider, name: option.name, toolName: option.provider === "lifi" ? option.raw.toolName : undefined }),
+            domain: directRouteDomain(option.provider),
+            out: fromBaseUnits(option.raw.expectedOut, crossSwap.receivedDecimals!),
+            symbol: buy.symbol,
+          }))}
+          pick={crossSwap.pick}
+          onPick={crossSwap.setPick}
+          loading={crossSwap.quoting}
+        />
       )}
       {hasQuotes && routeSources.length > 1 && (
         <SpotRoutes
