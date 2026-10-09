@@ -68,6 +68,13 @@ const ROBINHOOD_RPC = "https://rpc.mainnet.chain.robinhood.com";
 const rpcFor = (chainId: number | null) => (chainId === null ? null : (evmSwapChain(chainId)?.rpc ?? (chainId === 4663 ? ROBINHOOD_RPC : null)));
 const chainNameOf = (chainId: number) => (chainId === LIFI_SOLANA_CHAIN ? "Solana" : undefined) ?? evmSwapChain(chainId)?.name ?? sourceChainById(chainId)?.name ?? `Chain ${chainId}`;
 
+/**
+ * The last "Pay with" / "Receive" token the user picked, kept across tokens: the form is rebuilt for every token, and
+ * picking a BNB Chain token after choosing USDC on Base used to drop back to BNB Chain's own USDT, so a cross-chain
+ * swap looked impossible.
+ */
+let chosenCounter: Counter | null = null;
+
 function tokenCounter(chainId: number, token: { address: string; symbol: string; decimals: number }, icon?: string): Counter {
   return { kind: "token", chainId, address: token.address, symbol: token.symbol, decimals: token.decimals, icon };
 }
@@ -307,7 +314,10 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     return tokenCounter(source.chainId, { address: source.usdc, symbol: source.symbol, decimals: 6 }, stableLogo(source.symbol));
   };
   // A dollar token starts on another chain's dollar (a bridge); anything else on this chain's first pay token.
-  const [counter, setCounter] = useState<Counter>(() => {
+  const [counter, setCounterState] = useState<Counter>(() => {
+    const kept = chosenCounter;
+    if (kept?.kind === "hyperliquid" && bridgeable && hlNetwork === "mainnet") return kept;
+    if (kept?.kind === "token" && !(kept.chainId === chain.id && sameAddress(kept.address, token.address))) return kept;
     return DOLLARS.has(token.symbol) && bridgeable ? remoteDollar(remoteChains[0]) : tokenCounter(chain.id, localOptions[0], stableLogo(localOptions[0].symbol));
   });
   const [side, setSide] = useState<OrderSide>("buy");
@@ -551,7 +561,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
 
   const flip = () => {
     // The Hyperliquid balance can pay but can't receive: selling lands in this chain's USDC instead.
-    if (side === "buy" && counter.kind === "hyperliquid") setCounter(tokenCounter(chain.id, chainUsdc, stableLogo("USDC")));
+    if (side === "buy" && counter.kind === "hyperliquid") setCounterState(tokenCounter(chain.id, chainUsdc, stableLogo("USDC")));
     setSide((current) => (current === "buy" ? "sell" : "buy"));
     setAmount(receive && receive > 0 ? String(Number(receive.toPrecision(6))) : "");
   };
@@ -767,6 +777,10 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       pinned: pinnedCounters,
       exclude: evmRef(chain.id, token.address),
       onPick: (picked) => {
+        const setCounter = (next: Counter) => {
+          chosenCounter = next;
+          setCounterState(next);
+        };
         if (picked.mint === HL_PICK) setCounter({ kind: "hyperliquid" });
         else if (!picked.mint.startsWith("evm:")) {
           // A Solana mint: crossed with LI.FI.
