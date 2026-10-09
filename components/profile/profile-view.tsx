@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
-import { BETA_POINTS_MULTIPLIER, LEVELS } from "@/lib/profile/levels";
+import { BETA_POINTS_MULTIPLIER, LEVELS, POINTS_PER_USD } from "@/lib/profile/levels";
 import { VIP_TIERS, nextVip, vipFor } from "@/lib/profile/vip";
 import { shortAddress, usernameError } from "@/lib/profile/identity";
 import { INVITE_VOLUME } from "@/lib/profile/invites";
@@ -171,6 +171,8 @@ function LevelCard() {
   const { profile } = useProfile();
   if (!profile) return null;
   const { level } = profile;
+  // Volume left to the next level at 1x points (halved while the closed beta doubles them).
+  const toNext = level.next === null ? 0 : Math.max(0, level.next - profile.points) / POINTS_PER_USD;
   return (
     <section className={`${card} h-full p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -178,9 +180,17 @@ function LevelCard() {
           Level {level.level} · {level.name}
         </h2>
         <p className="text-[12px] tabular-nums text-app-muted">
-          {level.next === null
-            ? "Top level reached"
-            : `${number.format(level.next - profile.points)} points to ${level.nextName}`}
+          {level.next === null ? (
+            "Top level reached"
+          ) : (
+            <>
+              {number.format(level.next - profile.points)} points to {level.nextName}
+              <span className="text-app-faint">
+                {" "}
+                · about {compactUsd.format(toNext / (profile.closedBeta ? BETA_POINTS_MULTIPLIER : 1))} more volume
+              </span>
+            </>
+          )}
         </p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-app-chip" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level.progress * 100)}>
@@ -190,9 +200,15 @@ function LevelCard() {
         {LEVELS.map((entry, index) => {
           const reached = index + 1 <= level.level;
           return (
-            <li key={entry.name} title={`${number.format(entry.points)} points`} className={`rounded-lg px-1 py-1.5 ${index + 1 === level.level ? "bg-app-accent/15 text-app-ink" : reached ? "text-app-ink" : "text-app-faint"}`}>
+            <li
+              key={entry.name}
+              title={`${number.format(entry.points)} points, about ${usd.format(entry.points / POINTS_PER_USD)} traded at 1x`}
+              className={`rounded-lg px-1 py-1.5 ${index + 1 === level.level ? "bg-app-accent/15 text-app-ink" : reached ? "text-app-ink" : "text-app-faint"}`}
+            >
               <span className="block font-semibold">{index + 1}</span>
               <span className="block truncate">{entry.name}</span>
+              <span className={`mt-0.5 block truncate tabular-nums ${reached ? "text-app-muted" : "text-app-faint"}`}>{number.format(entry.points)} pts</span>
+              <span className="block truncate tabular-nums text-app-faint">{entry.points === 0 ? "Start" : compactUsd.format(entry.points / POINTS_PER_USD)}</span>
             </li>
           );
         })}
@@ -293,7 +309,7 @@ function Overview() {
       <section className={`${card} flex flex-col items-center gap-3 p-8 text-center`}>
         <Trophy className="size-8 text-app-muted" strokeWidth={1.5} aria-hidden />
         <h2 className="text-[16px] font-semibold text-app-ink">Earn points as you trade</h2>
-        <p className="max-w-sm text-[13px] text-app-muted">A point for every $100 you trade through Angler. Level up from Minnow to Whale and climb the leaderboard.</p>
+        <p className="max-w-sm text-[13px] text-app-muted">10 points for every $100,000 you trade through Angler (double during the closed beta). Level up from Minnow to Whale and climb the leaderboard.</p>
         <button type="button" onClick={wallets.open} className="mt-1 h-9 rounded-xl bg-app-accent px-4 text-[13px] font-semibold text-app-on-accent">
           Connect wallet
         </button>
