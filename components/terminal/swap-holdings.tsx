@@ -50,9 +50,15 @@ function usePoolTrades(token: SpotChartToken | null | undefined, active: boolean
     if (!key || !active) return;
     const [network, address] = key.split(":");
     let live = true;
+    // GeckoTerminal from the browser first (the visitor's own allowance), our server when that fails.
+    const fromServer = () =>
+      fetch(`/api/spot/trades?network=${network}&token=${address}`, { cache: "no-store" }).then((response) =>
+        response.ok ? (response.json() as Promise<{ trades?: TokenTrade[] }>) : Promise.reject(new Error(String(response.status))),
+      );
     const load = () =>
-      fetch(`/api/spot/trades?network=${network}&token=${address}`, { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+      import("@/lib/spot/pool-direct")
+        .then(({ directPoolTrades }) => directPoolTrades(network as PoolNetwork, address))
+        .then((direct) => direct ?? { trades: [] }, fromServer)
         .then((body: { trades?: TokenTrade[] }) => live && setState({ key, trades: body.trades ?? [] }))
         .catch(() => live && setState((current) => (current?.key === key ? { ...current, failed: true } : { key, trades: [], failed: true })));
     void load();

@@ -70,8 +70,17 @@ interface CandleData {
 
 const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", pool: "DEX pool" };
 
-/** A spot token's own candles (`/api/spot/candles`); null when no indexed pool trades it or the source is down. */
+/**
+ * A spot token's own candles: from GeckoTerminal in the browser (`pool-direct.ts`, the visitor's own allowance), else
+ * our server (`/api/spot/candles`, the site's shared one); null when no indexed pool trades it or both are down.
+ */
 async function loadPoolCandles(network: PoolNetwork, address: string, interval: ChartInterval, count: number) {
+  try {
+    const { directPoolCandles } = await import("@/lib/spot/pool-direct");
+    const direct = await directPoolCandles(network, address, interval, count);
+    if (!direct) return null;
+    if (direct.candles.length > 0) return { origin: "pool" as const, source: "pool" as const, candles: direct.candles, poolName: `${direct.pool.name} · ${direct.pool.dex}` };
+  } catch {}
   try {
     const response = await fetch(`/api/spot/candles?network=${network}&address=${address}&interval=${interval}&count=${count}`);
     if (!response.ok) return null;

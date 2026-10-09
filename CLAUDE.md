@@ -575,7 +575,10 @@ dependency versions and design are free to diverge from angler-news.
   stops at `COINGECKO_DAILY_BUDGET` calls a day (`takeDailyBudget`, Redis); past it, or when the key is refused
   or rate limited, `onchainJson` falls back to GeckoTerminal's free API (same paths). The spot list's GeckoTerminal
   stats run once per chain every 3 hours per instance (`geckoStatsDue`), pool lists (Pons, `poolTop`) every 30 minutes. Between fetches `applyLivePrice` moves the
-  last candle with the token's live price. Any failure falls back to the asset's market chart. Intervals
+  last candle with the token's live price. The browser asks GeckoTerminal itself first (`lib/spot/pool-direct.ts`: it
+  answers any origin without a key, so each visitor spends their own IP's allowance; same parsers, base candles kept 3
+  minutes so the chart's 30s refresh costs nothing) for the chart and the Swaps tab, and calls our routes only when that
+  fails: a launch crowd opening many tokens no longer drains the site's CoinGecko plan. Any failure falls back to the asset's market chart. Intervals
   GeckoTerminal lacks (3m, 30m, 2h, 8h, 3d, 1w, 1M) merge smaller candles (`resampleCandles`).
 - Market search (`components/terminal/asset-search.tsx`, Ctrl/⌘+K or the chart header's symbol button): perp
   markets of the enabled venues, or spot pairs + live Jupiter search ("Verified only" on by default), category tabs,
