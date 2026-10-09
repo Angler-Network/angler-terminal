@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { Search, Star, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -191,9 +192,16 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
       return venues.length > 1 ? venues : [];
     }
     // Pinned tokens (USDC on each chain…) count too: a chain only they reach used to read "0 tokens".
-    const options = networkOptions([...(spotRows ?? []), ...(pick?.pinned ?? []).map((token) => pinnedRow(token, ""))]);
+    // Counted as the list shows them: "Verified only" hides unverified tokens, so the chains count only the rest.
+    const all = [...(spotRows ?? []), ...(pick?.pinned ?? []).map((token) => pinnedRow(token, ""))];
+    const options = networkOptions(all, { verifiedOnly });
+    // The picked chain stays offered (with its real count, maybe 0) so the button keeps naming it.
+    if (network && !options.some((option) => option.key === network)) {
+      const picked = networkOptions(all).find((option) => option.key === network);
+      if (picked) options.push({ ...picked, count: 0 });
+    }
     return options.length > 1 ? options : [];
-  }, [isSpot, spotRows, perpRows, pick]);
+  }, [isSpot, spotRows, perpRows, pick, verifiedOnly, network]);
 
   useEffect(() => {
     setActive(0);
@@ -372,7 +380,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
 
         <div ref={listRef} id="asset-search-list" role="listbox" aria-label="Markets" className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto py-1">
           {loading ? (
-            <p className="py-12 text-center text-[13px] text-app-muted">Loading markets…</p>
+            <LoadingState label="Loading markets…" className="py-12" />
           ) : rows.length === 0 ? (
             <p className="py-12 text-center text-[13px] text-app-muted">
               {tab === "favorites" ? "No favorites yet. Star a market to keep it here." : isSpot && searching ? "Searching…" : "No market matches."}

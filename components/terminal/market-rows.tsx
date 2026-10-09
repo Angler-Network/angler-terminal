@@ -138,13 +138,17 @@ export function rowOnNetwork(row: MarketRow, key: NetworkKey | null) {
   return key.startsWith("lp:") ? row.launchpad === key.slice(3) : rowChain(row) === key;
 }
 
-/** The chains, launchpads and venues the rows actually carry, in the filter's order, with their row counts. */
-export function networkOptions(rows: MarketRow[]): NetworkOption[] {
+/**
+ * The chains, launchpads and venues the rows actually carry, in the filter's order, with their row counts. With
+ * `verifiedOnly` a chain counts only the rows the list will show (a chain with none drops out); launchpads count every
+ * row, as their view shows unverified tokens anyway.
+ */
+export function networkOptions(rows: MarketRow[], { verifiedOnly = false }: { verifiedOnly?: boolean } = {}): NetworkOption[] {
   const counts = new Map<string, number>();
   const add = (key: string) => counts.set(key, (counts.get(key) ?? 0) + 1);
   for (const row of rows) {
     const chain = rowChain(row);
-    if (chain) add(chain);
+    if (chain && (!verifiedOnly || row.verified)) add(chain);
     if (row.launchpad) add(`lp:${row.launchpad}`);
   }
   const chains: NetworkOption[] = ROW_CHAINS.filter((chain) => counts.has(chain.key)).map((chain) => ({

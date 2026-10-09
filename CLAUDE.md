@@ -407,6 +407,14 @@ dependency versions and design are free to diverge from angler-news.
     (Pharos). Left out: Arc, Tempo, Stable (gas paid in a stablecoin or no native coin; the card assumes a native gas
     coin), Sei and Fraxtal (no LI.FI same-chain route), Flow and BOB (no real dollar liquidity). Logos: LI.FI's chain
     SVGs (lifinance/types), checked for scripts.
+    Gasless (`gaslessSwap` preference, "Gasless" next to Private in the EVM swap card, `GaslessToggle`/`GaslessNote`):
+    only routes where the wallet signs and the swap pays the network fee: UniswapX orders (`gaslessOnly` in
+    `uniswapSwap`: refuses native input and any approval transaction, saying the token needs one approval with gas) and
+    0x Gasless (`/api/aggregators/gasless` price/firm quote, `/submit`, `/status`; same ZEROX_API_KEY and
+    AGGREGATOR_FEE_* as the Swap API; `zeroxGaslessSwap` signs the gasless approval when the token offers one, then the
+    trade (Permit2 witness), splits each signature into v/r/s, submits, polls until succeeded/confirmed, reads the
+    received amount from the receipt). Native coins can't be sold gasless. 0x Gasless is skipped while Private is on
+    (its relayer isn't a protected mempool); the other aggregators are skipped whenever Gasless is on.
     Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x and KyberSwap (Odos was removed when it shut down; `KYBERSWAP_CLIENT_ID`, no
     key; GET `/{chain}/api/v1/routes` with our fee as `feeAmount`/`isInBps`/`chargeFeeBy=currency_out`/`feeReceiver`,
     then POST `route/build` right before signing; `KYBER_CHAINS` maps every swap chain), all quoted with
@@ -621,6 +629,9 @@ dependency versions and design are free to diverge from angler-news.
   `localStorage["angler:debug"] = "1"`; then it writes the last 90 seconds (memory, DOM size, sockets, timers, listener
   counts, requests in flight by path, the market shown) to `localStorage["angler:debug:trail"]`, readable after a
   freeze that DevTools can't record. Paths only, never query strings.
+- Loading: `components/app/loading-state.tsx` (`LoadingState`) for every wait the user sees (markets, search, watchlist,
+  prediction, the order panel's skeleton as an overlay): spinner at once, "still loading" after 6s, Reload after 20s,
+  so a slow connection never reads as a broken page.
 - Controls: no native `<select>` or range input. Dropdowns are `SelectField` (`size`: md settings rows, sm form
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
