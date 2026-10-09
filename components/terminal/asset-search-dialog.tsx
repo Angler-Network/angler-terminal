@@ -40,7 +40,7 @@ function pinnedRow(token: TokenChoice, venue: string): MarketRow {
   };
 }
 
-type Tab = "favorites" | "all" | MarketCategory;
+type Tab = "favorites" | "all" | "launchpads" | MarketCategory;
 
 type SortKey = "name" | "price" | "change" | "volume" | "liquidity";
 type SortState = { key: SortKey; dir: "desc" | "asc" } | null;
@@ -137,9 +137,10 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
       rowOnNetwork(row, network) && (!wanted || row.symbol.toUpperCase().includes(wanted) || row.name.toUpperCase().includes(wanted) || rowHasAddress(row, query));
     const filtered = [...source, ...extra].filter(
       (row) =>
-        (tab === "all" || (tab === "favorites" ? watched.has(row.id) : row.category === tab)) &&
-        // Launchpad tokens are new, nearly all unverified: a launchpad filter shows them anyway (buying one asks for a tick).
-        (!isSpot || !verifiedOnly || row.verified || Boolean(network?.startsWith("lp:"))) &&
+        (tab === "all" || (tab === "favorites" ? watched.has(row.id) : tab === "launchpads" ? Boolean(row.launchpad) : row.category === tab)) &&
+        // Launchpad tokens are new, nearly all unverified: the Launchpads tab and a launchpad filter show them anyway
+        // (buying one asks for a tick).
+        (!isSpot || !verifiedOnly || row.verified || tab === "launchpads" || Boolean(network?.startsWith("lp:"))) &&
         matches(row) &&
         (!pick || row.mint !== pick.exclude),
     );
@@ -163,10 +164,12 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
 
   // Counts follow "Verified only" (the search box narrows the list, not the tabs).
   const counts = useMemo(() => {
-    const byCategory: Partial<Record<MarketCategory, number>> = {};
+    const byCategory: Partial<Record<MarketCategory | "launchpads", number>> = {};
     for (const row of (isSpot ? spotRows : perpRows) ?? []) {
-      if (isSpot && verifiedOnly && !row.verified && !network?.startsWith("lp:")) continue;
       if (!rowOnNetwork(row, network)) continue;
+      // Launchpad tokens count whatever "Verified only" says, like the tab shows them.
+      if (isSpot && row.launchpad) byCategory.launchpads = (byCategory.launchpads ?? 0) + 1;
+      if (isSpot && verifiedOnly && !row.verified && !network?.startsWith("lp:")) continue;
       byCategory[row.category] = (byCategory[row.category] ?? 0) + 1;
     }
     return byCategory;
@@ -238,6 +241,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   const tabs: Array<{ value: Tab; label: string; count?: number }> = [
     { value: "all", label: "All" },
     ...MARKET_CATEGORIES.filter((category) => counts[category.value]).map((category) => ({ value: category.value as Tab, label: category.label, count: counts[category.value] })),
+    // Pump.fun, Pons and the other launchpads' tokens (the network picker narrows to one launchpad).
+    ...(counts.launchpads ? [{ value: "launchpads" as Tab, label: "Launchpads", count: counts.launchpads }] : []),
   ];
   const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_96px_96px_104px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
 
