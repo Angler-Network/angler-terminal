@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
+import { NetworkFilter } from "@/components/terminal/network-filter";
 import { TokenIcon, networkOptions, rowChain, rowHasAddress, rowOnNetwork, useSpotRows, type MarketRow, type NetworkKey } from "@/components/terminal/market-rows";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
 import { CoinIcon } from "@/components/terminal/token-icon";
@@ -50,10 +51,6 @@ interface Filter {
   id: string;
   label: string;
   icon: React.ReactNode;
-}
-
-function chainIcon(logo: string) {
-  return <img src={logo} alt="" width={16} height={16} className="size-4 rounded-full" />;
 }
 
 function Change({ value }: { value: number | undefined }) {
@@ -112,16 +109,19 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
   const names = useMemo(() => assetNames(listings), [listings]);
   const { rows: spotRows } = useSpotRows(scope !== "perp", query, scope === "perp" ? undefined : SPOT_VENUES[scope]);
 
-  const filters = useMemo<Filter[]>(() => {
-    if (scope === "perp") {
-      return venueIds.map((id) => ({
-        id,
-        label: PERP_VENUE_NAMES[id],
-        icon: <CoinIcon src={`/api/favicon?domain=${PERP_MARKS[id].domain}`} symbol={PERP_VENUE_NAMES[id]} chain={PERP_MARKS[id].chain} size={16} />,
-      }));
-    }
-    return networkOptions(spotRows ?? []).map((option) => ({ id: option.key, label: option.name, icon: chainIcon(option.logo) }));
-  }, [scope, venueIds, spotRows]);
+  // Perps: a handful of venue logos. Spot: 30-odd chains and launchpads, so one "All networks" button with a panel.
+  const filters = useMemo<Filter[]>(
+    () =>
+      scope === "perp"
+        ? venueIds.map((id) => ({
+            id,
+            label: PERP_VENUE_NAMES[id],
+            icon: <CoinIcon src={`/api/favicon?domain=${PERP_MARKS[id].domain}`} symbol={PERP_VENUE_NAMES[id]} chain={PERP_MARKS[id].chain} size={16} />,
+          }))
+        : [],
+    [scope, venueIds],
+  );
+  const networks = useMemo(() => (scope === "perp" ? [] : networkOptions(spotRows ?? [])), [scope, spotRows]);
 
   const perpResults = useMemo(() => {
     if (scope !== "perp" || !typed) return [];
@@ -198,6 +198,11 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
                 {option.icon}
               </button>
             ))}
+          </div>
+        )}
+        {networks.length > 1 && (
+          <div key={scope} className="home-slide ml-auto">
+            <NetworkFilter options={networks} value={filter as NetworkKey | null} onChange={setFilter} />
           </div>
         )}
       </div>
