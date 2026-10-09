@@ -11,9 +11,22 @@ const TIMEOUT_MS = 8_000;
 const DISCORD_LIMIT = 1_900;
 const TELEGRAM_LIMIT = 4_000;
 
+/**
+ * The bot's username from however it was entered: "angleralertsbot", "@angleralertsbot" or a t.me link. A full link in
+ * the setting once made the bot link "t.me/https://t.me/…", so Connect Telegram opened nothing.
+ */
+export function readBotUsername(value: string | undefined) {
+  const name = (value ?? "")
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, "")
+    .replace(/^@/, "")
+    .replace(/[/?#].*$/, "");
+  return /^\w{5,32}$/.test(name) ? name : null;
+}
+
 export function telegramConfig() {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const username = process.env.TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "");
+  const username = readBotUsername(process.env.TELEGRAM_BOT_USERNAME);
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   return token && username ? { token, username, secret: secret || null } : null;
 }

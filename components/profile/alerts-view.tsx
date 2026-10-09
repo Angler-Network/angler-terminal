@@ -144,7 +144,15 @@ export function AlertsView() {
     const body = (await response?.json().catch(() => null)) as { url?: string; error?: string } | null;
     const link = body?.url ? /^https:\/\/t\.me\/(\w+)\?start=([\w-]+)$/.exec(body.url) : null;
     if (!response?.ok || !body?.url || !link) {
-      return toast({ tone: "error", title: "Couldn't start Telegram", message: body?.error ?? "Try again in a moment." });
+      // Say what went wrong: a bare "try again" left no way to tell a server error from a bad bot setting.
+      const message =
+        body?.error ??
+        (!response
+          ? "No connection to the site."
+          : body?.url
+            ? `The bot link isn't a t.me link (${body.url.slice(0, 60)}): check TELEGRAM_BOT_USERNAME.`
+            : `The server answered ${response.status}. Try again in a moment.`);
+      return toast({ tone: "error", title: "Couldn't start Telegram", message });
     }
     setTelegramLink({ url: body.url, bot: link[1], code: link[2] });
     // Wait for the bot to link the chat (the user presses Start there), up to the code's lifetime.
