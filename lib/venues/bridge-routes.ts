@@ -1,5 +1,6 @@
 import { ARBITRUM, BASE, ETHEREUM, HL_WITHDRAW_FEE_USDC, MIN_DEPOSIT_USDC, ROBINHOOD, depositPlan, type DepositPlan, type SourceChain } from "./deposits";
 import type { LighterVenueId } from "./lighter/config";
+import { EVM_SWAP_CHAINS, type EvmSwapChainKey } from "./uniswap/chains";
 import type { PerpVenueId } from "./types";
 
 /**
@@ -29,6 +30,25 @@ type Network = "mainnet" | "testnet";
 /** The wallet chain's stablecoin on that network (Arbitrum and Base are mainnet-only here). */
 export function walletChainSource(chain: WalletChain, network: Network = "mainnet"): SourceChain {
   return chain === "robinhood" ? ROBINHOOD[network] : chain === "base" ? BASE : chain === "ethereum" ? ETHEREUM : ARBITRUM;
+}
+
+/**
+ * The funds window's wallet side: every EVM swap chain, holding its main dollar (USDT on BNB Chain, USDC elsewhere).
+ * The four wallet chains first. Bridging to and from the others goes through Relay or LI.FI (Across covers few).
+ */
+export type FundsChain = EvmSwapChainKey;
+export const FUNDS_CHAINS: FundsChain[] = [...WALLET_CHAINS, ...EVM_SWAP_CHAINS.map((chain) => chain.key).filter((key) => !(WALLET_CHAINS as readonly string[]).includes(key))];
+
+export function isWalletChain(chain: FundsChain): chain is WalletChain {
+  return (WALLET_CHAINS as readonly string[]).includes(chain);
+}
+
+/** A funds chain's dollar as a bridge source (its decimals included). */
+export function fundsChainSource(chain: FundsChain, network: Network = "mainnet"): SourceChain {
+  if (isWalletChain(chain)) return walletChainSource(chain, network);
+  const swap = EVM_SWAP_CHAINS.find((entry) => entry.key === chain)!;
+  const dollar = swap.pay[0];
+  return { chainId: swap.id, name: swap.name, usdc: dollar.address, symbol: dollar.symbol, explorer: swap.explorer, decimals: dollar.decimals };
 }
 
 export type FundsStep =
@@ -69,16 +89,16 @@ function transfer(venue: PerpVenueId, plan: Extract<DepositPlan, { kind: "transf
 export function fundsRoute(
   from: FundsEndpoint,
   to: FundsEndpoint,
-  chains: { from: WalletChain; to: WalletChain },
+  chains: { from: FundsChain; to: FundsChain },
   networkOf: (venue: PerpVenueId) => Network,
 ): FundsRoute {
   if (from === to && (from !== "wallet" || chains.from === chains.to)) return { kind: "same" };
   const steps = (flow: FundsKind, list: FundsStep[], input: SourceChain, output: SourceChain): FundsRoute => ({ kind: "steps", flow, steps: list, input, output });
 
   if (from === "wallet") {
-    const source = walletChainSource(chains.from, isPerpEndpoint(to) ? networkOf(to) : "mainnet");
+    const source = fundsChainSource(chains.from, isPerpEndpoint(to) ? networkOf(to) : "mainnet");
     if (to === "wallet") {
-      const target = walletChainSource(chains.to);
+      const target = fundsChainSource(chains.to);
       return steps("move", [{ kind: "across", from: source, to: target, recipient: "wallet" }], source, target);
     }
     if (!isPerpEndpoint(to)) return { kind: "soon" };
@@ -106,7 +126,7 @@ export function fundsRoute(
   if (to === "wallet") {
     if (chains.to === "arbitrum") return steps("withdraw", [{ kind: "hlWithdraw" }], ARBITRUM, ARBITRUM);
     if (!hlMainnet) return { kind: "testnet" };
-    const target = walletChainSource(chains.to);
+    const target = fundsChainSource(chains.to);
     return steps("withdraw", [{ kind: "hlWithdraw" }, { kind: "across", from: ARBITRUM, to: target, recipient: "wallet" }], ARBITRUM, target);
   }
   if (to === "lighter" || to === "lighterRh") {

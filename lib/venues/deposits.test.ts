@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { depositError, depositPlan, moveError, usdcUnits, withdrawalArrived } from "./deposits";
+import { depositError, depositPlan, fromTokenUnits, moveError, tokenUnits, usdcUnits, withdrawalArrived } from "./deposits";
 
 describe("deposit plans", () => {
   it("bridges on mainnet and points testnets to faucets", () => {
@@ -45,3 +45,14 @@ describe("moving Hyperliquid to Lighter", () => {
     expect(withdrawalArrived(10_000_000n, 15_000_000n, 19_000_000n)).toBe(false);
   });
 });
+
+describe("token units", () => {
+  it("parses at any decimals and refuses more digits than the token has", () => {
+    expect(tokenUnits("1.5", 18)).toBe(1_500_000_000_000_000_000n);
+    expect(tokenUnits("2.1234567", 6)).toBeNull();
+    expect(usdcUnits("3")).toBe(3_000_000n);
+    expect(tokenUnits("abc", 6)).toBeNull();
+    expect(fromTokenUnits(250_000_000_000_000_000_000n, 18)).toBe(250);
+  });
+});
+

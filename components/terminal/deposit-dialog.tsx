@@ -10,13 +10,13 @@ import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { usePreferences } from "@/components/app/preferences-provider";
-import { HL_WITHDRAW_FEE_USDC, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
+import { HL_WITHDRAW_FEE_USDC, decimalsOf, fromTokenUnits, tokenUnits, usdcUnits, type SourceChain } from "@/lib/venues/deposits";
 import type { BridgeLegQuote, BridgeProvider } from "@/lib/venues/bridge-leg";
 import {
   BRIDGE_VENUES,
-  WALLET_CHAINS,
+  FUNDS_CHAINS,
+  fundsChainSource,
   walletChainSource,
-  WALLET_CHAIN_NAMES,
   bridgeVenueDomain,
   endpointName,
   fundsKind,
@@ -27,7 +27,7 @@ import {
   type FundsEndpoint,
   type FundsKind,
   type FundsStep,
-  type WalletChain,
+  type FundsChain,
 } from "@/lib/venues/bridge-routes";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -35,7 +35,7 @@ import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
-import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
+import { continueLabel, errorMessage, stepLabel, useFundsRun } from "./use-funds-run";
 import { useModalEnter } from "@/components/app/use-motion";
 
 /** Kept here so the dialog doesn't import the bridge clients up front. */
@@ -119,7 +119,7 @@ export function DepositDialog() {
   const { open: openWallets } = useWalletModal();
   const [from, setFrom] = useState<FundsEndpoint>("wallet");
   const [to, setTo] = useState<FundsEndpoint>("hyperliquid");
-  const [chains, setChains] = useState<{ from: WalletChain; to: WalletChain }>({ from: "arbitrum", to: "arbitrum" });
+  const [chains, setChains] = useState<{ from: FundsChain; to: FundsChain }>({ from: "arbitrum", to: "arbitrum" });
   const [amount, setAmount] = useState("");
   const [balance, setBalance] = useState<bigint | null>(null);
   const [quote, setQuote] = useState<{ key: string; summary?: BridgeLegQuote; error?: string } | null>(null);
@@ -140,7 +140,8 @@ export function DepositDialog() {
   const busy = run?.phase === "busy";
   const venueSide = isPerpEndpoint(to) ? to : isPerpEndpoint(from) ? from : null;
   const value = Number(amount);
-  const units = usdcUnits(amount);
+  // In the token the route starts with (BNB Chain's USDT has 18 decimals).
+  const units = tokenUnits(amount, input ? decimalsOf(input) : 6);
   const withdrawable = from === "hyperliquid" ? accounts.hyperliquid?.withdrawable : undefined;
   const fromWallet = from === "wallet" && input !== null;
   const error =
@@ -168,9 +169,9 @@ export function DepositDialog() {
     })),
   ];
   // The wallet side is a stablecoin on a chain: the user picks what they send or want to receive.
-  const chainOptions: Array<PickerOption<WalletChain>> = WALLET_CHAINS.map((chain) => {
-    const token = walletChainSource(chain);
-    return { value: chain, label: `${token.symbol} · ${WALLET_CHAIN_NAMES[chain]}`, icon: <TokenIcon token={token} size={20} /> };
+  const chainOptions: Array<PickerOption<FundsChain>> = FUNDS_CHAINS.map((chain) => {
+    const token = fundsChainSource(chain);
+    return { value: chain, label: `${token.symbol} · ${token.name}`, icon: <TokenIcon token={token} size={20} /> };
   });
 
   // Opening (or reopening on another venue) starts on the route the caller asked for, unless a run is under way.
@@ -260,7 +261,7 @@ export function DepositDialog() {
   );
   const fromName = endpointName(from);
   const venueSource = input ?? walletChainSource(from === "lighterRh" ? "robinhood" : "arbitrum");
-  const toName = to === "wallet" ? WALLET_CHAIN_NAMES[chains.to] : endpointName(to);
+  const toName = to === "wallet" ? fundsChainSource(chains.to).name : endpointName(to);
   const quoteLine = quote && quote.key === quoteKey ? quote : null;
   // Send / receive card: what leaves, what arrives (after Hyperliquid's fee and Across's quote), and any conversion.
   const converted = input !== null && output !== null && input.symbol !== output.symbol;
@@ -269,14 +270,14 @@ export function DepositDialog() {
       ? null
       : acrossStep
         ? quoteLine?.summary
-          ? units6(quoteLine.summary.expectedOut)
+          ? fromTokenUnits(quoteLine.summary.expectedOut, decimalsOf(acrossStep.to))
           : null
         : steps[0].kind === "hlWithdraw"
           ? Math.max(0, value - HL_WITHDRAW_FEE_USDC)
           : value;
   const showSteps = steps.length > 1 || acrossStep !== null;
   // What the From side holds: the wallet's balance of the token, or what Hyperliquid lets you withdraw.
-  const available = fromWallet && balance !== null ? units6(balance) : from === "hyperliquid" && withdrawable !== undefined ? withdrawable : null;
+  const available = fromWallet && balance !== null ? fromTokenUnits(balance, decimalsOf(input)) : from === "hyperliquid" && withdrawable !== undefined ? withdrawable : null;
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const endpointPill =
     "inline-flex h-7 items-center gap-1.5 rounded-full bg-app-chip pl-1 pr-2 text-[13px] font-semibold text-app-ink hover:bg-app-selected disabled:opacity-60 disabled:hover:bg-app-chip";
@@ -519,7 +520,7 @@ export function DepositDialog() {
             )}
             {run?.phase === "done" && run.explorerUrl && (
               <a href={run.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold text-app-up hover:underline">
-                Done: {units6(run.carry).toFixed(2)} {output?.symbol} sent. View transaction
+                Done: {fromTokenUnits(run.carry, output ? decimalsOf(output) : 6).toFixed(2)} {output?.symbol} sent. View transaction
               </a>
             )}
           </>

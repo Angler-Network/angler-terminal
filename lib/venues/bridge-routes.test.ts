@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { fundsKind, fundsRoute, presetRoute, stepsError, type FundsRoute, type WalletChain } from "./bridge-routes";
+import { FUNDS_CHAINS, fundsChainSource, fundsKind, fundsRoute, presetRoute, stepsError, type FundsChain, type FundsRoute } from "./bridge-routes";
 
 const mainnet = () => "mainnet" as const;
 const testnet = () => "testnet" as const;
-const on = (from: WalletChain, to: WalletChain = "arbitrum") => ({ from, to });
+const on = (from: FundsChain, to: FundsChain = "arbitrum") => ({ from, to });
 
 /** Step kinds, with the chains an Across step crosses and who it pays. */
 function shape(route: FundsRoute) {
@@ -86,3 +86,20 @@ describe("Orderly funds", () => {
     expect(shape(fundsRoute("orderly", "wallet", on("arbitrum", "arbitrum"), testnet))).toBe("testnet");
   });
 });
+
+describe("every swap chain on the wallet side", () => {
+  it("lists them after the four wallet chains, each with its dollar and decimals", () => {
+    expect(FUNDS_CHAINS.slice(0, 4)).toEqual(["arbitrum", "base", "ethereum", "robinhood"]);
+    expect(FUNDS_CHAINS).toContain("bsc");
+    expect(fundsChainSource("bsc")).toMatchObject({ chainId: 56, symbol: "USDT", decimals: 18 });
+    expect(fundsChainSource("polygon")).toMatchObject({ chainId: 137, symbol: "USDC", decimals: 6 });
+  });
+
+  it("bridges BNB Chain's USDT into venues and to other chains", () => {
+    expect(shape(fundsRoute("wallet", "hyperliquid", on("bsc"), mainnet))).toEqual(["across 56>42161 wallet", "transfer hyperliquid 42161"]);
+    expect(shape(fundsRoute("wallet", "lighter", on("bsc"), mainnet))).toEqual(["across 56>42161 lighter"]);
+    expect(shape(fundsRoute("wallet", "wallet", on("bsc", "base"), mainnet))).toEqual(["across 56>8453 wallet"]);
+    expect(shape(fundsRoute("hyperliquid", "wallet", on("arbitrum", "bsc"), mainnet))).toEqual(["hlWithdraw", "across 42161>56 wallet"]);
+  });
+});
+

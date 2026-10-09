@@ -1,4 +1,5 @@
 import { RH_USDG, ROBINHOOD_CHAIN_IDS } from "./lighter/config";
+import { EVM_SWAP_CHAINS } from "./uniswap/chains";
 import type { PerpVenueId } from "./types";
 
 /**
@@ -15,10 +16,12 @@ import type { PerpVenueId } from "./types";
 export interface SourceChain {
   chainId: number;
   name: string;
-  /** The stablecoin sent from this chain (USDC, or USDG on Robinhood Chain). */
+  /** The stablecoin sent from this chain (USDC, USDG on Robinhood Chain, USDT on BNB Chain…). */
   usdc: `0x${string}`;
-  symbol: "USDC" | "USDG";
+  symbol: string;
   explorer: string;
+  /** The stablecoin's decimals when not USDC's 6 (BNB Chain's USDT and USDC have 18). */
+  decimals?: number;
 }
 
 export const ARBITRUM: SourceChain = {
@@ -97,10 +100,23 @@ export function depositPlan(venue: PerpVenueId, network: "mainnet" | "testnet"):
 
 /** USD amount → USDC base units, rounded down; null when it isn't a valid amount. */
 export function usdcUnits(amount: string) {
-  if (!/^\d+(\.\d{0,6})?$/.test(amount.trim())) return null;
-  const [whole, fraction = ""] = amount.trim().split(".");
-  return BigInt(whole + fraction.padEnd(USDC_DECIMALS, "0"));
+  return tokenUnits(amount, USDC_DECIMALS);
 }
+
+/** A source's stablecoin decimals (USDC's 6 unless it says otherwise). */
+export const decimalsOf = (source: Pick<SourceChain, "decimals">) => source.decimals ?? USDC_DECIMALS;
+
+/** Amount → base units at `decimals`; null when it isn't a valid amount or has more digits than the token. */
+export function tokenUnits(amount: string, decimals: number) {
+  const text = amount.trim();
+  if (!/^\d+(\.\d*)?$/.test(text)) return null;
+  const [whole, fraction = ""] = text.split(".");
+  if (fraction.length > decimals) return null;
+  return BigInt(whole + fraction.padEnd(decimals, "0"));
+}
+
+/** Base units → a plain number at `decimals` (for display). */
+export const fromTokenUnits = (units: bigint, decimals: number) => Number(units) / 10 ** decimals;
 
 /** Why the amount can't be deposited, or null when it can. */
 export function depositError(units: bigint | null, balance: bigint | null, minimum = MIN_DEPOSIT_USDC, symbol = "USDC") {
@@ -131,5 +147,9 @@ export function withdrawalArrived(before: bigint, now: bigint, expected: bigint)
 
 /** The wallet chains' stablecoin entries by chain id (mainnet), for flows that start from any of them. */
 export function sourceChainById(chainId: number): SourceChain | null {
-  return [ARBITRUM, BASE, ETHEREUM, ROBINHOOD.mainnet].find((source) => source.chainId === chainId) ?? null;
+  const known = [ARBITRUM, BASE, ETHEREUM, ROBINHOOD.mainnet].find((source) => source.chainId === chainId);
+  if (known) return known;
+  // Any other swap chain (BNB Chain, Polygon…): its main dollar, so a cross-chain swap can be sent from it.
+  const swap = EVM_SWAP_CHAINS.find((chain) => chain.id === chainId);
+  return swap ? { chainId: swap.id, name: swap.name, usdc: swap.pay[0].address, symbol: swap.pay[0].symbol, explorer: swap.explorer, decimals: swap.pay[0].decimals } : null;
 }

@@ -4,10 +4,13 @@ import type { EIP1193Provider } from "viem";
 import { VenueError } from "./types";
 import type { LighterConfig } from "./lighter/config";
 import type { SourceChain } from "./deposits";
+import { EVM_SWAP_CHAINS } from "./uniswap/chains";
 
 /** On-chain USDC moves for deposits. viem loads on first use, not with the page. */
 
 const RPC_URLS: Record<number, string> = {
+  // Every swap chain's RPC (BNB Chain, Polygon…), then the funds chains' own picks.
+  ...Object.fromEntries(EVM_SWAP_CHAINS.map((chain) => [chain.id, chain.rpc])),
   1: "https://ethereum-rpc.publicnode.com",
   42161: "https://arb1.arbitrum.io/rpc",
   8453: "https://mainnet.base.org",
@@ -15,13 +18,28 @@ const RPC_URLS: Record<number, string> = {
   46630: "https://rpc.testnet.chain.robinhood.com",
 };
 
+/**
+ * The viem chain for a source: Robinhood Chain from our config, else viem's own by id, else one built from the swap
+ * chain config. An unknown chain throws: a transfer must never be signed for the wrong chain.
+ */
 export async function chainFor(source: SourceChain) {
-  const { arbitrum, base, mainnet } = await import("viem/chains");
   if (source.chainId === 4663 || source.chainId === 46630) {
     const { robinhoodChain } = await import("./arcus/config");
     return robinhoodChain(source.chainId === 4663 ? "mainnet" : "testnet");
   }
-  return source.chainId === base.id ? base : source.chainId === mainnet.id ? mainnet : arbitrum;
+  const chains = (await import("viem/chains")) as unknown as Record<string, import("viem").Chain | undefined>;
+  const known = Object.values(chains).find((entry) => entry?.id === source.chainId && !entry.testnet);
+  if (known) return known;
+  const swap = EVM_SWAP_CHAINS.find((entry) => entry.id === source.chainId);
+  if (!swap) throw new VenueError(`Unknown chain ${source.chainId}.`);
+  const native = swap.pay.find((token) => /^0x0{40}$/.test(token.address))?.symbol ?? swap.nativeName;
+  return {
+    id: swap.id,
+    name: swap.name,
+    nativeCurrency: { name: swap.nativeName, symbol: native, decimals: 18 },
+    rpcUrls: { default: { http: [swap.rpc] } },
+    blockExplorers: { default: { name: swap.name, url: swap.explorer } },
+  };
 }
 
 export async function readUsdcBalance(source: SourceChain, owner: `0x${string}`) {

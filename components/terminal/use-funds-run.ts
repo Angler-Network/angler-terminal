@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/app/toast-provider";
-import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
+import { HL_BRIDGE, HL_WITHDRAW_FEE_USDC, ARBITRUM, decimalsOf, fromTokenUnits, usdcUnits, USDC_DECIMALS, withdrawalArrived, type SourceChain } from "@/lib/venues/deposits";
 import { lighterIntentAddress, readUsdcBalance, sendUsdc } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
 import { acrossRecipientMinimum, type FundsStep } from "@/lib/venues/bridge-routes";
 import { BRIDGE_PROVIDER_NAMES, noRouteReason, type BridgeLegRef } from "@/lib/venues/bridge-leg";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import { EVM_SWAP_CHAINS, isNativeToken } from "@/lib/venues/uniswap/chains";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { useTrading } from "./trading-provider";
 import { useWalletModal } from "./wallet-modal";
@@ -35,23 +36,32 @@ export interface Run {
 
 export const units6 = (units: bigint) => Number(units) / 10 ** USDC_DECIMALS;
 
+/** The token a step moves (what `carry` counts in) and the one it delivers. */
+const stepInput = (step: FundsStep): SourceChain => (step.kind === "transfer" ? step.source : step.kind === "across" ? step.from : ARBITRUM);
+const stepOutput = (step: FundsStep): SourceChain => (step.kind === "transfer" ? step.source : step.kind === "across" ? step.to : ARBITRUM);
+/** `carry` as a number of the step's token (USDT on BNB Chain has 18 decimals). */
+export const carryAmount = (carry: bigint, source: SourceChain) => fromTokenUnits(carry, decimalsOf(source));
+
 export function errorMessage(caught: unknown) {
   const message = caught instanceof Error ? caught.message.split("\n")[0] : String(caught);
   return /reject|denied/i.test(message) ? "You rejected the request in your wallet." : message;
 }
 
+/** The coin a chain's gas is paid in (BNB on BNB Chain, POL on Polygon…; ETH on the funds chains). */
+const gasCoin = (source: SourceChain) => EVM_SWAP_CHAINS.find((chain) => chain.id === source.chainId)?.pay.find((token) => isNativeToken(token.address))?.symbol ?? "ETH";
+
 /** One line per step, for the checklist and the continue button. */
 export function stepLabel(step: FundsStep) {
   if (step.kind === "hlWithdraw") return "Withdraw from Hyperliquid (signature, no gas, 1 USDC fee), lands on Arbitrum in 3-4 min";
   if (step.kind === "orderlyWithdraw") return "Withdraw from Orderly (signature, no gas, 1 USDC fee), lands on Arbitrum in a few minutes";
-  if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ETH for gas)`;
+  if (step.kind === "transfer") return `Deposit ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]} from ${step.source.name} (a little ${gasCoin(step.source)} for gas)`;
   const change = step.from.symbol === step.to.symbol ? step.to.symbol : `${step.from.symbol} → ${step.to.symbol}`;
   const into = step.recipient === "wallet" ? `your wallet on ${step.to.name}` : PERP_VENUE_NAMES[step.recipient];
-  return `Bridge to ${into} with Across, Relay or LI.FI, whichever pays most (${change}, seconds; a little ETH on ${step.from.name} for gas)`;
+  return `Bridge to ${into} with Across, Relay or LI.FI, whichever pays most (${change}, seconds; a little ${gasCoin(step.from)} on ${step.from.name} for gas)`;
 }
 
 export function continueLabel(step: FundsStep, carry: bigint) {
-  const amount = units6(carry).toFixed(2);
+  const amount = carryAmount(carry, stepInput(step)).toFixed(2);
   if (step.kind === "transfer") return `Deposit ${amount} ${step.source.symbol} to ${PERP_VENUE_NAMES[step.venue]}`;
   if (step.kind === "across") return `Bridge ${amount} ${step.from.symbol} to ${step.recipient === "wallet" ? step.to.name : PERP_VENUE_NAMES[step.recipient]}`;
   return step.kind === "orderlyWithdraw" ? `Withdraw ${amount} USDC from Orderly` : "Withdraw from Hyperliquid";
@@ -92,7 +102,7 @@ export function useFundsRun(callbacks: FundsRunOptions) {
       if (options.current.onDone) return options.current.onDone(carry, explorerUrl ?? current.explorerUrl);
       const last = current.steps[current.steps.length - 1];
       const where = last.kind === "transfer" ? PERP_VENUE_NAMES[last.venue] : last.kind === "across" && last.recipient !== "wallet" ? PERP_VENUE_NAMES[last.recipient] : "your wallet";
-      toast({ tone: "success", title: "Funds moved", message: `${units6(carry).toFixed(2)} sent to ${where}.`, ...(explorerUrl && { link: { href: explorerUrl, label: "View transaction" } }) });
+      toast({ tone: "success", title: "Funds moved", message: `${carryAmount(carry, stepOutput(last)).toFixed(2)} ${stepOutput(last).symbol} sent to ${where}.`, ...(explorerUrl && { link: { href: explorerUrl, label: "View transaction" } }) });
       return;
     }
     setRun({ ...current, index: next, phase: "ready", carry, wait: undefined, explorerUrl: explorerUrl ?? current.explorerUrl });
@@ -147,7 +157,7 @@ export function useFundsRun(callbacks: FundsRunOptions) {
       if (!summary) throw new Error(noRouteReason(quotes));
       if (summary.shortBalance) throw new Error(`Not enough ${step.from.symbol} in your wallet on ${step.from.name}.`);
       const minimum = acrossRecipientMinimum(step.recipient);
-      if (summary.minOut < BigInt(minimum) * 10n ** BigInt(USDC_DECIMALS)) throw new Error(`${PERP_VENUE_NAMES[step.recipient as PerpVenueId]} needs at least ${minimum} ${step.to.symbol} after fees.`);
+      if (summary.minOut < BigInt(minimum) * 10n ** BigInt(decimalsOf(step.to))) throw new Error(`${PERP_VENUE_NAMES[step.recipient as PerpVenueId]} needs at least ${minimum} ${step.to.symbol} after fees.`);
       const before = step.recipient === "wallet" ? await readUsdcBalance(step.to, address).catch(() => null) : null;
       const sent = await executeBridgeLeg(wallet.provider, address, step.from, step.to, current.carry, summary);
       setRun({
