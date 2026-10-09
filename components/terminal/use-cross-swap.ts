@@ -143,7 +143,11 @@ export function useCrossSwap(input: CrossSwapInput) {
           }
       : null;
   const key = request ? JSON.stringify({ ...request, amount: request.amount.toString() }) : null;
-  const [quote, setQuote] = useState<{ key: string; best?: DirectQuote; error?: string } | null>(null);
+  const [quote, setQuote] = useState<{ key: string; best?: DirectQuote; options?: DirectQuote[]; error?: string } | null>(null);
+  /** A route pinned in the route list; back to the best for another token or side. */
+  const [pick, setPick] = useState<string | null>(null);
+  const pairKey = foreign ? `${foreign.chain.id}:${foreign.address}:${side}:${solana.mint}` : null;
+  useEffect(() => setPick(null), [pairKey]);
   const [pending, setPending] = useState<{ ref: BridgeLegRef; fromChain: number; since: number; explorerUrl: string; summary: string } | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -154,7 +158,7 @@ export function useCrossSwap(input: CrossSwapInput) {
       try {
         const { quoteDirectSwap } = await import("@/lib/venues/bridge-leg");
         const result = await quoteDirectSwap(request);
-        if (active) setQuote(result.best ? { key, best: result.best } : { key, error: result.error ?? "No cross-chain route for this swap right now." });
+        if (active) setQuote(result.best ? { key, best: result.best, options: result.options } : { key, error: result.error ?? "No cross-chain route for this swap right now." });
       } catch (caught) {
         if (active) setQuote({ key, error: errorMessage(caught) });
       }
@@ -190,7 +194,10 @@ export function useCrossSwap(input: CrossSwapInput) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one poller per send
   }, [pending]);
 
-  const best = quote && quote.key === key ? quote.best : undefined;
+  const current = quote && quote.key === key ? quote : null;
+  const options = current?.options ?? [];
+  // The pinned route while it quotes, else the best.
+  const best = (pick ? options.find((option) => option.id === pick) : undefined) ?? current?.best;
   const toDecimals = side === "buy" ? solana.decimals : foreignDecimals;
   const receive = best && toDecimals !== null ? fromBaseUnits(best.raw.expectedOut, toDecimals) : null;
   // The EVM wallet's balance of the foreign token (what's paid with, or what's received into).
@@ -202,7 +209,7 @@ export function useCrossSwap(input: CrossSwapInput) {
     setSending(true);
     try {
       const { quoteDirectSwap, sendDirectSwap } = await import("@/lib/venues/bridge-leg");
-      const fresh = await quoteDirectSwap({ ...request, fromAddress: side === "buy" ? input.evmAddress : input.solanaAddress, toAddress: side === "buy" ? input.solanaAddress : input.evmAddress });
+      const fresh = await quoteDirectSwap({ ...request, fromAddress: side === "buy" ? input.evmAddress : input.solanaAddress, toAddress: side === "buy" ? input.solanaAddress : input.evmAddress, prefer: pick });
       if (!fresh.best) throw new Error(fresh.error ?? "No cross-chain route for this swap right now.");
       if (side === "buy" && !wallets.evmProvider) throw new Error(`Connect an EVM wallet to pay from ${foreign.chain.name}.`);
       const sent = await sendDirectSwap(fresh.best, {
@@ -236,6 +243,11 @@ export function useCrossSwap(input: CrossSwapInput) {
     receive,
     balance,
     route: best?.name ?? null,
+    /** Every route with what it delivers (in the received token's base units), best first, and the pin. */
+    options,
+    pick,
+    setPick,
+    receivedDecimals: toDecimals,
     feeUsd: best?.raw.feeUsd ?? null,
     error: quote && quote.key === key ? (quote.error ?? null) : null,
     quoting: Boolean(key) && !(quote && quote.key === key),

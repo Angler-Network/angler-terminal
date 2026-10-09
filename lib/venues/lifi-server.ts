@@ -5,8 +5,13 @@ const TIMEOUT_MS = 20_000;
 /** Our fee's cap, in bps of the input. */
 export const LIFI_MAX_FEE_BPS = 300;
 
-/** The quote parameters the browser may set; anything else (integrator, fee, referrer, bridge lists) is dropped. */
+/** The quote parameters the browser may set; anything else (integrator, fee, referrer, allowed bridges) is dropped. */
 const QUOTE_PARAMS = ["fromChain", "toChain", "fromToken", "toToken", "fromAmount", "fromAddress", "toAddress", "slippage"] as const;
+/**
+ * Bridges to leave out, for a second route to choose from (the first quote's bridge denied). It can only narrow LI.FI's
+ * own vetted choice, never force one: tool keys only ("relaydepository", "mayan"), at most five, no "all".
+ */
+const DENY_BRIDGES = /^(?!all(,|$))[a-z0-9-]{2,40}(,(?!all(,|$))[a-z0-9-]{2,40}){0,4}$/;
 
 /**
  * LI.FI settings, server only, all optional: LIFI_INTEGRATOR (the integrator name registered on portal.li.fi, where
@@ -29,6 +34,8 @@ export function lifiQuoteQuery(search: URLSearchParams, config: ReturnType<typeo
     if (value) query.set(name, value.slice(0, 120));
     else if (name !== "slippage") return null;
   }
+  const deny = search.get("denyBridges")?.trim();
+  if (deny && DENY_BRIDGES.test(deny)) query.set("denyBridges", deny);
   if (config.integrator) query.set("integrator", config.integrator);
   if (config.fee) query.set("fee", config.fee);
   return query;

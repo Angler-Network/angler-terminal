@@ -29,7 +29,24 @@ import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { BalanceTag, DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, RobinhoodDollarNote, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
+import {
+  BalanceTag,
+  DetailRow,
+  GaslessNote,
+  GaslessToggle,
+  PrivateNote,
+  PrivateToggle,
+  RobinhoodDollarNote,
+  RouteList,
+  SlippageSettings,
+  amountSize,
+  amountText,
+  directRouteDomain,
+  directRouteLabel,
+  pillClass,
+  useUsdcBalance,
+  type RouteOption,
+} from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { useTrading } from "./trading-provider";
@@ -64,6 +81,8 @@ const HL_PICK = "hyperliquid";
 const RELAY_POLL_MS = 3_000;
 const RELAY_TIMEOUT_MS = 10 * 60_000;
 const QUOTE_ONLY_USER = "0x000000000000000000000000000000000000dEaD";
+/** Logos in the route list (site icons through /api/favicon). */
+const AGGREGATOR_DOMAINS: Record<EvmSwapQuote["provider"], string> = { uniswap: "uniswap.org", zerox: "0x.org", kyberswap: "kyberswap.com", lifi: "li.fi" };
 /** Solana's docs' sample address: quotes before a Solana wallet connects. */
 const QUOTE_ONLY_SOLANA = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -141,7 +160,7 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
     input.amount && input.amount > 0n
       ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(","), privateOnly, gaslessZerox].join("|")
       : null;
-  const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; error?: string } | null>(null);
+  const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; quotes?: EvmSwapQuote[]; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (!key || !input.amount) return;
@@ -155,10 +174,11 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
           ...aggregators.map((provider) => fetchAggregatorQuote(provider, request)),
           ...(gaslessZerox ? [fetchGaslessQuote(request)] : []),
         ]);
-        const quotes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-        const best = quotes.reduce<EvmSwapQuote | null>((winner, quote) => (!winner || quote.outAmount > winner.outAmount ? quote : winner), null);
+        // Every provider's quote, best first: the route list shows them all and a pinned one is used while it quotes.
+        const quotes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])).sort((a, b) => (a.outAmount === b.outAmount ? 0 : a.outAmount > b.outAmount ? -1 : 1));
+        const best = quotes[0] ?? null;
         if (!best) throw (results[0] as PromiseRejectedResult).reason;
-        if (active) setState({ key, quote: best });
+        if (active) setState({ key, quote: best, quotes });
       } catch (error) {
         if (active) setState({ key, error: error instanceof Error ? error.message : String(error) });
       } finally {
@@ -213,7 +233,7 @@ function useAcrossPreview(step: Extract<FundsStep, { kind: "across" }> | null, u
  */
 function useDirect(request: DirectSwapRequest | null) {
   const key = request && request.amount > 0n ? [request.fromChain, request.fromToken, request.toChain, request.toToken, request.amount, request.fromAddress, request.toAddress, request.slippageBps].join("|") : null;
-  const [state, setState] = useState<{ key: string; quote?: DirectQuote; error?: string } | null>(null);
+  const [state, setState] = useState<{ key: string; quote?: DirectQuote; options?: DirectQuote[]; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (!key || !request) return;
@@ -223,7 +243,7 @@ function useDirect(request: DirectSwapRequest | null) {
       try {
         const { quoteDirectSwap } = await import("@/lib/venues/bridge-leg");
         const result = await quoteDirectSwap(request);
-        if (active) setState(result.best ? { key, quote: result.best } : { key, error: result.error ?? "No route for this swap right now." });
+        if (active) setState(result.best ? { key, quote: result.best, options: result.options } : { key, error: result.error ?? "No route for this swap right now." });
       } catch (caught) {
         if (active) setState({ key, error: errorMessage(caught) });
       } finally {
@@ -337,6 +357,11 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   // then fell back to USDG · Robinhood instead of bridging from Base.
   useEffect(() => rememberPay(counter), [counter]);
   const [side, setSide] = useState<OrderSide>("buy");
+  /** A route pinned in the route list (an aggregator, or a direct route's id); back to the best for another pair. */
+  const [routePick, setRoutePick] = useState<string | null>(null);
+  useEffect(() => setRoutePick(null), [side, counter]);
+  // The same-chain leg's pinned provider (route list), while it quotes; else the best.
+  const pinned = (quoted: { quote?: EvmSwapQuote; quotes?: EvmSwapQuote[] }) => (routePick ? quoted.quotes?.find((entry) => entry.provider === routePick) : undefined) ?? quoted.quote;
   /** The unverified token the user ticked "I checked this token" for. */
   const [acknowledged, setAcknowledged] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
@@ -501,7 +526,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       slippageBps,
     };
   };
-  const directQuote = useDirect(directRequest(owner ?? QUOTE_ONLY_USER, solana.address ?? QUOTE_ONLY_SOLANA));
+  const directQuoted = useDirect(directRequest(owner ?? QUOTE_ONLY_USER, solana.address ?? QUOTE_ONLY_SOLANA));
+  // A pinned route (route list): used while it quotes, else the best.
+  const directQuote = { ...directQuoted, quote: (routePick ? directQuoted.options?.find((option) => option.id === routePick) : undefined) ?? directQuoted.quote };
   const directName = directQuote.quote?.name ?? "Relay or LI.FI";
   // Cross-chain buys bridge first: the Across leg's input is the amount (after Hyperliquid's withdrawal fee).
   const withdrawFirst = steps[0]?.kind === "hlWithdraw";
@@ -515,7 +542,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     swapper: owner,
     slippageBps,
   });
-  const acrossInput = crossBuy ? (acrossIndex === 0 ? units : afterFee) : crossSell ? (tokenIsUsdc ? units : (sellQuote.quote?.outAmount ?? null)) : null;
+  const acrossInput = crossBuy ? (acrossIndex === 0 ? units : afterFee) : crossSell ? (tokenIsUsdc ? units : (pinned(sellQuote)?.outAmount ?? null)) : null;
   const across = useAcrossPreview(acrossStep, acrossInput, owner);
   // What the swap leg spends on this chain: the bridged USDC (buys) or the typed amount.
   const landed = crossBuy ? (bridged ?? (acrossStep ? (across?.out ?? null) : afterFee)) : null;
@@ -527,7 +554,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     swapper: owner,
     slippageBps,
   });
-  const quote = crossSell ? sellQuote.quote : swapQuote.quote;
+  const swapChosen = pinned(swapQuote);
+  const sellChosen = pinned(sellQuote);
+  const quote = crossSell ? sellChosen : swapChosen;
   const loading = swapQuote.loading || sellQuote.loading || directQuote.loading;
 
   const receiveUnits = direct
@@ -536,7 +565,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       ? (across?.out ?? null)
       : crossBuy && tokenIsUsdc
         ? landed
-        : (swapQuote.quote?.outAmount ?? null);
+        : (swapChosen?.outAmount ?? null);
   const receive =
     receiveUnits !== null
       ? fromBaseUnits(receiveUnits, buy.decimals)
@@ -689,7 +718,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         const request = directRequest(owner, solana.address ?? "");
         if (!request) return;
         const { quoteDirectSwap, sendDirectSwap } = await import("@/lib/venues/bridge-leg");
-        const fresh = await quoteDirectSwap(request);
+        const fresh = await quoteDirectSwap({ ...request, prefer: routePick });
         if (!fresh.best) throw new Error(fresh.error ?? "No route for this swap right now.");
         const sent = await sendDirectSwap(fresh.best, { provider: wallet.provider, account: owner, source, solana: solana.signTransaction, units });
         const sold = fromBaseUnits(units, sell.decimals);
@@ -724,13 +753,13 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     try {
       if (crossSell) {
         // Swap to this chain's USDC, then bridge what it delivered.
-        const out = tokenIsUsdc ? units : await swapOnChain(asset, { ...chainUsdc }, units, sellQuote.quote?.provider);
+        const out = tokenIsUsdc ? units : await swapOnChain(asset, { ...chainUsdc }, units, sellChosen?.provider);
         if (out === null) return;
         pendingFinish.current = remoteSource?.symbol ?? "USDC";
         void execute({ steps, index: 0, phase: "ready", carry: out });
         return;
       }
-      if (await swapOnChain(sell, buy, units, swapQuote.quote?.provider)) setAmount("");
+      if (await swapOnChain(sell, buy, units, swapChosen?.provider)) setAmount("");
     } finally {
       setPlacing(false);
       setRefresh((count) => count + 1);
@@ -825,6 +854,23 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const pureBridge = cross && tokenIsUsdc;
   const swapLabel = `Swap ${chainUsdc.symbol} → ${token.symbol} on Uniswap · ${chain.name} (one signature)`;
   const directLabel = `${directName} swaps ${sell.symbol} on ${side === "buy" ? remoteChainName : chain.name} for ${buy.symbol} on ${side === "buy" ? chain.name : remoteChainName} (${side === "buy" && onSolana ? "one Solana signature" : "an approval when needed, then one transaction"}; seconds to minutes)`;
+  // Every route this swap can take: the direct ones (Relay, LI.FI and its bridges) or the same-chain aggregators.
+  const legOut = crossSell ? { decimals: chainUsdc.decimals, symbol: chainUsdc.symbol } : { decimals: buy.decimals, symbol: buy.symbol };
+  const routeOptions: RouteOption[] = direct
+    ? (directQuoted.options ?? []).map((option) => ({
+        id: option.id,
+        ...directRouteLabel({ provider: option.provider, name: option.name, toolName: option.provider === "lifi" ? option.raw.toolName : undefined }),
+        domain: directRouteDomain(option.provider),
+        out: fromBaseUnits(option.raw.expectedOut, buy.decimals),
+        symbol: buy.symbol,
+      }))
+    : ((crossSell ? sellQuote.quotes : crossBuy ? undefined : swapQuote.quotes) ?? []).map((entry) => ({
+        id: entry.provider,
+        name: entry.provider === "uniswap" ? (entry.gasless ? "UniswapX" : "Uniswap") : AGGREGATOR_NAMES[entry.provider],
+        domain: AGGREGATOR_DOMAINS[entry.provider],
+        out: fromBaseUnits(entry.outAmount, legOut.decimals),
+        symbol: legOut.symbol,
+      }));
   const checklist = direct ? [directLabel] : !cross ? [] : crossBuy ? [...steps.map(stepLabel), ...(pureBridge ? [] : [swapLabel])] : [...(pureBridge ? [] : [`Swap ${token.symbol} → USDC on Uniswap · ${chain.name}`]), ...steps.map(stepLabel)];
   const doneSteps = direct ? 0 : !cross ? 0 : crossBuy ? (bridged !== null ? steps.length : run ? run.index : 0) : run ? (pureBridge ? 0 : 1) + run.index : 0;
   const shareBalance = crossBuy ? null : (sellBalance ?? null);
@@ -846,6 +892,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
+      {routeOptions.length > 1 && <RouteList options={routeOptions} pick={routePick} onPick={setRoutePick} loading={loading} />}
       {/* USDC from another chain meeting a Robinhood token (chain 4663): it becomes, or comes from, USDG there. */}
       {chain.id === 4663 && (cross || direct) && /^USDC/i.test(pay.symbol) && <RobinhoodDollarNote selling={side === "sell"} otherChain={remoteChainName} />}
       {!pureBridge && !direct && <GaslessNote />}

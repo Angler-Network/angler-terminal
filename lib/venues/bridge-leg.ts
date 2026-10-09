@@ -233,16 +233,24 @@ export interface DirectSwapRequest {
   fromAddress: string;
   toAddress: string;
   slippageBps?: number | null;
+  /** A route the user pinned (`directRouteId`): used whenever it still quotes, the best one otherwise. */
+  prefer?: string | null;
 }
 
-export type DirectQuote = { provider: "relay"; raw: RelayQuote; name: string } | { provider: "lifi"; raw: LifiQuote; name: string };
+/** One route's identity across refreshes: the provider, and for LI.FI the bridge or DEX it picked. */
+export type DirectQuote = { provider: "relay"; raw: RelayQuote; name: string; id: string } | { provider: "lifi"; raw: LifiQuote; name: string; id: string };
+
+export const directRouteId = (quote: Pick<DirectQuote, "provider"> & { raw: { tool?: string } }) => (quote.provider === "lifi" ? `lifi:${quote.raw.tool ?? ""}` : "relay");
 
 /**
- * Relay (EVM ↔ EVM only here) and LI.FI (any pair, Solana included) quoted at once; the executable one with the larger
- * output wins, Relay on a tie.
+ * Every route for a swap across chains (or tokens), best first: Relay (EVM ↔ EVM only here) and LI.FI (any pair, Solana
+ * included). Where Relay can't help (Solana), LI.FI is asked once more without its first bridge, so there's still a
+ * choice; between EVM chains Relay already is the second route and LI.FI's rate limit is kept for that. `best` is the
+ * pinned route (`prefer`) while it quotes, else the largest output, Relay on a tie.
  */
-export async function quoteDirectSwap(request: DirectSwapRequest): Promise<{ best: DirectQuote | null; error?: string }> {
+export async function quoteDirectSwap(request: DirectSwapRequest): Promise<{ best: DirectQuote | null; options: DirectQuote[]; error?: string }> {
   const evmOnly = request.fromChain !== LIFI_SOLANA_CHAIN && request.toChain !== LIFI_SOLANA_CHAIN;
+  const lifiRequest = { fromChain: request.fromChain, toChain: request.toChain, fromToken: request.fromToken, toToken: request.toToken, fromAmount: request.amount, fromAddress: request.fromAddress, toAddress: request.toAddress, slippageBps: request.slippageBps };
   const [relay, lifi] = await Promise.allSettled([
     evmOnly && bridgeEnabled("relay")
       ? fetchRelayQuote({
@@ -255,15 +263,22 @@ export async function quoteDirectSwap(request: DirectSwapRequest): Promise<{ bes
           amount: request.amount,
         })
       : Promise.reject(new VenueError(evmOnly ? "Relay is turned off." : "Relay isn't used for Solana here.")),
-    bridgeEnabled("lifi") ? fetchLifiQuote({ ...request, fromAmount: request.amount }) : off("lifi"),
+    bridgeEnabled("lifi") ? fetchLifiQuote(lifiRequest) : off("lifi"),
   ]);
   const options: DirectQuote[] = [];
-  if (relay.status === "fulfilled" && relay.value.executable) options.push({ provider: "relay", raw: relay.value, name: "Relay" });
-  if (lifi.status === "fulfilled" && lifi.value.executable) options.push({ provider: "lifi", raw: lifi.value, name: `LI.FI · ${lifi.value.toolName}` });
-  const best = options.reduce<DirectQuote | null>((winner, option) => (!winner || option.raw.expectedOut > winner.raw.expectedOut ? option : winner), null);
-  if (best) return { best };
+  if (relay.status === "fulfilled" && relay.value.executable) options.push({ provider: "relay", raw: relay.value, name: "Relay", id: "relay" });
+  if (lifi.status === "fulfilled" && lifi.value.executable) {
+    options.push({ provider: "lifi", raw: lifi.value, name: `LI.FI · ${lifi.value.toolName}`, id: directRouteId({ provider: "lifi", raw: lifi.value }) });
+    if (!evmOnly && request.fromChain !== request.toChain) {
+      const second = await fetchLifiQuote({ ...lifiRequest, denyBridges: [lifi.value.tool] }).catch(() => null);
+      if (second?.executable && second.tool !== lifi.value.tool) options.push({ provider: "lifi", raw: second, name: `LI.FI · ${second.toolName}`, id: directRouteId({ provider: "lifi", raw: second }) });
+    }
+  }
+  options.sort((a, b) => (a.raw.expectedOut === b.raw.expectedOut ? (a.provider === "relay" ? -1 : 1) : a.raw.expectedOut > b.raw.expectedOut ? -1 : 1));
+  const best = (request.prefer ? options.find((option) => option.id === request.prefer) : undefined) ?? options[0] ?? null;
+  if (best) return { best, options };
   const reasons = [lifi, ...(evmOnly ? [relay] : [])].filter((result) => result.status === "rejected").map((result) => message((result as PromiseRejectedResult).reason));
-  return { best: null, error: reasons[0] ?? "No route for this swap right now." };
+  return { best: null, options, error: reasons[0] ?? "No route for this swap right now." };
 }
 
 /** Sends a direct swap's chosen quote; resolves to how to follow it and where to look. */

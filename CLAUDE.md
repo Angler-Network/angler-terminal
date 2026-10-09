@@ -484,6 +484,14 @@ dependency versions and design are free to diverge from angler-news.
     shows them even with "Verified only" on. The EVM swap card asks for "I checked this token" before buying any
     unverified token, like the Solana card. Pons's own factories in its integration guide emit nothing recent;
     don't build on them.
+  - Route lists (`RouteList` in `swap-card.tsx`, styled like `SpotRoutes`): every swap shows the routes it can take when
+    there's more than one, best first, "Best" and the gap on the others; a press pins one (used while it still quotes),
+    pressing again goes back to the best; a new pair or side clears it. EVM card: same-chain providers (Uniswap/UniswapX,
+    0x, KyberSwap, LI.FI; `useQuote` keeps them all) and direct cross-chain routes; the Arcus card's and the Solana
+    card's cross-chain payments too. `quoteDirectSwap` returns `options` and takes `prefer` (route id `directRouteId`:
+    `relay` or `lifi:<tool>`), so the fresh quote at send time keeps the pinned route. Where Relay can't help (Solana
+    pairs) LI.FI is asked again with `denyBridges=<first tool>` for a second route (e.g. Relay depository vs LI.FI
+    Intents); the proxy passes `denyBridges` only as up to five tool keys (never "all"), it can only narrow LI.FI's choice.
   - Relay (`lib/venues/relay*.ts`, `bridge-leg.ts`, `app/api/relay/[...path]`): every bridge leg (`FundsStep` "across":
     funds window, both swap cards) quotes Across and Relay together (`quoteBridgeLeg`) and runs the larger output,
     Across on a tie; waits follow `BridgeLegRef` (Across deposit id or Relay request id). Relay's `/quote` lists the

@@ -23,6 +23,8 @@ export interface LifiQuoteRequest {
   toAddress: string;
   /** Max slippage as bps; LI.FI's default (0.5%) when unset. */
   slippageBps?: number | null;
+  /** LI.FI tools to leave out (the first route's bridge, for an alternative). */
+  denyBridges?: string[];
 }
 
 export type LifiTx =
@@ -52,6 +54,7 @@ export function lifiQuoteParams(request: LifiQuoteRequest) {
     toAddress: request.toAddress,
   });
   if (request.slippageBps) params.set("slippage", String(request.slippageBps / 10_000));
+  if (request.denyBridges?.length) params.set("denyBridges", request.denyBridges.join(","));
   return params;
 }
 

@@ -96,6 +96,8 @@ function usePayToken(mint: string | null) {
  */
 type PayFrom = "direct" | "arbitrum" | "base" | "hyperliquid" | "solanaUsdc" | "solanaSol" | "other";
 type PayToken = Extract<PayChoice, { kind: "token" }>;
+/** One route of a direct payment, as the Arcus card keeps it between quotes. */
+type DirectRouteLine = { id: string; name: string; provider: "relay" | "lifi"; out: bigint; feeUsd: number; toolName?: string };
 
 const HL_PAY = "hyperliquid";
 const SOLANA_SOL: PayToken = { kind: "token", chainId: LIFI_SOLANA_CHAIN, address: WSOL_MINT, symbol: "SOL", decimals: 9, icon: "/chains/solana.svg" };
@@ -318,6 +320,83 @@ function SpotRoutes({
   );
 }
 
+/** One route in a `RouteList`: a quote from a provider (an aggregator, a bridge, LI.FI with the bridge it picked). */
+export interface RouteOption {
+  id: string;
+  name: string;
+  /** Site for the logo (through /api/favicon). */
+  domain: string;
+  /** What arrives, in `symbol`; null while it quotes or when it can't. */
+  out: number | null;
+  symbol: string;
+  note?: string | null;
+  /** Who routes it, in small type after the name ("via LI.FI" for a bridge LI.FI picked). */
+  via?: string;
+}
+
+/**
+ * Every route a swap can take, best first, the one in use highlighted; a press pins a route, pressing it again goes
+ * back to the best. The same list as Jupiter / Titan and Arcus / Uniswap, for the EVM card's aggregators and every
+ * cross-chain swap (Relay, LI.FI and the bridges it routes through).
+ */
+export function RouteList({ options, pick, onPick, loading }: { options: RouteOption[]; pick: string | null; onPick: (id: string | null) => void; loading?: boolean }) {
+  const outs = options.flatMap((option) => (option.out !== null ? [option.out] : []));
+  const best = outs.length ? Math.max(...outs) : null;
+  const used = (pick && options.some((option) => option.id === pick) ? pick : null) ?? options.find((option) => option.out !== null)?.id ?? null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-app-hairline">
+      <div className="flex items-center gap-2 border-b border-app-hairline bg-app-chip/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-app-faint">
+        <span>Route</span>
+        {loading && <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-app-accent" />}
+      </div>
+      {options.map((option) => {
+        const isUsed = used === option.id;
+        const gap = option.out !== null && best !== null && best > 0 && option.out < best ? ((best - option.out) / best) * 100 : 0;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onPick(pick === option.id ? null : option.id)}
+            title={`${option.name}${option.via ? ` via ${option.via}` : ""}: ${option.note ?? (pick === option.id ? "pinned, press again for the best price" : "swap on this route")}`}
+            className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${isUsed ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
+          >
+            <img
+              src={`/api/favicon?domain=${option.domain}`}
+              alt=""
+              width={16}
+              height={16}
+              className={`size-4 shrink-0 rounded ${isUsed ? "ring-1 ring-app-accent ring-offset-1 ring-offset-app-card" : ""}`}
+            />
+            {/* The name keeps its room in the narrow column; "via LI.FI" is in the tooltip. */}
+            <span className={`min-w-0 flex-1 truncate font-semibold ${option.out === null ? "text-app-muted" : "text-app-ink"}`}>{option.name}</span>
+            {option.out !== null && option.out === best && <span className="shrink-0 rounded bg-app-up/15 px-1 text-[9px] font-bold uppercase tracking-[0.06em] text-app-up">Best</span>}
+            <span className="shrink-0 text-right text-[11px] tabular-nums">
+              {option.out !== null ? (
+                <span className="text-app-ink">
+                  {option.out.toLocaleString("en-US", { maximumSignificantDigits: 5 })} <span className="text-app-muted">{option.symbol}</span>
+                </span>
+              ) : (
+                <span className="text-[11px] text-app-faint">{option.note ?? "No quote"}</span>
+              )}
+            </span>
+            {gap > 0 && <span className="shrink-0 text-[11px] tabular-nums text-app-down">-{gap.toFixed(2)}%</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Where a direct (cross-chain) route's logo comes from. */
+export const directRouteDomain = (provider: "relay" | "lifi") => (provider === "relay" ? "relay.link" : "li.fi");
+
+/** A direct route's row label: the bridge's own name first (it fits the narrow column), LI.FI as the router. */
+export function directRouteLabel(option: { provider: "relay" | "lifi"; name: string; toolName?: string }): { name: string; via?: string } {
+  if (option.provider === "relay") return { name: "Relay" };
+  const tool = option.toolName ?? option.name.replace(/^LI\.FI · /, "");
+  return /li\.?fi/i.test(tool) ? { name: tool } : { name: tool, via: "LI.FI" };
+}
+
 /** Long amounts shrink so the token pill keeps its place in the narrow trading column. */
 export const amountSize = (text: string) => (text.length > 9 ? "text-[16px]" : text.length > 6 ? "text-[19px]" : "text-[22px]");
 /**
@@ -517,7 +596,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const [bridged, setBridged] = useState<bigint | null>(null);
   const [crossQuote, setCrossQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; error?: string } | null>(null);
   // Paying from Solana: LI.FI's quote (USDG out) and, once sent, the route being followed until the USDG lands.
-  const [solQuote, setSolQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; name?: string; error?: string } | null>(null);
+  const [solQuote, setSolQuote] = useState<{ key: string; out?: bigint; feeUsd?: number; name?: string; error?: string; options?: DirectRouteLine[] } | null>(null);
+  /** A route pinned for paying with a token elsewhere (route list); back to the best for another pay token. */
+  const [directPick, setDirectPick] = useState<string | null>(null);
   const [solPending, setSolPending] = useState<{ ref: BridgeLegRef; fromChain: number; fromName: string; before: bigint; since: number; explorerUrl: string } | null>(null);
   const { run, setRun, execute } = useFundsRun({
     resume: () => router.push(choices[0]?.id === "arcus" ? TERMINAL_PATHS.book : TERMINAL_PATHS.spot),
@@ -612,6 +693,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           ? anyPay
           : null;
   const fromSolana = directSource?.chainId === LIFI_SOLANA_CHAIN;
+  const directPair = directSource ? `${directSource.chainId}:${directSource.address}:${cardKey}` : null;
+  useEffect(() => setDirectPick(null), [directPair]);
   const directChain = directSource && !fromSolana ? evmSwapChain(directSource.chainId) : null;
   const directChainName = !directSource ? "" : fromSolana ? "Solana" : (directChain?.name ?? sourceChainById(directSource.chainId)?.name ?? `chain ${directSource.chainId}`);
   const directInfo = useForeignToken(
@@ -644,7 +727,10 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const directFromToken = !directSource ? "" : fromSolana && directSource.address === WSOL_MINT ? LIFI_NATIVE_SOL : directSource.address;
   const solKey =
     directSource && solUnits && solUnits > 0n ? `${directSource.chainId}:${directSource.address}:${solUnits}:${solanaAddress ?? ""}:${evmAddress ?? ""}` : null;
-  const solLine = solQuote && solQuote.key === solKey ? solQuote : null;
+  const solQuoted = solQuote && solQuote.key === solKey ? solQuote : null;
+  // The pinned route while it quotes, else the best.
+  const solPinned = directPick ? solQuoted?.options?.find((option) => option.id === directPick) : undefined;
+  const solLine = solQuoted && solPinned ? { ...solQuoted, out: solPinned.out, feeUsd: solPinned.feeUsd, name: solPinned.name } : solQuoted;
   const solOut = solLine?.out !== undefined ? units6(solLine.out) : null;
   const acrossIndex = crossSteps.findIndex((step) => step.kind === "across");
   const acrossStep = acrossIndex >= 0 ? (crossSteps[acrossIndex] as Extract<(typeof crossSteps)[number], { kind: "across" }>) : null;
@@ -788,7 +874,20 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         if (!active) return;
         setSolQuote(
           result.best
-            ? { key: solKey, out: result.best.raw.expectedOut, feeUsd: result.best.raw.feeUsd, name: result.best.name }
+            ? {
+                key: solKey,
+                out: result.best.raw.expectedOut,
+                feeUsd: result.best.raw.feeUsd,
+                name: result.best.name,
+                options: result.options.map((option) => ({
+                  id: option.id,
+                  name: option.name,
+                  provider: option.provider,
+                  out: option.raw.expectedOut,
+                  feeUsd: option.raw.feeUsd,
+                  toolName: option.provider === "lifi" ? option.raw.toolName : undefined,
+                })),
+              }
             : { key: solKey, error: result.error ?? `No route from ${directChainName} right now.` },
         );
       } catch (caught) {
@@ -914,6 +1013,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           fromAddress: fromSolana ? solanaAddress! : evmAddress,
           toAddress: evmAddress,
           slippageBps,
+          prefer: directPick,
         });
         if (!fresh.best) throw new Error(fresh.error ?? `No route from ${directChainName} right now.`);
         const sent = await sendDirectSwap(fresh.best, {
@@ -1184,6 +1284,28 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           {crossSwap.feeUsd !== null && <span className="text-app-muted"> Route fee {crossSwap.feeUsd < 0.01 ? "< $0.01" : `$${crossSwap.feeUsd.toFixed(2)}`}.</span>}
           {crossSwap.pending && <span className="text-app-muted"> On its way… we&apos;ll tell you when it lands.</span>}
         </p>
+      )}
+      {/* Every route for paying with a token elsewhere (Relay, LI.FI and its bridges), the Solana card's cross-chain swap too. */}
+      {solPay && (solQuoted?.options?.length ?? 0) > 1 && (
+        <RouteList
+          options={solQuoted!.options!.map((option) => ({ id: option.id, ...directRouteLabel(option), domain: directRouteDomain(option.provider), out: units6(option.out), symbol: arcusConfig.quoteSymbol }))}
+          pick={directPick}
+          onPick={setDirectPick}
+        />
+      )}
+      {foreign && crossSwap.options.length > 1 && crossSwap.receivedDecimals !== null && (
+        <RouteList
+          options={crossSwap.options.map((option) => ({
+            id: option.id,
+            ...directRouteLabel({ provider: option.provider, name: option.name, toolName: option.provider === "lifi" ? option.raw.toolName : undefined }),
+            domain: directRouteDomain(option.provider),
+            out: fromBaseUnits(option.raw.expectedOut, crossSwap.receivedDecimals!),
+            symbol: buy.symbol,
+          }))}
+          pick={crossSwap.pick}
+          onPick={crossSwap.setPick}
+          loading={crossSwap.quoting}
+        />
       )}
       {!isSolana && side === "buy" && (cross || solPay) && /^USDC/i.test(sell.symbol) && <RobinhoodDollarNote selling={false} otherChain={sell.chainName} />}
       {solPay && (
