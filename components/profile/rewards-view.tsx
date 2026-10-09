@@ -71,7 +71,7 @@ export function RewardsView() {
               <Sparkles className="size-3.5" strokeWidth={1.75} aria-hidden />
               Total points
               {profile.closedBeta && (
-                <span title="Volume traded during the closed beta earns double points" className="ml-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] tracking-normal normal-case">
+                <span title="Trades placed during the closed beta earn double points" className="ml-1 rounded-md bg-app-accent/15 px-1.5 py-0.5 text-[10px] tracking-normal normal-case">
                   {BETA_POINTS_MULTIPLIER}x closed beta
                 </span>
               )}

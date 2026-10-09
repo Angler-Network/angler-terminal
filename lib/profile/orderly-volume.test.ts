@@ -18,11 +18,12 @@ const now = Date.parse("2026-10-08T15:00:00Z");
 
 describe("Orderly volume", () => {
   it("counts closed days of this wallet under our broker", () => {
-    expect(orderlyAnglerVolume(rows, user, "angler", null, now)).toEqual({ usd: 3500.5, fee: 0.7, lastDay: Date.parse("2026-10-06") });
+    expect(orderlyAnglerVolume(rows, user, "angler", null, now)).toEqual({ usd: 3500.5, betaUsd: 0, fee: 0.7, lastDay: Date.parse("2026-10-06") });
+    expect(orderlyAnglerVolume(rows, user, "angler", null, now, (day) => day >= Date.parse("2026-10-06")).betaUsd).toBe(2500);
   });
 
   it("skips days at or before the cursor", () => {
-    expect(orderlyAnglerVolume(rows, user, "angler", Date.parse("2026-10-05"), now)).toEqual({ usd: 2500, fee: 0.5, lastDay: Date.parse("2026-10-06") });
+    expect(orderlyAnglerVolume(rows, user, "angler", Date.parse("2026-10-05"), now)).toMatchObject({ usd: 2500, fee: 0.5, lastDay: Date.parse("2026-10-06") });
     expect(orderlyAnglerVolume(rows, user, "angler", Date.parse("2026-10-07"), now).usd).toBe(0);
   });
 });

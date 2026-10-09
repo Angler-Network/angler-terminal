@@ -33,18 +33,28 @@ export function isAnglerFill(fill: HlFill, fees: number | number[]) {
   });
 }
 
-/** Our volume in a batch of fills, the builder fees they paid us, and the newest fill time seen (the next sync starts after it). */
-export function hlAnglerVolume(fills: HlFill[], builderFeeTenthsBp: number | number[]) {
+/** Trades at a time `inBeta` accepts were placed during the closed beta (`betaUsd`: bonus points, `beta-points.ts`). */
+type InBeta = (time: number) => boolean;
+const never: InBeta = () => false;
+
+/**
+ * Our volume in a batch of fills, the builder fees they paid us, the part placed during the closed beta, and the newest
+ * fill time seen (the next sync starts after it).
+ */
+export function hlAnglerVolume(fills: HlFill[], builderFeeTenthsBp: number | number[], inBeta: InBeta = never) {
   let usd = 0;
+  let betaUsd = 0;
   let fee = 0;
   let lastTime = 0;
   for (const fill of fills) {
     lastTime = Math.max(lastTime, fill.time);
     if (!isAnglerFill(fill, builderFeeTenthsBp)) continue;
-    usd += Math.abs(Number(fill.px) * Number(fill.sz));
+    const amount = Math.abs(Number(fill.px) * Number(fill.sz));
+    usd += amount;
+    if (inBeta(fill.time)) betaUsd += amount;
     fee += Number(fill.builderFee) || 0;
   }
-  return { usd, fee, lastTime };
+  return { usd, betaUsd, fee, lastTime };
 }
 
 /** A Lighter trade from `/api/v1/trades` (only the fields used here). */
@@ -80,18 +90,24 @@ export function isAnglerTrade(trade: LighterTrade, accountIndex: number) {
  * Volume placed from this terminal, and the part of it a Standard account traded (no fee, so none of ours): that part
  * earns half points (`standardUsd`, see `STANDARD_POINTS_SHARE`).
  */
-export function lighterAnglerVolume(trades: LighterTrade[], accountIndex: number) {
+export function lighterAnglerVolume(trades: LighterTrade[], accountIndex: number, inBeta: InBeta = never) {
   let usd = 0;
   let standardUsd = 0;
+  let betaUsd = 0;
+  let betaStandardUsd = 0;
   let lastTime = 0;
   for (const trade of trades) {
     lastTime = Math.max(lastTime, trade.timestamp);
     if (!isAnglerTrade(trade, accountIndex)) continue;
     const amount = Math.abs(Number(trade.usd_amount)) || 0;
+    const standard = ownFee(trade, accountIndex) === 0;
+    const beta = inBeta(trade.timestamp);
     usd += amount;
-    if (ownFee(trade, accountIndex) === 0) standardUsd += amount;
+    if (standard) standardUsd += amount;
+    if (beta) betaUsd += amount;
+    if (beta && standard) betaStandardUsd += amount;
   }
-  return { usd, standardUsd, lastTime };
+  return { usd, standardUsd, betaUsd, betaStandardUsd, lastTime };
 }
 
 interface TokenBalance {
@@ -103,6 +119,8 @@ interface TokenBalance {
 
 /** The parts of a `getTransaction` (jsonParsed) answer the check reads. */
 export interface ParsedSolanaTx {
+  /** Unix seconds, when the RPC knows it. */
+  blockTime?: number | null;
   meta: { err: unknown; preTokenBalances?: TokenBalance[]; postTokenBalances?: TokenBalance[] } | null;
   transaction: { message: { accountKeys: Array<{ pubkey: string; signer: boolean }> } };
 }

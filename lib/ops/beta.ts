@@ -1,6 +1,7 @@
 import "server-only";
 import { deployment } from "@/lib/deployment";
 import { readBetaFlag } from "@/lib/profile/beta";
+import { betaWindows, readBetaLog, type BetaWindow } from "@/lib/profile/beta-points";
 import { redisConfig, redisPipeline } from "@/lib/redis";
 
 /**
@@ -11,8 +12,11 @@ import { redisConfig, redisPipeline } from "@/lib/redis";
  */
 const KEY = `angler:ops:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}:closed-beta`;
 const CACHE_MS = 15_000;
-const memory = ((globalThis as unknown as { __anglerBeta?: { value: string | null } }).__anglerBeta ??= { value: null });
+/** Every flip, `"<ms>:<1|0>"` (1 = closed): the closed beta points event follows it (`lib/profile/beta-points.ts`). */
+const LOG_KEY = `${KEY}:log`;
+const memory = ((globalThis as unknown as { __anglerBeta?: { value: string | null; log: string[] } }).__anglerBeta ??= { value: null, log: [] });
 let cached: { at: number; closed: boolean } | null = null;
+let cachedWindows: { at: number; windows: BetaWindow[] } | null = null;
 
 const fallback = () => deployment !== "testnet";
 
@@ -33,7 +37,30 @@ export async function readClosedBeta(): Promise<boolean> {
 
 export async function setClosedBeta(closed: boolean) {
   const value = closed ? "1" : "0";
-  if (redisConfig()) await redisPipeline([["SET", KEY, value]]);
-  else memory.value = value;
+  const entry = `${Date.now()}:${value}`;
+  if (redisConfig()) await redisPipeline([["SET", KEY, value], ["RPUSH", LOG_KEY, entry]]);
+  else {
+    memory.value = value;
+    memory.log.push(entry);
+  }
   cached = { at: Date.now(), closed };
+  cachedWindows = null;
+}
+
+/**
+ * The stretches the closed beta was on since the points event started (none on the testnet site, which has no beta).
+ * Unreadable: the last copy, else the beta counts as still closed, like `readClosedBeta`.
+ */
+export async function readBetaWindows(): Promise<BetaWindow[]> {
+  if (deployment === "testnet") return [];
+  if (cachedWindows && Date.now() - cachedWindows.at < CACHE_MS) return cachedWindows.windows;
+  let windows: BetaWindow[];
+  try {
+    const log = redisConfig() ? (await redisPipeline([["LRANGE", LOG_KEY, 0, -1]]))[0] : memory.log;
+    windows = betaWindows(readBetaLog(log));
+  } catch {
+    windows = cachedWindows?.windows ?? betaWindows([]);
+  }
+  cachedWindows = { at: Date.now(), windows };
+  return windows;
 }

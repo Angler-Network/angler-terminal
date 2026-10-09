@@ -24,24 +24,37 @@ export interface OrderlyBrokerDay {
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-/** Volume and our fee in closed days after `cursor` (a day's midnight in ms), and the newest day counted. */
-export function orderlyAnglerVolume(rows: OrderlyBrokerDay[], user: string, broker: string, cursor: number | null, now = Date.now()) {
+/**
+ * Volume and our fee in closed days after `cursor` (a day's midnight in ms), the volume of days the closed beta touched
+ * (`dayInBeta`), and the newest day counted.
+ */
+export function orderlyAnglerVolume(
+  rows: OrderlyBrokerDay[],
+  user: string,
+  broker: string,
+  cursor: number | null,
+  now = Date.now(),
+  dayInBeta: (day: number) => boolean = () => false,
+) {
   const today = Date.parse(isoDay(now));
   let usd = 0;
+  let betaUsd = 0;
   let fee = 0;
   let last = cursor ?? 0;
   for (const row of rows) {
     if (row.address?.toLowerCase() !== user.toLowerCase() || row.broker_id !== broker) continue;
     const day = Date.parse(row.date ?? "");
     if (!Number.isFinite(day) || day >= today || (cursor !== null && day <= cursor)) continue;
-    usd += Math.abs(Number(row.perp_volume) || 0);
+    const amount = Math.abs(Number(row.perp_volume) || 0);
+    usd += amount;
+    if (dayInBeta(day)) betaUsd += amount;
     fee += Math.abs(Number(row.broker_fee) || 0);
     last = Math.max(last, day);
   }
-  return { usd, fee, lastDay: last };
+  return { usd, betaUsd, fee, lastDay: last };
 }
 
-export async function syncOrderly(user: string, cursor: number | null, now = Date.now()) {
+export async function syncOrderly(user: string, cursor: number | null, now = Date.now(), dayInBeta: (day: number) => boolean = () => false) {
   const broker = orderlyConfig.brokerId;
   if (!broker || !orderlyConfig.ownBroker) return null;
   const today = Date.parse(isoDay(now));
@@ -59,7 +72,7 @@ export async function syncOrderly(user: string, cursor: number | null, now = Dat
     rows.push(...batch);
     if (batch.length < PAGE) break;
   }
-  const result = orderlyAnglerVolume(rows, user, broker, cursor, now);
+  const result = orderlyAnglerVolume(rows, user, broker, cursor, now, dayInBeta);
   // Nothing traded in the window still moves the cursor to yesterday, so the next sync asks only for new days.
-  return { usd: result.usd, fee: result.fee, cursor: Math.max(result.lastDay, end) };
+  return { usd: result.usd, betaUsd: result.betaUsd, fee: result.fee, cursor: Math.max(result.lastDay, end) };
 }

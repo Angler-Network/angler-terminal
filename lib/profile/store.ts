@@ -328,8 +328,9 @@ export async function volume30d(id: string) {
 /**
  * Adds verified volume to a profile (lifetime and today's bucket) and moves it on the leaderboard. On perp and spot
  * venues the referrer, if any, earns a share of the points and REFERRAL_FEE_SHARE of `feeUsd`, the Angler fee paid.
- * While the closed beta is on, the volume earns BETA_POINTS_MULTIPLIER times its points (`bonus: false` for volume
- * moved from a linked wallet, which already earned its bonus there).
+ * `betaUsd` (of which `betaStandardUsd` on a Standard Lighter account) is the part traded while the closed beta was on
+ * (`beta-points.ts`, by the trade's own time): it earns BETA_POINTS_MULTIPLIER times its points. Volume moved from a
+ * linked wallet passes none: its bonus moves on its own.
  */
 export async function creditVolume(
   id: string,
@@ -337,7 +338,7 @@ export async function creditVolume(
   usd: number,
   feeUsd = 0,
   standardUsd = 0,
-  { bonus = true }: { bonus?: boolean } = {},
+  { betaUsd = 0, betaStandardUsd = 0 }: { betaUsd?: number; betaStandardUsd?: number } = {},
 ) {
   if (!(usd > 0)) return;
   const amount = Math.round(usd * 100) / 100;
@@ -346,7 +347,8 @@ export async function creditVolume(
   // What the volume is worth in points, for the referrer's share too.
   const pointsAmount = Math.round((amount - standard * (1 - STANDARD_POINTS_SHARE)) * 100) / 100;
   // Closed beta: the extra points, kept as volume that counts for points only.
-  const bonusUsd = bonus && (await readClosedBeta()) ? Math.round(pointsAmount * (BETA_POINTS_MULTIPLIER - 1) * 100) / 100 : 0;
+  const betaPoints = Math.min(pointsAmount, Math.max(0, betaUsd - Math.max(0, betaStandardUsd) * (1 - STANDARD_POINTS_SHARE)));
+  const bonusUsd = Math.round(betaPoints * (BETA_POINTS_MULTIPLIER - 1) * 100) / 100;
   const today = dayKey(Date.now());
   if (redisConfig()) {
     await run([
@@ -530,7 +532,7 @@ export async function linkWallet(solanaId: string, evmId: string) {
   const hash = await getHash(solanaId);
   const volume = volumeOf(hash);
   // The bonus it earned moves with it; moved volume earns no second bonus.
-  for (const venue of PROFILE_VENUES) if (volume[venue] > 0) await creditVolume(evmId, venue, volume[venue], 0, 0, { bonus: false });
+  for (const venue of PROFILE_VENUES) if (volume[venue] > 0) await creditVolume(evmId, venue, volume[venue]);
   const bonusUsd = bonusUsdOf(hash);
   if (bonusUsd > 0) {
     await setFields(evmId, { bonusUsd: String(bonusUsdOf(await getHash(evmId)) + bonusUsd) });

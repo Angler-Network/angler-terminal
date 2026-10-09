@@ -57,7 +57,9 @@ describe("Hyperliquid volume", () => {
     expect(isAnglerFill(fill("100", "10", "0.5"), 25)).toBe(false); // another app's 5 bps
     expect(isAnglerFill(fill("100", "10"), 25)).toBe(false);
     expect(isAnglerFill(fill("100", "10", "0.25"), 0)).toBe(false);
-    expect(hlAnglerVolume([fill("100", "10", "0.25", 5), fill("50", "2", undefined, 9)], 25)).toEqual({ usd: 1000, fee: 0.25, lastTime: 9 });
+    expect(hlAnglerVolume([fill("100", "10", "0.25", 5), fill("50", "2", undefined, 9)], 25)).toEqual({ usd: 1000, betaUsd: 0, fee: 0.25, lastTime: 9 });
+    // Fills placed during the closed beta, by their own time.
+    expect(hlAnglerVolume([fill("100", "10", "0.25", 5), fill("100", "5", "0.125", 9)], 25, (time) => time >= 8)).toMatchObject({ usd: 1500, betaUsd: 500 });
     // Any VIP tier of a 3.5 bps fee: VIP 2 pays 3 bps ($0.30 on $1000), and 3.5 bps still counts.
     expect(isAnglerFill(fill("100", "10", "0.3"), tierFees(35))).toBe(true);
     expect(isAnglerFill(fill("100", "10", "0.35"), tierFees(35))).toBe(true);
@@ -80,10 +82,13 @@ describe("Lighter volume", () => {
 
   it("counts trades whose own side carries the terminal tag", () => {
     // No fee fields: a Standard account, so the whole trade is Standard volume.
-    expect(lighterAnglerVolume([trade({ ask_client_id: ours })], 7)).toEqual({ usd: 500.5, standardUsd: 500.5, lastTime: 10 });
+    expect(lighterAnglerVolume([trade({ ask_client_id: ours })], 7)).toEqual({ usd: 500.5, standardUsd: 500.5, betaUsd: 0, betaStandardUsd: 0, lastTime: 10 });
     // The tag on the other side's order doesn't count for this account.
     expect(lighterAnglerVolume([trade({ bid_client_id: ours })], 7).usd).toBe(0);
-    expect(lighterAnglerVolume([trade({ bid_client_id: ours, timestamp: 12 })], 8)).toEqual({ usd: 500.5, standardUsd: 500.5, lastTime: 12 });
+    expect(lighterAnglerVolume([trade({ bid_client_id: ours, timestamp: 12 })], 8)).toMatchObject({ usd: 500.5, standardUsd: 500.5, lastTime: 12 });
+    const paid = trade({ ask_client_id: ours, is_maker_ask: false, taker_fee: 280, timestamp: 20 });
+    expect(lighterAnglerVolume([trade({ ask_client_id: ours }), paid], 7, (time) => time >= 10)).toMatchObject({ usd: 1001, betaUsd: 1001, betaStandardUsd: 500.5 });
+    expect(lighterAnglerVolume([trade({ ask_client_id: ours }), paid], 7, (time) => time >= 15)).toMatchObject({ betaUsd: 500.5, betaStandardUsd: 0 });
   });
 
   it("tells Plus and Premium trades (own side paid a fee) from Standard ones", () => {

@@ -8,6 +8,8 @@ import { jupServerConfig } from "@/lib/venues/jupiter/server";
 import { readAccountIndex } from "@/lib/venues/lighter/account";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
+import { readBetaWindows } from "@/lib/ops/beta";
+import { dayInBeta, inBeta, type BetaWindow } from "./beta-points";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
@@ -31,11 +33,12 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 /** Hyperliquid fills since the cursor that paid our builder fee (10,000 most recent fills at most, per the API). */
-async function syncHyperliquid(user: string, cursor: number | null) {
+async function syncHyperliquid(user: string, cursor: number | null, beta: BetaWindow[]) {
   const builderFee = hlConfig.builder?.fee ?? 0;
   if (!builderFee) return null;
   let start = cursor === null ? 0 : cursor + 1;
   let usd = 0;
+  let betaUsd = 0;
   let paid = 0;
   let last = cursor ?? 0;
   const seen = new Set<number>();
@@ -47,20 +50,21 @@ async function syncHyperliquid(user: string, cursor: number | null) {
     });
     const fresh = fills.filter((fill) => !seen.has(fill.tid));
     for (const fill of fresh) seen.add(fill.tid);
-    const batch = hlAnglerVolume(fresh, tierFees(builderFee));
+    const batch = hlAnglerVolume(fresh, tierFees(builderFee), (time) => inBeta(beta, time));
     usd += batch.usd;
+    betaUsd += batch.betaUsd;
     paid += batch.fee;
     last = Math.max(last, batch.lastTime);
     if (fills.length < HL_PAGE) break;
     // The next page starts at the last fill's time; fills already seen at that millisecond are skipped.
     start = batch.lastTime;
   }
-  return { usd, fee: paid, cursor: last };
+  return { usd, betaUsd, fee: paid, cursor: last };
 }
 
 /** Lighter trades of the wallet's account since the cursor whose own side carries the terminal tag. */
 /** One Lighter exchange (core or Robinhood): both list public trades with each side's client order index. */
-async function syncLighter(config: LighterConfig, l1Address: string, cursor: number | null) {
+async function syncLighter(config: LighterConfig, l1Address: string, cursor: number | null, beta: BetaWindow[]) {
   // Lighter answers "account not found" (code 21100) with a 400 when the wallet has no account yet.
   const response = await fetch(`${config.apiUrl}/api/v1/accountsByL1Address?l1_address=${l1Address}`, { cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
   const accountIndex = readAccountIndex(await response.json().catch(() => null));
@@ -81,8 +85,8 @@ async function syncLighter(config: LighterConfig, l1Address: string, cursor: num
     if (newer.length < list.length || !body.next_cursor || list.length < LIGHTER_PAGE) break;
     next = body.next_cursor;
   }
-  const volume = lighterAnglerVolume(trades, accountIndex);
-  return { usd: volume.usd, standardUsd: volume.standardUsd, cursor: newest };
+  const volume = lighterAnglerVolume(trades, accountIndex, (time) => inBeta(beta, time));
+  return { usd: volume.usd, standardUsd: volume.standardUsd, betaUsd: volume.betaUsd, betaStandardUsd: volume.betaStandardUsd, cursor: newest };
 }
 
 /**
@@ -94,35 +98,43 @@ export async function syncProfile(id: string) {
   const cursors = await readCursors(id);
   // Lighter trades don't list our integrator fee: it's the configured fee at the trader's VIP tier.
   const rate = vipFor(await volume30d(id)).rate;
+  // Trades placed while the closed beta was on earn bonus points, whenever they're synced.
+  const beta = await readBetaWindows();
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
   const [hl, lighter, lighterRh, aster, orderly] = await Promise.allSettled([
-    syncHyperliquid(id, cursors.hl),
-    syncLighter(lighterConfig, id, cursors.lighter),
-    syncLighter(lighterRhConfig, id, cursors.lighterRh),
-    syncAster(id, cursors.aster),
-    syncOrderly(id, cursors.orderly),
+    syncHyperliquid(id, cursors.hl, beta),
+    syncLighter(lighterConfig, id, cursors.lighter, beta),
+    syncLighter(lighterRhConfig, id, cursors.lighterRh, beta),
+    syncAster(id, cursors.aster, (time) => inBeta(beta, time)),
+    syncOrderly(id, cursors.orderly, Date.now(), (day) => dayInBeta(beta, day)),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
-    await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee);
+    await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee, 0, { betaUsd: hl.value.betaUsd });
     await saveCursors(id, { hl: hl.value.cursor });
   } else if (hl.status === "rejected") console.warn(`[profile] Hyperliquid sync failed: ${String(hl.reason)}`);
   if (lighter.status === "fulfilled" && lighter.value) {
     // Standard-account volume paid no fee: none of ours, and half points.
-    await creditVolume(id, "lighter", lighter.value.usd, lighterFee(lighterConfig, lighter.value.usd - lighter.value.standardUsd), lighter.value.standardUsd);
+    await creditVolume(id, "lighter", lighter.value.usd, lighterFee(lighterConfig, lighter.value.usd - lighter.value.standardUsd), lighter.value.standardUsd, {
+      betaUsd: lighter.value.betaUsd,
+      betaStandardUsd: lighter.value.betaStandardUsd,
+    });
     await saveCursors(id, { lighter: lighter.value.cursor });
   } else if (lighter.status === "rejected") console.warn(`[profile] Lighter sync failed: ${String(lighter.reason)}`);
   if (lighterRh.status === "fulfilled" && lighterRh.value) {
-    await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd - lighterRh.value.standardUsd), lighterRh.value.standardUsd);
+    await creditVolume(id, "lighterRh", lighterRh.value.usd, lighterFee(lighterRhConfig, lighterRh.value.usd - lighterRh.value.standardUsd), lighterRh.value.standardUsd, {
+      betaUsd: lighterRh.value.betaUsd,
+      betaStandardUsd: lighterRh.value.betaStandardUsd,
+    });
     await saveCursors(id, { lighterRh: lighterRh.value.cursor });
   } else if (lighterRh.status === "rejected") console.warn(`[profile] Lighter RH sync failed: ${String(lighterRh.reason)}`);
   if (aster.status === "fulfilled" && aster.value) {
     // Aster reports the builder fee each trade paid: our exact revenue on it.
-    await creditVolume(id, "aster", aster.value.usd, aster.value.fee);
+    await creditVolume(id, "aster", aster.value.usd, aster.value.fee, 0, { betaUsd: aster.value.betaUsd });
     await saveCursors(id, { aster: aster.value.cursor });
   } else if (aster.status === "rejected") console.warn(`[profile] Aster sync failed: ${String(aster.reason)}`);
   if (orderly.status === "fulfilled" && orderly.value) {
     // Orderly's leaderboard reports the broker fee each day paid: our exact revenue on it.
-    await creditVolume(id, "orderly", orderly.value.usd, orderly.value.fee);
+    await creditVolume(id, "orderly", orderly.value.usd, orderly.value.fee, 0, { betaUsd: orderly.value.betaUsd });
     await saveCursors(id, { orderly: orderly.value.cursor });
   } else if (orderly.status === "rejected") console.warn(`[profile] Orderly sync failed: ${String(orderly.reason)}`);
 }
@@ -183,7 +195,9 @@ export async function claimSwap(signature: string): Promise<SwapClaim> {
   try {
     const profile = await creditTarget(swap.signer);
     const venue = jupiter ? "jupiter" : "titan";
-    await creditVolume(profile, venue, swap.usd);
+    // The swap's block time (claims come right after confirming, so now when the RPC leaves it out).
+    const time = tx.blockTime ? tx.blockTime * 1000 : Date.now();
+    await creditVolume(profile, venue, swap.usd, 0, 0, { betaUsd: inBeta(await readBetaWindows(), time) ? swap.usd : 0 });
     return { ok: true, venue, usd: swap.usd, profile };
   } catch (error) {
     await releaseTransaction(signature);
