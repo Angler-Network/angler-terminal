@@ -177,6 +177,36 @@ async function geckoStats(network: PoolNetwork, addresses: string[]) {
 const statsField = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
 
 /** The last good volume / liquidity per token (Redis, memory without it), younger than `MARKET_MEMORY_TTL_MS`. */
+const PONS_KEY = "angler:spot:pons:v1";
+const PONS_TTL_SECONDS = 24 * 60 * 60;
+let memoryPons: UniswapTokenRecord[] = [];
+
+/**
+ * Pons launches, else the last good list (this instance's, then Redis, up to a day old). Their GeckoTerminal reads
+ * share the free ~10 calls a minute with the pool charts and stats, so a refresh often comes back empty, which used to
+ * drop every Pons token from the list until the next one.
+ */
+async function ponsTokens(): Promise<UniswapTokenRecord[]> {
+  const fresh = await getPonsTokens().catch((error: unknown) => {
+    console.error("[spot] pons tokens failed:", error);
+    return [];
+  });
+  if (fresh.length > 0) {
+    memoryPons = fresh;
+    if (redisConfig()) await redisPipeline([["SET", PONS_KEY, JSON.stringify(fresh), "EX", PONS_TTL_SECONDS]]).catch(() => undefined);
+    return fresh;
+  }
+  if (memoryPons.length > 0 || !redisConfig()) return memoryPons;
+  try {
+    const [stored] = await redisPipeline([["GET", PONS_KEY]]);
+    const parsed: unknown = typeof stored === "string" ? JSON.parse(stored) : null;
+    if (Array.isArray(parsed)) memoryPons = parsed.filter((record): record is UniswapTokenRecord => typeof record?.address === "string" && (record.pons === "curve" || record.pons === "graduated"));
+  } catch (error) {
+    console.error("[spot] pons memory read failed:", error);
+  }
+  return memoryPons;
+}
+
 async function recallStats(chainId: number, addresses: string[]) {
   const fields = addresses.map((address) => statsField(chainId, address));
   let values: unknown[] = fields.map((field) => memoryStats.get(field));
@@ -262,7 +292,7 @@ async function uniswapListings(): Promise<SpotListing[]> {
         chain.poolTop ? ranked("volume_24h", UNISWAP_TOP_LIMIT).catch(() => []) : ranked("volume_24h", UNISWAP_TOP_LIMIT),
         ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => []),
         chain.poolTop ? getTopPoolTokens(chain.pool, chain.id).catch(() => []) : [],
-        chain.key === "robinhood" ? getPonsTokens().catch(() => []) : [],
+        chain.key === "robinhood" ? ponsTokens() : [],
       ]);
       const seen = new Set<string>();
       // Pons launches first, so a token another list also has keeps its Pons tag.
