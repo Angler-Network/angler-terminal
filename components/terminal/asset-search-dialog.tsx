@@ -183,7 +183,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   // shows none).
   const chainOptions = useMemo(() => {
     if (!isSpot) return [];
-    const options = networkOptions(spotRows ?? [], (pick?.pinned ?? []).map((token) => (token.chainId ? evmSwapChain(token.chainId)?.key : undefined)));
+    // Pinned tokens (USDC on each chain…) count too: a chain only they reach used to read "0 tokens".
+    const options = networkOptions([...(spotRows ?? []), ...(pick?.pinned ?? []).map((token) => pinnedRow(token, ""))]);
     return options.length > 1 ? options : [];
   }, [isSpot, spotRows, pick]);
 

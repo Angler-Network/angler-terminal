@@ -113,7 +113,7 @@ export function rowOnNetwork(row: MarketRow, key: NetworkKey | null) {
 }
 
 /** The chains, launchpads and venues the rows actually carry, in the filter's order, with their row counts. */
-export function networkOptions(rows: MarketRow[], extraChains: Iterable<RowChain | undefined> = []): NetworkOption[] {
+export function networkOptions(rows: MarketRow[]): NetworkOption[] {
   const counts = new Map<string, number>();
   const add = (key: string) => counts.set(key, (counts.get(key) ?? 0) + 1);
   for (const row of rows) {
@@ -121,7 +121,6 @@ export function networkOptions(rows: MarketRow[], extraChains: Iterable<RowChain
     if (chain) add(chain);
     if (row.launchpad) add(`lp:${row.launchpad}`);
   }
-  for (const chain of extraChains) if (chain && !counts.has(chain)) counts.set(chain, 0);
   const chains: NetworkOption[] = ROW_CHAINS.filter((chain) => counts.has(chain.key)).map((chain) => ({
     key: chain.key,
     name: chain.name.replace(/ \(.*\)$/, ""),

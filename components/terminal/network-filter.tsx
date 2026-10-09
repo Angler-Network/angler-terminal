@@ -153,7 +153,7 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
                 className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-app-faint"
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-2">
               {!query.trim() && (
                 <button
                   type="button"
