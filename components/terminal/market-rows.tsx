@@ -75,6 +75,18 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string; gro
   { key: "ronin", name: "Ronin" },
   { key: "megaeth", name: "MegaETH" },
   { key: "etherlink", name: "Etherlink" },
+  { key: "mantle", name: "Mantle" },
+  { key: "ink", name: "Ink" },
+  { key: "cronos", name: "Cronos" },
+  { key: "gnosis", name: "Gnosis" },
+  { key: "worldchain", name: "World Chain" },
+  { key: "celo", name: "Celo" },
+  { key: "zksync", name: "zkSync" },
+  { key: "katana", name: "Katana" },
+  { key: "immutable", name: "Immutable zkEVM" },
+  { key: "rootstock", name: "Rootstock" },
+  { key: "pharos", name: "Pharos" },
+  { key: "blast", name: "Blast" },
   { key: "robinhood", name: "Robinhood Chain" },
   { key: "arcus", name: "Arcus (stock tokens on Robinhood Chain)", logo: "/api/favicon?domain=arcus.xyz", group: "venue" },
   { key: "hyperliquid", name: "Hyperliquid", group: "venue" },
@@ -93,7 +105,8 @@ export const LAUNCHPADS: Array<{ key: string; name: string; domain: string; chai
 const LAUNCHPAD_KEYS = new Set(LAUNCHPADS.map((pad) => pad.key));
 
 /** A search network filter: a chain or venue key, or `lp:<launchpad>`. */
-export type NetworkKey = RowChain | `lp:${string}`;
+/** A chain or venue key, `lp:<launchpad>`, or `pv:<perp venue name>` (the perp search's venue filter). */
+export type NetworkKey = RowChain | `lp:${string}` | `pv:${string}`;
 
 export interface NetworkOption {
   key: NetworkKey;
@@ -105,6 +118,15 @@ export interface NetworkOption {
   count: number;
 }
 
+/** The perp venues the rows carry, busiest first, for the perp search's venue filter. */
+export function perpVenueOptions(rows: MarketRow[]): NetworkOption[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) for (const venue of row.venues) counts.set(venue, (counts.get(venue) ?? 0) + 1);
+  return [...counts]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ key: `pv:${name}` as const, name, logo: VENUE_MARKS[name] ? `/api/favicon?domain=${VENUE_MARKS[name].domain}` : "", group: "venue" as const, count }));
+}
+
 export function chainLogo(key: RowChain) {
   return ROW_CHAINS.find((chain) => chain.key === key)?.logo ?? `/chains/${key}.svg`;
 }
@@ -112,6 +134,7 @@ export function chainLogo(key: RowChain) {
 /** Whether a row belongs to a network filter (none = every row). */
 export function rowOnNetwork(row: MarketRow, key: NetworkKey | null) {
   if (!key) return true;
+  if (key.startsWith("pv:")) return row.venues.includes(key.slice(3));
   return key.startsWith("lp:") ? row.launchpad === key.slice(3) : rowChain(row) === key;
 }
 
@@ -131,6 +154,9 @@ export function networkOptions(rows: MarketRow[]): NetworkOption[] {
     group: chain.group ?? "chain",
     count: counts.get(chain.key) ?? 0,
   }));
+  // Busiest chains first; venues keep their order (the panel shows each group on its own).
+  const byCount = chains.filter((option) => option.group === "chain").sort((a, b) => b.count - a.count);
+  const others = chains.filter((option) => option.group !== "chain");
   const launchpads: NetworkOption[] = LAUNCHPADS.filter((pad) => counts.has(`lp:${pad.key}`)).map((pad) => ({
     key: `lp:${pad.key}`,
     name: pad.name,
@@ -139,7 +165,7 @@ export function networkOptions(rows: MarketRow[]): NetworkOption[] {
     chain: pad.chain,
     count: counts.get(`lp:${pad.key}`) ?? 0,
   }));
-  return [...chains, ...launchpads];
+  return [...byCount, ...others, ...launchpads];
 }
 
 /** Whether a pasted address is the row's token: a Solana mint as is, an EVM token by the address in its ref (any case). */

@@ -5,9 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { chainLogo, type NetworkKey, type NetworkOption } from "./market-rows";
 
+// Launchpads first: a handful of entries that would sink under 30-odd chains.
 const GROUPS: Array<{ id: NetworkOption["group"]; label: string }> = [
-  { id: "chain", label: "Chains" },
   { id: "launchpad", label: "Launchpads" },
+  { id: "chain", label: "Chains" },
   { id: "venue", label: "Order books & stock tokens" },
 ];
 const PANEL_WIDTH = 400;
@@ -34,7 +35,27 @@ function NetworkLogo({ option, size }: { option: NetworkOption; size: number }) 
  * panel of chains, launchpads (Pump.fun, Pons…) and order-book venues, grouped, searchable and counted. Replaces a row
  * of logos that ran out of room once the chain list grew. The panel is portaled (the tab row scrolls sideways).
  */
-export function NetworkFilter({ options, value, onChange }: { options: NetworkOption[]; value: NetworkKey | null; onChange: (key: NetworkKey | null) => void }) {
+/** Wording for another list (the perp search filters by venue: "All venues", "markets"). */
+export interface NetworkFilterLabels {
+  all: string;
+  search: string;
+  unit: [string, string];
+  venueGroup: string;
+}
+
+const NETWORK_LABELS: NetworkFilterLabels = { all: "All networks", search: "Search chains and launchpads", unit: ["token", "tokens"], venueGroup: "Order books & stock tokens" };
+
+export function NetworkFilter({
+  options,
+  value,
+  onChange,
+  labels = NETWORK_LABELS,
+}: {
+  options: NetworkOption[];
+  value: NetworkKey | null;
+  onChange: (key: NetworkKey | null) => void;
+  labels?: NetworkFilterLabels;
+}) {
   const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const [query, setQuery] = useState("");
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -72,8 +93,10 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
   const groups = useMemo(() => {
     const wanted = query.trim().toLowerCase();
     const shown = wanted ? options.filter((option) => option.name.toLowerCase().includes(wanted) || option.key.toLowerCase().includes(wanted)) : options;
-    return GROUPS.map((group) => ({ ...group, options: shown.filter((option) => option.group === group.id) })).filter((group) => group.options.length > 0);
-  }, [options, query]);
+    return GROUPS.map((group) => ({ ...group, label: group.id === "venue" ? labels.venueGroup : group.label, options: shown.filter((option) => option.group === group.id) })).filter(
+      (group) => group.options.length > 0,
+    );
+  }, [options, query, labels.venueGroup]);
   const first = groups[0]?.options[0];
 
   return (
@@ -104,12 +127,12 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
             ))}
           </span>
         )}
-        <span className="max-w-[120px] truncate">{current ? current.name : "All networks"}</span>
+        <span className="max-w-[120px] truncate">{current ? current.name : labels.all}</span>
         {current ? (
           <span
             role="button"
             tabIndex={-1}
-            aria-label="Show every network"
+            aria-label={labels.all}
             onClick={(event) => {
               event.stopPropagation();
               choose(null);
@@ -148,8 +171,8 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search chains and launchpads"
-                aria-label="Search chains and launchpads"
+                placeholder={labels.search}
+                aria-label={labels.search}
                 className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-app-faint"
               />
             </div>
@@ -160,7 +183,7 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
                   onClick={() => choose(null)}
                   className={`mb-1 flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold ${value ? "hover:bg-app-chip/60" : "bg-app-chip"}`}
                 >
-                  All networks
+                  {labels.all}
                   {!value && <Check className="size-4 text-app-muted" aria-hidden />}
                 </button>
               )}
@@ -183,7 +206,7 @@ export function NetworkFilter({ options, value, onChange }: { options: NetworkOp
                           <NetworkLogo option={option} size={20} />
                           <span className="min-w-0">
                             <span className="block truncate text-[12px] font-semibold">{option.name}</span>
-                            <span className="block text-[10px] text-app-faint">{option.count.toLocaleString("en-US")} {option.count === 1 ? "token" : "tokens"}</span>
+                            <span className="block text-[10px] text-app-faint">{option.count.toLocaleString("en-US")} {labels.unit[option.count === 1 ? 0 : 1]}</span>
                           </span>
                         </button>
                       );

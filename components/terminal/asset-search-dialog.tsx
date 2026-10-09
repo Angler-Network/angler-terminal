@@ -11,12 +11,13 @@ import { formatUsdCompact } from "@/lib/trading/market-stats";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
 import { onSpotView } from "@/lib/spot/book-spot";
 import { evmSwapChain } from "@/lib/venues/uniswap/chains";
-import { Change, TokenIcon, VenueMarks, networkOptions, rowChain, rowHasAddress, rowOnNetwork, usePerpRows, useSpotRows, type MarketRow, type NetworkKey } from "./market-rows";
-import { NetworkFilter } from "./network-filter";
+import { Change, TokenIcon, VenueMarks, networkOptions, perpVenueOptions, rowChain, rowHasAddress, rowOnNetwork, usePerpRows, useSpotRows, type MarketRow, type NetworkKey } from "./market-rows";
+import { NetworkFilter, type NetworkFilterLabels } from "./network-filter";
 import { useSelectedAsset } from "./selected-asset";
 import type { TokenChoice, TokenPickRequest } from "./asset-search";
 
 /** Rows drawn at first and per scroll: the swap list has 1,600+ tokens, and drawing them all made opening the window stutter. */
+const PERP_VENUE_LABELS: NetworkFilterLabels = { all: "All venues", search: "Search venues", unit: ["market", "markets"], venueGroup: "Perp venues" };
 const PAGE_ROWS = 50;
 
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -184,11 +185,15 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   // The network filter lists only the chains, launchpads and venues the spot rows actually have (a Solana token picker
   // shows none).
   const chainOptions = useMemo(() => {
-    if (!isSpot) return [];
+    // Perps filter by venue (Hyperliquid, Lighter…) the same way.
+    if (!isSpot) {
+      const venues = perpVenueOptions(perpRows ?? []);
+      return venues.length > 1 ? venues : [];
+    }
     // Pinned tokens (USDC on each chain…) count too: a chain only they reach used to read "0 tokens".
     const options = networkOptions([...(spotRows ?? []), ...(pick?.pinned ?? []).map((token) => pinnedRow(token, ""))]);
     return options.length > 1 ? options : [];
-  }, [isSpot, spotRows, pick]);
+  }, [isSpot, spotRows, perpRows, pick]);
 
   useEffect(() => {
     setActive(0);
@@ -347,7 +352,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
           {pick && <span className={`shrink-0 pl-3 text-[12px] font-semibold text-app-muted ${chainOptions.length ? "" : "ml-auto"}`}>{pick.title}</span>}
           {chainOptions.length > 0 && (
             <div className="sticky right-0 ml-auto shrink-0 bg-app-dialog pl-3">
-              <NetworkFilter options={chainOptions} value={network} onChange={setNetwork} />
+              <NetworkFilter options={chainOptions} value={network} onChange={setNetwork} labels={isSpot ? undefined : PERP_VENUE_LABELS} />
             </div>
           )}
         </div>
