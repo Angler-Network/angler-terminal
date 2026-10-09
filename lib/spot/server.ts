@@ -46,8 +46,38 @@ const UNISWAP_TVL_LIMIT = 150;
  */
 const UNISWAP_CHAIN_CONCURRENCY = 5;
 const UNISWAP_RETRY_MS = 1500;
-/** Each chain's last good list (per server instance): a chain that fails a refresh keeps it instead of vanishing. */
+/**
+ * Each chain's last good list: a chain that fails a refresh (or comes back with under half its tokens, a rate-limited
+ * source) keeps it instead of vanishing. In memory per instance, and in Redis (saved at most every 30 minutes per
+ * chain and instance, kept a day) so a fresh instance has it too.
+ */
 const lastChainListings = new Map<number, SpotListing[]>();
+const lastChainSaved = new Map<number, number>();
+const CHAIN_LIST_KEY = "angler:spot:chain-list:v1:";
+const CHAIN_LIST_SAVE_MS = 30 * 60 * 1000;
+const CHAIN_LIST_TTL_SECONDS = 24 * 60 * 60;
+
+async function keepChainList(chainId: number, fresh: SpotListing[]): Promise<SpotListing[]> {
+  let last = lastChainListings.get(chainId);
+  if (!last && redisConfig()) {
+    try {
+      const [stored] = await redisPipeline([["GET", CHAIN_LIST_KEY + chainId]]);
+      const parsed: unknown = typeof stored === "string" ? JSON.parse(stored) : null;
+      if (Array.isArray(parsed)) last = parsed.filter((listing): listing is SpotListing => typeof listing?.id === "string" && listing.chainId === chainId);
+    } catch (error) {
+      console.error("[spot] chain list memory read failed:", error);
+    }
+  }
+  if (last && fresh.length < last.length / 2) return last;
+  if (fresh.length === 0) return [];
+  lastChainListings.set(chainId, fresh);
+  const now = Date.now();
+  if (redisConfig() && now - (lastChainSaved.get(chainId) ?? 0) > CHAIN_LIST_SAVE_MS) {
+    lastChainSaved.set(chainId, now);
+    await redisPipeline([["SET", CHAIN_LIST_KEY + chainId, JSON.stringify(fresh), "EX", CHAIN_LIST_TTL_SECONDS]]).catch(() => undefined);
+  }
+  return fresh;
+}
 const LLAMA_URL = "https://coins.llama.fi";
 const DEXSCREENER_URL = "https://api.dexscreener.com";
 const DEXSCREENER_TIMEOUT_MS = 10_000;
@@ -323,16 +353,12 @@ async function uniswapListings(): Promise<SpotListing[]> {
         const named = native && typeof record.address === "string" && isNativeToken(record.address) ? { ...record, symbol: native.symbol, name: chain.nativeName } : record;
         return fromUniswapToken(named, marketOf(String(record.address))) ?? [];
       });
-    })().then(
-      (listings) => {
-        if (listings.length > 0) lastChainListings.set(chain.id, listings);
-        return listings.length > 0 ? listings : (lastChainListings.get(chain.id) ?? []);
-      },
-      (error: unknown) => {
+    })()
+      .catch((error: unknown) => {
         console.error(`[spot] uniswap list failed (${chain.name}):`, error);
-        return lastChainListings.get(chain.id) ?? [];
-      },
-    ),
+        return [] as SpotListing[];
+      })
+      .then((listings) => keepChainList(chain.id, listings)),
   );
   return lists.flat();
 }
