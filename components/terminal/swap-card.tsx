@@ -328,6 +328,22 @@ export function GaslessNote() {
   );
 }
 
+/** A box's balance, right of its amount (Sell and Buy alike). */
+export function BalanceTag({ value, onClick }: { value: number; onClick?: () => void }) {
+  const text = (
+    <>
+      Balance <span className="font-semibold tabular-nums text-app-ink">{amountText(value)}</span>
+    </>
+  );
+  return onClick ? (
+    <button type="button" onClick={onClick} title="Use the whole balance" className="shrink-0 text-right text-[12px] text-app-faint hover:text-app-ink">
+      {text}
+    </button>
+  ) : (
+    <span className="shrink-0 text-right text-[12px] text-app-faint">{text}</span>
+  );
+}
+
 /** What Private does on this card, shown while it's on. */
 export function PrivateNote({ routes }: { routes: string }) {
   const { preferences } = usePreferences();
@@ -580,6 +596,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       };
   const sell = cross || solPay ? payToken : side === "buy" ? stable : asset;
   const buy = side === "buy" ? asset : stable;
+  // What the received token already holds (Solana or Robinhood; the foreign token's own chain when selling into it).
+  const buyBalance =
+    foreign && side === "sell" ? crossSwap.balance : cross || solPay ? (balances?.asset ?? null) : balances ? (side === "buy" ? balances.asset : balances.stable) : null;
   const sellBalance = foreign && side === "buy" ? crossSwap.balance : solPay ? solBalance : cross ? payBalance : balances ? (side === "buy" ? balances.stable : balances.asset) : null;
   const receiveUsd =
     receive === null ? null : foreign ? (side === "buy" ? (price ? receive * price : null) : sizeUsd || null) : side === "buy" ? (solPay ? solOut : cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
@@ -965,13 +984,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       <PrivateNote routes={isSolana ? "Jupiter (Beam landing)" : "Arcus (gasless RFQ)"} />
       <div className="relative flex flex-col gap-1">
         <div className={box}>
-          <div className="flex items-center justify-between text-[12px]">
-            <span className="text-app-muted">Sell</span>
-            {sellBalance !== null && (
-              <span className="text-app-faint">
-                Balance <span className="font-semibold tabular-nums text-app-ink">{amountText(sellBalance)}</span>
-              </span>
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] text-app-muted">Sell</span>
+            {side === "buy" ? (crossAllowed ? payPill : stablePill) : assetPill}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -983,7 +998,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
               onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
               className={`min-w-0 flex-1 bg-transparent ${amountSize(amount)} font-semibold tabular-nums text-app-ink outline-hidden placeholder:text-app-faint`}
             />
-            {side === "buy" ? (crossAllowed ? payPill : stablePill) : assetPill}
+            {sellBalance !== null && <BalanceTag value={sellBalance} />}
           </div>
           <div className="flex items-center gap-1.5 text-[12px]">
             <span className="mr-auto tabular-nums text-app-faint">{solPay ? (solOut ? `≈ ${formatPrice(solOut)}` : "$0.00") : cross ? (value > 0 ? `≈ ${formatPrice(value)}` : "$0.00") : sizeUsd > 0 ? `≈ ${formatPrice(sizeUsd)}` : "$0.00"}</span>
@@ -1013,12 +1028,15 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           <ArrowDown className="size-4" aria-hidden />
         </button>
         <div className={box}>
-          <span className="text-[12px] text-app-muted">Buy</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] text-app-muted">Buy</span>
+            {side === "buy" ? assetPill : stablePill}
+          </div>
           <div className="flex items-center gap-2">
             <span className={`min-w-0 flex-1 truncate ${amountSize(receive ? amountText(receive) : "0")} font-semibold tabular-nums ${receive ? "text-app-ink" : "text-app-faint"}`}>
               {receive ? amountText(receive) : "0"}
             </span>
-            {side === "buy" ? assetPill : stablePill}
+            {buyBalance !== null && <BalanceTag value={buyBalance} />}
           </div>
           <span className="text-[12px] tabular-nums text-app-faint">{receiveUsd ? `≈ ${formatPrice(receiveUsd)}` : "$0.00"}</span>
         </div>

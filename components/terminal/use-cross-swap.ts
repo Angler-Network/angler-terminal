@@ -174,7 +174,8 @@ export function useCrossSwap(input: CrossSwapInput) {
   const best = quote && quote.key === key ? quote.best : undefined;
   const toDecimals = side === "buy" ? solana.decimals : foreignDecimals;
   const receive = best && toDecimals !== null ? fromBaseUnits(best.raw.expectedOut, toDecimals) : null;
-  const balance = side === "buy" ? (foreignInfo?.balance != null && foreignDecimals !== null ? fromBaseUnits(foreignInfo.balance, foreignDecimals) : null) : null;
+  // The EVM wallet's balance of the foreign token (what's paid with, or what's received into).
+  const balance = foreignInfo?.balance != null && foreignDecimals !== null ? fromBaseUnits(foreignInfo.balance, foreignDecimals) : null;
 
   /** Sends the route with a fresh quote; resolves once it's sent (the fill is followed in the background). */
   const execute = async (wallets: { evmProvider: import("viem").EIP1193Provider | null; signSolana: Parameters<typeof import("@/lib/venues/bridge-leg").sendDirectSwap>[1]["solana"] }) => {

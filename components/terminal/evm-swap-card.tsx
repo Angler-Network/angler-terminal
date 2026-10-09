@@ -26,7 +26,7 @@ import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
+import { BalanceTag, DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { useTrading } from "./trading-provider";
@@ -486,6 +486,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       : balances
         ? balances[sell.address.toLowerCase()]
         : undefined;
+  const buyRaw = side === "buy" ? balances?.[asset.address.toLowerCase()] : !cross && !direct ? balances?.[localToken.address.toLowerCase()] : undefined;
+  const buyBalanceShown = buyRaw !== undefined && buyRaw !== null ? fromBaseUnits(buyRaw, side === "buy" ? asset.decimals : localToken.decimals) : null;
   const sellBalanceShown = crossBuy ? remoteBalance : sellBalance !== undefined && sellBalance !== null ? fromBaseUnits(sellBalance, sell.decimals) : null;
 
   const locked = (run !== null && run.phase !== "done") || bridged !== null || directPending !== null;
@@ -861,13 +863,9 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
       {!pureBridge && <PrivateNote routes={direct ? "Relay or LI.FI intents (a solver fills them)" : "UniswapX orders (fillers settle them off the mempool)"} />}
       <div className="relative flex flex-col gap-1">
         <div className={box}>
-          <div className="flex items-center justify-between text-[12px]">
-            <span className="text-app-muted">Sell</span>
-            {sellBalanceShown !== null && (
-              <span className="text-app-faint">
-                Balance <span className="font-semibold tabular-nums text-app-ink">{amountText(sellBalanceShown)}</span>
-              </span>
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] text-app-muted">Sell</span>
+            {side === "buy" ? counterPill : assetPill}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -879,7 +877,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
               onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
               className={`min-w-0 flex-1 bg-transparent ${amountSize(amount)} font-semibold tabular-nums text-app-ink outline-hidden placeholder:text-app-faint`}
             />
-            {side === "buy" ? counterPill : assetPill}
+            {sellBalanceShown !== null && <BalanceTag value={sellBalanceShown} />}
           </div>
           <div className="flex items-center gap-1.5 text-[12px]">
             <span className="mr-auto tabular-nums text-app-faint">{sellUsd ? `≈ ${formatPrice(sellUsd)}` : "$0.00"}</span>
@@ -914,12 +912,15 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
           <ArrowDown className="size-4" aria-hidden />
         </button>
         <div className={box}>
-          <span className="text-[12px] text-app-muted">Buy</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] text-app-muted">Buy</span>
+            {side === "buy" ? assetPill : counterPill}
+          </div>
           <div className="flex items-center gap-2">
             <span className={`min-w-0 flex-1 truncate ${amountSize(receive ? amountText(receive) : "0")} font-semibold tabular-nums ${receive ? "text-app-ink" : "text-app-faint"}`}>
               {receive ? amountText(receive) : "0"}
             </span>
-            {side === "buy" ? assetPill : counterPill}
+            {buyBalanceShown !== null && <BalanceTag value={buyBalanceShown} />}
           </div>
           <span className="text-[12px] tabular-nums text-app-faint">{receiveUsd ? `≈ ${formatPrice(receiveUsd)}` : "$0.00"}</span>
         </div>

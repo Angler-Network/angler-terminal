@@ -191,6 +191,22 @@ export function DepositDialog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new route clears a finished run
   }, [from, to, chains.from, chains.to]);
 
+  // The wallet's balance of the token arriving on the To side (a wallet destination).
+  const [toBalance, setToBalance] = useState<bigint | null>(null);
+  const toWallet = to === "wallet" && output !== null;
+  useEffect(() => {
+    setToBalance(null);
+    if (!address || !toWallet || !output) return;
+    let isActive = true;
+    readUsdcBalance(output, address)
+      .then((next) => isActive && setToBalance(next))
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the chain and token decide it
+  }, [address, toWallet, output?.chainId, output?.usdc]);
+
   // The wallet's balance of the token the route starts with.
   useEffect(() => {
     setBalance(null);
@@ -277,6 +293,8 @@ export function DepositDialog() {
           : value;
   const showSteps = steps.length > 1 || acrossStep !== null;
   // What the From side holds: the wallet's balance of the token, or what Hyperliquid lets you withdraw.
+  const destination =
+    to === "wallet" ? (toBalance !== null && output ? fromTokenUnits(toBalance, decimalsOf(output)) : null) : isPerpEndpoint(to) ? (accounts[to]?.withdrawable ?? null) : null;
   const available = fromWallet && balance !== null ? fromTokenUnits(balance, decimalsOf(input)) : from === "hyperliquid" && withdrawable !== undefined ? withdrawable : null;
   const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
   const endpointPill =
@@ -316,14 +334,20 @@ export function DepositDialog() {
         {/* Like the swap card: what leaves (From), a flip, what arrives (To). */}
         <div className="relative flex flex-col gap-1">
           <div className={box}>
-            <div className="flex items-center gap-2 text-[12px]">
-              <span className="text-app-muted">From</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-app-muted">From</span>
               <Picker label="From" value={from} options={endpointOptions} onChange={pickFrom} disabled={locked} buttonClassName={endpointPill} />
-              {available !== null && route.kind === "steps" && (
-                <span className="ml-auto text-app-faint">
-                  {from === "hyperliquid" ? "Withdrawable" : "Balance"} <span className="font-semibold tabular-nums text-app-ink">{formatPrice(available)}</span>
-                </span>
-              )}
+              <span className="ml-auto">
+                {from === "wallet" ? (
+                  chainPicker("from")
+                ) : (
+                  // A venue holds one stablecoin, so its side shows the token instead of a picker.
+                  <span className={pillClass}>
+                    <TokenIcon token={venueSource} size={22} showChain={false} />
+                    {venueSource.symbol}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               {route.kind === "faucet" ? (
@@ -339,13 +363,9 @@ export function DepositDialog() {
                   className={`min-w-0 flex-1 bg-transparent ${amountSize(amount)} font-semibold tabular-nums text-app-ink outline-hidden placeholder:text-app-faint`}
                 />
               )}
-              {from === "wallet" ? (
-                chainPicker("from")
-              ) : (
-                // A venue holds one stablecoin, so its side shows the token instead of a picker.
-                <span className={pillClass}>
-                  <TokenIcon token={venueSource} size={22} showChain={false} />
-                  {venueSource.symbol}
+              {available !== null && route.kind === "steps" && (
+                <span className="shrink-0 text-right text-[12px] text-app-faint">
+                  {from === "hyperliquid" ? "Withdrawable" : "Balance"} <span className="font-semibold tabular-nums text-app-ink">{formatPrice(available)}</span>
                 </span>
               )}
             </div>
@@ -383,22 +403,29 @@ export function DepositDialog() {
             <ArrowDown className="size-4" aria-hidden />
           </button>
           <div className={box}>
-            <div className="flex items-center gap-2 text-[12px]">
-              <span className="text-app-muted">To</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-app-muted">To</span>
               <Picker label="To" value={to} options={endpointOptions} onChange={pickTo} disabled={locked} buttonClassName={endpointPill} />
+              <span className="ml-auto">
+                {to === "wallet" ? (
+                  chainPicker("to")
+                ) : output ? (
+                  <span className={pillClass}>
+                    <TokenIcon token={output} size={22} showChain={false} />
+                    {output.symbol}
+                  </span>
+                ) : null}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className={`min-w-0 flex-1 truncate ${amountSize(receive !== null ? receive.toFixed(2) : "0")} font-semibold tabular-nums ${receive !== null ? "text-app-ink" : "text-app-faint"}`}>
                 {receive !== null ? receive.toFixed(2) : value > 0 && acrossStep && !quoteLine?.error ? "…" : "0"}
               </span>
-              {to === "wallet" ? (
-                chainPicker("to")
-              ) : output ? (
-                <span className={pillClass}>
-                  <TokenIcon token={output} size={22} showChain={false} />
-                  {output.symbol}
+              {destination !== null && (
+                <span className="shrink-0 text-right text-[12px] text-app-faint">
+                  Balance <span className="font-semibold tabular-nums text-app-ink">{formatPrice(destination)}</span>
                 </span>
-              ) : null}
+              )}
             </div>
             <span className="text-[12px] text-app-faint">{output ? `Arrives ${to === "wallet" ? `in your wallet on ${output.name}` : `in your ${toName} account`}` : `To ${toName}`}</span>
           </div>
