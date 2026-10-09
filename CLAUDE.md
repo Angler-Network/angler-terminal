@@ -790,8 +790,7 @@ dependency versions and design are free to diverge from angler-news.
   sync splits its volume into `betaUsd` (HL fill time, Lighter/Aster trade time, Orderly days the beta touched, swap
   block time): the extra is stored as `bonusUsd` (+ per day in `bd:{id}`), so volume, VIP, invites and referrers' shares stay
   1x; volume moved from a linked wallet carries its bonus but earns none again. The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts
-  (`LighterTierCard`): `changeAccountTier` with `new_tier: "plus"` (Lighter's docs only show "premium"/"standard";
-  verify on the first real switch) and the browser key's auth token, then `approveLighterIntegrator` again (Standard
+  (`LighterTierCard`): `changeAccountTier` with `new_tier: "plus"` (confirmed by Lighter's own lighter-ts `UserTier`; `accountLimits.user_tier` reads "std" / "plus" / "premium") and the browser key's auth token, then `approveLighterIntegrator` again (Standard
   approved a zero fee; `integratorState` asks again once the tier is paid). The setup state carries `tier` from
   `accountLimits`. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
   VIP (`lib/profile/vip.ts`): the 30-day volume sets a share of the configured fee (base 3.5 bps: VIP 1-4 pay 3.25 / 3 /
