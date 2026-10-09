@@ -15,6 +15,9 @@ import { Change, ROW_CHAINS, TokenIcon, VenueMarks, rowChain, rowHasAddress, use
 import { useSelectedAsset } from "./selected-asset";
 import type { TokenChoice, TokenPickRequest } from "./asset-search";
 
+/** Rows drawn at first and per scroll: the swap list has 1,600+ tokens, and drawing them all made opening the window stutter. */
+const PAGE_ROWS = 50;
+
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 function pinnedRow(token: TokenChoice, venue: string): MarketRow {
@@ -96,6 +99,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   // The one chain to show (a press again shows every chain); empty = every chain.
   const [chains, setChains] = useState<RowChain[]>([]);
   const [active, setActive] = useState(0);
+  const [limit, setLimit] = useState(PAGE_ROWS);
+  const moreRef = useRef<HTMLButtonElement>(null);
   // /spot lists order-book markets (Hyperliquid, Lighter) and Arcus stock tokens; /swap the pools and aggregators.
   const isBook = kind === "book" && !pick;
   const isSpot = kind === "spot" || kind === "book" || Boolean(pick);
@@ -177,7 +182,19 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   }, [isSpot, spotRows, pick]);
   const toggleChain = (chain: RowChain) => setChains((current) => (current.includes(chain) ? [] : [chain]));
 
-  useEffect(() => setActive(0), [query, tab, verifiedOnly, sort, chains]);
+  useEffect(() => {
+    setActive(0);
+    setLimit(PAGE_ROWS);
+  }, [query, tab, verifiedOnly, sort, chains]);
+  const visible = useMemo(() => rows.slice(0, limit), [rows, limit]);
+  // The next 50 load as the list scrolls near its end.
+  useEffect(() => {
+    const node = moreRef.current;
+    if (!node || limit >= rows.length) return;
+    const observer = new IntersectionObserver((entries) => entries.some((entry) => entry.isIntersecting) && setLimit((current) => current + PAGE_ROWS), { root: listRef.current, rootMargin: "300px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [limit, rows.length]);
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
@@ -199,7 +216,11 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActive((index) => Math.min(rows.length - 1, index + 1));
+      setActive((index) => {
+        const next = Math.min(rows.length - 1, index + 1);
+        if (next >= limit) setLimit((current) => current + PAGE_ROWS);
+        return next;
+      });
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActive((index) => Math.max(0, index - 1));
@@ -335,7 +356,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
               {tab === "favorites" ? "No favorites yet. Star a market to keep it here." : isSpot && searching ? "Searching…" : "No market matches."}
             </p>
           ) : (
-            rows.map((row, index) => {
+            visible.map((row, index) => {
               const watched = isWatched(watchlist, row.id);
               return (
                 <div
@@ -384,6 +405,16 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
                 </div>
               );
             })
+          )}
+          {!loading && limit < rows.length && (
+            <button
+              ref={moreRef}
+              type="button"
+              onClick={() => setLimit((current) => current + PAGE_ROWS)}
+              className="block w-full py-2.5 text-center text-[12px] font-semibold text-app-muted hover:text-app-ink"
+            >
+              Show {Math.min(PAGE_ROWS, rows.length - limit)} more ({rows.length - limit} left)
+            </button>
           )}
         </div>
 
