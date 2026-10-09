@@ -4,7 +4,7 @@
  * caller.
  */
 
-export const SWAP_CHAINS = ["solana", "robinhood", "ethereum", "base", "arbitrum", "bsc", "hyperevm", "polygon", "optimism", "avalanche", "unichain", "monad", "linea", "sonic", "berachain", "plasma", "ronin", "megaeth", "etherlink"] as const;
+export const SWAP_CHAINS = ["solana", "robinhood", "ethereum", "base", "arbitrum", "bsc", "hyperevm", "polygon", "optimism", "avalanche", "unichain", "monad", "linea", "sonic", "berachain", "plasma", "ronin", "megaeth", "etherlink", "mantle", "ink", "cronos", "gnosis", "worldchain", "celo", "zksync", "katana", "immutable", "rootstock", "pharos", "blast"] as const;
 export type SwapChain = (typeof SWAP_CHAINS)[number];
 
 export interface SwapRecord {

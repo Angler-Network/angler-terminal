@@ -347,7 +347,7 @@ async function uniswapListings(): Promise<SpotListing[]> {
       const weth = wrappedNative(chain).address;
       const addresses = records.flatMap((record) => (typeof record.address === "string" && !isNativeToken(record.address) ? [record.address] : []));
       const wanted = [...new Set([...addresses, weth])];
-      const [prices, pools, remembered] = await Promise.all([llamaMarkets(chain.llama, wanted), dexMarkets(chain.dexscreener, wanted), recallStats(chain.id, wanted)]);
+      const [prices, pools, remembered] = await Promise.all([llamaMarkets(chain.llama, wanted), chain.dexscreener ? dexMarkets(chain.dexscreener, wanted) : new Map<string, TokenMarket>(), recallStats(chain.id, wanted)]);
       // GeckoTerminal fills what DexScreener left bare and nothing recent remembers, a few calls at most per refresh.
       const lacking = wanted.filter((address) => needsStats(pools.get(address.toLowerCase())) && needsStats(remembered.get(address.toLowerCase())));
       const gecko = geckoStatsDue(chain.id) ? await geckoStats(chain.pool, lacking.slice(0, GECKO_MAX_TOKENS_PER_CHAIN)) : new Map<string, TokenMarket>();

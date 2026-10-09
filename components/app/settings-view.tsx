@@ -537,7 +537,7 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", aster: "Aster", orderly: "Orderly" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI", aster: "Aster", orderly: "Orderly" };
 
 type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
@@ -597,7 +597,7 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
     tiles: [
       { key: "across", bridge: "across", name: "Across", preference: "bridgeAcross", domain: "across.to", description: "Intent bridge for USDC and USDG between chains: deposits, moves between venues and cross-chain swaps." },
       { key: "relay", bridge: "relay", name: "Relay", preference: "bridgeRelay", domain: "relay.link", description: "Fast cross-chain bridge and swaps between EVM chains." },
-      { key: "lifi", bridge: "lifi", name: "LI.FI", preference: "bridgeLifi", domain: "li.fi", description: "Bridge and swap aggregator, including Solana. Every bridge leg takes the best quote of the bridges left on." },
+      { key: "lifi", bridge: "lifi", name: "LI.FI", preference: "bridgeLifi", domain: "li.fi", description: "Bridge and swap aggregator, including Solana. Every bridge leg takes the best quote of the bridges left on, and it swaps on the chains no other source routes (Mantle, Cronos, Gnosis…)." },
     ],
   },
 ];

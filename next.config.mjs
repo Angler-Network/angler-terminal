@@ -30,6 +30,8 @@ function readConfiguredVenues(env) {
     // EVM swap aggregators next to Uniswap (lib/venues/aggregators).
     zerox: set(env.ZEROX_API_KEY),
     kyberswap: set(env.KYBERSWAP_CLIENT_ID),
+    // LI.FI needs no key (its integrator and fee only add our cut); same-chain swaps on the chains nothing else routes.
+    lifi: true,
     // Aster perps trade without a key; our builder fee only applies with NEXT_PUBLIC_ASTER_BUILDER set.
     aster: true,
     // Orderly needs our broker id on mainnet (fees go to the broker); testnet falls back to Orderly's demo broker.

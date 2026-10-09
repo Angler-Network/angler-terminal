@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evmRef, evmSwapChain, isEvmRef, isNativeToken, parseEvmRef, wrappedNative } from "./chains";
+import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, isEvmRef, isNativeToken, parseEvmRef, wrappedNative } from "./chains";
 
 describe("EVM swap chains", () => {
   it("round-trips token refs and refuses unknown chains", () => {
@@ -28,7 +28,15 @@ describe("EVM swap chains", () => {
     expect(wrappedNative(bsc).symbol).toBe("WBNB");
   });
 
-  it("finds every chain's wrapped native among its pay tokens", () => {
-    for (const id of [1, 56, 8453, 42161, 4663]) expect(wrappedNative(evmSwapChain(id)!)).toBeDefined();
+  it("finds every chain's wrapped native among its pay tokens, with unique keys and ids", () => {
+    for (const chain of EVM_SWAP_CHAINS) expect(wrappedNative(chain), chain.name).toBeDefined();
+    expect(new Set(EVM_SWAP_CHAINS.map((chain) => chain.key)).size).toBe(EVM_SWAP_CHAINS.length);
+    expect(new Set(EVM_SWAP_CHAINS.map((chain) => chain.id)).size).toBe(EVM_SWAP_CHAINS.length);
+  });
+
+  it("lists Celo's gas coin as its token contract (LI.FI refuses the zero address there)", () => {
+    const celo = evmSwapChain(42220)!;
+    expect(celo.pay.some((token) => isNativeToken(token.address))).toBe(false);
+    expect(wrappedNative(celo).symbol).toBe("CELO");
   });
 });

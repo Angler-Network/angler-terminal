@@ -1,6 +1,7 @@
 import "server-only";
 import { NATIVE_TOKEN } from "../uniswap/chains";
 import { QUOTE_ONLY_SWAPPER } from "../uniswap/config";
+import { lifiFetch, lifiQuoteQuery, readLifiServerConfig } from "../lifi-server";
 import type { AggregatorProvider, AggregatorQuoteBody, AggregatorQuoteRequest } from "./types";
 
 /**
@@ -51,7 +52,8 @@ export function readAggregatorConfig(env: Record<string, string | undefined>) {
 type Config = ReturnType<typeof readAggregatorConfig>;
 
 export function aggregatorEnabled(provider: AggregatorProvider, config: Config) {
-  return provider === "zerox" ? Boolean(config.zeroxKey) : Boolean(config.kyberClientId);
+  // LI.FI needs no key; its integrator and fee come from the LI.FI settings (`lifi-server.ts`).
+  return provider === "zerox" ? Boolean(config.zeroxKey) : provider === "kyberswap" ? Boolean(config.kyberClientId) : true;
 }
 
 async function json(response: Response) {
@@ -181,6 +183,61 @@ async function kyberswap(request: AggregatorQuoteRequest, config: Config): Promi
   };
 }
 
+/** LI.FI's step names that are its own plumbing, not a DEX ("Integrator Fee"). */
+const LIFI_PLUMBING = /fee|^li\.?fi/i;
+
+/**
+ * LI.FI on one chain (fromChain = toChain): a same-chain swap through whichever DEX aggregator LI.FI picks, for chains
+ * no other source here routes. Our integrator name and fee are the LI.FI settings (LIFI_INTEGRATOR, LIFI_FEE_BPS),
+ * as for bridging. The quote carries the transaction; `approvalAddress` is the contract to approve.
+ */
+async function lifiSwap(request: AggregatorQuoteRequest): Promise<AggregatorQuoteBody> {
+  const config = readLifiServerConfig(process.env);
+  const slippage = (request.slippageBps ?? 50) / 10_000;
+  const query = lifiQuoteQuery(
+    new URLSearchParams({
+      fromChain: String(request.chainId),
+      toChain: String(request.chainId),
+      fromToken: request.sellToken,
+      toToken: request.buyToken,
+      fromAmount: request.sellAmount,
+      fromAddress: request.taker ?? QUOTE_ONLY_SWAPPER,
+      toAddress: request.taker ?? QUOTE_ONLY_SWAPPER,
+      slippage: String(slippage),
+    }),
+    config,
+  );
+  if (!query) throw new Error("LI.FI has no route for this swap.");
+  const response = await lifiFetch(`/quote?${query}`, config.apiKey);
+  const body = await json(response);
+  const estimate = (body.estimate ?? {}) as Record<string, unknown>;
+  const outAmount = big(estimate.toAmount);
+  if (!response.ok || !outAmount) throw new Error(typeof body.message === "string" ? body.message : "LI.FI has no route for this swap.");
+  const request_ = (body.transactionRequest ?? {}) as Record<string, unknown>;
+  // LI.FI sends value and gas as hex.
+  const tx =
+    typeof request_.to === "string" && typeof request_.data === "string"
+      ? { to: request_.to, data: request_.data, value: (big(request_.value) ?? 0n).toString(), gas: big(request_.gasLimit)?.toString() }
+      : undefined;
+  const steps = Array.isArray(body.includedSteps) ? (body.includedSteps as Array<{ toolDetails?: { name?: unknown } }>) : [];
+  const route = [...new Set(steps.map((step) => String(step.toolDetails?.name ?? "")).filter((name) => name && !LIFI_PLUMBING.test(name)))];
+  const inUsd = Number(estimate.fromAmountUSD);
+  const outUsd = Number(estimate.toAmountUSD);
+  return {
+    provider: "lifi",
+    outAmount: outAmount.toString(),
+    minOutAmount: big(estimate.toAmountMin)?.toString() ?? null,
+    feeBps: config.fee ? Math.round(Number(config.fee) * 10_000) : 0,
+    // USD in vs out: the price impact plus the fees, so the impact guard errs on the safe side.
+    priceImpactPct: inUsd > 0 && outUsd > 0 ? Math.max(0, ((inUsd - outUsd) / inUsd) * 100) : null,
+    gasFeeUsd: Array.isArray(estimate.gasCosts) ? (estimate.gasCosts as Array<{ amountUSD?: unknown }>).reduce((sum, cost) => sum + (Number(cost.amountUSD) || 0), 0) : null,
+    route: route.slice(0, 4),
+    // Only a firm quote for the wallet carries a transaction to send.
+    tx: request.execute && request.taker ? tx : undefined,
+    allowanceTarget: typeof estimate.approvalAddress === "string" ? estimate.approvalAddress : undefined,
+  };
+}
+
 export function quoteAggregator(request: AggregatorQuoteRequest, config: Config) {
-  return request.provider === "zerox" ? zerox(request, config) : kyberswap(request, config);
+  return request.provider === "zerox" ? zerox(request, config) : request.provider === "kyberswap" ? kyberswap(request, config) : lifiSwap(request);
 }

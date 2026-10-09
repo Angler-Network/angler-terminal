@@ -1,8 +1,8 @@
 /** EVM swap aggregators quoted next to Uniswap on the EVM swap chains. */
-export const AGGREGATOR_PROVIDERS = ["zerox", "kyberswap"] as const;
+export const AGGREGATOR_PROVIDERS = ["zerox", "kyberswap", "lifi"] as const;
 export type AggregatorProvider = (typeof AGGREGATOR_PROVIDERS)[number];
 
-export const AGGREGATOR_NAMES: Record<AggregatorProvider, string> = { zerox: "0x", kyberswap: "KyberSwap" };
+export const AGGREGATOR_NAMES: Record<AggregatorProvider, string> = { zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI" };
 
 export interface AggregatorQuoteRequest {
   provider: AggregatorProvider;

@@ -8,7 +8,8 @@
  * light on the first screen.
  */
 
-export type EvmSwapChainKey = "ethereum" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon" | "optimism" | "avalanche" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood";
+export type EvmSwapChainKey =
+  | "ethereum" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon" | "optimism" | "avalanche" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood" | "mantle" | "ink" | "cronos" | "gnosis" | "worldchain" | "celo" | "zksync" | "katana" | "immutable" | "rootstock" | "pharos" | "blast";
 
 export interface EvmSwapToken {
   address: `0x${string}`;
@@ -21,18 +22,22 @@ export interface EvmSwapChain {
   id: number;
   name: string;
   /** GeckoTerminal network id (pool candles, trades). */
-  pool: "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood";
+  pool: "eth" | "base" | "arbitrum" | "bsc" | "hyperevm" | "polygon_pos" | "optimism" | "avax" | "unichain" | "monad" | "linea" | "sonic" | "berachain" | "plasma" | "ronin" | "megaeth" | "etherlink" | "robinhood" | "mantle" | "ink" | "cro" | "xdai" | "world-chain" | "celo" | "zksync" | "katana" | "immutable-zkevm" | "rootstock" | "pharos" | "blast";
   /**
    * Also list the tokens of the chain's busiest pools (GeckoTerminal), for chains Uniswap's `/tokens` may not rank
    * (Robinhood). Arcus's stock tokens are listed once, as Arcus.
    */
   poolTop?: boolean;
-  /** DexScreener chain id (volume, liquidity, search). */
-  dexscreener: string;
+  /** DexScreener chain id (volume, liquidity, search); unset where DexScreener has none. */
+  dexscreener?: string;
   /** DefiLlama chain name (prices). */
   llama: string;
   explorer: string;
   rpc: string;
+  /**
+   * LI.FI quotes same-chain swaps here: chains with no KyberSwap route (Uniswap and 0x still quote where they trade).
+   */
+  lifi?: boolean;
   /** The native coin's name ("Ether", "BNB"); its symbol is the native pay token's. */
   nativeName: string;
   /** The wrapped native token (WETH, WBNB), which stands for the native coin where an ERC-20 address is needed. */
@@ -394,6 +399,243 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
       { address: "0x796Ea11Fa2dD751eD01b53C372fFDB4AAa8f00F9", symbol: "USDC", decimals: 6 },
       { address: NATIVE_TOKEN, symbol: "XTZ", decimals: 18 },
       { address: "0xc9B53AB2679f573e480d01e0f49e2B5CFB7a3EAb", symbol: "WXTZ", decimals: 18 },
+    ],
+  },
+  {
+    key: "mantle",
+    id: 5000,
+    name: "Mantle",
+    pool: "mantle",
+    dexscreener: "mantle",
+    llama: "mantle",
+    explorer: "https://explorer.mantle.xyz",
+    rpc: "https://rpc.mantle.xyz",
+    poolTop: true,
+    lifi: true,
+    nativeName: "MNT",
+    wrapped: "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8",
+    gasReserve: 500_000_000_000_000_000n,
+    pay: [
+      { address: "0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "MNT", decimals: 18 },
+      { address: "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8", symbol: "WMNT", decimals: 18 },
+      { address: "0x779Ded0c9e1022225f8E0630b35a9b54bE713736", symbol: "USDT0", decimals: 6 },
+    ],
+  },
+  {
+    key: "ink",
+    id: 57073,
+    name: "Ink",
+    pool: "ink",
+    dexscreener: "ink",
+    llama: "ink",
+    explorer: "https://explorer.inkonchain.com",
+    rpc: "https://rpc-gel.inkonchain.com",
+    lifi: true,
+    nativeName: "Ether",
+    wrapped: "0x4200000000000000000000000000000000000006",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x2D270e6886d130D724215A266106e6832161EAEd", symbol: "USDC", decimals: 6 },
+      eth,
+      { address: "0x4200000000000000000000000000000000000006", symbol: "WETH", decimals: 18 },
+      { address: "0x0200C29006150606B650577BBE7B6248F58470c1", symbol: "USDT0", decimals: 6 },
+    ],
+  },
+  {
+    key: "cronos",
+    id: 25,
+    name: "Cronos",
+    pool: "cro",
+    dexscreener: "cronos",
+    llama: "cronos",
+    explorer: "https://explorer.cronos.org",
+    rpc: "https://evm.cronos.org",
+    poolTop: true,
+    lifi: true,
+    nativeName: "CRO",
+    wrapped: "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23",
+    gasReserve: 5_000_000_000_000_000_000n,
+    pay: [
+      { address: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "CRO", decimals: 18 },
+      { address: "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23", symbol: "WCRO", decimals: 18 },
+      { address: "0x66e428c3f67a68878562e79A0234c1F83c208770", symbol: "USDT", decimals: 6 },
+    ],
+  },
+  {
+    key: "gnosis",
+    id: 100,
+    name: "Gnosis",
+    pool: "xdai",
+    llama: "xdai",
+    explorer: "https://gnosis.blockscout.com",
+    rpc: "https://rpc.gnosischain.com",
+    poolTop: true,
+    lifi: true,
+    nativeName: "xDAI",
+    wrapped: "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
+    gasReserve: 50_000_000_000_000_000n,
+    pay: [
+      { address: "0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "XDAI", decimals: 18 },
+      { address: "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d", symbol: "WXDAI", decimals: 18 },
+    ],
+  },
+  {
+    key: "worldchain",
+    id: 480,
+    name: "World Chain",
+    pool: "world-chain",
+    dexscreener: "worldchain",
+    llama: "wc",
+    explorer: "https://worldscan.org",
+    rpc: "https://worldchain-mainnet.g.alchemy.com/public",
+    lifi: true,
+    nativeName: "Ether",
+    wrapped: "0x4200000000000000000000000000000000000006",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1", symbol: "USDC", decimals: 6 },
+      eth,
+      { address: "0x4200000000000000000000000000000000000006", symbol: "WETH", decimals: 18 },
+    ],
+  },
+  {
+    // CELO is a token contract as well as the gas coin: LI.FI refuses the zero address here, so it's listed as the token.
+    key: "celo",
+    id: 42220,
+    name: "Celo",
+    pool: "celo",
+    dexscreener: "celo",
+    llama: "celo",
+    explorer: "https://celoscan.io",
+    rpc: "https://forno.celo.org",
+    lifi: true,
+    nativeName: "CELO",
+    wrapped: "0x471EcE3750Da237f93B8E339c536989b8978a438",
+    gasReserve: 0n,
+    pay: [
+      { address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", symbol: "USDC", decimals: 6 },
+      { address: "0x471EcE3750Da237f93B8E339c536989b8978a438", symbol: "CELO", decimals: 18 },
+    ],
+  },
+  {
+    key: "zksync",
+    id: 324,
+    name: "zkSync",
+    pool: "zksync",
+    dexscreener: "zksync",
+    llama: "era",
+    explorer: "https://explorer.zksync.io",
+    rpc: "https://mainnet.era.zksync.io",
+    lifi: true,
+    nativeName: "Ether",
+    wrapped: "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4", symbol: "USDC", decimals: 6 },
+      eth,
+      { address: "0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91", symbol: "WETH", decimals: 18 },
+      { address: "0x493257fD37EDB34451f62EDf8D2a0C418852bA4C", symbol: "USDT", decimals: 6 },
+    ],
+  },
+  {
+    // Katana's dollars and ETH are Agglayer vault-bridge tokens (vbUSDC, vbETH, vbUSDT).
+    key: "katana",
+    id: 747474,
+    name: "Katana",
+    pool: "katana",
+    llama: "katana",
+    explorer: "https://katanascan.com",
+    rpc: "https://rpc.katana.network",
+    poolTop: true,
+    lifi: true,
+    nativeName: "Ether",
+    wrapped: "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36", symbol: "vbUSDC", decimals: 6 },
+      eth,
+      { address: "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62", symbol: "vbETH", decimals: 18 },
+      { address: "0x2DCa96907fde857dd3D816880A0df407eeB2D2F2", symbol: "vbUSDT", decimals: 6 },
+    ],
+  },
+  {
+    key: "immutable",
+    id: 13371,
+    name: "Immutable zkEVM",
+    pool: "immutable-zkevm",
+    llama: "imx",
+    explorer: "https://explorer.immutable.com",
+    rpc: "https://rpc.immutable.com",
+    poolTop: true,
+    lifi: true,
+    nativeName: "IMX",
+    wrapped: "0x3A0C2Ba54D6CBd3121F01b96dFd20e99D1696C9D",
+    gasReserve: 500_000_000_000_000_000n,
+    pay: [
+      { address: "0x6de8aCC0D406837030CE4dd28e7c08C5a96a30d2", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "IMX", decimals: 18 },
+      { address: "0x3A0C2Ba54D6CBd3121F01b96dFd20e99D1696C9D", symbol: "WIMX", decimals: 18 },
+    ],
+  },
+  {
+    key: "rootstock",
+    id: 30,
+    name: "Rootstock",
+    pool: "rootstock",
+    llama: "rsk",
+    explorer: "https://explorer.rootstock.io",
+    rpc: "https://public-node.rsk.co",
+    poolTop: true,
+    lifi: true,
+    nativeName: "RBTC",
+    wrapped: "0x542fDA317318eBF1d3DEAf76E0b632741A7e677d",
+    gasReserve: 10_000_000_000_000n,
+    pay: [
+      { address: "0x779Ded0c9e1022225f8E0630b35a9b54bE713736", symbol: "USDT0", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "RBTC", decimals: 18 },
+      { address: "0x542fDA317318eBF1d3DEAf76E0b632741A7e677d", symbol: "WRBTC", decimals: 18 },
+    ],
+  },
+  {
+    key: "pharos",
+    id: 1672,
+    name: "Pharos",
+    pool: "pharos",
+    llama: "pharos",
+    explorer: "https://www.pharosscan.xyz",
+    rpc: "https://rpc.pharos.xyz",
+    poolTop: true,
+    lifi: true,
+    nativeName: "PROS",
+    wrapped: "0x52C48d4213107b20bC583832b0d951FB9CA8F0B0",
+    gasReserve: 100_000_000_000_000_000n,
+    pay: [
+      { address: "0xC879C018dB60520F4355C26eD1a6D572cdAC1815", symbol: "USDC", decimals: 6 },
+      { address: NATIVE_TOKEN, symbol: "PROS", decimals: 18 },
+      { address: "0x52C48d4213107b20bC583832b0d951FB9CA8F0B0", symbol: "WPROS", decimals: 18 },
+    ],
+  },
+  {
+    // Blast's dollar is USDB (18 decimals).
+    key: "blast",
+    id: 81457,
+    name: "Blast",
+    pool: "blast",
+    dexscreener: "blast",
+    llama: "blast",
+    explorer: "https://blastscan.io",
+    rpc: "https://rpc.blast.io",
+    lifi: true,
+    nativeName: "Ether",
+    wrapped: "0x4300000000000000000000000000000000000004",
+    gasReserve: 300_000_000_000_000n,
+    pay: [
+      { address: "0x4300000000000000000000000000000000000003", symbol: "USDB", decimals: 18 },
+      eth,
+      { address: "0x4300000000000000000000000000000000000004", symbol: "WETH", decimals: 18 },
     ],
   },
   {

@@ -2,6 +2,7 @@
 
 import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import type { Chain } from "viem";
 import { useEffect, useRef, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -115,8 +116,10 @@ function useBalances(rpc: string | null, owner: `0x${string}` | null, tokens: st
 function useAggregators(): AggregatorProvider[] {
   const { preferences } = usePreferences();
   const { off } = useOffServices();
-  const switchedOn: Record<AggregatorProvider, boolean> = { zerox: preferences.venueZerox, kyberswap: preferences.venueKyberswap };
-  return AGGREGATOR_PROVIDERS.filter((provider) => venueAvailable(provider) && switchedOn[provider] && !off.includes(`swap:${provider}`));
+  // LI.FI follows its one switch and off-switch (bridging and swaps alike).
+  const switchedOn: Record<AggregatorProvider, boolean> = { zerox: preferences.venueZerox, kyberswap: preferences.venueKyberswap, lifi: preferences.bridgeLifi };
+  const offId = (provider: AggregatorProvider) => (provider === "lifi" ? "bridge:lifi" : `swap:${provider}`);
+  return AGGREGATOR_PROVIDERS.filter((provider) => venueAvailable(provider) && switchedOn[provider] && !off.includes(offId(provider)));
 }
 
 /**
@@ -128,7 +131,9 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
   const { preferences } = usePreferences();
   const privateOnly = preferences.privateSwap;
   const enabledAggregators = useAggregators();
-  const aggregators = privateOnly ? [] : enabledAggregators;
+  // LI.FI quotes same-chain swaps only where nothing else routes (`lifi` chains), to keep its rate limit for bridging.
+  const lifiHere = Boolean(evmSwapChain(input.chainId)?.lifi);
+  const aggregators = privateOnly ? [] : enabledAggregators.filter((provider) => provider !== "lifi" || lifiHere);
   const key =
     input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(","), privateOnly].join("|") : null;
   const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; error?: string } | null>(null);
@@ -259,14 +264,26 @@ function inputUnits(text: string, decimals: number, balance: bigint | undefined)
   return units;
 }
 
+/**
+ * The viem chain for a swap chain: viem's own definition when it has one, else one built from our config (Pharos),
+ * always on our RPC.
+ */
 async function viemChain(chain: EvmSwapChain) {
   if (chain.key === "robinhood") {
     const { robinhoodChain } = await import("@/lib/venues/arcus/config");
     return robinhoodChain("mainnet");
   }
-  const { arbitrum, avalanche, base, berachain, bsc, etherlink, hyperEvm, linea, mainnet, megaeth, monad, optimism, plasma, polygon, ronin, sonic, unichain } = await import("viem/chains");
-  const known = [mainnet, base, arbitrum, bsc, hyperEvm, polygon, optimism, avalanche, unichain, monad, linea, sonic, berachain, plasma, ronin, megaeth, etherlink].find((entry) => entry.id === chain.id)!;
-  return { ...known, rpcUrls: { default: { http: [chain.rpc] } } };
+  const chains = (await import("viem/chains")) as unknown as Record<string, Chain | undefined>;
+  const known = Object.values(chains).find((entry) => entry?.id === chain.id && !entry.testnet);
+  const native = chain.pay.find((token) => isNativeToken(token.address))?.symbol ?? chain.nativeName;
+  const base: Chain = known ?? {
+    id: chain.id,
+    name: chain.name,
+    nativeCurrency: { name: chain.nativeName, symbol: native, decimals: 18 },
+    rpcUrls: { default: { http: [chain.rpc] } },
+    blockExplorers: { default: { name: chain.name, url: chain.explorer } },
+  };
+  return { ...base, rpcUrls: { default: { http: [chain.rpc] } } };
 }
 
 /**

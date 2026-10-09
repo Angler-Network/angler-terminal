@@ -23,7 +23,7 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "aster", "orderly"] as const;
+export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "lifi", "aster", "orderly"] as const;
 export type VenueKey = (typeof VENUE_KEYS)[number];
 
 /** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */
@@ -34,7 +34,7 @@ export function readConfiguredVenues(value: string | undefined) {
 }
 
 /** Swap venues with no testnet: on the testnet site they'd trade real funds on mainnet, so they stay off there. */
-const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap"]);
+const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap", "lifi"]);
 
 /**
  * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a

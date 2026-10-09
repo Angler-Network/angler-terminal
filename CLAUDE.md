@@ -394,6 +394,19 @@ dependency versions and design are free to diverge from angler-news.
     (with `gasReserve`), its logo `public/chains/<key>.svg` (the search filter builds the path from the key, the token
     badge reads `CHAIN_LOGOS` by id), its viem chain in `viemChain`, `UNISWAP_CHAIN_IDS` when Uniswap trades there, and
     the aggregators' chain maps.
+    Long tail (`lifi: true`): Mantle, Ink, Cronos, Gnosis, World Chain, Celo, zkSync, Katana, Immutable zkEVM, Rootstock,
+    Pharos, Blast. Picked from LI.FI's EVM chains (`li.quest/v1/chains`) with DefiLlama TVL ≥ $10M (`api.llama.fi/v2/chains`
+    by chain id; some entries lack one, match by name) and a working LI.FI same-chain quote; addresses from LI.FI's token
+    list, checked on-chain. No KyberSwap there, so LI.FI quotes same-chain swaps (provider `lifi` in the aggregators:
+    `/v1/quote` with fromChain = toChain, `toAddress` = the wallet, our LIFI_INTEGRATOR/LIFI_FEE_BPS, tx to LI.FI's
+    diamond, `approvalAddress` to approve; only asked on `lifi` chains to spare its rate limit; follows the LI.FI switch
+    and `bridge:lifi` off-switch); Uniswap also quotes on Ink, World Chain, Celo, zkSync and Blast. Celo's gas coin is a
+    token contract (CELO `0x471E…`, no zero-address entry: LI.FI refuses it). Katana's tokens are vault-bridge ones
+    (vbUSDC, vbETH, vbUSDT); Blast's dollar is USDB (18 decimals). `dexscreener` is optional (unset where DexScreener has
+    no chain; GeckoTerminal fills in). `viemChain` takes viem's definition by id, else builds one from the config
+    (Pharos). Left out: Arc, Tempo, Stable (gas paid in a stablecoin or no native coin; the card assumes a native gas
+    coin), Sei and Fraxtal (no LI.FI same-chain route), Flow and BOB (no real dollar liquidity). Logos: LI.FI's chain
+    SVGs (lifinance/types), checked for scripts.
     Aggregators (`lib/venues/aggregators/*`, `AGGREGATOR_PROVIDERS`): 0x and KyberSwap (Odos was removed when it shut down; `KYBERSWAP_CLIENT_ID`, no
     key; GET `/{chain}/api/v1/routes` with our fee as `feeAmount`/`isInBps`/`chargeFeeBy=currency_out`/`feeReceiver`,
     then POST `route/build` right before signing; `KYBER_CHAINS` maps every swap chain), all quoted with
