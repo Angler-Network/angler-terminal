@@ -29,7 +29,7 @@ import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { BalanceTag, DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
+import { BalanceTag, DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, RobinhoodDollarNote, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { useTrading } from "./trading-provider";
@@ -846,6 +846,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
+      {/* USDC from another chain meeting a Robinhood token (chain 4663): it becomes, or comes from, USDG there. */}
+      {chain.id === 4663 && (cross || direct) && /^USDC/i.test(pay.symbol) && <RobinhoodDollarNote selling={side === "sell"} otherChain={remoteChainName} />}
       {!pureBridge && !direct && <GaslessNote />}
       {!pureBridge && <PrivateNote routes={direct ? "Relay or LI.FI intents (a solver fills them)" : "UniswapX orders (fillers settle them off the mempool)"} />}
       <div className="relative flex flex-col gap-1">

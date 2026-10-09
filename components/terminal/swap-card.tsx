@@ -1,7 +1,7 @@
 "use client";
 
 import { rememberPay, rememberedPay, type PayChoice } from "./pay-memory";
-import { ArrowDown, ChevronDown, Fuel, Settings2, Shield, ShieldCheck } from "lucide-react";
+import { ArrowDown, ChevronDown, Fuel, Info, Settings2, Shield, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -395,6 +395,22 @@ export function BalanceTag({ value, onClick }: { value: number; onClick?: () => 
 }
 
 /** What Private does on this card, shown while it's on. */
+/**
+ * Robinhood Chain has no USDC: its dollar is USDG. Said wherever USDC meets a Robinhood token (the Arcus card, the EVM
+ * card on Robinhood), so nobody expects USDC to land there or looks for it in the wallet afterwards.
+ */
+export function RobinhoodDollarNote({ selling, otherChain }: { selling: boolean; otherChain: string }) {
+  return (
+    <p role="note" className="flex items-start gap-2 rounded-xl border border-[#f5c97b]/40 bg-[#f5c97b]/10 p-2.5 text-[12px] text-app-ink">
+      <Info className="mt-0.5 size-3.5 shrink-0 text-[#f5c97b]" aria-hidden />
+      <span>
+        Robinhood Chain has no USDC: its dollar is USDG.{" "}
+        {selling ? `The sale settles in USDG there, then becomes USDC on ${otherChain}.` : `Your USDC on ${otherChain} becomes USDG on the way (1:1, plus the route fee).`}
+      </span>
+    </p>
+  );
+}
+
 export function PrivateNote({ routes }: { routes: string }) {
   const { preferences } = usePreferences();
   if (!preferences.privateSwap) return null;
@@ -1166,6 +1182,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           {crossSwap.pending && <span className="text-app-muted"> On its way… we&apos;ll tell you when it lands.</span>}
         </p>
       )}
+      {!isSolana && side === "buy" && (cross || solPay) && /^USDC/i.test(sell.symbol) && <RobinhoodDollarNote selling={false} otherChain={sell.chainName} />}
       {solPay && (
         <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline p-2.5">
           <p className="text-[12px] text-app-ink">
