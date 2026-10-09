@@ -8,7 +8,7 @@ import { jupServerConfig } from "@/lib/venues/jupiter/server";
 import { readAccountIndex } from "@/lib/venues/lighter/account";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
-import { readBetaWindows } from "@/lib/ops/beta";
+import { readBetaWindow } from "@/lib/ops/beta";
 import { dayInBeta, inBeta, type BetaWindow } from "./beta-points";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
 import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
@@ -33,7 +33,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 /** Hyperliquid fills since the cursor that paid our builder fee (10,000 most recent fills at most, per the API). */
-async function syncHyperliquid(user: string, cursor: number | null, beta: BetaWindow[]) {
+async function syncHyperliquid(user: string, cursor: number | null, beta: BetaWindow) {
   const builderFee = hlConfig.builder?.fee ?? 0;
   if (!builderFee) return null;
   let start = cursor === null ? 0 : cursor + 1;
@@ -64,7 +64,7 @@ async function syncHyperliquid(user: string, cursor: number | null, beta: BetaWi
 
 /** Lighter trades of the wallet's account since the cursor whose own side carries the terminal tag. */
 /** One Lighter exchange (core or Robinhood): both list public trades with each side's client order index. */
-async function syncLighter(config: LighterConfig, l1Address: string, cursor: number | null, beta: BetaWindow[]) {
+async function syncLighter(config: LighterConfig, l1Address: string, cursor: number | null, beta: BetaWindow) {
   // Lighter answers "account not found" (code 21100) with a 400 when the wallet has no account yet.
   const response = await fetch(`${config.apiUrl}/api/v1/accountsByL1Address?l1_address=${l1Address}`, { cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
   const accountIndex = readAccountIndex(await response.json().catch(() => null));
@@ -99,7 +99,7 @@ export async function syncProfile(id: string) {
   // Lighter trades don't list our integrator fee: it's the configured fee at the trader's VIP tier.
   const rate = vipFor(await volume30d(id)).rate;
   // Trades placed while the closed beta was on earn bonus points, whenever they're synced.
-  const beta = await readBetaWindows();
+  const beta = await readBetaWindow();
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
   const [hl, lighter, lighterRh, aster, orderly] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl, beta),
@@ -197,7 +197,7 @@ export async function claimSwap(signature: string): Promise<SwapClaim> {
     const venue = jupiter ? "jupiter" : "titan";
     // The swap's block time (claims come right after confirming, so now when the RPC leaves it out).
     const time = tx.blockTime ? tx.blockTime * 1000 : Date.now();
-    await creditVolume(profile, venue, swap.usd, 0, 0, { betaUsd: inBeta(await readBetaWindows(), time) ? swap.usd : 0 });
+    await creditVolume(profile, venue, swap.usd, 0, 0, { betaUsd: inBeta(await readBetaWindow(), time) ? swap.usd : 0 });
     return { ok: true, venue, usd: swap.usd, profile };
   } catch (error) {
     await releaseTransaction(signature);

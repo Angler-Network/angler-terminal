@@ -777,8 +777,9 @@ dependency versions and design are free to diverge from angler-news.
   Standard account (the trade's own-side `maker_fee`/`taker_fee` is zero or absent: no Lighter fee, so none of ours)
   earns half points (`STANDARD_POINTS_SHARE`, stored as `half:{venue}`; the volume itself counts in full for totals,
   VIP and invites). Trades placed while the closed beta is on earn `BETA_POINTS_MULTIPLIER` (2x) points by the trade's own time
-  (`lib/profile/beta-points.ts`: from `BETA_POINTS_SINCE`, the admin switch's release, through the stretches the switch
-  log `angler:ops:<deployment>:closed-beta:log` shows closed; opening the beta ends the event, `readBetaWindows`); each
+  (`lib/profile/beta-points.ts`: one event from `BETA_POINTS_SINCE`, the admin switch's release, until the beta first
+  opens, recorded once in `angler:ops:<deployment>:closed-beta:points-ended`; closing it again doesn't restart it,
+  `readBetaWindow`); each
   sync splits its volume into `betaUsd` (HL fill time, Lighter/Aster trade time, Orderly days the beta touched, swap
   block time): the extra is stored as `bonusUsd` (+ per day in `bd:{id}`), so volume, VIP, invites and referrers' shares stay
   1x; volume moved from a linked wallet carries its bonus but earns none again. The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts

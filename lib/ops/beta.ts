@@ -1,8 +1,8 @@
 import "server-only";
 import { deployment } from "@/lib/deployment";
 import { readBetaFlag } from "@/lib/profile/beta";
-import { betaWindows, readBetaLog, type BetaWindow } from "@/lib/profile/beta-points";
-import { redisConfig, redisPipeline } from "@/lib/redis";
+import { BETA_POINTS_SINCE, betaWindow, type BetaWindow } from "@/lib/profile/beta-points";
+import { redisConfig, redisPipeline, type RedisCommand } from "@/lib/redis";
 
 /**
  * The closed beta switch, set by admins (Profile → Admin) without a deploy. In Redis per deployment, memory without
@@ -12,11 +12,11 @@ import { redisConfig, redisPipeline } from "@/lib/redis";
  */
 const KEY = `angler:ops:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}:closed-beta`;
 const CACHE_MS = 15_000;
-/** Every flip, `"<ms>:<1|0>"` (1 = closed): the closed beta points event follows it (`lib/profile/beta-points.ts`). */
-const LOG_KEY = `${KEY}:log`;
-const memory = ((globalThis as unknown as { __anglerBeta?: { value: string | null; log: string[] } }).__anglerBeta ??= { value: null, log: [] });
+/** When the beta first opened (ms), set once: it ends the closed beta points event (`lib/profile/beta-points.ts`). */
+const ENDED_KEY = `${KEY}:points-ended`;
+const memory = ((globalThis as unknown as { __anglerBeta?: { value: string | null; ended: string | null } }).__anglerBeta ??= { value: null, ended: null });
 let cached: { at: number; closed: boolean } | null = null;
-let cachedWindows: { at: number; windows: BetaWindow[] } | null = null;
+let cachedWindow: { at: number; window: BetaWindow } | null = null;
 
 const fallback = () => deployment !== "testnet";
 
@@ -37,30 +37,30 @@ export async function readClosedBeta(): Promise<boolean> {
 
 export async function setClosedBeta(closed: boolean) {
   const value = closed ? "1" : "0";
-  const entry = `${Date.now()}:${value}`;
-  if (redisConfig()) await redisPipeline([["SET", KEY, value], ["RPUSH", LOG_KEY, entry]]);
+  // The first opening after the event started ends it for good (NX: reopening later keeps the first time).
+  const ended = !closed && Date.now() > BETA_POINTS_SINCE ? String(Date.now()) : null;
+  if (redisConfig()) await redisPipeline([["SET", KEY, value], ...(ended ? [["SET", ENDED_KEY, ended, "NX"] as RedisCommand] : [])]);
   else {
     memory.value = value;
-    memory.log.push(entry);
+    memory.ended ??= ended;
   }
   cached = { at: Date.now(), closed };
-  cachedWindows = null;
+  cachedWindow = null;
 }
 
 /**
- * The stretches the closed beta was on since the points event started (none on the testnet site, which has no beta).
- * Unreadable: the last copy, else the beta counts as still closed, like `readClosedBeta`.
+ * The closed beta points event's span (null on the testnet site, which has no beta). Unreadable: the last copy, else
+ * the event counts as still running, like `readClosedBeta` keeps the beta closed.
  */
-export async function readBetaWindows(): Promise<BetaWindow[]> {
-  if (deployment === "testnet") return [];
-  if (cachedWindows && Date.now() - cachedWindows.at < CACHE_MS) return cachedWindows.windows;
-  let windows: BetaWindow[];
+export async function readBetaWindow(): Promise<BetaWindow> {
+  if (deployment === "testnet") return null;
+  if (cachedWindow && Date.now() - cachedWindow.at < CACHE_MS) return cachedWindow.window;
+  let window: BetaWindow;
   try {
-    const log = redisConfig() ? (await redisPipeline([["LRANGE", LOG_KEY, 0, -1]]))[0] : memory.log;
-    windows = betaWindows(readBetaLog(log));
+    window = betaWindow(redisConfig() ? (await redisPipeline([["GET", ENDED_KEY]]))[0] : memory.ended);
   } catch {
-    windows = cachedWindows?.windows ?? betaWindows([]);
+    window = cachedWindow ? cachedWindow.window : betaWindow(null);
   }
-  cachedWindows = { at: Date.now(), windows };
-  return windows;
+  cachedWindow = { at: Date.now(), window };
+  return window;
 }
