@@ -798,6 +798,17 @@ dependency versions and design are free to diverge from angler-news.
   (perps, spot, HIP-4), the Lighter and Lighter RH integrator fees and the Aster builder fee. Swaps, bridges, Orderly
   (one broker rate) and Polymarket charge everyone their fixed rate; the user chose to keep it that way, and the
   profile says the discount is on perp fees.
+- Discord roles (Profile → Overview, `components/profile/discord-roles-card.tsx`; `lib/discord/roles.ts` pure + tested,
+  `lib/discord/server.ts`, routes `app/api/discord/{link,callback,roles}`): opt-in. The signed-in owner connects Discord
+  (`GET /api/discord/link` → Discord's consent page, `identify` only, with a one-time `state` in Redis that names the
+  profile, so the callback needs no cookie; the code is exchanged once and the token dropped). One profile per Discord
+  account (`discord:<id>` index), stored as `discordId`/`discordName` on the profile and named to its owner only
+  (`ProfileView.discord`; `enabled` is public so the card can ask to sign in). "Claim roles" (`POST /api/discord/roles`,
+  once per 20s) has the bot give the role of the current level and 30-day VIP tier and take back managed roles moved
+  past (`roleChanges`: roles the feature doesn't manage are never touched); unlinking takes them all back. No gateway
+  or always-on bot: plain REST calls with `DISCORD_BOT_TOKEN`. Env in `.env.example` (`DISCORD_CLIENT_ID/SECRET`,
+  `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_LEVEL_ROLES`, `DISCORD_VIP_ROLES`); unset, the card is hidden.
+  Errors read plainly: 10007 = not in the server ("join first"), 50013 = the bot's role is too low or lacks Manage Roles.
 - Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
   `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
   under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in

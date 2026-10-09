@@ -1,7 +1,8 @@
 import "server-only";
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { deployment } from "@/lib/deployment";
 import { redisConfig, redisPipeline, toHash, type RedisCommand } from "@/lib/redis";
+import { readDiscordConfig } from "@/lib/discord/roles";
 import { readClosedBeta } from "@/lib/ops/beta";
 import { isAdmin } from "./admin";
 import { hasAccess, inviteUsable, mintsInvites } from "./beta";
@@ -115,6 +116,12 @@ async function dropKey(name: string) {
   await run([["DEL", name]]);
 }
 
+/** A key with no expiry (an index such as Discord account → profile). */
+async function putKey(name: string, value: string) {
+  if (!redisConfig()) return void memory.strings.set(name, { value, expires: Number.POSITIVE_INFINITY });
+  await run([["SET", name, value]]);
+}
+
 async function setPoints(id: string, points: number) {
   if (!redisConfig()) {
     if (points > 0) memory.zset.set(id, points);
@@ -188,6 +195,11 @@ export interface ProfileView {
   } | null;
   /** The closed beta is on (`lib/ops/beta.ts`): the gate shows and only admins' invites let people in. */
   closedBeta: boolean;
+  /**
+   * Discord roles for the level and VIP tier (`lib/discord/*`): whether the site offers them, and the linked account's
+   * name for the signed-in owner only (which Discord account a wallet uses stays private: null for everyone else).
+   */
+  discord: { enabled: boolean; name: string | null };
   /** Primary ENS name and avatar (EVM), added by the API route. */
   ens?: EnsIdentity | null;
 }
@@ -289,6 +301,7 @@ export async function readProfile(id: string, { owner = false }: { owner?: boole
     ...referralBalance(hash),
     invites,
     referralPoints: pointsFor(referralUsdOf(hash)),
+    discord: { enabled: readDiscordConfig(process.env) !== null, name: owner && hash.discordId ? hash.discordName || "Discord account" : null },
   };
 }
 
@@ -646,4 +659,59 @@ export async function recordPayout(id: string, usd: number, reference: string, b
     memory.hashes.set(key("payouts", id), { ...(memory.hashes.get(key("payouts", id)) ?? {}), [payout.id]: JSON.stringify(payout) });
   }
   return { ok: true, payout, claimable: referralBalance(await getHash(id)).referralClaimable };
+}
+
+// ---------- Discord roles (`lib/discord/*`) ----------
+
+const DISCORD_STATE_SECONDS = 600;
+const DISCORD_STATE = /^[A-Za-z0-9_-]{20,64}$/;
+/** A role claim runs a few Discord calls: one per profile this often at most. */
+const DISCORD_CLAIM_SECONDS = 20;
+
+/** A one-time OAuth `state` tying Discord's answer to this profile (10 minutes). */
+export async function createDiscordState(id: string) {
+  const state = randomBytes(24).toString("base64url");
+  await takeKey(key("dstate", state), DISCORD_STATE_SECONDS, id);
+  return state;
+}
+
+/** The profile a `state` was made for, once (it's spent here). */
+export async function takeDiscordState(state: string) {
+  if (!DISCORD_STATE.test(state)) return null;
+  const id = await getKey(key("dstate", state));
+  if (id) await dropKey(key("dstate", state));
+  return id;
+}
+
+export type DiscordLinkResult = { ok: true } | { ok: false; error: string };
+
+/** Links a Discord account to a profile; one profile per Discord account (it must be unlinked from the other first). */
+export async function linkDiscord(id: string, discordId: string, name: string): Promise<DiscordLinkResult> {
+  const owner = await getKey(key("discord", discordId));
+  if (owner && owner !== id) return { ok: false, error: "That Discord account is linked to another wallet. Unlink it there first." };
+  const previous = (await getHash(id)).discordId;
+  if (previous && previous !== discordId) await dropKey(key("discord", previous));
+  await putKey(key("discord", discordId), id);
+  await setFields(id, { discordId, discordName: name.slice(0, 64) });
+  return { ok: true };
+}
+
+/** The Discord account linked to a profile, if any. */
+export async function readDiscordLink(id: string) {
+  const hash = await getHash(id);
+  return hash.discordId ? { id: hash.discordId, name: hash.discordName || "Discord account" } : null;
+}
+
+/** Unlinks the profile's Discord account; answers its id (to take its roles back). */
+export async function unlinkDiscord(id: string) {
+  const link = await readDiscordLink(id);
+  if (!link) return null;
+  await dropKey(key("discord", link.id));
+  await deleteFields(id, ["discordId", "discordName"]);
+  return link.id;
+}
+
+/** True when this profile may claim roles now (DISCORD_CLAIM_SECONDS between claims). */
+export function takeDiscordClaim(id: string) {
+  return takeKey(key("dclaim", id), DISCORD_CLAIM_SECONDS);
 }

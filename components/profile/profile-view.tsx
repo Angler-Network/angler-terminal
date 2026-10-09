@@ -14,6 +14,7 @@ import BorderGlow from "@/components/fx/border-glow";
 import { DISCORD } from "@/components/app/social-links";
 import { AdminView } from "./admin-view";
 import { AlertsView } from "./alerts-view";
+import { DiscordRolesCard } from "./discord-roles-card";
 import { PortfolioCard } from "./portfolio-card";
 import { RewardsView } from "./rewards-view";
 import { ProfileAvatar } from "./profile-avatar";
@@ -344,6 +345,7 @@ function Overview() {
           )}
         </section>
       )}
+      <DiscordRolesCard />
       <div className="grid gap-4 lg:grid-cols-2">
         <ReferralCard />
         <PortfolioCard className={`${card} h-full`} />
