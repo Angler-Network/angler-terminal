@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ChevronDown, Settings2, Shield, ShieldCheck } from "lucide-react";
+import { ArrowDown, ChevronDown, Fuel, Settings2, Shield, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -290,6 +290,39 @@ export function PrivateToggle() {
       {on ? <ShieldCheck className="size-4" aria-hidden /> : <Shield className="size-4" aria-hidden />}
       Private
     </button>
+  );
+}
+
+/**
+ * The "Gasless" switch in the EVM swap card's header (`gaslessSwap`): only routes where the wallet signs and the swap
+ * itself pays the network fee (0x Gasless, UniswapX orders), for wallets holding no ETH or BNB for gas.
+ */
+export function GaslessToggle() {
+  const { preferences, updatePreference } = usePreferences();
+  const on = preferences.gaslessSwap;
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => updatePreference("gaslessSwap", !on)}
+      title={on ? "Gasless: you only sign; the network fee comes out of the swap. Press to allow every route." : "Gasless swap: sign only, no ETH needed for gas; the network fee comes out of the swap"}
+      className={`flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-semibold transition-colors ${on ? "bg-app-accent/15 text-app-accent" : "text-app-muted hover:text-app-ink"}`}
+    >
+      <Fuel className="size-4" aria-hidden />
+      Gasless
+    </button>
+  );
+}
+
+/** What Gasless does, shown while it's on. */
+export function GaslessNote() {
+  const { preferences } = usePreferences();
+  if (!preferences.gaslessSwap) return null;
+  return (
+    <p className="rounded-lg bg-app-accent/10 px-2.5 py-1.5 text-[11px] leading-snug text-app-muted">
+      <span className="font-semibold text-app-accent">Gasless swap.</span> You only sign; 0x or a UniswapX filler sends it and the network fee comes out of
+      the swap. Works when selling a token (not the native coin); a token used for the first time may need one approval that costs gas.
+    </p>
   );
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { NATIVE_TOKEN } from "../uniswap/chains";
 import { QUOTE_ONLY_SWAPPER } from "../uniswap/config";
 import { lifiFetch, lifiQuoteQuery, readLifiServerConfig } from "../lifi-server";
-import type { AggregatorProvider, AggregatorQuoteBody, AggregatorQuoteRequest } from "./types";
+import type { AggregatorProvider, AggregatorQuoteBody, AggregatorQuoteRequest, GaslessOrder, GaslessSignature, GaslessStatus } from "./types";
 
 /**
  * EVM swap aggregators next to Uniswap: 0x Swap API v2 (allowance-holder) and KyberSwap Aggregator v1 (Odos was
@@ -236,6 +236,86 @@ async function lifiSwap(request: AggregatorQuoteRequest): Promise<AggregatorQuot
     tx: request.execute && request.taker ? tx : undefined,
     allowanceTarget: typeof estimate.approvalAddress === "string" ? estimate.approvalAddress : undefined,
   };
+}
+
+/**
+ * 0x Gasless API (same key and fee as the Swap API): price-only quotes for the card, a firm quote with the EIP-712
+ * payloads for the wallet, then submit and status. 0x's relayer sends the transaction and takes the gas from the
+ * swap, so the wallet needs no native coin. Selling the native coin isn't supported (it has nothing to sign over).
+ */
+const zeroxHeaders = (config: Config) => ({ "0x-api-key": config.zeroxKey!, "0x-version": "v2" });
+
+export async function zeroxGaslessQuote(request: AggregatorQuoteRequest, config: Config): Promise<AggregatorQuoteBody> {
+  if (request.sellToken === NATIVE_TOKEN) throw new Error("Gasless swaps can't sell the native coin: pick a token to sell.");
+  const firm = Boolean(request.execute && request.taker);
+  const params = new URLSearchParams({
+    chainId: String(request.chainId),
+    sellToken: request.sellToken,
+    buyToken: request.buyToken === NATIVE_TOKEN ? ZEROX_NATIVE : request.buyToken,
+    sellAmount: request.sellAmount,
+    taker: request.taker ?? QUOTE_ONLY_SWAPPER,
+    slippageBps: String(request.slippageBps ?? 50),
+  });
+  if (config.fee) {
+    params.set("swapFeeRecipient", config.fee.recipient);
+    params.set("swapFeeBps", String(config.fee.bps));
+    params.set("swapFeeToken", params.get("buyToken")!);
+  }
+  const response = await fetch(`${ZEROX_URL}/gasless/${firm ? "quote" : "price"}?${params}`, {
+    headers: zeroxHeaders(config),
+    cache: "no-store",
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const body = await json(response);
+  if (!response.ok || body.liquidityAvailable === false) throw new Error(typeof body.message === "string" ? body.message : "0x Gasless has no route for this swap.");
+  const outAmount = big(body.buyAmount);
+  if (!outAmount) throw new Error("0x sent a gasless quote this terminal can't read.");
+  const issues = (body.issues ?? {}) as { allowance?: { spender?: unknown } | null };
+  const fills = ((body.route as { fills?: Array<{ source?: unknown }> } | undefined)?.fills ?? []).map((fill) => String(fill.source ?? "")).filter(Boolean);
+  const trade = body.trade as GaslessOrder["trade"] | undefined;
+  const approval = (body.approval ?? null) as GaslessOrder["approval"];
+  return {
+    provider: "zerox",
+    outAmount: outAmount.toString(),
+    minOutAmount: big(body.minBuyAmount)?.toString() ?? null,
+    feeBps: config.fee?.bps ?? 0,
+    // The relayer's gas comes out of the swap (in the buy token), already in buyAmount: nothing for the wallet to pay.
+    gasFeeUsd: null,
+    route: [...new Set(fills)].slice(0, 4),
+    allowanceTarget: typeof issues.allowance?.spender === "string" ? issues.allowance.spender : undefined,
+    gasless: firm && trade?.eip712 ? { trade, approval: approval?.eip712 ? approval : null, approvalNeeded: Boolean(issues.allowance) } : undefined,
+  };
+}
+
+export interface GaslessSubmitRequest {
+  chainId: number;
+  trade: GaslessOrder["trade"] & { signature: GaslessSignature };
+  approval?: (NonNullable<GaslessOrder["approval"]> & { signature: GaslessSignature }) | null;
+}
+
+/** Hands the signed trade (and approval) to 0x's relayer; answers the trade hash to follow. */
+export async function zeroxGaslessSubmit(request: GaslessSubmitRequest, config: Config) {
+  const response = await fetch(`${ZEROX_URL}/gasless/submit`, {
+    method: "POST",
+    headers: { ...zeroxHeaders(config), "content-type": "application/json" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    body: JSON.stringify({ chainId: request.chainId, trade: request.trade, ...(request.approval ? { approval: request.approval } : {}) }),
+  });
+  const body = await json(response);
+  if (!response.ok || typeof body.tradeHash !== "string") throw new Error(typeof body.message === "string" ? body.message : "0x didn't accept the gasless swap.");
+  return { tradeHash: body.tradeHash };
+}
+
+const GASLESS_STATUSES = new Set(["pending", "submitted", "succeeded", "confirmed", "failed"]);
+
+export async function zeroxGaslessStatus(tradeHash: string, chainId: number, config: Config): Promise<GaslessStatus> {
+  const response = await fetch(`${ZEROX_URL}/gasless/status/${tradeHash}?chainId=${chainId}`, { headers: zeroxHeaders(config), cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const body = await json(response);
+  if (!response.ok || typeof body.status !== "string" || !GASLESS_STATUSES.has(body.status)) throw new Error("0x couldn't report the gasless swap's status.");
+  const transactions = Array.isArray(body.transactions) ? (body.transactions as Array<{ hash?: unknown }>) : [];
+  const last = transactions.at(-1)?.hash;
+  return { status: body.status as GaslessStatus["status"], txHash: typeof last === "string" ? last : null, reason: typeof body.reason === "string" ? body.reason : null };
 }
 
 export function quoteAggregator(request: AggregatorQuoteRequest, config: Config) {

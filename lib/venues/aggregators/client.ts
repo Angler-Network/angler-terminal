@@ -5,7 +5,8 @@ import type { UniswapQuote } from "../uniswap/quote";
 import { AGGREGATOR_NAMES, type AggregatorProvider, type AggregatorQuoteBody } from "./types";
 
 /** A quote from any EVM swap source, in the Uniswap quote's shape so the swap card shows them all alike. */
-export type EvmSwapQuote = UniswapQuote & { provider: "uniswap" | AggregatorProvider; aggregator?: AggregatorQuoteBody };
+/** `gasless`: 0x Gasless or a UniswapX order, where the wallet signs and pays no gas. */
+export type EvmSwapQuote = UniswapQuote & { provider: "uniswap" | AggregatorProvider; aggregator?: AggregatorQuoteBody; gasless?: boolean };
 
 export interface AggregatorQuoteInput {
   chainId: number;
@@ -56,6 +57,49 @@ export async function fetchAggregatorQuote(provider: AggregatorProvider, input: 
     gasFeeUsd: body.gasFeeUsd ?? null,
     // The pools or DEXes it routes through ("via Uniswap V3, Aerodrome"); the card names the aggregator itself.
     route: body.route.filter((source) => source !== AGGREGATOR_NAMES[provider]),
+    fetchedAt: Date.now(),
+  };
+}
+
+/** A 0x Gasless quote (`/api/aggregators/gasless`): price-only for the card, firm with the payloads when `execute`. */
+export async function fetchGaslessQuote(input: AggregatorQuoteInput): Promise<EvmSwapQuote> {
+  let response: Response;
+  try {
+    response = await fetch("/api/aggregators/gasless", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chainId: input.chainId,
+        sellToken: input.tokenIn,
+        buyToken: input.tokenOut,
+        sellAmount: input.amount.toString(),
+        taker: input.swapper || null,
+        slippageBps: input.slippageBps ?? null,
+        execute: input.execute ?? false,
+      }),
+    });
+  } catch {
+    throw new VenueError("0x Gasless is unreachable right now.");
+  }
+  const body = (await response.json().catch(() => ({}))) as AggregatorQuoteBody & { error?: string };
+  if (!response.ok) throw new VenueError(body.error ?? "0x Gasless has no route for this swap.");
+  return {
+    provider: "zerox",
+    aggregator: body,
+    gasless: true,
+    routing: "GASLESS",
+    settle: "order",
+    raw: {},
+    permitData: null,
+    inAmount: input.amount,
+    outAmount: BigInt(body.outAmount),
+    minOutAmount: body.minOutAmount ? BigInt(body.minOutAmount) : null,
+    feeAmount: 0n,
+    feeBps: body.feeBps,
+    priceImpactPct: body.priceImpactPct ?? null,
+    gasFeeUsd: null,
+    route: body.route,
     fetchedAt: Date.now(),
   };
 }

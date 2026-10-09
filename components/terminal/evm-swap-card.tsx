@@ -20,13 +20,13 @@ import type { BridgeLegRef, DirectQuote, DirectSwapRequest } from "@/lib/venues/
 import { WSOL_MINT } from "@/lib/venues/jupiter/config";
 import { LIFI_NATIVE_SOL, LIFI_SOLANA_CHAIN } from "@/lib/venues/lifi";
 import { fetchUniswapQuote } from "@/lib/venues/uniswap/client";
-import { fetchAggregatorQuote, type EvmSwapQuote } from "@/lib/venues/aggregators/client";
+import { fetchAggregatorQuote, fetchGaslessQuote, type EvmSwapQuote } from "@/lib/venues/aggregators/client";
 import { AGGREGATOR_NAMES, AGGREGATOR_PROVIDERS, type AggregatorProvider } from "@/lib/venues/aggregators/types";
 import { useOffServices } from "@/components/app/service-status";
 import { venueAvailable } from "@/lib/deployment";
 import type { OrderSide } from "@/lib/venues/types";
 import { useAssetSearch, type TokenChoice } from "./asset-search";
-import { DetailRow, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
+import { DetailRow, GaslessNote, GaslessToggle, PrivateNote, PrivateToggle, SlippageSettings, amountSize, amountText, pillClass, useUsdcBalance } from "./swap-card";
 import { recordSwap } from "./swap-history-store";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { useTrading } from "./trading-provider";
@@ -126,16 +126,24 @@ function useAggregators(): AggregatorProvider[] {
  * A debounced exact-input quote, refreshed every few seconds: Uniswap and the enabled aggregators (0x, KyberSwap) asked
  * together, the largest output wins. All carry the same fee, so the best price for the trader is the one that runs.
  * Private swaps ask Uniswap for UniswapX orders only (the aggregators' transactions would go through the public mempool).
+ * Gasless swaps ask for UniswapX orders and 0x Gasless only (the wallet signs; no transaction of its own).
  */
 function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; amount: bigint | null; swapper: string | null; slippageBps: number | null }) {
   const { preferences } = usePreferences();
-  const privateOnly = preferences.privateSwap;
+  const privateSwap = preferences.privateSwap;
+  const gasless = preferences.gaslessSwap;
+  // UniswapX orders are both MEV-protected and gasless.
+  const privateOnly = privateSwap || gasless;
   const enabledAggregators = useAggregators();
   // LI.FI quotes same-chain swaps only where nothing else routes (`lifi` chains), to keep its rate limit for bridging.
   const lifiHere = Boolean(evmSwapChain(input.chainId)?.lifi);
   const aggregators = privateOnly ? [] : enabledAggregators.filter((provider) => provider !== "lifi" || lifiHere);
+  // 0x Gasless goes through 0x's relayer, not a protected mempool: only when Private is off.
+  const gaslessZerox = gasless && !privateSwap && enabledAggregators.includes("zerox");
   const key =
-    input.amount && input.amount > 0n ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(","), privateOnly].join("|") : null;
+    input.amount && input.amount > 0n
+      ? [input.chainId, input.tokenIn, input.tokenOut, input.amount, input.swapper, input.slippageBps, aggregators.join(","), privateOnly, gaslessZerox].join("|")
+      : null;
   const [state, setState] = useState<{ key: string; quote?: EvmSwapQuote; error?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
@@ -146,8 +154,9 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
       try {
         const request = { ...input, amount: input.amount! };
         const results = await Promise.allSettled([
-          fetchUniswapQuote({ ...request, privateOnly }).then((quote): EvmSwapQuote => ({ ...quote, provider: "uniswap" })),
+          fetchUniswapQuote({ ...request, privateOnly }).then((quote): EvmSwapQuote => ({ ...quote, provider: "uniswap", gasless: quote.settle === "order" })),
           ...aggregators.map((provider) => fetchAggregatorQuote(provider, request)),
+          ...(gaslessZerox ? [fetchGaslessQuote(request)] : []),
         ]);
         const quotes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
         const best = quotes.reduce<EvmSwapQuote | null>((winner, quote) => (!winner || quote.outAmount > winner.outAmount ? quote : winner), null);
@@ -627,9 +636,12 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     if (!owner || !wallet) return null;
     const sourceName = source === "uniswap" ? "Uniswap" : AGGREGATOR_NAMES[source];
     try {
-      const [{ uniswapSwap }, { aggregatorSwap }, viem] = await Promise.all([import("@/lib/venues/uniswap/venue"), import("@/lib/venues/aggregators/venue"), viemChain(chain)]);
+      const [{ uniswapSwap }, { aggregatorSwap, zeroxGaslessSwap }, viem] = await Promise.all([import("@/lib/venues/uniswap/venue"), import("@/lib/venues/aggregators/venue"), viemChain(chain)]);
+      const gasless = preferences.gaslessSwap;
       if (preferences.privateSwap && source !== "uniswap") throw new Error("Private swaps go through UniswapX only. Turn Private off to use " + AGGREGATOR_NAMES[source] + ".");
-      const run = source === "uniswap" ? uniswapSwap : (args: Parameters<typeof uniswapSwap>[0]) => aggregatorSwap(source, args);
+      if (gasless && source !== "uniswap" && source !== "zerox") throw new Error(`${AGGREGATOR_NAMES[source]} isn't gasless. Turn Gasless off to use it.`);
+      // In Gasless mode a 0x quote is a 0x Gasless one: signed, then relayed by 0x.
+      const run = source === "uniswap" ? uniswapSwap : gasless ? zeroxGaslessSwap : (args: Parameters<typeof uniswapSwap>[0]) => aggregatorSwap(source, args);
       const result = await run({
         provider: wallet.provider,
         account: owner,
@@ -641,6 +653,8 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         maxPriceImpactPct: MAX_SPOT_PRICE_IMPACT_PCT,
         // A private swap is a UniswapX order or nothing: never a transaction in the public mempool.
         privateOnly: preferences.privateSwap,
+        // A gasless one too, and never an approval transaction.
+        gaslessOnly: gasless,
       });
       const bought = tokenOut.address === asset.address;
       const tokenAmount = fromBaseUnits(bought ? result.outAmount : result.inAmount, asset.decimals);
@@ -830,6 +844,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-1">
         <span className="mr-auto text-[13px] font-semibold text-app-ink">{pureBridge ? "Bridge" : "Swap"}</span>
+        <GaslessToggle />
         <PrivateToggle />
         <button
           type="button"
@@ -842,6 +857,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
         </button>
       </div>
       {showSettings && <SlippageSettings />}
+      {!pureBridge && !direct && <GaslessNote />}
       {!pureBridge && <PrivateNote routes={direct ? "Relay or LI.FI intents (a solver fills them)" : "UniswapX orders (fillers settle them off the mempool)"} />}
       <div className="relative flex flex-col gap-1">
         <div className={box}>

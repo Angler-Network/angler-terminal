@@ -31,6 +31,8 @@ export interface UniswapSwapInput {
   maxPriceImpactPct: number;
   /** MEV-protected only (UniswapX); the swap fails rather than going out as a public transaction. */
   privateOnly?: boolean;
+  /** Gasless only: a UniswapX order and no approval transaction (the wallet may hold no native coin). */
+  gaslessOnly?: boolean;
 }
 
 export interface UniswapSwapResult {
@@ -67,10 +69,13 @@ export async function uniswapSwap(input: UniswapSwapInput): Promise<UniswapSwapR
   }
 }
 
-async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slippageBps, maxPriceImpactPct, privateOnly = false }: UniswapSwapInput): Promise<UniswapSwapResult> {
+async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slippageBps, maxPriceImpactPct, privateOnly: private_ = false, gaslessOnly = false }: UniswapSwapInput): Promise<UniswapSwapResult> {
+  // UniswapX orders are both MEV-protected and gasless (the filler pays the gas).
+  const privateOnly = private_ || gaslessOnly;
   const publicClient = createPublicClient({ chain, transport: http() });
   // Native ETH is sent as the transaction's value: no allowance, and the balance is the account's own.
   const native = isNativeToken(tokenIn.address);
+  if (gaslessOnly && native) throw new VenueError(`Gasless swaps can't sell ${tokenIn.symbol}, the native coin. Turn Gasless off or sell a token.`);
   const balance = native
     ? await publicClient.getBalance({ address: account })
     : await publicClient.readContract({ address: tokenIn.address, abi: erc20Abi, functionName: "balanceOf", args: [account] });
@@ -89,6 +94,9 @@ async function swap({ provider, account, chain, tokenIn, tokenOut, amount, slipp
   for (const raw of [approval.cancel, approval.approval]) {
     const tx = readUniswapTx(raw);
     if (!tx) continue;
+    if (gaslessOnly) {
+      throw new VenueError(`${tokenIn.symbol} needs a one-time Permit2 approval that costs gas. Approve it once with Gasless off, then gasless swaps work.`);
+    }
     const hash = await wallet.sendTransaction({ account, chain, to: tx.to, data: tx.data, value: tx.value, gas: tx.gas });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new UniswapSwapFailedError(`The ${tokenIn.symbol} approval reverted.`, explorerTx(chain, hash));

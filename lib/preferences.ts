@@ -224,6 +224,8 @@ export interface Preferences extends Appearance {
    * UniswapX orders on EVM chains, Arcus's gasless RFQ). Wallets and trades stay public on-chain.
    */
   privateSwap: boolean;
+  /** EVM swaps through gasless routes only (0x Gasless, UniswapX): the wallet signs, the swap pays the network fee. */
+  gaslessSwap: boolean;
   /** Compare Titan quotes with Jupiter's on Solana spot trades (needs TITAN_API_KEY on the server). */
   venueTitan: boolean;
   /** EVM swaps also ask 0x and KyberSwap and take the best of them and Uniswap. */
@@ -330,6 +332,7 @@ export const defaultPreferences: Preferences = {
   venueUniswap: venueAvailable("uniswap"),
   preferArcus: true,
   privateSwap: false,
+  gaslessSwap: false,
   venueTitan: venueAvailable("titan"),
   venueZerox: venueAvailable("zerox"),
   venueKyberswap: venueAvailable("kyberswap"),
@@ -488,6 +491,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueUniswap: venueSwitch("uniswap", stored.venueUniswap, defaultPreferences.venueUniswap),
       preferArcus: readBoolean(stored.preferArcus, defaultPreferences.preferArcus),
       privateSwap: readBoolean(stored.privateSwap, defaultPreferences.privateSwap),
+      gaslessSwap: readBoolean(stored.gaslessSwap, defaultPreferences.gaslessSwap),
       venueTitan: venueSwitch("titan", stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueSwitch("zerox", stored.venueZerox, defaultPreferences.venueZerox),
       venueKyberswap: venueSwitch("kyberswap", stored.venueKyberswap, defaultPreferences.venueKyberswap),
