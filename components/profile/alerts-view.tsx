@@ -77,6 +77,8 @@ export function AlertsView() {
   const [coinsText, setCoinsText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<null | "save" | "test" | "telegram" | "signin">(null);
+  // The bot link once made: shown as a real link (opening a tab from code got blocked) plus the /start command to send by hand.
+  const [telegramLink, setTelegramLink] = useState<{ url: string; bot: string; code: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const poll = useRef<number | null>(null);
   const [waiting, setWaiting] = useState(false);
@@ -137,22 +139,14 @@ export function AlertsView() {
 
   const connectTelegram = async () => {
     setBusy("telegram");
-    // The tab opens during the click: opened after the request, it's no longer a click and popup blockers drop it
-    // without a word (the button then seemed to do nothing).
-    const tab = window.open("", "_blank");
     const response = await fetch("/api/alerts/telegram/link", { method: "POST" }).catch(() => null);
     setBusy(null);
     const body = (await response?.json().catch(() => null)) as { url?: string; error?: string } | null;
-    if (!response?.ok || !body?.url) {
-      tab?.close();
+    const link = body?.url ? /^https:\/\/t\.me\/(\w+)\?start=([\w-]+)$/.exec(body.url) : null;
+    if (!response?.ok || !body?.url || !link) {
       return toast({ tone: "error", title: "Couldn't start Telegram", message: body?.error ?? "Try again in a moment." });
     }
-    if (tab) {
-      tab.opener = null;
-      tab.location.href = body.url;
-    } else {
-      toast({ tone: "info", title: "Open the bot to finish", message: "Press Start in Telegram to link this chat.", link: { href: body.url, label: "Open Telegram" } });
-    }
+    setTelegramLink({ url: body.url, bot: link[1], code: link[2] });
     // Wait for the bot to link the chat (the user presses Start there), up to the code's lifetime.
     if (poll.current) window.clearInterval(poll.current);
     setWaiting(true);
@@ -168,6 +162,7 @@ export function AlertsView() {
         window.clearInterval(poll.current!);
         poll.current = null;
         setWaiting(false);
+        setTelegramLink(null);
       }
     }, 3_000);
   };
@@ -227,13 +222,24 @@ export function AlertsView() {
                 Disconnect
               </button>
             </span>
+          ) : telegramLink ? (
+            <a href={telegramLink.url} target="_blank" rel="noopener noreferrer" className={`${button} bg-app-accent text-app-on-accent`}>
+              <Send className="size-3.5" aria-hidden />
+              Open @{telegramLink.bot}
+            </a>
           ) : (
             <button type="button" disabled={!loaded!.telegram || busy === "telegram"} onClick={() => void connectTelegram()} className={`${button} bg-app-chip text-app-ink hover:bg-app-selected`}>
               <Send className="size-3.5" aria-hidden />
-              {waiting ? "Waiting for Start…" : "Connect Telegram"}
+              {busy === "telegram" ? "Making a link…" : "Connect Telegram"}
             </button>
           )}
         </SettingRow>
+        {telegramLink && !saved.telegramChatId && (
+          <p className="-mt-2 pb-3 text-[12px] text-app-muted">
+            {waiting ? "Waiting for Start… " : ""}Press Start in the bot. If the link doesn&apos;t open Telegram, send this to @{telegramLink.bot}:{" "}
+            <code className="select-all rounded bg-app-chip px-1.5 py-0.5 font-mono text-app-ink">/start {telegramLink.code}</code> (valid 15 minutes).
+          </p>
+        )}
         <div className="flex flex-col gap-2 border-b border-app-line py-4">
           <p className="text-[15px] font-semibold text-app-ink">Discord</p>
           <p className="text-[13px] text-app-muted">Channel settings → Integrations → Webhooks → New webhook → Copy URL, then paste it here.</p>

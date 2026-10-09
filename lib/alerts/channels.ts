@@ -45,6 +45,8 @@ export async function sendDiscord(webhook: string, messages: string[]) {
       body: JSON.stringify({ content, username: "Angler", allowed_mentions: { parse: [] } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     }).catch(() => null);
+    // Logged (never the token) so a wrong bot token or a blocked bot shows in the server logs.
+    if (!response?.ok) console.error("[alerts] telegram send failed:", response?.status ?? "network", await response?.text().catch(() => ""));
     ok &&= Boolean(response?.ok);
   }
   return ok;
@@ -61,6 +63,8 @@ export async function sendTelegram(chatId: string, messages: string[]) {
       body: JSON.stringify({ chat_id: chatId, text, link_preview_options: { is_disabled: true } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     }).catch(() => null);
+    // Logged (never the token) so a wrong bot token or a blocked bot shows in the server logs.
+    if (!response?.ok) console.error("[alerts] telegram send failed:", response?.status ?? "network", await response?.text().catch(() => ""));
     ok &&= Boolean(response?.ok);
   }
   return ok;
