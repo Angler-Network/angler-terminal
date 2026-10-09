@@ -6,6 +6,28 @@ import { rateLimited } from "@/lib/rate-limit";
 const TIMEOUT_MS = 10_000;
 const MAX_LIMIT = 100;
 const COIN_PATTERN = /^[A-Za-z0-9:]{1,30}$/;
+// Every open tab without a live socket polls the same first page every 15s: one upstream call per few seconds serves them all.
+const FRESH_MS = 5_000;
+const MAX_ENTRIES = 200;
+const pages = new Map<string, { at: number; body: Promise<unknown> }>();
+
+/** One upstream call per query and FRESH_MS (per instance); concurrent requests share the call in flight. */
+function cachedPage(query: string, load: () => Promise<unknown>) {
+  const now = Date.now();
+  const hit = pages.get(query);
+  if (hit && now - hit.at < FRESH_MS) return hit.body;
+  const body = load();
+  pages.set(query, { at: now, body });
+  body.catch(() => pages.delete(query));
+  if (pages.size > MAX_ENTRIES) pages.delete(pages.keys().next().value!);
+  return body;
+}
+
+class UpstreamError extends Error {
+  constructor(readonly status: number) {
+    super(`Angler API responded ${status}`);
+  }
+}
 
 /**
  * Proxies GET /v1/news so the API key stays on the server. Query: coin, min_importance, limit, cursor.
@@ -31,16 +53,21 @@ export async function GET(request: NextRequest) {
   if (cursor) params.set("cursor", cursor.slice(0, 500));
 
   try {
-    const response = await fetch(`${apiUrl}/v1/news?${params}`, {
-      headers: { authorization: `Bearer ${key}`, accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+    const query = params.toString();
+    const page = await cachedPage(query, async () => {
+      const response = await fetch(`${apiUrl}/v1/news?${query}`, {
+        headers: { authorization: `Bearer ${key}`, accept: "application/json" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!response.ok) throw new UpstreamError(response.status);
+      return readApiNewsPage(await response.json());
     });
-    if (!response.ok) {
-      return NextResponse.json({ error: `Angler API responded ${response.status}` }, { status: 502 });
-    }
-    return NextResponse.json(readApiNewsPage(await response.json()), { headers: { "cache-control": "no-store" } });
-  } catch {
+    // The CDN shares it across instances too: the first page for a few seconds, older pages (a cursor) for a minute.
+    const cacheControl = cursor ? "public, s-maxage=60, stale-while-revalidate=60" : "public, s-maxage=5, stale-while-revalidate=10";
+    return NextResponse.json(page, { headers: { "cache-control": cacheControl } });
+  } catch (caught) {
+    if (caught instanceof UpstreamError) return NextResponse.json({ error: `Angler API responded ${caught.status}` }, { status: 502 });
     return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
   }
 }
