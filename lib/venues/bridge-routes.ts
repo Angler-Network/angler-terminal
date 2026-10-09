@@ -56,6 +56,8 @@ export type FundsStep =
   | { kind: "hlWithdraw" }
   /** Orderly's withdrawal to the wallet's USDC on Arbitrum (wallet signature, Orderly's 1 USDC fee, a few minutes). */
   | { kind: "orderlyWithdraw" }
+  /** Aster's withdrawal to the wallet's USDC on Arbitrum (wallet signature, Aster's ~0.5 USDC fee). */
+  | { kind: "asterWithdraw" }
   /** Lighter's fast withdrawal to the wallet: USDC on Arbitrum (core) or USDG on Robinhood Chain (RH). */
   | { kind: "lighterWithdraw"; venue: LighterVenueId }
   /** Across from the wallet on `from` to `to`, paid to the wallet or to a Lighter instance's deposit address. */
@@ -117,6 +119,12 @@ export function fundsRoute(
       : steps("deposit", [{ kind: "across", from: source, to: target, recipient: to }], source, target);
   }
 
+  if (from === "aster") {
+    // Aster pays out on Arbitrum here; other wallet chains and venues aren't wired from it yet.
+    if (to !== "wallet" || chains.to !== "arbitrum") return { kind: "soon" };
+    if (networkOf("aster") !== "mainnet") return { kind: "testnet" };
+    return steps("withdraw", [{ kind: "asterWithdraw" }], ARBITRUM, ARBITRUM);
+  }
   if (from === "orderly") {
     // Orderly pays out on Arbitrum; other wallet chains and venues aren't wired from it yet.
     if (to !== "wallet" || chains.to !== "arbitrum") return { kind: "soon" };
@@ -189,6 +197,7 @@ export function stepsError(steps: FundsStep[], amount: number, withdrawable: num
     const minimum = second?.kind === "transfer" ? second.minimum : second?.kind === "across" ? Math.max(1, acrossRecipientMinimum(second.recipient)) : 0;
     if (after <= 0 || after < minimum) return `Move at least ${HL_WITHDRAW_FEE_USDC + Math.max(minimum, 1)} USDC (1 USDC withdrawal fee${minimum ? ` + ${minimum} USDC minimum` : ""}).`;
   }
+  if (first.kind === "asterWithdraw" && withdrawable !== undefined && amount > withdrawable) return "More than Aster can withdraw right now.";
   if (first.kind === "lighterWithdraw") {
     if (withdrawable !== undefined && amount > withdrawable) return "More than Lighter can withdraw right now.";
     const minimum = first.venue === "lighter" ? 4 : 1;

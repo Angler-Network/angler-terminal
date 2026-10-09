@@ -237,3 +237,44 @@ function createAsterVenue(): PerpVenue {
 }
 
 export const asterVenue = createAsterVenue();
+
+/** Aster's public withdrawal fee quote (USDC on Arbitrum, from perps); the fee in USDC. */
+const ASTER_WITHDRAW_FEE_URL = "https://www.asterdex.com/bapi/futures/v1/public/future/aster/estimate-withdraw-fee?chainId=42161&network=EVM&currency=USDC&accountType=perp";
+
+/**
+ * Withdraws `amount` USDC from Aster perps to the wallet on Arbitrum (docs: demo/aster-deposit-withdrawal.md, "withdraw
+ * by fapi[v3] [evm] [futures]"): the wallet signs Aster's EIP-712 `Action` (domain "Aster" v1, chain 42161), then the
+ * agent signs the V3 request to `/fapi/v3/aster/user-withdraw`. Aster quotes its fee (about 0.5 USDC) separately.
+ */
+export async function withdrawAsterUsdc(provider: import("viem").EIP1193Provider, user: `0x${string}`, amount: number) {
+  const quote = (await fetch(ASTER_WITHDRAW_FEE_URL, { cache: "no-store" }).then((response) => response.json()).catch(() => null)) as { data?: { gasCost?: unknown } } | null;
+  const fee = Number(quote?.data?.gasCost);
+  if (!Number.isFinite(fee) || fee < 0) throw new VenueError("Aster didn't quote a withdrawal fee. Try again in a moment.");
+  if (amount <= fee) throw new VenueError(`Withdraw more than Aster's ${fee} USDC fee.`);
+  const amountText = String(Math.floor(amount * 100) / 100);
+  const feeText = String(fee);
+  const userNonce = BigInt(Date.now()) * 1000n;
+  const [{ createWalletClient, custom }, { arbitrum }] = await Promise.all([import("viem"), import("viem/chains")]);
+  const wallet = createWalletClient({ account: user, chain: arbitrum, transport: custom(provider) });
+  if ((await wallet.getChainId()) !== arbitrum.id) await wallet.switchChain({ id: arbitrum.id });
+  const userSignature = await wallet.signTypedData({
+    account: user,
+    domain: { name: "Aster", version: "1", chainId: arbitrum.id, verifyingContract: "0x0000000000000000000000000000000000000000" },
+    types: {
+      Action: [
+        { name: "type", type: "string" },
+        { name: "destination", type: "address" },
+        { name: "destination Chain", type: "string" },
+        { name: "token", type: "string" },
+        { name: "amount", type: "string" },
+        { name: "fee", type: "string" },
+        { name: "nonce", type: "uint256" },
+        { name: "aster chain", type: "string" },
+      ],
+    },
+    primaryType: "Action",
+    message: { type: "Withdraw", destination: user, "destination Chain": "Arbitrum", token: "USDC", amount: amountText, fee: feeText, nonce: userNonce, "aster chain": "Mainnet" },
+  });
+  await signed(user, "POST", "/fapi/v3/aster/user-withdraw", { chainId: arbitrum.id, asset: "USDC", amount: amountText, fee: feeText, receiver: user, userNonce: String(userNonce), userSignature });
+  return { fee };
+}

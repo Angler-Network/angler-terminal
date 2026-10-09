@@ -142,7 +142,7 @@ export function DepositDialog() {
   const value = Number(amount);
   // In the token the route starts with (BNB Chain's USDT has 18 decimals).
   const units = tokenUnits(amount, input ? decimalsOf(input) : 6);
-  const withdrawable = from === "hyperliquid" || from === "lighter" || from === "lighterRh" ? accounts[from]?.withdrawable : undefined;
+  const withdrawable = from === "hyperliquid" || from === "lighter" || from === "lighterRh" || from === "aster" ? accounts[from]?.withdrawable : undefined;
   const fromWallet = from === "wallet" && input !== null;
   const error =
     route.kind !== "steps"
