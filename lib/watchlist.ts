@@ -1,3 +1,5 @@
+import { ASSET_SYMBOL } from "./markets/model";
+
 /**
  * Favorite markets (the ★ in the asset search, the optional Watchlist panel), stored in preferences. Read back from
  * localStorage, so every field is validated. Pure, unit-tested.
@@ -19,7 +21,7 @@ export interface WatchlistEntry {
 
 export const MAX_WATCHLIST = 50;
 
-const ASSET = /^[A-Z0-9]{1,20}$/;
+const ASSET = ASSET_SYMBOL;
 const SYMBOL = /^[\p{L}\p{N}$._-]{1,24}$/u;
 /**
  * A Solana mint, an EVM token ref "evm:<chainId>:<address>" (`lib/venues/uniswap/chains.ts`) or a Hyperliquid/Lighter

@@ -84,7 +84,13 @@ export const CHART_COOKIE = "angler_chart";
 
 export const DEFAULT_CHART_SETTINGS: ChartSettings = { symbol: "BTC", market: "perp", source: DEFAULT_TAPE_SOURCE };
 
-const CHART_SYMBOL = /^[A-Za-z0-9]{1,20}$/;
+/**
+ * A terminal asset symbol: letters and digits of any script, up to 20 (BTC, NVDA, and tokens named in Chinese such as
+ * 龙虾, which a Latin-only check used to refuse silently, so they couldn't be picked).
+ */
+export const ASSET_SYMBOL = /^[\p{L}\p{N}]{1,20}$/u;
+
+const CHART_SYMBOL = ASSET_SYMBOL;
 
 export function serializeChartCookie(settings: ChartSettings) {
   return encodeURIComponent([settings.symbol, settings.market, settings.source].join("|"));

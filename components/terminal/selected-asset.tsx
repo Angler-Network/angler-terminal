@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
+import { ASSET_SYMBOL } from "@/lib/markets/model";
 import type { PerpVenueId } from "@/lib/venues/types";
 
 interface SelectedAssetValue {
@@ -48,7 +49,7 @@ export function SelectedAssetProvider({ children }: { children: React.ReactNode 
   const selectAsset = useCallback(
     (next: string, mint?: string, spotVenue?: "arcus") => {
       const clean = next.toUpperCase();
-      if (!/^[A-Z0-9]{1,20}$/.test(clean)) return;
+      if (!ASSET_SYMBOL.test(clean)) return;
       updatePreference("chartSymbol", clean);
       setMintFor(mint || spotVenue ? { symbol: clean, mint, spotVenue } : null);
     },

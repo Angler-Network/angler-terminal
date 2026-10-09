@@ -152,4 +152,9 @@ describe("assetSymbolOf", () => {
     expect(assetSymbolOf(listing("LBTC", "Lombard Staked BTC"))).toBe("LBTC");
     expect(assetSymbolOf(listing("🦅EAGLE", "Eagle"))).toBeNull();
   });
+
+  it("accepts tickers written in other scripts", () => {
+    expect(assetSymbolOf(listing("龙虾", "Lobster"))).toBe("龙虾");
+    expect(assetSymbolOf(listing("<script>", "x"))).toBeNull();
+  });
 });

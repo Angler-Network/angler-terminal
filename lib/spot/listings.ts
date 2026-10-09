@@ -4,6 +4,8 @@
  * an asset (BTC → cbBTC or WBTC) is decided by live trading volume every time the list is read. Pure, unit-tested.
  */
 
+import { ASSET_SYMBOL } from "../markets/model";
+
 /** Pool and router venues, plus the order-book spot markets of Hyperliquid and Lighter (`book-spot.ts`). */
 export type SpotVenueKey = "jupiter" | "arcus" | "uniswap" | "hyperliquid" | "lighter";
 
@@ -136,14 +138,14 @@ export function representsAsset(listing: Pick<SpotListing, "symbol" | "name" | "
  * news and order panel to that asset. Null when its ticker can't be a terminal symbol.
  */
 export function assetSymbolOf(listing: Pick<SpotListing, "symbol" | "name" | "category" | "asset">): string | null {
-  if (listing.asset) return /^[A-Z0-9]{1,20}$/.test(listing.asset) ? listing.asset : null;
+  if (listing.asset) return ASSET_SYMBOL.test(listing.asset) ? listing.asset : null;
   const symbol = normalizeSpotSymbol(listing.symbol);
   if (listing.category === "stock" && symbol.endsWith("X") && representsAsset(listing, symbol.slice(0, -1))) return symbol.slice(0, -1);
   for (const prefix of WRAPPER_PREFIXES) {
     const base = symbol.slice(prefix.length);
     if (symbol.startsWith(prefix) && base.length >= 2 && representsAsset(listing, base)) return base;
   }
-  return /^[A-Z0-9]{1,20}$/.test(symbol) ? symbol : null;
+  return ASSET_SYMBOL.test(symbol) ? symbol : null;
 }
 
 /**

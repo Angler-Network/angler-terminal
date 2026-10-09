@@ -7,6 +7,7 @@ import {
 } from "./appearance";
 import type { PerpVenueId } from "./venues/types";
 import {
+  ASSET_SYMBOL,
   CHART_COOKIE,
   DEFAULT_TAPE_MARKET,
   DEFAULT_TAPE_SOURCE,
@@ -411,7 +412,7 @@ export function parsePreferences(raw: string | null): Preferences {
       chartSource: (["hyperliquid", "lighter", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
       showChart: readBoolean(stored.showChart, defaultPreferences.showChart),
       chartSymbol:
-        typeof stored.chartSymbol === "string" && /^[A-Za-z0-9]{1,20}$/.test(stored.chartSymbol)
+        typeof stored.chartSymbol === "string" && ASSET_SYMBOL.test(stored.chartSymbol)
           ? stored.chartSymbol
           : defaultPreferences.chartSymbol,
       chartInterval: isChartInterval(stored.chartInterval) ? stored.chartInterval : defaultPreferences.chartInterval,
