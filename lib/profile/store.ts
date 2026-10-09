@@ -29,7 +29,7 @@ import { profileIdOf, type ProfileChain } from "./identity";
  */
 const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 
-export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan", "uniswap", "zerox", "kyberswap", "arcus", "polymarket", "relay", "lifi"] as const;
+export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan", "uniswap", "zerox", "kyberswap", "arcus", "polymarket", "relay", "lifi", "across"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 /** Perp and order-book spot venues: only their volume earns invites and referral rewards (not swaps or bridges). */

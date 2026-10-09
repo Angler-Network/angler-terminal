@@ -55,5 +55,8 @@ export async function acrossFilled(depositId: bigint, originChainId: number) {
   if (response.status === 404) return "pending" as const;
   const body = (await response.json().catch(() => ({}))) as { status?: unknown };
   if (!response.ok) throw new VenueError(acrossErrorMessage(body, response.status));
-  return acrossFillState(body.status);
+  const state = acrossFillState(body.status);
+  // Profile points: the server reads the deposit and its origin transaction and counts it when it carries our app fee.
+  if (state === "filled") void import("@/lib/profile/client").then(({ claimBridgePoints }) => claimBridgePoints("across", `${originChainId}:${depositId}`));
+  return state;
 }

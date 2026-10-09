@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readLifiTransfer, readRelayRequest } from "./bridge-points";
+import { carriesRecipient, readAcrossDeposit, readAcrossStatus, readLifiTransfer, readRelayRequest } from "./bridge-points";
 
 const OURS = "0x9fc4e320a181e88644a302d11f1f158ef0699e37";
 
@@ -31,5 +31,23 @@ describe("LI.FI transfers", () => {
   it("refuses other integrators and transfers still on their way", () => {
     expect(readLifiTransfer(transfer({ metadata: { integrator: "jumper.exchange" } }), "angler")).toBeNull();
     expect(readLifiTransfer(transfer({ status: "PENDING" }), "angler")).toBeNull();
+  });
+});
+
+describe("Across deposits", () => {
+  const HASH = "0x920934eb96eeb7ebf7d07d4bed4d6e10281155456aee3a34d8612ad5306e7a44";
+
+  it("reads a filled deposit's origin transaction and what went in", () => {
+    expect(readAcrossStatus({ status: "filled", depositTxHash: HASH })).toEqual({ depositTxHash: HASH });
+    expect(readAcrossStatus({ status: "pending", depositTxHash: HASH })).toBeNull();
+    const deposit = { deposit: { status: "filled", inputToken: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", inputAmount: "99900000" } };
+    expect(readAcrossDeposit(deposit)).toEqual({ inputToken: "0xaf88d065e77c8cc2239327c5edb3a432268e5831", inputAmount: BigInt(99_900_000) });
+    expect(readAcrossDeposit({ deposit: { ...deposit.deposit, status: "expired" } })).toBeNull();
+  });
+
+  it("finds our recipient in the origin calldata", () => {
+    expect(carriesRecipient(`0xabcdef${"1111111111111111111111111111111111111111"}00`, OURS.replace("9fc4", "1111").replace(/./g, (c, i) => (i < 2 ? c : "1")))).toBe(true);
+    expect(carriesRecipient("0xabcdef00", OURS)).toBe(false);
+    expect(carriesRecipient("0xabcdef00", "not an address")).toBe(false);
   });
 });

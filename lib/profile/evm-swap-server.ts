@@ -36,7 +36,7 @@ export function providerFee(provider: EvmSwapProvider, env: Record<string, strin
   return fee ? { recipient: fee.recipient, bps: fee.bps } : null;
 }
 
-async function rpc<T>(chain: EvmSwapChain, method: string, params: unknown[]): Promise<T | null> {
+export async function rpc<T>(chain: EvmSwapChain, method: string, params: unknown[]): Promise<T | null> {
   const response = await fetch(chain.rpc, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -59,7 +59,7 @@ async function readTransaction(chain: EvmSwapChain, hash: string) {
 }
 
 /** A token amount in USD: the chain's dollars at $1, anything else (the native coin as its wrapped token) by DefiLlama. */
-async function usdOf(chain: EvmSwapChain, side: TokenAmount): Promise<number | null> {
+export async function usdOf(chain: EvmSwapChain, side: TokenAmount): Promise<number | null> {
   const address = side.token === NATIVE ? chain.wrapped.toLowerCase() : side.token;
   const known = chain.pay.find((token) => token.address.toLowerCase() === address || (side.token === NATIVE && token.address === NATIVE));
   if (known && STABLES.has(known.symbol.toUpperCase())) return Number(side.amount) / 10 ** known.decimals;

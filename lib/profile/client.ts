@@ -32,10 +32,11 @@ export function claimEvmSwapPoints(chainId: number, hash: string, provider: "uni
 const claimedRoutes = new Set<string>();
 
 /**
- * And for a finished Relay request (its request id) or LI.FI transfer (its origin transaction hash): the server reads
+ * And for a finished Relay request (its request id), LI.FI transfer (its origin transaction hash) or Across deposit
+ * (`<originChainId>:<depositId>`): the server reads
  * the bridge's own record. Called by the fill checks, which can report "filled" more than once: asked once per route.
  */
-export function claimBridgePoints(provider: "relay" | "lifi", id: string) {
+export function claimBridgePoints(provider: "relay" | "lifi" | "across", id: string) {
   const key = `${provider}:${id}`;
   if (!id || claimedRoutes.has(key)) return;
   claimedRoutes.add(key);

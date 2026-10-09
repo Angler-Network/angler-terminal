@@ -794,7 +794,11 @@ dependency versions and design are free to diverge from angler-news.
   app fee to `RELAY_FEE_RECIPIENT` (volume `currencyIn.amountUsd`, rate the fee's bps), LI.FI `/v1/status?txHash=` with
   `DONE` and `metadata.integrator` = `LIFI_INTEGRATOR` (volume `sending.amountUSD`, rate `LIFI_FEE_BPS`). Claimed from
   `relayRequestState` / `lifiTxState` when they report filled (every bridge leg and direct swap goes through them) and
-  after a same-chain LI.FI swap; the server retries the record a few times, once per route. Points scale with our fee (`pointsShareFor`: our bps / 3.5,
+  after a same-chain LI.FI swap; the server retries the record a few times, once per route. Across (`acrossFilled`
+  claims `<originChainId>:<depositId>` when filled): the indexer's `/deposit/status?depositId=` (filled, origin tx) and
+  `/deposit?depositTxHash=` (input token and amount), and the origin transaction's calldata must carry
+  `ACROSS_APP_FEE_RECIPIENT` (Across pays the app fee on the destination chain, but the recipient rides in the origin
+  call); rate `ACROSS_APP_FEE` × 10,000 bps. Points scale with our fee (`pointsShareFor`: our bps / 3.5,
   `POINTS_BASE_FEE_BPS`, capped at 1x; the rest stored as `less:{venue}`), volume always counts in full. Perp volume syncs when the profile loads (`GET /api/profile/{id}?sync=1`, at most once a minute per profile,
   cursors per venue); swaps are claimed after they confirm (`claimSwapPoints` → `POST /api/profile/swap`). A Solana
   wallet can be linked to an EVM profile (signed by the Solana wallet): its volume moves over and later swaps count

@@ -42,3 +42,26 @@ export function readLifiTransfer(body: unknown, integrator: string): BridgeClaim
   const user = readUser(transfer.fromAddress);
   return usd > 0 && user ? { user, usd } : null;
 }
+
+/**
+ * Across (`indexer.api.across.to`): a filled deposit and its origin transaction (`/deposit/status?depositId=`), then
+ * what went in (`/deposit?depositTxHash=`). Across pays our app fee on the destination chain, but its recipient is
+ * written into the origin transaction's calldata, which is the proof read on-chain.
+ */
+export function readAcrossStatus(body: unknown): { depositTxHash: string } | null {
+  const status = body as { status?: unknown; depositTxHash?: unknown } | null;
+  return status?.status === "filled" && typeof status.depositTxHash === "string" && /^0x[0-9a-fA-F]{64}$/.test(status.depositTxHash)
+    ? { depositTxHash: status.depositTxHash }
+    : null;
+}
+
+export function readAcrossDeposit(body: unknown): { inputToken: string; inputAmount: bigint } | null {
+  const deposit = (body as { deposit?: { inputToken?: unknown; inputAmount?: unknown; status?: unknown } } | null)?.deposit;
+  if (!deposit || deposit.status !== "filled" || typeof deposit.inputToken !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(deposit.inputToken)) return null;
+  if (typeof deposit.inputAmount !== "string" || !/^\d+$/.test(deposit.inputAmount)) return null;
+  const amount = BigInt(deposit.inputAmount);
+  return amount > BigInt(0) ? { inputToken: deposit.inputToken.toLowerCase(), inputAmount: amount } : null;
+}
+
+/** Whether the origin transaction's calldata carries our app fee recipient (any case). */
+export const carriesRecipient = (calldata: string, recipient: string) => /^0x[0-9a-fA-F]{40}$/.test(recipient) && calldata.toLowerCase().includes(recipient.slice(2).toLowerCase());
