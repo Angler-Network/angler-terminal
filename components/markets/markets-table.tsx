@@ -1,12 +1,14 @@
 "use client";
 
 import { LoadingState } from "@/components/app/loading-state";
-import { Search } from "lucide-react";
+import { Layers, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
 import { useSelectedAsset } from "@/components/terminal/selected-asset";
-import { VenueLogo } from "@/components/terminal/venue-logo";
+import { NetworkFilter, type NetworkFilterLabels } from "@/components/terminal/network-filter";
+import { VENUE_MARKS, VenueLogo } from "@/components/terminal/venue-logo";
+import type { NetworkKey, NetworkOption } from "@/components/terminal/market-rows";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useFunding } from "@/components/terminal/use-funding";
 import { useSpotListings } from "@/components/terminal/use-spot-listings";
@@ -24,6 +26,8 @@ type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | Funding
 
 /** Every venue, one venue, or assets listed on more than one venue. */
 type VenueFilter = "all" | "multi" | PerpVenueId;
+
+const VENUE_PICKER_LABELS: NetworkFilterLabels = { all: "All venues", search: "Search venues", unit: ["market", "markets"], venueGroup: "Perp venues" };
 
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 
@@ -146,11 +150,19 @@ export function MarketsTable() {
     </th>
   );
 
-  const venueOptions: Array<{ value: VenueFilter; label: string }> = [
-    { value: "all", label: "All venues" },
-    ...venueIds.map((id) => ({ value: id, label: PERP_VENUE_NAMES[id] })),
-    { value: "multi", label: "Multi-venue" },
-  ];
+  // The venue picker, like the market search's: each venue with its logo and how many markets it lists, busiest first.
+  const venueOptions = useMemo<NetworkOption[]>(
+    () =>
+      venueIds
+        .map((id) => {
+          const name = PERP_VENUE_NAMES[id];
+          const mark = VENUE_MARKS[name];
+          return { key: `pv:${id}` as NetworkKey, name, logo: mark ? `/api/favicon?domain=${mark.domain}` : "", group: "venue" as const, count: rows.filter((row) => row.venues[id]).length };
+        })
+        .sort((a, b) => b.count - a.count),
+    [venueIds, rows],
+  );
+  const multiCount = useMemo(() => rows.filter((row) => Object.keys(row.venues).length > 1).length, [rows]);
 
   return (
     <section className="surface-panel flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-app-card/80 bg-app-card/55">
@@ -174,22 +186,6 @@ export function MarketsTable() {
         </label>
       </header>
       <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-app-hairline px-4 py-2">
-        <div role="group" aria-label="Venue" className="flex shrink-0 gap-0.5 rounded-lg bg-app-chip p-0.5">
-          {venueOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={venue === option.value}
-              onClick={() => setVenue(option.value)}
-              className={`h-6 shrink-0 rounded-md px-2 text-[12px] font-semibold transition-colors ${
-                venue === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-app-hairline" />
         <div role="group" aria-label="Category" className="flex shrink-0 gap-1.5">
           {[{ value: "all" as const, label: "All" }, ...MARKET_CATEGORIES].map((option) => {
             const count = option.value === "all" ? rows.length : (counts[option.value] ?? 0);
@@ -209,6 +205,29 @@ export function MarketsTable() {
               </button>
             );
           })}
+        </div>
+        <div className="sticky right-0 ml-auto flex shrink-0 items-center gap-1.5 bg-app-card pl-3">
+          <button
+            type="button"
+            aria-pressed={venue === "multi"}
+            onClick={() => setVenue(venue === "multi" ? "all" : "multi")}
+            title="Markets listed on two venues or more (where funding spreads and best-price routing apply)"
+            className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${
+              venue === "multi" ? "bg-app-ink text-app-card" : "bg-app-chip text-app-muted hover:text-app-ink"
+            }`}
+          >
+            <Layers className="size-3.5" aria-hidden />
+            Multi-venue
+            <span className="tabular-nums opacity-60">{multiCount}</span>
+          </button>
+          {venueOptions.length > 1 && (
+            <NetworkFilter
+              options={venueOptions}
+              value={venue === "all" || venue === "multi" ? null : (`pv:${venue}` as NetworkKey)}
+              onChange={(key) => setVenue(key ? (key.slice(3) as PerpVenueId) : "all")}
+              labels={VENUE_PICKER_LABELS}
+            />
+          )}
         </div>
       </div>
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-auto">
