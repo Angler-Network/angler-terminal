@@ -807,7 +807,8 @@ dependency versions and design are free to diverge from angler-news.
   once per 20s) has the bot give the role of the current level and 30-day VIP tier and take back managed roles moved
   past (`roleChanges`: roles the feature doesn't manage are never touched); unlinking takes them all back. No gateway
   or always-on bot: plain REST calls with `DISCORD_BOT_TOKEN`. Env in `.env.example` (`DISCORD_CLIENT_ID/SECRET`,
-  `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_LEVEL_ROLES`, `DISCORD_VIP_ROLES`); unset, the card is hidden.
+  `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_LEVEL_ROLES`, `DISCORD_VIP_ROLES`); unset, or on the testnet site
+  (`readDiscordConfig` checks `NEXT_PUBLIC_DEPLOYMENT`), the card is hidden.
   Errors read plainly: 10007 = not in the server ("join first"), 50013 = the bot's role is too low or lacks Manage Roles.
 - Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
   `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks

@@ -24,6 +24,12 @@ describe("readDiscordConfig", () => {
     expect(readDiscordConfig({ ...base, DISCORD_GUILD_ID: "abc", DISCORD_VIP_ROLES: `1=${ID(20)}` })).toBeNull();
     expect(readDiscordConfig({ ...base, DISCORD_VIP_ROLES: `0=${ID(20)},5=${ID(21)}` })).toBeNull();
   });
+
+  it("is off on the testnet site", () => {
+    const roles = { ...base, DISCORD_VIP_ROLES: `1=${ID(20)}` };
+    expect(readDiscordConfig({ ...roles, NEXT_PUBLIC_DEPLOYMENT: "testnet" })).toBeNull();
+    expect(readDiscordConfig({ ...roles, NEXT_PUBLIC_DEPLOYMENT: "mainnet" })).not.toBeNull();
+  });
 });
 
 describe("roles to give", () => {

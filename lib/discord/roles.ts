@@ -12,6 +12,7 @@ import { LEVELS } from "@/lib/profile/levels";
  * - DISCORD_GUILD_ID: the server.
  * - DISCORD_LEVEL_ROLES: `Minnow=<role id>,Perch=<role id>,…` (level names or numbers 1-10), any subset.
  * - DISCORD_VIP_ROLES: `1=<role id>,2=<role id>,…` (VIP tiers 1-4; VIP 0 has none), any subset.
+ * Never on the testnet site (`NEXT_PUBLIC_DEPLOYMENT=testnet`): levels earned with test funds earn no roles.
  */
 
 export interface DiscordConfig {
@@ -50,8 +51,9 @@ const vipKey = (key: string) => {
   return Number.isInteger(number) && number >= 1 && number <= 4 ? number : null;
 };
 
-/** The feature's settings, or null when it isn't set up (any credential missing, or no role to give). */
+/** The feature's settings, or null when it isn't set up (any credential missing, or no role to give) or on testnet. */
 export function readDiscordConfig(env: Record<string, string | undefined>): DiscordConfig | null {
+  if (env.NEXT_PUBLIC_DEPLOYMENT?.trim().toLowerCase() === "testnet") return null;
   const clientId = env.DISCORD_CLIENT_ID?.trim() ?? "";
   const clientSecret = env.DISCORD_CLIENT_SECRET?.trim() ?? "";
   const botToken = env.DISCORD_BOT_TOKEN?.trim() ?? "";
