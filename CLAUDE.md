@@ -302,7 +302,7 @@ dependency versions and design are free to diverge from angler-news.
     makes it a cross-chain swap in one LI.FI route (`use-cross-swap.ts`: buying, the EVM wallet sends and the Solana
     token lands in the Solana wallet; selling, the reverse; needs both wallets; Jupiter isn't asked). `sourceChainById`
     knows every swap chain, so cross-chain sends from BNB Chain, Polygon… work in both swap cards. Profile
-    points count a swap's USDC change, so non-USDC swaps don't earn points yet.
+    points count a swap's USDC change, or, without one (SOL → token), our referral fee priced over our rate.
     On /swap the panel under the chart is the traded token's activity (`swap-holdings.tsx`), not perp positions, from
     free sources only (a paid indexer such as Birdeye would add per-holder bought/sold and full wallet PnL):
     Swaps = its busiest pool's last 300 trades (`GET /api/spot/trades`, GeckoTerminal/CoinGecko on-chain
@@ -397,8 +397,8 @@ dependency versions and design are free to diverge from angler-news.
     (`venue.ts`, on demand): balance, `check_approval` (one-time Permit2 approve, needs ETH gas), a fresh quote for
     the wallet, Permit2 EIP-712 signature (`permitPrimaryType`), then `routing` decides: CLASSIC/WRAP/UNWRAP →
     `/swap` + the wallet sends the tx (received amount from Transfer logs), DUTCH_V2/V3/PRIORITY → `/order`, gasless,
-    polled through `/orders` until filled. `readUniswapTx` refuses empty calldata. Uniswap volume doesn't earn profile
-    points yet; analytics records venue `uniswap`.
+    polled through `/orders` until filled. `readUniswapTx` refuses empty calldata. Uniswap volume earns profile
+    points (`claimEvmSwapPoints`, see Profile); analytics records venue `uniswap`.
   - Uniswap on EVM chains (`lib/venues/uniswap/chains.ts`: Base, Arbitrum, Ethereum, each with USDC/ETH/WETH/USDT to
     pay with; native ETH is the zero address `NATIVE_TOKEN`: no approval, sent as the tx value, priced and charted as
     WETH, "Max" keeps a gas reserve). BNB Chain (56) too: USDT first (its USDT and USDC have 18 decimals), native BNB
@@ -459,7 +459,7 @@ dependency versions and design are free to diverge from angler-news.
     balances over each chain's public RPC, a debounced Uniswap quote, `uniswapSwap` with the viem chain) instead of the
     Solana/Robinhood card. `useEvmToken` reads the list, else the search by address plus the contract's decimals. The
     chart and the activity panel use GeckoTerminal networks `eth`/`base`/`arbitrum`. Swaps are recorded per wallet
-    (`SwapRecord.chain`), counted in analytics as `uniswap`, not in profile points yet.
+    (`SwapRecord.chain`), counted in analytics as `uniswap` and in profile points (`claimEvmSwapPoints`, see Profile).
     Cross-chain: the card's other side is any token on any chain, picked in the market search's EVM pick mode
     (`pickToken({ scope: "evm" })`: Uniswap tokens of every chain, the chains' USDC/ETH, USDG on Robinhood and, buying,
     the Hyperliquid balance pinned first, plus SOL and USDC on Solana; the list adds every Jupiter token). Same chain →
@@ -586,7 +586,7 @@ dependency versions and design are free to diverge from angler-news.
     price cap, one wallet signature each. L2 credentials stay in sessionStorage for the tab. Polymarket's
     `/api/geoblock` runs in the browser first; blocked or unreachable (Turkey's DNS block) means no trading. Funding:
     `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
-    there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume doesn't earn profile points yet.
+    there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume earns profile points from our builder trades (see Profile).
 - Vaults (`/vaults`, sidebar/top bar/phone menu; `lib/vaults/*`, `components/vaults/vaults-view.tsx`): every perp venue's
   vaults in one table, read-only (Deposit opens the venue's own page), public like `/` (the invite gate skips it; in the
   sitemap). Sources, all keyless: Hyperliquid `stats-data.hyperliquid.xyz/{Mainnet|Testnet}/vaults` (every vault ever,
@@ -819,7 +819,7 @@ dependency versions and design are free to diverge from angler-news.
   1x; volume moved from a linked wallet carries its bonus but earns none again. The account panel's Lighter section shows a "Switch to Plus" card on Standard accounts
   (`LighterTierCard`): `changeAccountTier` with `new_tier: "plus"` (confirmed by Lighter's own lighter-ts `UserTier`; `accountLimits.user_tier` reads "std" / "plus" / "premium") and the browser key's auth token, then `approveLighterIntegrator` again (Standard
   approved a zero fee; `integratorState` asks again once the tier is paid). The setup state carries `tier` from
-  `accountLimits`. Arcus volume doesn't count yet. The portfolio lives under the profile (`/portfolio` redirects).
+  `accountLimits`. Arcus volume counts with `ARCUS_FEE_RECIPIENT` set (see EVM swaps above). The portfolio lives under the profile (`/portfolio` redirects).
   VIP (`lib/profile/vip.ts`): the 30-day volume sets a share of the configured fee (base 3.5 bps: VIP 1-4 pay 3.25 / 3 /
   2.75 / 2.5). It applies only where the order carries our fee and the browser signs it: the Hyperliquid builder fee
   (perps, spot, HIP-4), the Lighter and Lighter RH integrator fees and the Aster builder fee. Swaps, bridges, Orderly
@@ -841,8 +841,8 @@ dependency versions and design are free to diverge from angler-news.
   (`readDiscordConfig` checks `NEXT_PUBLIC_DEPLOYMENT`), the card is hidden.
   Errors read plainly: 10007 = not in the server ("join first"), 50013 = the bot's role is too low or lacks Manage Roles.
 - Community links (`components/app/social-links.tsx`): Discord, Telegram and X from `NEXT_PUBLIC_DISCORD_URL`,
-  `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown as small marks
-  under Settings in the sidebar, at the bottom of the account menu (top navigation has no rail), in the phone menu, in
+  `NEXT_PUBLIC_TELEGRAM_URL`, `NEXT_PUBLIC_X_URL` (https only; an unset one is hidden everywhere). Shown at the bottom of
+  the account menu (top navigation has no rail), in the phone menu, in
   the home page footer, and on the invite gate as "Get an invite on Discord".
 - Closed beta gate (`components/profile/access-gate.tsx`, root layout): every page but `/` and `/vaults` needs a wallet
   with `access` (admin, accepted invite or referral, or past volume). Admins switch it (Profile → Admin → Closed beta,
