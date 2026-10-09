@@ -32,6 +32,8 @@ import { Picker, type PickerOption } from "./inline-picker";
 import { useSelectedAsset } from "./selected-asset";
 import { useSolanaWallet } from "./solana-wallet-provider";
 import { useSolanaBalance } from "./use-solana-balance";
+import { foreignFromChoice, useCrossSwap } from "./use-cross-swap";
+import { EVM_SWAP_CHAINS, evmRef, isNativeToken } from "@/lib/venues/uniswap/chains";
 import { CoinIcon } from "./token-icon";
 import { useTrading } from "./trading-provider";
 import { continueLabel, errorMessage, stepLabel, units6, useFundsRun } from "./use-funds-run";
@@ -463,12 +465,17 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     : { symbol: choice.arcusToken.symbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood", kind: "stock" as const };
   // Solana swaps pay with (or pay out in) any token: USDC by default, SOL, USDT or another priced token in the wallet.
   const [picked, setPicked] = useState<TokenChoice | null>(null);
-  const payMint = isSolana && picked && picked.mint !== choice.token.mint ? picked.mint : USDC_MINT;
+  // A token on another chain (BNB Chain's USDT, ETH on Base…): the swap crosses chains in one LI.FI route.
+  const foreign = isSolana ? foreignFromChoice(picked) : null;
+  const payMint = isSolana && picked && !foreign && picked.mint !== choice.token.mint ? picked.mint : USDC_MINT;
   const solanaPay = usePayToken(isSolana ? payMint : null);
-  const payIsDollar = !isSolana || DOLLARS.has(payMint);
+  // A foreign pay token counts as a dollar only when it is one (USDT on BNB Chain, not ETH on Base).
+  const payIsDollar = foreign ? /^(USD|vbUSD)/i.test(foreign.symbol) : !isSolana || DOLLARS.has(payMint);
   const sellIsSol = isSolana && (side === "buy" ? payMint === WSOL_MINT : choice.token.mint === WSOL_MINT);
   const payPrice = !isSolana || payMint === USDC_MINT ? 1 : solanaPay?.usdPrice;
-  const stable = isSolana
+  const stable = foreign
+    ? { symbol: foreign.symbol, icon: foreign.icon, chain: foreign.chain.id, chainName: foreign.chain.name }
+    : isSolana
     ? { symbol: solanaPay?.symbol ?? (payMint === picked?.mint ? picked.symbol : "USDC"), icon: payMint === USDC_MINT ? undefined : (solanaPay?.icon ?? picked?.icon), chain: "solana" as const, chainName: "Solana" }
     : { symbol: arcusConfig.quoteSymbol, icon: undefined, chain: arcusConfig.chainId, chainName: "Robinhood" };
   const holdings = useSpotHoldings();
@@ -478,6 +485,17 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const balances = useSwapBalances(choice, owner, refresh, payMint);
 
   const value = Number(amount);
+  const crossSwap = useCrossSwap({
+    solana: isSolana ? { mint: choice.token.mint, symbol: choice.token.symbol, decimals: choice.token.decimals } : { mint: "", symbol: "", decimals: 0 },
+    foreign,
+    side,
+    amount,
+    evmAddress,
+    solanaAddress,
+    slippageBps,
+    refresh,
+    solanaPrice: isSolana ? choice.token.usdPrice : undefined,
+  });
   // Buying an Arcus stock with dollars held elsewhere: bridge to USDG on Robinhood first (`bridge-routes.ts`), then swap.
   const crossAllowed = !isSolana && side === "buy" && arcusConfig.network === "mainnet";
   const solPay = crossAllowed && (payFrom === "solanaUsdc" || payFrom === "solanaSol");
@@ -509,9 +527,19 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const crossKey = acrossStep && acrossInput && acrossInput > 0n && evmAddress ? `${acrossStep.from.chainId}:${acrossInput}:${evmAddress}` : null;
   const crossLine = crossQuote && crossQuote.key === crossKey ? crossQuote : null;
   const crossOut = crossLine?.out !== undefined ? units6(crossLine.out) : null;
-  const sizeUsd = solPay ? (solOut ?? 0) : cross ? (crossOut ?? 0) : side === "buy" ? (value > 0 && payPrice ? value * payPrice : 0) : swapSizeUsd("sell", value, price);
+  const sizeUsd = foreign
+    ? (side === "buy" ? (crossSwap.receive ?? 0) : value) * (price ?? 0)
+    : solPay
+      ? (solOut ?? 0)
+      : cross
+        ? (crossOut ?? 0)
+        : side === "buy"
+          ? value > 0 && payPrice
+            ? value * payPrice
+            : 0
+          : swapSizeUsd("sell", value, price);
   const { quotes, loading } = useSpotQuotes({
-    token: isSolana ? choice.token : null,
+    token: isSolana && !foreign ? choice.token : null,
     side,
     sizeUsd,
     taker: solanaAddress,
@@ -534,7 +562,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   });
   const routeQuotes = isSolana ? quotes : rh.quotes;
   const routesLoading = isSolana ? loading : rh.loading;
-  const hasQuotes = isSolana || compareRh;
+  const hasQuotes = (isSolana && !foreign) || compareRh;
   const routeSources: SpotSource[] = isSolana ? ["jupiter", ...(preferences.venueTitan && venueAvailable("titan") && !preferences.privateSwap ? (["titan"] as const) : [])] : compareRh ? rhSources : [];
   const selected = pick ? routeQuotes.find((quote) => quote.source === pick) : routeQuotes.find((quote) => quote.outAmount !== null);
   // The Robinhood source the swap goes to: the pinned or best quote, else the first enabled one.
@@ -542,7 +570,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   const quoted = selected?.outAmount != null && selected.outputToken ? fromBaseUnits(selected.outAmount, selected.outputToken.decimals) : null;
   // Before a quote lands: the USD size at the asset's price (buys) or the pay token's (sells).
   const estimated = side === "buy" ? estimateReceive("buy", sizeUsd, price) : payPrice ? sizeUsd / payPrice : null;
-  const receive = sizeUsd > 0 ? (cross || solPay ? estimateReceive("buy", sizeUsd, price) : (quoted ?? estimated)) : null;
+  const receive = foreign ? crossSwap.receive : sizeUsd > 0 ? (cross || solPay ? estimateReceive("buy", sizeUsd, price) : (quoted ?? estimated)) : null;
   const payToken = solPay
     ? { symbol: payFrom === "solanaSol" ? "SOL" : "USDC", chain: "solana" as const, chainName: "Solana" }
     : {
@@ -552,8 +580,9 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       };
   const sell = cross || solPay ? payToken : side === "buy" ? stable : asset;
   const buy = side === "buy" ? asset : stable;
-  const sellBalance = solPay ? solBalance : cross ? payBalance : balances ? (side === "buy" ? balances.stable : balances.asset) : null;
-  const receiveUsd = receive === null ? null : side === "buy" ? (solPay ? solOut : cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
+  const sellBalance = foreign && side === "buy" ? crossSwap.balance : solPay ? solBalance : cross ? payBalance : balances ? (side === "buy" ? balances.stable : balances.asset) : null;
+  const receiveUsd =
+    receive === null ? null : foreign ? (side === "buy" ? (price ? receive * price : null) : sizeUsd || null) : side === "buy" ? (solPay ? solOut : cross ? crossOut : price ? receive * price : null) : payPrice ? receive * payPrice : null;
   // What one asset token costs in this swap (the quote's own rate once it's in).
   const rate = receive && value > 0 ? (side === "buy" ? value / receive : receive / value) : price;
   // Arcus alone (no Uniswap to compare, e.g. testnet) and it has no quote: say so before any amount is typed.
@@ -562,6 +591,8 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
     ? arcusUnavailable
     : !(value > 0)
     ? null
+    : foreign && crossSwap.error
+      ? crossSwap.error
     : solPay && solLine?.error
       ? solLine.error
     : cross && crossRoute?.kind !== "steps"
@@ -579,10 +610,13 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
           : null;
   const unverified = isSolana && !choice.token.isVerified ? choice.token : null;
   const needsAck = unverified !== null && side === "buy" && acknowledged !== unverified.mint;
-  const viaRoute = hasQuotes ? routeText(selected?.route) : null;
+  const viaRoute = foreign ? crossSwap.route : hasQuotes ? routeText(selected?.route) : null;
   // Paying from Solana needs both wallets: Solana signs, the EVM wallet receives the USDG and signs the Arcus swap.
   const needsSolana = solPay && !solanaAddress;
-  const canSwap = Boolean(owner) && !needsSolana && sizeUsd > 0 && !error && !isPlacing && !locked && !needsAck;
+  // Crossing chains needs both wallets: one sends, the other receives.
+  const needsEvm = foreign !== null && !evmAddress;
+  const canSwap =
+    Boolean(owner) && !needsSolana && !needsEvm && (foreign ? crossSwap.receive !== null && !crossSwap.sending : sizeUsd > 0) && !error && !isPlacing && !locked && !needsAck;
 
   // Debounced bridge quote (Across, Relay or LI.FI, the best one) for a cross-chain payment: what USDG lands on Robinhood for this USDC.
   useEffect(() => {
@@ -723,10 +757,18 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
   };
 
   const submit = async () => {
-    if (!owner || needsSolana) return openWallets();
+    if (!owner || needsSolana || needsEvm) return openWallets();
     if (!canSwap) return;
     if (!armed && !preferences.oneClickTrading) return setArmed(true);
     setArmed(false);
+    if (foreign) {
+      setIsPlacing(true);
+      const sent = await crossSwap.execute({ evmProvider: evmWallet?.provider ?? null, signSolana: signSolana ?? null });
+      setIsPlacing(false);
+      if (sent) setAmount("");
+      setRefresh((count) => count + 1);
+      return;
+    }
     if (cross && units !== null) return void execute({ steps: crossSteps, index: 0, phase: "ready", carry: units });
     if (solPay) {
       if (!solUnits || !evmAddress || !evmWallet || !signSolana) return;
@@ -833,15 +875,31 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       .filter((holding) => !COMMON_PAY.some((entry) => entry.mint === holding.mint))
       .map((holding) => ({ mint: holding.mint, symbol: holding.symbol, icon: holding.icon ?? undefined, price: holding.usdPrice ?? undefined })),
   ];
+  // The other chains' dollars and gas coins, pinned after Solana's (like the EVM card's picker).
+  const pinnedOtherChains: TokenChoice[] = EVM_SWAP_CHAINS.flatMap((entry) =>
+    entry.pay
+      .filter((payToken, index) => index === 0 || isNativeToken(payToken.address))
+      .map((payToken) => ({
+        mint: evmRef(entry.id, payToken.address),
+        symbol: payToken.symbol,
+        name: `${payToken.symbol} on ${entry.name}`,
+        chainId: entry.id,
+        decimals: payToken.decimals,
+        verified: true,
+        source: entry.name,
+      })),
+  );
   const stablePill = isSolana ? (
     <button
       type="button"
       aria-label={side === "buy" ? "Pay with" : "Receive"}
-      title="Pick any Solana token"
+      title="Pick any token on any chain"
       onClick={() =>
         pickToken({
           title: side === "buy" ? "Pay with" : "Receive",
-          pinned: pinnedPay,
+          // Every chain: a token elsewhere makes it a cross-chain swap (LI.FI).
+          scope: "evm",
+          pinned: [...pinnedPay, ...pinnedOtherChains],
           exclude: choice.token.mint,
           onPick: (token) => {
             setPicked(token);
@@ -970,6 +1028,14 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
         // The asset has no token of its own name on Solana: say which token the swap actually trades.
         <p className="text-[11px] leading-snug text-app-faint">
           Trades <span className="font-semibold text-app-muted">{choice.token.symbol}</span> ({choice.token.name}), the most traded {symbol} on Solana right now.
+        </p>
+      )}
+      {foreign && (
+        <p className="rounded-xl border border-app-hairline p-2.5 text-[12px] text-app-ink">
+          Cross-chain in one step: {side === "buy" ? `your ${foreign.symbol} on ${foreign.chain.name} becomes ${asset.symbol} in your Solana wallet` : `your ${asset.symbol} becomes ${foreign.symbol} in your EVM wallet on ${foreign.chain.name}`}{" "}
+          through {crossSwap.route ?? "LI.FI"}. Both wallets are needed; {side === "buy" ? `a little ${foreign.chain.pay.find((token) => isNativeToken(token.address))?.symbol ?? "ETH"} on ${foreign.chain.name} pays the gas` : "a little SOL pays the fee"}.
+          {crossSwap.feeUsd !== null && <span className="text-app-muted"> Route fee {crossSwap.feeUsd < 0.01 ? "< $0.01" : `$${crossSwap.feeUsd.toFixed(2)}`}.</span>}
+          {crossSwap.pending && <span className="text-app-muted"> On its way… we&apos;ll tell you when it lands.</span>}
         </p>
       )}
       {solPay && (
@@ -1135,7 +1201,7 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
       ) : (
         <button
           type="button"
-          disabled={Boolean(owner) && !needsSolana && !canSwap}
+          disabled={Boolean(owner) && !needsSolana && !needsEvm && !canSwap}
           onClick={() => void submit()}
           className={`h-11 rounded-xl text-[14px] font-semibold transition-colors disabled:opacity-50 ${
             armed ? "bg-app-ink text-app-card" : "bg-app-accent text-app-on-accent hover:opacity-90"
@@ -1145,12 +1211,14 @@ export function SwapCard({ choices }: { choices: SpotChoice[] }) {
             ? `Connect ${walletName} wallet`
             : needsSolana
               ? "Connect Solana wallet"
+              : needsEvm
+                ? "Connect EVM wallet"
               : isPlacing
               ? "Confirm in your wallet…"
               : armed
                 ? `Confirm: ${amountText(value)} ${sell.symbol} → ${buy.symbol}`
                 : value > 0
-                  ? `${cross || solPay ? "Bridge & swap" : "Swap"} ${amountText(value)} ${sell.symbol} → ${buy.symbol}`
+                  ? `${cross || solPay || foreign ? "Bridge & swap" : "Swap"} ${amountText(value)} ${sell.symbol} → ${buy.symbol}`
                   : "Enter an amount"}
         </button>
       )}

@@ -291,7 +291,11 @@ dependency versions and design are free to diverge from angler-news.
     (the market search window in pick mode, `useAssetSearch().pickToken`: Solana tokens only, every one of them,
     USDC/SOL/USDT and the wallet's tokens first, the live search by ticker/name/address and "Use this address" for a
     pasted mint; picking a row sets the pay token instead of the chart); `quoteMint` rides on the trade and quotes
-    (`jupiterVenue.quoteToken(mint)`, USD size = amount × the token's price; "Max" keeps 0.01 SOL for fees). Profile
+    (`jupiterVenue.quoteToken(mint)`, USD size = amount × the token's price; "Max" keeps 0.01 SOL for fees). The picker is
+    multi-chain (`scope: "evm"`, the other chains' dollars and gas coins pinned after Solana's): a token on an EVM chain
+    makes it a cross-chain swap in one LI.FI route (`use-cross-swap.ts`: buying, the EVM wallet sends and the Solana
+    token lands in the Solana wallet; selling, the reverse; needs both wallets; Jupiter isn't asked). `sourceChainById`
+    knows every swap chain, so cross-chain sends from BNB Chain, Polygon… work in both swap cards. Profile
     points count a swap's USDC change, so non-USDC swaps don't earn points yet.
     On /swap the panel under the chart is the traded token's activity (`swap-holdings.tsx`), not perp positions, from
     free sources only (a paid indexer such as Birdeye would add per-holder bought/sold and full wallet PnL):
@@ -343,7 +347,12 @@ dependency versions and design are free to diverge from angler-news.
     out like the swap card: a From box (venue or wallet picker, balance or Hyperliquid withdrawable, amount, token
     pill, 25/50/75/Max), a flip arrow, a To box (what arrives after fees and the bridge quote, destination picker, token
     pill), then route/fee/time, the conversion note, the steps and the button. (It was one sentence, "Move [amount]
-    [token] from … to …".) The
+    [token] from … to …".) The wallet side lists every swap chain (`FUNDS_CHAINS`, `fundsChainSource`: the chain's
+    main dollar with its decimals, e.g. USDT with 18 on BNB Chain); the four `WALLET_CHAINS` stay the swap cards' bridge
+    path. Amounts go through `tokenUnits` / `fromTokenUnits` / `decimalsOf`, never a fixed 6; `chainFor` resolves any
+    swap chain (viem's definition or one from the config) and throws on an unknown one rather than signing on
+    Arbitrum. Bridge legs from the new chains run on Relay or LI.FI (Across covers few); step labels name each chain's
+    gas coin (BNB, POL…). The
     wallet side is a token picker (USDC · Arbitrum, USDC · Base, USDG · Robinhood Chain, where Arcus trades): the
     sending one sits right after the amount, a venue source shows its fixed token there instead; venue options show
     their margin token. Token and chain logos are self-hosted (`public/tokens`, `public/chains`; Across's token list
