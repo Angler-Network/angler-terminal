@@ -12,7 +12,8 @@ type SelectSize = "md" | "sm" | "xs" | "ghost";
 interface SelectFieldProps<T extends string> {
   label: string;
   value: T;
-  options: { value: T; label: string }[];
+  /** `icon` (a venue or token logo) shows before the label, in the list and on the trigger. */
+  options: { value: T; label: string; icon?: React.ReactNode }[];
   onChange: (value: T) => void;
   /** Width and extra classes for the trigger button. */
   className?: string;
@@ -198,6 +199,7 @@ export function SelectField<T extends string>({
           isOpen ? trigger.open : trigger.idle
         }`}
       >
+        {selected?.icon}
         <span className="min-w-0 flex-1 truncate tabular-nums">{selected?.label}</span>
         <ChevronDown
           className={`${trigger.chevron} shrink-0 opacity-70 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -228,6 +230,7 @@ export function SelectField<T extends string>({
                 compact ? "py-1.5 pl-2.5 pr-2 text-[12px]" : "py-2 pl-3 pr-2.5 text-[14px]"
               } ${index === activeIndex ? "bg-app-chip" : ""} ${isSelected ? "font-semibold" : ""}`}
             >
+              {option.icon}
               <span className="flex-1">{option.label}</span>
               <Check className={`${compact ? "size-3.5" : "size-4"} shrink-0 text-app-accent ${isSelected ? "" : "invisible"}`} aria-hidden />
             </li>

@@ -9,6 +9,7 @@ import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
 import { useOrderBook } from "./use-order-book";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 import { SelectField } from "@/components/app/select-field";
 
 /** Levels per side; the sides scroll, so more than fit on screen are worth having. */
@@ -237,7 +238,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
             label="Venue"
             value={isAll ? "all" : (market?.venue ?? "all")}
             onChange={setView}
-            options={[{ value: "all", label: "All venues" }, ...choices.map((entry) => ({ value: entry.venue, label: PERP_VENUE_NAMES[entry.venue] }))]}
+            options={[{ value: "all", label: "All venues" }, ...choices.map((entry) => ({ value: entry.venue, label: PERP_VENUE_NAMES[entry.venue], icon: <VenueLogo name={PERP_VENUE_NAMES[entry.venue]} size={14} /> }))]}
           />
         ) : (
           market && <span className="ml-auto text-[11px] text-app-faint">{PERP_VENUE_NAMES[market.venue]}</span>

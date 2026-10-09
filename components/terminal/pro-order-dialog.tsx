@@ -19,6 +19,7 @@ import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { useModalEnter } from "@/components/app/use-motion";
 import { RangeSlider } from "@/components/app/range-slider";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 import { SelectField } from "@/components/app/select-field";
 
 type Mode = "hedge" | "multi";
@@ -81,7 +82,7 @@ function VenueSelect({ venues, value, onChange, label }: { venues: PerpVenueId[]
       label={label}
       value={value}
       onChange={onChange}
-      options={venues.map((venue) => ({ value: venue, label: PERP_VENUE_NAMES[venue] }))}
+      options={venues.map((venue) => ({ value: venue, label: PERP_VENUE_NAMES[venue], icon: <VenueLogo name={PERP_VENUE_NAMES[venue]} size={16} /> }))}
     />
   );
 }
