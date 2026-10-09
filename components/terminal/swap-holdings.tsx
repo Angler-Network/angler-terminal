@@ -134,16 +134,19 @@ export function SwapHoldings() {
   const sameWallet = (address: string) => (network === "solana" ? address === wallet : address.toLowerCase() === wallet?.toLowerCase());
   const shownTrades = (trades?.trades ?? []).filter((trade) => trade.usd >= minSize);
   const mine = token
-    ? [
-        ...history
+    ? (() => {
+        // Swaps made here, once per transaction; the pool's trades from this wallet, once per swap (a transaction can
+        // hold several), minus those of a transaction already recorded here.
+        const recorded = history
           .filter((record) => record.token === token.address)
-          .map((record) => ({ tx: record.tx, at: record.at, side: record.side, amount: record.amount, usd: record.usd, here: true })),
-        ...(trades?.trades ?? [])
-          .filter((trade) => wallet && sameWallet(trade.trader))
-          .map((trade) => ({ tx: trade.tx, at: trade.at, side: trade.side, amount: trade.amount, usd: trade.usd, here: false })),
-      ]
-        .filter((trade, index, list) => list.findIndex((other) => other.tx === trade.tx) === index)
-        .sort((a, b) => b.at - a.at)
+          .filter((record, index, list) => list.findIndex((other) => other.tx === record.tx) === index)
+          .map((record) => ({ key: `angler:${record.tx}`, tx: record.tx, at: record.at, side: record.side, amount: record.amount, usd: record.usd, here: true }));
+        const ownTxs = new Set(recorded.map((trade) => trade.tx));
+        const onChain = (trades?.trades ?? [])
+          .filter((trade) => wallet && sameWallet(trade.trader) && !ownTxs.has(trade.tx))
+          .map((trade, index) => ({ key: trade.id ?? `${trade.tx}:${index}`, tx: trade.tx, at: trade.at, side: trade.side, amount: trade.amount, usd: trade.usd, here: false }));
+        return [...recorded, ...onChain].sort((a, b) => b.at - a.at);
+      })()
     : [];
 
   const tabs: Array<{ id: Tab; label: string; count?: string }> = [
@@ -226,8 +229,8 @@ export function SwapHoldings() {
                 </tr>
               </thead>
               <tbody>
-                {shownTrades.map((trade) => (
-                  <tr key={trade.tx} className="border-t border-app-hairline">
+                {shownTrades.map((trade, index) => (
+                  <tr key={trade.id ?? `${trade.tx}:${index}`} className="border-t border-app-hairline">
                     <td className={td}>
                       <a href={explorer.address(trade.trader)} target="_blank" rel="noopener noreferrer" className="font-mono hover:underline">
                         {shortAddress(trade.trader)}
@@ -347,7 +350,7 @@ export function SwapHoldings() {
               </thead>
               <tbody>
                 {mine.map((trade) => (
-                  <tr key={trade.tx} className="border-t border-app-hairline">
+                  <tr key={trade.key} className="border-t border-app-hairline">
                     <td className={`${td} text-app-muted`}>{new Date(trade.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
                     <td className={td}>
                       <Side side={trade.side} />

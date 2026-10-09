@@ -35,6 +35,15 @@ describe("token activity", () => {
     expect(readPoolTrades({ data: [{ attributes: { ...body.data[1].attributes, to_token_address: "0xAbC" } }] }, "robinhood", "0xabc")).toHaveLength(1);
   });
 
+  it("keys each swap on its own when one transaction holds several", () => {
+    const swap = { block_timestamp: "2026-10-07T18:07:00Z", tx_hash: "0xaa", tx_from_address: "0x1", from_token_address: SOL, to_token_address: CBBTC, from_token_amount: "1", to_token_amount: "0.0014", volume_in_usd: "117" };
+    const withIds = readPoolTrades({ data: [{ id: "eth_1_0xaa_3_1", attributes: swap }, { id: "eth_1_0xaa_7_1", attributes: swap }, { id: "eth_1_0xaa_7_1", attributes: swap }] }, "solana", CBBTC);
+    expect(withIds.map((trade) => trade.id)).toEqual(["eth_1_0xaa_3_1", "eth_1_0xaa_7_1"]);
+    const withoutIds = readPoolTrades({ data: [{ attributes: swap }, { attributes: swap }] }, "solana", CBBTC);
+    expect(withoutIds.map((trade) => trade.id)).toEqual(["0xaa:0", "0xaa:1"]);
+    expect(withoutIds.every((trade) => trade.tx === "0xaa")).toBe(true);
+  });
+
   it("merges largest accounts per owner with their share of supply", () => {
     const holders = readLargestHolders(
       [

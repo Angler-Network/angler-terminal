@@ -7,6 +7,11 @@ import type { PoolNetwork } from "./pool-candles";
  */
 
 export interface TokenTrade {
+  /**
+   * Unique per swap: GeckoTerminal's trade id (it carries the log index), else tx hash + position in the tx. One
+   * transaction can hold several swaps in the same pool, so `tx` alone isn't a key.
+   */
+  id: string;
   tx: string;
   /** Unix ms. */
   at: number;
@@ -25,6 +30,8 @@ const sameAddress = (network: PoolNetwork, a: unknown, b: string) =>
 export function readPoolTrades(body: unknown, network: PoolNetwork, token: string): TokenTrade[] {
   const data = (body as { data?: unknown } | null)?.data;
   if (!Array.isArray(data)) return [];
+  const perTx = new Map<string, number>();
+  const seen = new Set<string>();
   return data.flatMap((entry): TokenTrade[] => {
     const trade = ((entry as { attributes?: Record<string, unknown> })?.attributes ?? {}) as Record<string, unknown>;
     const bought = sameAddress(network, trade.to_token_address, token);
@@ -35,8 +42,15 @@ export function readPoolTrades(body: unknown, network: PoolNetwork, token: strin
     const usd = Number(trade.volume_in_usd);
     const at = Date.parse(String(trade.block_timestamp));
     if (typeof trade.tx_hash !== "string" || typeof trade.tx_from_address !== "string" || !Number.isFinite(at) || !(amount > 0)) return [];
+    const position = perTx.get(trade.tx_hash) ?? 0;
+    perTx.set(trade.tx_hash, position + 1);
+    const ownId = (entry as { id?: unknown }).id;
+    const id = typeof ownId === "string" && ownId ? ownId : `${trade.tx_hash}:${position}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
     return [
       {
+        id,
         tx: trade.tx_hash,
         at,
         trader: trade.tx_from_address,
