@@ -131,7 +131,8 @@ function PnlChart({ points }: { points: PnlPoint[] }) {
 function VenueCards({ rows, pnlByVenue, totalEquity }: { rows: VenueSummary[]; pnlByVenue: Partial<Record<PerpVenueId, number>>; totalEquity: number }) {
   if (rows.length === 0) return null;
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    // As many columns as fit, so five venues fill a row instead of stacking into a tall column beside the chart.
+    <div className="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))]">
       {rows.map((row) => {
         const share = totalEquity > 0 ? (row.accountValue / totalEquity) * 100 : 0;
         const pnl = pnlByVenue[row.venue];
@@ -367,13 +368,11 @@ export function PortfolioView() {
     <ConnectCard title="No EVM wallet connected" text="Connect an EVM wallet to see your Hyperliquid and Lighter perps here." onConnect={wallets.open} />
   ) : (
     <>
-      <div className={`grid gap-4 ${summaries.length > 0 ? "xl:grid-cols-[3fr_2fr]" : ""}`}>
-        <div className={`${card} p-4`}>
-          <h2 className="mb-1 text-[13px] font-semibold text-app-ink">Perp PnL, last {range} days</h2>
-          {history.loading ? <p className="py-12 text-center text-[13px] text-app-muted">Loading history…</p> : <PnlChart points={view.daily} />}
-        </div>
-        <VenueCards rows={summaries} pnlByVenue={view.pnlByVenue} totalEquity={total.accountValue} />
+      <div className={`${card} p-4`}>
+        <h2 className="mb-1 text-[13px] font-semibold text-app-ink">Perp PnL, last {range} days</h2>
+        {history.loading ? <p className="py-12 text-center text-[13px] text-app-muted">Loading history…</p> : <PnlChart points={view.daily} />}
       </div>
+      <VenueCards rows={summaries} pnlByVenue={view.pnlByVenue} totalEquity={total.accountValue} />
 
       <div className={`${card} overflow-hidden`}>
         <h2 className="border-b border-app-hairline px-4 py-2.5 text-[13px] font-semibold text-app-ink">
