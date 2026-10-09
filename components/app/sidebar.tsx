@@ -8,7 +8,6 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
-import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
 import { SOCIALS, SocialIcon } from "./social-links";
 import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
@@ -50,7 +49,7 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
 }
 
 /**
- * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, layout, then pro order, bridge
+ * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, then pro order, bridge
  * and small marks for the news site and the community links. It scrolls when a short screen can't fit it. Wallets, the profile and the
  * portfolio sit in the top bar's account menu.
  */
@@ -91,7 +90,6 @@ export function Sidebar() {
           <VaultsIcon className={iconClass(pathname === "/vaults")} active={pathname === "/vaults"} />
           <NavLabel>Vaults</NavLabel>
         </Link>
-        <LayoutMenu className={navItemClass(false)} iconClassName="size-[22px]" labelNode={<NavLabel>Layout</NavLabel>} />
       </nav>
 
       <nav aria-label={t("nav.secondary")} className="mt-auto flex flex-col gap-1 pt-[clamp(0.5rem,2vh,1rem)]">

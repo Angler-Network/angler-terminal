@@ -62,8 +62,8 @@ export function LayoutMenu({
 }: {
   className: string;
   labelNode: React.ReactNode;
-  /** Beside the rail, or under a top-bar button. */
-  placement?: "right" | "below";
+  /** Beside the rail, or under a top-bar button (from its left edge, or its right edge at the bar's right end). */
+  placement?: "right" | "below" | "below-end";
   iconClassName?: string;
 }) {
   const { preferences, updatePreference } = usePreferences();
@@ -82,8 +82,8 @@ export function LayoutMenu({
     const { width, height } = menu.getBoundingClientRect();
     const clamp = (value: number, size: number, limit: number) => Math.max(8, Math.min(value, limit - size - 8));
     setPosition(
-      placement === "below"
-        ? { left: clamp(anchor.left, width, window.innerWidth), top: clamp(anchor.bottom + 8, height, window.innerHeight) }
+      placement === "below" || placement === "below-end"
+        ? { left: clamp(placement === "below" ? anchor.left : anchor.right - width, width, window.innerWidth), top: clamp(anchor.bottom + 8, height, window.innerHeight) }
         : { left: clamp(anchor.right + 10, width, window.innerWidth), top: clamp(anchor.top - 8, height, window.innerHeight) },
     );
   }, [anchor, placement]);

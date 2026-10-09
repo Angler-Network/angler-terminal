@@ -234,7 +234,7 @@ dependency versions and design are free to diverge from angler-news.
   Spot trades refuse quotes with price impact above `MAX_SPOT_PRICE_IMPACT_PCT`.
 - Multi-venue trading UI (the product is now a multi perp DEX terminal, news is the differentiator):
   - Layout (`terminal-shell.tsx`): every panel but the chart can be hidden (`panels` preference: orderbook,
-    orderEntry, positions, news, account; edited from Layout in the sidebar (`layout-menu.tsx`: presets, panels,
+    orderEntry, positions, news, account; edited from the Layout icon in the top bar (`layout-menu.tsx`: presets, panels,
     sidebar/top bar) and Settings → Layout). Default columns: chart (rest of the width) | order book | trading column
     (order panel + account card on top, news under it, full height), with the positions running under both the chart
     and the order book (`positionsSpanRail`: whenever the order book has the column next to the chart); side widths use
@@ -688,9 +688,10 @@ dependency versions and design are free to diverge from angler-news.
   fields, xs panel headers, ghost inline text); sliders are `RangeSlider` (native input drawn by `.range-slider` in
   `globals.css`, `marks` as breaks in the track).
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Spot, CEX (Soon badge, `/cex` is
-  a coming-soon page until the view exists; `soon` in `market-nav.ts`), Prediction, Markets, Vaults, Layout, Pro order,
-  Bridge, then small marks for the news site and the community links; the rail scrolls on short screens; Settings is a
-  gear in the top bar next to the account control, `SettingsButton` in `app-frame.tsx`, desktop only: phones use More; the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
+  a coming-soon page until the view exists; `soon` in `market-nav.ts`), Prediction, Markets, Vaults, Pro order,
+  Bridge, then small marks for the news site and the community links; the rail scrolls on short screens; Layout and
+  Settings are icons in the top bar next to the account control (`LayoutMenu placement="below-end"`, `SettingsButton` in
+  `app-frame.tsx`), desktop only: phones use More; the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
   page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
   URL each: `/settings`, `/settings/rules`…; `openSettings(section)` navigates there, `closeSettings` returns to the
   page the user came from, the terminal when they landed on it), built from the copied angler-news `form-controls`,
@@ -781,7 +782,7 @@ dependency versions and design are free to diverge from angler-news.
   Referrals: `?ref=<username or address>` is kept in localStorage; the profile page applies it with a signed
   "Use referral code" message (`POST /api/profile/referral`, once, never changed). The referrer earns 10% of the
   referred profile's volume after joining as points (`refUsd`, `REFERRAL_SHARE`), never a referrer's own bonus.
-  The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is in the sidebar).
+  The top bar has one account control (`profile-button.tsx`): Connect, then a dropdown with Profile, Portfolio, Referrals, Wallets (Layout is an icon in the top bar).
   Aster (builder trades) and Orderly (broker leaderboard, closed days) count too. Lighter and Lighter RH volume from a
   Standard account (the trade's own-side `maker_fee`/`taker_fee` is zero or absent: no Lighter fee, so none of ours)
   earns half points (`STANDARD_POINTS_SHARE`, stored as `half:{venue}`; the volume itself counts in full for totals,

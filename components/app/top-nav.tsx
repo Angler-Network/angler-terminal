@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
-import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
 import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon } from "./nav-icons";
 
@@ -41,7 +40,6 @@ export function TopNav() {
         <VaultsIcon className={`size-[18px] ${pathname === "/vaults" ? "text-app-accent" : ""}`} active={pathname === "/vaults"} />
         <span className={label}>Vaults</span>
       </Link>
-      <LayoutMenu placement="below" className={itemClass(false)} iconClassName="size-[18px]" labelNode={<span className={label}>Layout</span>} />
       <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={itemClass(false)}>
         <NewsIcon className="size-[18px]" />
         <span className={label}>News</span>
