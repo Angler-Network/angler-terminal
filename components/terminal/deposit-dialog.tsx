@@ -1,10 +1,11 @@
 "use client";
 
 
-import { ArrowLeftRight, ExternalLink, Wallet, X } from "lucide-react";
+import { ArrowDown, ExternalLink, Wallet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CoinIcon, stableLogo } from "./token-icon";
 import { Picker, type PickerOption } from "./inline-picker";
+import { amountSize, pillClass } from "./swap-card";
 import { formatPrice } from "@/lib/format";
 import { lighterIntentAddress, readUsdcBalance } from "@/lib/venues/deposit-client";
 import { isLighterVenue, lighterConfigs } from "@/lib/venues/lighter/config";
@@ -254,6 +255,7 @@ export function DepositDialog() {
       options={chainOptions}
       onChange={(chain) => setChains((current) => ({ ...current, [side]: chain }))}
       disabled={locked}
+      buttonClassName={`${pillClass} hover:bg-app-selected disabled:opacity-60`}
     />
   );
   const fromName = endpointName(from);
@@ -272,9 +274,12 @@ export function DepositDialog() {
         : steps[0].kind === "hlWithdraw"
           ? Math.max(0, value - HL_WITHDRAW_FEE_USDC)
           : value;
-  const sendWhere = from === "wallet" && input ? `Wallet · ${input.name}` : fromName;
-  const receiveWhere = to === "wallet" && output ? `Wallet · ${output.name}` : toName;
   const showSteps = steps.length > 1 || acrossStep !== null;
+  // What the From side holds: the wallet's balance of the token, or what Hyperliquid lets you withdraw.
+  const available = fromWallet && balance !== null ? units6(balance) : from === "hyperliquid" && withdrawable !== undefined ? withdrawable : null;
+  const box = "flex flex-col gap-2 rounded-2xl border border-app-hairline bg-app-chip/30 p-3";
+  const endpointPill =
+    "inline-flex h-7 items-center gap-1.5 rounded-full bg-app-chip pl-1 pr-2 text-[13px] font-semibold text-app-ink hover:bg-app-selected disabled:opacity-60 disabled:hover:bg-app-chip";
   const activeStep = run ? run.index : 0;
 
   return (
@@ -307,32 +312,61 @@ export function DepositDialog() {
           onChange={pickKind}
         />
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2.5 text-[18px] leading-tight text-app-muted">
-          Move
-          {route.kind !== "faucet" && (
-            <input
-              aria-label={`${token} amount`}
-              inputMode="decimal"
-              placeholder="0"
-              value={amount}
-              disabled={locked}
-              onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
-              className="w-24 rounded-lg border border-app-field-border bg-app-field px-2 py-0.5 text-[18px] font-semibold tabular-nums text-app-ink outline-hidden focus:border-app-ink"
-            />
-          )}
-          {route.kind === "faucet" ? (
-            "test USDC"
-          ) : from === "wallet" ? (
-            chainPicker("from")
-          ) : (
-            // A venue holds one stablecoin, so its side shows the token instead of a picker.
-            <span className="inline-flex items-center gap-1.5 font-semibold text-app-ink">
-              <TokenIcon token={venueSource} size={20} showChain={false} />
-              {venueSource.symbol}
-            </span>
-          )}
-          from
-          <Picker label="From" value={from} options={endpointOptions} onChange={pickFrom} disabled={locked} />
+        {/* Like the swap card: what leaves (From), a flip, what arrives (To). */}
+        <div className="relative flex flex-col gap-1">
+          <div className={box}>
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="text-app-muted">From</span>
+              <Picker label="From" value={from} options={endpointOptions} onChange={pickFrom} disabled={locked} buttonClassName={endpointPill} />
+              {available !== null && route.kind === "steps" && (
+                <span className="ml-auto text-app-faint">
+                  {from === "hyperliquid" ? "Withdrawable" : "Balance"} <span className="font-semibold tabular-nums text-app-ink">{formatPrice(available)}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {route.kind === "faucet" ? (
+                <span className="min-w-0 flex-1 text-[15px] font-semibold text-app-muted">Test USDC from the faucet</span>
+              ) : (
+                <input
+                  aria-label={`${token} amount`}
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={amount}
+                  disabled={locked}
+                  onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
+                  className={`min-w-0 flex-1 bg-transparent ${amountSize(amount)} font-semibold tabular-nums text-app-ink outline-hidden placeholder:text-app-faint`}
+                />
+              )}
+              {from === "wallet" ? (
+                chainPicker("from")
+              ) : (
+                // A venue holds one stablecoin, so its side shows the token instead of a picker.
+                <span className={pillClass}>
+                  <TokenIcon token={venueSource} size={22} showChain={false} />
+                  {venueSource.symbol}
+                </span>
+              )}
+            </div>
+            {route.kind !== "faucet" && (
+              <div className="flex items-center gap-1.5 text-[12px]">
+                <span className="mr-auto tabular-nums text-app-faint">{value > 0 ? `≈ ${formatPrice(value)}` : "$0.00"}</span>
+                {!locked &&
+                  available !== null &&
+                  route.kind === "steps" &&
+                  [25, 50, 75, 100].map((share) => (
+                    <button
+                      key={share}
+                      type="button"
+                      onClick={() => setAmount(String(Math.floor(((available * share) / 100) * 100) / 100))}
+                      className="h-6 rounded-full bg-app-chip px-2 text-[11px] font-semibold text-app-muted hover:text-app-ink"
+                    >
+                      {share === 100 ? "Max" : `${share}%`}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -343,25 +377,31 @@ export function DepositDialog() {
             disabled={locked}
             aria-label="Swap direction"
             title="Swap direction"
-            className="grid size-7 place-items-center rounded-full border border-app-hairline-strong text-app-muted hover:text-app-ink disabled:opacity-40"
+            className="absolute left-1/2 top-1/2 z-10 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border border-app-hairline-strong bg-app-card text-app-muted hover:text-app-ink disabled:opacity-40"
           >
-            <ArrowLeftRight className="size-3.5" aria-hidden />
+            <ArrowDown className="size-4" aria-hidden />
           </button>
-          to
-          <Picker label="To" value={to} options={endpointOptions} onChange={pickTo} disabled={locked} />
-          {to === "wallet" && chainPicker("to")}
+          <div className={box}>
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="text-app-muted">To</span>
+              <Picker label="To" value={to} options={endpointOptions} onChange={pickTo} disabled={locked} buttonClassName={endpointPill} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`min-w-0 flex-1 truncate ${amountSize(receive !== null ? receive.toFixed(2) : "0")} font-semibold tabular-nums ${receive !== null ? "text-app-ink" : "text-app-faint"}`}>
+                {receive !== null ? receive.toFixed(2) : value > 0 && acrossStep && !quoteLine?.error ? "…" : "0"}
+              </span>
+              {to === "wallet" ? (
+                chainPicker("to")
+              ) : output ? (
+                <span className={pillClass}>
+                  <TokenIcon token={output} size={22} showChain={false} />
+                  {output.symbol}
+                </span>
+              ) : null}
+            </div>
+            <span className="text-[12px] text-app-faint">{output ? `Arrives ${to === "wallet" ? `in your wallet on ${output.name}` : `in your ${toName} account`}` : `To ${toName}`}</span>
+          </div>
         </div>
-
-        {fromWallet && balance !== null && !locked && (
-          <button type="button" onClick={() => setAmount(units6(balance).toString())} className="-mt-1 self-start text-[12px] text-app-muted hover:text-app-ink">
-            Wallet on {input.name} <span className="font-semibold text-app-ink">{formatPrice(units6(balance))}</span> · use max
-          </button>
-        )}
-        {from === "hyperliquid" && withdrawable !== undefined && !locked && route.kind === "steps" && (
-          <button type="button" onClick={() => setAmount(String(Math.floor(withdrawable * 100) / 100))} className="-mt-1 self-start text-[12px] text-app-muted hover:text-app-ink">
-            Hyperliquid withdrawable <span className="font-semibold text-app-ink">{formatPrice(withdrawable)}</span> · use max
-          </button>
-        )}
 
         {route.kind === "same" && <p className="text-[13px] text-app-muted">Pick where the {token} goes.</p>}
         {route.kind === "testnet" && <p className="text-[13px] text-app-muted">Bridging works on mainnet. On testnet, get test funds from each venue&apos;s faucet.</p>}
@@ -423,34 +463,33 @@ export function DepositDialog() {
               </p>
             )}
 
-            {input && output && value > 0 && (
-              <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/40 p-3 text-[13px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-[12px] text-app-muted">You send</span>
-                  <TokenIcon token={input} />
-                  <span className="font-semibold tabular-nums text-app-ink">
-                    {value.toFixed(2)} {input.symbol}
-                  </span>
-                  <span className="ml-auto truncate text-[12px] text-app-muted">{sendWhere}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-[12px] text-app-muted">You receive</span>
-                  <TokenIcon token={output} />
-                  <span className="font-semibold tabular-nums text-app-ink">
-                    {receive === null ? (quoteLine?.error ? "—" : "…") : `≈ ${receive.toFixed(2)}`} {output.symbol}
-                  </span>
-                  <span className="ml-auto truncate text-[12px] text-app-muted">{receiveWhere}</span>
-                </div>
-                {converted && (
-                  <p className="text-[12px] text-app-ink">
-                    Your {input.symbol} is converted to {output.symbol} on the way, about 1:1 ({output.symbol} is {TOKEN_ABOUT[output.symbol] ?? "a dollar stablecoin"}).
-                  </p>
-                )}
-                {acrossStep && quoteLine?.error && <p className="text-[12px] text-app-down">{quoteLine.error}</p>}
+            {input && output && value > 0 && (converted || acrossStep) && (
+              <div className="flex flex-col gap-1.5 rounded-xl border border-app-hairline px-3 py-2.5 text-[12px]">
                 {acrossStep && quoteLine?.summary && (
-                  <p className="text-[11px] text-app-muted">
-                    {converted ? "Bridge and conversion" : "Bridge"} by {PROVIDER_NAMES[quoteLine.summary.provider]} (best of Across, Relay and LI.FI) · fee {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`} · ~{Math.max(1, quoteLine.summary.fillSeconds)}s
-                    {steps[0].kind === "hlWithdraw" ? " · after Hyperliquid's 1 USDC withdrawal fee" : ""}
+                  <>
+                    <div className="flex justify-between gap-3 text-app-muted">
+                      Route
+                      <span className="text-right text-app-ink">
+                        {PROVIDER_NAMES[quoteLine.summary.provider]} <span className="text-app-faint">(best of Across, Relay, LI.FI)</span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3 text-app-muted">
+                      Fee
+                      <span className="tabular-nums text-app-ink">
+                        {quoteLine.summary.feeUsd < 0.01 ? "< $0.01" : `$${quoteLine.summary.feeUsd.toFixed(2)}`}
+                        {steps[0].kind === "hlWithdraw" ? ` + ${HL_WITHDRAW_FEE_USDC} USDC withdrawal` : ""}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3 text-app-muted">
+                      Time
+                      <span className="tabular-nums text-app-ink">~{Math.max(1, quoteLine.summary.fillSeconds)}s</span>
+                    </div>
+                  </>
+                )}
+                {acrossStep && quoteLine?.error && <p className="text-app-down">{quoteLine.error}</p>}
+                {converted && (
+                  <p className="text-app-ink">
+                    Your {input.symbol} is converted to {output.symbol} on the way, about 1:1 ({output.symbol} is {TOKEN_ABOUT[output.symbol] ?? "a dollar stablecoin"}).
                   </p>
                 )}
               </div>

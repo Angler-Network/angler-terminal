@@ -339,8 +339,11 @@ dependency versions and design are free to diverge from angler-news.
   - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
     actually used.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
-    `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): one
-    sentence for every flow, "Move [amount] [token] from [Wallet on chain | venue] to [Wallet on chain | venue]". The
+    `lib/venues/bridge-routes.ts`, transfers in `lib/venues/deposits.ts` + `deposit-client.ts`, viem on demand): laid
+    out like the swap card: a From box (venue or wallet picker, balance or Hyperliquid withdrawable, amount, token
+    pill, 25/50/75/Max), a flip arrow, a To box (what arrives after fees and the bridge quote, destination picker, token
+    pill), then route/fee/time, the conversion note, the steps and the button. (It was one sentence, "Move [amount]
+    [token] from … to …".) The
     wallet side is a token picker (USDC · Arbitrum, USDC · Base, USDG · Robinhood Chain, where Arcus trades): the
     sending one sits right after the amount, a venue source shows its fixed token there instead; venue options show
     their margin token. Token and chain logos are self-hosted (`public/tokens`, `public/chains`; Across's token list
