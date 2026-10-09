@@ -33,13 +33,16 @@ export function readConfiguredVenues(value: string | undefined) {
   return new Set((value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean));
 }
 
-/** Swap venues with no testnet: on the testnet site they'd trade real funds on mainnet, so they stay off there. */
-const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap", "lifi"]);
+/**
+ * Venues with no testnet: on the testnet site they'd trade real funds on mainnet, so they stay off there. Aster too:
+ * its API is mainnet only, so the testnet site offering it meant real-money perps behind a "Testnet" badge.
+ */
+const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap", "lifi", "aster"]);
 
 /**
  * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a
  * builder address for Hyperliquid, API keys for Jupiter, Titan, Arcus and Uniswap); the testnet site has no
- * mainnet-only venues (Jupiter, Titan, Uniswap, 0x, KyberSwap); unpinned builds offer everything.
+ * mainnet-only venues (Jupiter, Titan, Uniswap, 0x, KyberSwap, LI.FI swaps, Aster); unpinned builds offer everything.
  */
 export function venueAvailable(venue: VenueKey, pinned: Deployment | null = deployment, configured: Set<string> = configuredVenues) {
   if (pinned === "mainnet") return configured.has(venue);

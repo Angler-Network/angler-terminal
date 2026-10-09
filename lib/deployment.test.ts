@@ -28,6 +28,10 @@ describe("deployment", () => {
     expect(venueAvailable("uniswap", "mainnet", new Set(["uniswap"]))).toBe(true);
     // EVM aggregators only quote mainnet chains: never on the testnet site, even when configured.
     expect(venueAvailable("zerox", "testnet", new Set(["zerox"]))).toBe(false);
+    // Aster has no testnet: the testnet site must not offer real-money perps.
+    expect(venueAvailable("aster", "testnet", new Set(["aster"]))).toBe(false);
+    expect(venueAvailable("aster", "mainnet", new Set(["aster"]))).toBe(true);
+    expect(venueAvailable("orderly", "testnet", new Set())).toBe(true);
     expect(venueAvailable("kyberswap", "testnet", new Set(["kyberswap"]))).toBe(false);
     expect(venueAvailable("zerox", "mainnet", new Set(["zerox"]))).toBe(true);
     expect(readConfiguredVenues(undefined).size).toBe(0);

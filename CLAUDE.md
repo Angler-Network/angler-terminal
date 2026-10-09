@@ -72,7 +72,8 @@ dependency versions and design are free to diverge from angler-news.
 - Deployments: one repo and branch, two Vercel projects. `NEXT_PUBLIC_DEPLOYMENT` (`lib/deployment.ts`) = `mainnet`
   (trade.angler.network) or `testnet` (testnet-trade.angler.network) pins every venue's network (`pinnedNetwork`,
   ignoring the per-browser overrides, which Settings then hides) and limits venues through `venueAvailable`
-  (preferences, wallet tiles, settings rows, account sections): testnet drops Jupiter/Titan/Uniswap; mainnet offers only
+  (preferences, wallet tiles, settings rows, account sections): testnet drops every venue with no testnet (Jupiter, Titan,
+  Uniswap, 0x, KyberSwap, LI.FI swaps, and Aster, whose API is mainnet only); mainnet offers only
   venues whose required settings exist, from `NEXT_PUBLIC_CONFIGURED_VENUES`, which `next.config.mjs` derives at build
   time from env presence (names only: HL needs a real `NEXT_PUBLIC_HL_BUILDER_ADDRESS`, Jupiter `JUP_API_KEY`, Titan
   `TITAN_API_KEY`, Uniswap `UNISWAP_API_KEY`; Lighter and Arcus need nothing: the Arcus router answers our proxy

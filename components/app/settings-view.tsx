@@ -537,7 +537,7 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI", aster: "Aster", orderly: "Orderly" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI swaps", aster: "Aster", orderly: "Orderly" };
 
 type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
@@ -681,7 +681,7 @@ function VenueSettings() {
           description={
             deployment === "mainnet"
               ? "Every venue trades with real funds here. Practice with test funds on the testnet site."
-              : "Every venue trades with test funds here, and the mainnet-only Solana venues (Jupiter, Titan) are off. Real trading lives on the mainnet site."
+              : "Every venue here trades with test funds; venues with no testnet (listed below) are off. Real trading lives on the mainnet site."
           }
         >
           {otherDeploymentUrl && (
