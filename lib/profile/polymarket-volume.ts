@@ -8,8 +8,8 @@ import { readPolymarketBuilderTrades, polymarketAnglerVolume, type BuilderTradeR
  * A wallet's Polymarket volume through Angler, from Polymarket's public builder trades (`GET /builder/trades?
  * builder_code=`): every trade an order carrying our builder code made, with the Deposit Wallet that placed it
  * (`maker`). The wallet's Deposit Wallet is derived from its address (`deposit-wallet.ts`), so the browser can't claim
- * another account's trades. Our fee is POLYMARKET_BUILDER_FEE_BPS (the taker rate set on the builder profile): without
- * it the trades earn no points.
+ * another account's trades. Only trades that paid our builder fee count; POLYMARKET_BUILDER_FEE_BPS (the rate set on
+ * the builder profile) scales their points, and without it they earn none.
  */
 
 const TIMEOUT_MS = 10_000;

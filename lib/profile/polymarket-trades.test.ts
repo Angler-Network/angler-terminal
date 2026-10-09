@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { polymarketAnglerVolume, readPolymarketBuilderTrades } from "./polymarket-trades";
 
 const MAKER = "0x92c78D8f12a214184DB7aCBCCc6e34d8A197C136";
-const trade = (over: Record<string, unknown> = {}) => ({ id: "t1", maker: MAKER, sizeUsdc: "3.06", matchTime: "1786256472", status: "TRADE_STATUS_CONFIRMED", ...over });
+const trade = (over: Record<string, unknown> = {}) => ({ id: "t1", maker: MAKER, sizeUsdc: "3.06", matchTime: "1786256472", status: "TRADE_STATUS_CONFIRMED", builderFee: "0.001224", ...over });
 
 describe("Polymarket builder trades", () => {
-  it("reads settled trades and drops failed or malformed ones", () => {
-    const rows = readPolymarketBuilderTrades([trade(), trade({ id: "t2", status: "TRADE_STATUS_FAILED" }), trade({ id: "t3", maker: "nope" }), trade({ id: "t4", sizeUsdc: "0" })]);
+  it("reads settled trades that paid our fee and drops failed, fee-free or malformed ones", () => {
+    const rows = readPolymarketBuilderTrades([trade(), trade({ id: "t2", status: "TRADE_STATUS_FAILED" }), trade({ id: "t3", maker: "nope" }), trade({ id: "t4", sizeUsdc: "0" }), trade({ id: "t7", builderFee: "0" })]);
     expect(rows).toEqual([{ id: "t1", maker: MAKER.toLowerCase(), usd: 3.06, time: 1786256472 }]);
   });
 

@@ -6,8 +6,16 @@
 
 import { ASSET_SYMBOL } from "../markets/model";
 
-/** Every listing in one response (`app/api/spot/listings`), preloaded by /swap and /spot and read by `useSpotListings`. */
-export const SPOT_LISTINGS_PATH = "/api/spot/listings";
+/**
+ * The listings a first screen needs (`app/api/spot/listings?part=core`: Jupiter, Arcus, order-book spot), preloaded by
+ * /swap and /spot and read by `useSpotListings`. The EVM tokens (Uniswap and pool lists across every chain, about 90%
+ * of the bytes) come from `SPOT_EVM_LISTINGS_PATH` after it, so they never hold up the first render.
+ */
+export const SPOT_LISTINGS_PATH = "/api/spot/listings?part=core";
+export const SPOT_EVM_LISTINGS_PATH = "/api/spot/listings?part=evm";
+
+/** Which part of the list a listing belongs to (`?part=`): the EVM tokens are the `uniswap` venue's rows. */
+export const listingPart = (listing: { venue: string }) => (listing.venue === "uniswap" ? "evm" : "core");
 
 /** Pool and router venues, plus the order-book spot markets of Hyperliquid and Lighter (`book-spot.ts`). */
 export type SpotVenueKey = "jupiter" | "arcus" | "uniswap" | "hyperliquid" | "lighter";

@@ -604,6 +604,11 @@ export function OrderPanel() {
             </div>
           </div>
         </div>
+      ) : kindChoices.length === 0 && activeKind === "spot" && !spotSettled ? (
+        // The Jupiter lookup (or a retry after a failed one) is still out: "no venue lists it" would be a guess.
+        <div className="py-6">
+          <LoadingState label={`Finding ${symbol}…`} compact />
+        </div>
       ) : kindChoices.length === 0 ? (
         <>
           <h3 className="text-[12px] font-semibold text-app-ink">

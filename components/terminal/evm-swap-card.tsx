@@ -332,7 +332,7 @@ function EvmSwapForm({ token }: { token: EvmToken }) {
   const { network: hlNetwork, accounts } = useTrading();
   const toast = useToast();
   const router = useRouter();
-  const listings = useSpotListings();
+  const listings = useSpotListings(true, { waitForEvm: true });
   const chain = token.chain;
   const chainUsdc = chain.pay[0];
   const tokenIsUsdc = sameAddress(token.address, chainUsdc.address);

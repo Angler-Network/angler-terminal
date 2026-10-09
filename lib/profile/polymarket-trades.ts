@@ -9,13 +9,17 @@ export interface BuilderTradeRow {
   time: number;
 }
 
-/** Rows from `/builder/trades`: settled or settling trades with a maker, a USDC size and a match time. */
+/**
+ * Rows from `/builder/trades`: settled or settling trades with a maker, a USDC size and a match time that paid our
+ * builder fee (`builderFee` above zero: before the fee is set, or on a fee-free order, a trade earns nothing).
+ */
 export function readPolymarketBuilderTrades(data: unknown[]): BuilderTradeRow[] {
   return data.flatMap((entry) => {
-    const trade = entry as { id?: unknown; maker?: unknown; sizeUsdc?: unknown; matchTime?: unknown; status?: unknown };
+    const trade = entry as { id?: unknown; maker?: unknown; sizeUsdc?: unknown; matchTime?: unknown; status?: unknown; builderFee?: unknown };
     const usd = Number(trade.sizeUsdc);
     const time = Number(trade.matchTime);
     if (typeof trade.maker !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(trade.maker) || !(usd > 0) || !(time > 0)) return [];
+    if (!(Number(trade.builderFee) > 0)) return [];
     if (typeof trade.status === "string" && /FAILED/i.test(trade.status)) return [];
     return [{ id: String(trade.id ?? ""), maker: trade.maker.toLowerCase(), usd, time }];
   });

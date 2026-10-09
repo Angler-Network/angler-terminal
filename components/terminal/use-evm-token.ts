@@ -51,10 +51,13 @@ async function searchListing(id: string, address: string) {
  * market numbers and the contract for its decimals. undefined while loading, null for anything else (a Solana mint,
  * no ref, or a contract that isn't an ERC-20).
  */
+/** Waits between failed chain reads of a token before giving up on it. */
+const META_RETRY_MS = [1_500, 4_000, 10_000, 20_000];
+
 export function useEvmToken(ref: string | undefined): EvmToken | null | undefined {
   const parsed = parseEvmRef(ref);
   const id = parsed ? uniswapListingId(parsed.chain.id, parsed.address) : null;
-  const listings = useSpotListings(Boolean(parsed));
+  const listings = useSpotListings(Boolean(parsed), { waitForEvm: true });
   const cached = id ? listings?.find((listing) => listing.id === id) : undefined;
   const [extra, setExtra] = useState<{ id: string; listing: SpotListing | null; meta: Awaited<ReturnType<typeof readTokenMeta>> | null } | null>(null);
   const needsLookup = Boolean(parsed && listings && (!cached || cached.decimals === undefined));
@@ -62,11 +65,23 @@ export function useEvmToken(ref: string | undefined): EvmToken | null | undefine
   useEffect(() => {
     if (!needsLookup || !parsed || !id) return;
     let active = true;
-    Promise.all([cached ? Promise.resolve(cached) : searchListing(id, parsed.address).catch(() => null), readTokenMeta(parsed.chain, parsed.address).catch(() => null)]).then(
-      ([listing, meta]) => active && setExtra({ id, listing, meta }),
-    );
+    let timer: number | undefined;
+    // The chain read (decimals, symbol) goes to a public RPC that can fail for a moment: a failed read is tried again
+    // (backing off) instead of leaving the swap saying the token doesn't exist.
+    const attempt = (count: number) => {
+      Promise.all([cached ? Promise.resolve(cached) : searchListing(id, parsed.address).catch(() => null), readTokenMeta(parsed.chain, parsed.address).then(
+        (meta) => ({ meta, failed: false }),
+        () => ({ meta: null, failed: true }),
+      )]).then(([listing, read]) => {
+        if (!active) return;
+        if (read.failed && count < META_RETRY_MS.length) timer = window.setTimeout(() => attempt(count + 1), META_RETRY_MS[count]);
+        else setExtra({ id, listing, meta: read.meta });
+      });
+    };
+    attempt(0);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
     // id covers the chain and address; cached only matters for whether to search.
     // eslint-disable-next-line react-hooks/exhaustive-deps

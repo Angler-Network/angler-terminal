@@ -633,9 +633,14 @@ dependency versions and design are free to diverge from angler-news.
   trades as the most traded verified token that represents it (24h volume first, pool liquidity second: WBTC parks
   more liquidity, cbBTC trades ~4x more) (`representsAsset`: same
   ticker, a wrapper named "wrapped"/"bridged" or after the asset, a tokenized stock; staked/leveraged versions never)
-  — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; /swap and /spot `preload` the list
-  (`SPOT_LISTINGS_PATH`) with the HTML so the search and chart don't wait for hydration (keep `loadSpotListings`'s
-  fetch on the same URL and credentials, or the preload goes unused), and the order panel fetches the swap card's
+  — `/api/jup/token` falls back to it, so BTC → cbBTC or WBTC by live volume; /swap and /spot `preload` the list's
+  core part (`SPOT_LISTINGS_PATH` = `?part=core`: Jupiter, Arcus, order-book spot) with the HTML so the search and chart
+  don't wait for hydration (keep `loadSpotListings`'s fetch on the same URL and credentials, or the preload goes
+  unused); the EVM tokens (`?part=evm`, ~90% of the bytes) load right after it and join the list, and readers that
+  look an EVM token up wait for them (`useSpotListings(…, { waitForEvm: true })`). Token lookups that fail (Jupiter
+  `useSpotToken`, the EVM chain read in `useEvmToken`) are retried with backoff and stay "loading", never "no venue
+  lists it"; the order panel says "Finding X…" until the swap lookup settles, and `/api/jup/token` asks Jupiter
+  uncached before calling a mint unknown (fresh launches), and the order panel fetches the swap card's
   chunk alongside the token lookup; the watchlist highlights that token. Unverified tokens never win: Jupiter's
   search for "BTC" returns a dozen scam "BTC" tokens with millions in liquidity (`fixtures/jup-search-btc.json`).
   `assetSymbolOf` maps a token back to the terminal asset (WBTC → BTC) so picking it moves the chart and news.

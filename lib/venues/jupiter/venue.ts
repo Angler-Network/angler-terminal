@@ -32,7 +32,8 @@ function resolveToken(query: { symbol: string; mint?: string }) {
     return body.token;
   });
   tokenCache.set(key, { at: Date.now(), promise });
-  promise.catch(() => tokenCache.delete(key));
+  // A failure, or an address Jupiter hasn't indexed yet (a fresh launch), is asked again next time rather than remembered.
+  promise.then((token) => !token && query.mint && tokenCache.get(key)?.promise === promise && tokenCache.delete(key)).catch(() => tokenCache.delete(key));
   return promise;
 }
 

@@ -34,8 +34,16 @@ export async function GET(request: NextRequest) {
   if (!mint && !(symbol && SYMBOL_PATTERN.test(symbol))) return NextResponse.json({ error: "Pass a symbol or mint" }, { status: 400 });
 
   try {
-    const records = await search(mint ?? symbol!.replace(/^\$/, ""));
+    let records = await search(mint ?? symbol!.replace(/^\$/, ""));
     let token = pickVerifiedToken(records, mint ? { mint } : { symbol: symbol!.replace(/^\$/, "") });
+    if (!token && mint) {
+      // The cached search can predate the token (a launch minutes old): ask Jupiter itself before saying it's unknown.
+      const response = await jupFetch(`/tokens/v2/search?query=${encodeURIComponent(mint)}`);
+      if (!response.ok) throw new Error(`Jupiter tokens responded ${response.status}`);
+      const fresh = (await response.json()) as unknown;
+      records = Array.isArray(fresh) ? (fresh as JupTokenRecord[]) : [];
+      token = pickVerifiedToken(records, { mint });
+    }
     if (!token && !mint) {
       // No verified token carries the ticker itself (BTC on Solana): trade the most liquid verified token that stands
       // for the asset right now (WBTC, cbBTC, …), decided from Jupiter's live liquidity rather than a fixed alias.
@@ -45,7 +53,8 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(
       { token },
-      { headers: { "cache-control": "public, max-age=60, s-maxage=300" } },
+      // An unknown address is asked again soon (Jupiter indexes new launches within minutes); a found token is stable.
+      { headers: { "cache-control": token || !mint ? "public, max-age=60, s-maxage=300" : "public, max-age=10, s-maxage=15" } },
     );
   } catch {
     return NextResponse.json({ error: "Jupiter token search is unavailable." }, { status: 502 });
