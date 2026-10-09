@@ -8,8 +8,9 @@ import { tierFees } from "./vip";
 import { hlAnglerVolume, isAnglerFill, lighterAnglerVolume, readAnglerSwap, type LighterTrade, type ParsedSolanaTx } from "./volume";
 
 describe("levels", () => {
-  it("gives 0.01 point per dollar and walks the level table", () => {
-    expect(pointsFor(1234.99)).toBe(12.34);
+  it("gives 0.001 point per $100 and walks the level table", () => {
+    expect(pointsFor(1234.99)).toBe(0.012);
+    expect(pointsFor(100)).toBe(0.001);
     expect(pointsFor(-5)).toBe(0);
     expect(levelFor(0)).toMatchObject({ level: 1, name: "Minnow", next: 10, progress: 0 });
     expect(levelFor(30)).toMatchObject({ level: 2, name: "Perch", floor: 10, next: 50, nextName: "Trout", progress: 0.5 });

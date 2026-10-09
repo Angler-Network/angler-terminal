@@ -15,7 +15,7 @@ describe("Lighter Standard volume", () => {
     await creditVolume(trader, "lighter", 10_000, 0, 4_000);
     const profile = await readProfile(trader);
     expect(profile.volume.lighter).toBe(10_000);
-    expect(profile.points).toBe(80);
+    expect(profile.points).toBe(0.08);
   });
 });
 
@@ -29,7 +29,7 @@ describe("closed beta points", () => {
     expect(profile.volume.hyperliquid).toBe(10_000);
     expect(profile.volume.lighter).toBe(10_000);
     // Base 10,000 + 8,000; bonus 10,000 + (6,000 - 3,000 / 2).
-    expect(profile.points).toBe(325);
+    expect(profile.points).toBe(0.325);
     expect(profile.daily.at(-1)).toMatchObject({ usd: 20_000, bonusUsd: 14_500 });
     expect(profile.recentVolume.d30).toBe(20_000);
   });

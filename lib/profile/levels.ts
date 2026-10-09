@@ -1,5 +1,5 @@
 /**
- * Points and levels. 0.01 point per dollar traded through the terminal (a point per $100); levels follow the angler theme, from a
+ * Points and levels. 0.001 point per $100 traded through the terminal (a point per $100,000); levels follow the angler theme, from a
  * minnow to a whale. Thresholds grow roughly ×4-5 per level so the top ones stay rare.
  */
 export const LEVELS = [
@@ -37,11 +37,11 @@ export const REFERRAL_SHARE = 0.1;
 export const BETA_POINTS_MULTIPLIER = 2;
 
 /** Points per dollar of volume. */
-export const POINTS_PER_USD = 0.01;
+export const POINTS_PER_USD = 0.00001;
 
-/** Points earned for a dollar volume: 0.01 per whole dollar, kept to two decimals. */
+/** Points earned for a dollar volume: 0.001 per whole $100, kept to three decimals. */
 export function pointsFor(usd: number) {
-  return Number.isFinite(usd) && usd > 0 ? Math.floor(usd) / 100 : 0;
+  return Number.isFinite(usd) && usd > 0 ? Math.floor(usd / 100) / 1000 : 0;
 }
 
 export function levelFor(points: number): LevelInfo {
