@@ -7,7 +7,7 @@ import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues
 import type { VenueMarket } from "@/lib/venues/types";
 import { getLighterMarkets } from "@/lib/venues/lighter/markets-server";
 import { readAccountIndex, readPosition } from "@/lib/venues/lighter/account";
-import { mergeAlertCoins, type AlertCoin, type PriceMarket } from "./coins";
+import { readAlertCoins, type AlertCoin, type PriceMarket } from "./coins";
 import type { AlertNews, AlertVenue, PositionSnap } from "./rules";
 
 /**
@@ -50,7 +50,7 @@ const priceMarkets = (markets: VenueMarket[], prefer: "mid" | "mark"): PriceMark
   markets.map((market) => ({ symbol: market.symbol, price: prefer === "mid" ? (market.midPx ?? market.markPx) : (market.markPx ?? market.midPx), stock: market.kind === "stock" }));
 
 /**
- * Everything price alerts can watch: Hyperliquid's mids, then the markets only Lighter, Lighter RH or Aster list (each
+ * Everything price alerts can watch, per venue: Hyperliquid's mids and every Lighter, Lighter RH and Aster market (each
  * on the deployment's network; Aster only where it's offered). A venue that fails is skipped for this read; all failing
  * throws, so a cached list is never replaced by an empty one.
  */
@@ -62,7 +62,7 @@ export async function alertCoins(): Promise<AlertCoin[]> {
     venueAvailable("aster") ? getAsterMarkets() : Promise.resolve([]),
   ]);
   const value = <T,>(result: PromiseSettledResult<T>, fallback: T) => (result.status === "fulfilled" ? result.value : fallback);
-  const coins = mergeAlertCoins(value(hl, {}), [
+  const coins = readAlertCoins(value(hl, {}), [
     { venue: "lighter", markets: priceMarkets(value(lighter, []), "mid") },
     { venue: "lighterrh", markets: priceMarkets(value(lighterRh, []), "mid") },
     { venue: "aster", markets: priceMarkets(value(aster, []), "mark") },

@@ -5,8 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SelectField, SettingRow, Toggle } from "@/components/app/form-controls";
 import { MarketIcon } from "@/components/app/market-icon";
 import { SearchableSelect } from "@/components/app/searchable-select";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 import { useToast } from "@/components/app/toast-provider";
-import type { AlertCoin } from "@/lib/alerts/coins";
+import { PRICE_VENUES, PRICE_VENUE_LABELS, type AlertCoin, type PriceVenue } from "@/lib/alerts/coins";
 import { displayCoin, priceVenueName } from "@/lib/alerts/rules";
 import {
   DEFAULT_ALERT_SETTINGS,
@@ -45,10 +46,13 @@ function useAlertCoins() {
   return coins;
 }
 
-/** Price alert entry: any Hyperliquid coin (main dex and HIP-3 stocks) or one only Lighter / Lighter RH / Aster lists. */
+/** Price alert entry: venue (Hyperliquid, Lighter, Lighter RH, Aster), then one of its coins, above/below, price. */
 function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => void; disabled: boolean }) {
   const coins = useAlertCoins();
+  const [venue, setVenue] = useState<PriceVenue>("hyperliquid");
   const [coin, setCoin] = useState("BTC");
+  const venueCoins = coins?.filter((entry) => entry.venue === venue) ?? [];
+  const venues = PRICE_VENUES.filter((key) => key === "hyperliquid" || coins?.some((entry) => entry.venue === key));
   const [direction, setDirection] = useState<PriceAlert["direction"]>("above");
   const [price, setPrice] = useState("");
   const normalized = normalizeCoin(coin);
@@ -65,22 +69,34 @@ function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => voi
         setPrice("");
       }}
     >
-      {coins && coins.length > 0 ? (
+      {venues.length > 1 && (
+        <SelectField<PriceVenue>
+          size="sm"
+          label="Venue"
+          value={venue}
+          options={venues.map((key) => ({ value: key, label: PRICE_VENUE_LABELS[key], icon: <VenueLogo name={PRICE_VENUE_LABELS[key]} size={16} /> }))}
+          onChange={(next) => {
+            setVenue(next);
+            setCoin(coins?.find((entry) => entry.venue === next)?.coin ?? "");
+          }}
+        />
+      )}
+      {venueCoins.length > 0 ? (
         <SearchableSelect<AlertCoin>
           compact
           className="w-full sm:w-48"
-          items={coins}
+          items={venueCoins}
           value={coin}
           onChange={setCoin}
           getKey={(entry) => entry.coin}
-          getSearchText={(entry) => `${entry.coin} ${displayCoin(entry.coin)} ${priceVenueName(entry.coin) ?? "hyperliquid"}`}
+          getSearchText={(entry) => displayCoin(entry.coin)}
           getDisplayValue={(entry) => displayCoin(entry.coin)}
           renderSelectedIcon={(entry) => <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.stock ? "stock" : "crypto"} size={18} />}
           renderOption={(entry) => (
             <>
               <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.stock ? "stock" : "crypto"} size={20} />
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-app-ink">{displayCoin(entry.coin)}</span>
-              {priceVenueName(entry.coin) && <span className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">{priceVenueName(entry.coin)}</span>}
+              {entry.stock && <span className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">Stock</span>}
               <span className="text-[12px] tabular-nums text-app-muted">{formatPrice(entry.mid)}</span>
             </>
           )}
@@ -370,7 +386,7 @@ export function AlertsView() {
 
       <section className={`${card} p-4 sm:p-5`}>
         <h2 className="text-[15px] font-semibold text-app-ink">Price alerts</h2>
-        <p className="mt-1 text-[13px] text-app-muted">Hyperliquid price, or Lighter / Aster for coins only they list; each alert fires once.</p>
+        <p className="mt-1 text-[13px] text-app-muted">On the venue you pick; each alert fires once.</p>
         <div className="mt-3 flex flex-col gap-1.5">
           {draft.prices.map((alert) => {
             const fired = loaded!.fired.includes(alert.id) && saved.prices.some((entry) => entry.id === alert.id);

@@ -3,9 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { alertCoins } from "@/lib/alerts/sources";
 import { rateLimited } from "@/lib/rate-limit";
 
-const coins = unstable_cache(alertCoins, ["alert-coins-v2"], { revalidate: 60 });
+const coins = unstable_cache(alertCoins, ["alert-coins-v3"], { revalidate: 60 });
 
-/** The coins price alerts can watch (Hyperliquid, then what only Lighter, Lighter RH or Aster lists; the same prices the alerts tick reads), with their price now. */
+/** The coins price alerts can watch (per venue: Hyperliquid, Lighter, Lighter RH, Aster; the same prices the alerts tick reads), with their price now. */
 export async function GET(request: NextRequest) {
   const limited = rateLimited(request, "alert-coins");
   if (limited) return limited;

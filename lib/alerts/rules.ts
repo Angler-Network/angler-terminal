@@ -45,7 +45,7 @@ function sideOf(size: number) {
 }
 
 /** Strips the HIP-3 dex prefix for display ("xyz:NVDA" → "NVDA"). */
-/** Price alerts on a coin only Lighter, Lighter RH or Aster lists carry that venue as the prefix ("aster:FOO"). */
+/** Price alerts priced on Lighter, Lighter RH or Aster carry that venue as the prefix ("aster:BTC"). */
 export const PRICE_VENUE_PREFIXES = { lighter: "Lighter", lighterrh: "Lighter RH", aster: "Aster" } as const;
 
 /** The venue a price alert's coin is priced on, when it isn't Hyperliquid. */

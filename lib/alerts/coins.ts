@@ -19,38 +19,35 @@ export interface PriceMarket {
 
 const PINNED = ["BTC", "ETH", "SOL", "HYPE", "XRP", "DOGE"];
 const SYMBOL = /^k?[A-Z0-9]{1,20}$/;
-
-/** One key per asset across venues: Hyperliquid's kPEPE and Aster's 1000PEPE are the same coin. */
-const assetKey = (symbol: string) => symbol.replace(/^(?:k|1000)(?=[A-Z])/, "").toUpperCase();
+export const PRICE_VENUES: PriceVenue[] = ["hyperliquid", "lighter", "lighterrh", "aster"];
+export const PRICE_VENUE_LABELS: Record<PriceVenue, string> = { hyperliquid: "Hyperliquid", ...PRICE_VENUE_PREFIXES };
 
 /**
- * Every coin price alerts can watch: Hyperliquid's mids (main dex and HIP-3 dexes) first, then what only Lighter,
- * Lighter RH or Aster lists (in that order), named with the venue's prefix. A symbol listed in several places keeps
- * the first source, so Hyperliquid's price wins (thousand-unit names count as their asset: kPEPE = 1000PEPE). Majors first, then main coins, HIP-3 coins and other venues' coins A-Z.
+ * Every coin price alerts can watch, per venue (the alert names its venue): Hyperliquid's mids (main dex and HIP-3
+ * dexes) as Hyperliquid names them, and every Lighter, Lighter RH and Aster market with the venue's prefix
+ * ("aster:BTC"). Per venue: majors first, then crypto A-Z, then stocks A-Z.
  */
-export function mergeAlertCoins(hlMids: Record<string, number>, others: Array<{ venue: Exclude<PriceVenue, "hyperliquid">; markets: PriceMarket[] }>): AlertCoin[] {
+export function readAlertCoins(hlMids: Record<string, number>, others: Array<{ venue: Exclude<PriceVenue, "hyperliquid">; markets: PriceMarket[] }>): AlertCoin[] {
   const coins: AlertCoin[] = [];
-  const seen = new Set<string>();
   for (const [coin, mid] of Object.entries(hlMids)) {
     if (!(mid > 0) || coin.startsWith("@") || coin.startsWith("#")) continue;
     coins.push({ coin, mid, venue: "hyperliquid", stock: coin.includes(":") });
-    seen.add(assetKey(displayCoin(coin)));
   }
   for (const { venue, markets } of others) {
+    const seen = new Set<string>();
     for (const market of markets) {
-      const key = assetKey(market.symbol);
-      if (!(market.price && market.price > 0) || !SYMBOL.test(market.symbol) || seen.has(key)) continue;
+      if (!(market.price && market.price > 0) || !SYMBOL.test(market.symbol) || seen.has(market.symbol)) continue;
       coins.push({ coin: `${venue}:${market.symbol}`, mid: market.price, venue, stock: market.stock });
-      seen.add(key);
+      seen.add(market.symbol);
     }
   }
   const rank = (entry: AlertCoin) => {
-    const pinned = entry.venue === "hyperliquid" ? PINNED.indexOf(entry.coin) : -1;
-    if (pinned >= 0) return pinned;
-    if (entry.venue !== "hyperliquid") return PINNED.length + 2;
-    return entry.stock ? PINNED.length + 1 : PINNED.length;
+    const pinned = PINNED.indexOf(displayCoin(entry.coin));
+    return pinned >= 0 && !entry.stock ? pinned : entry.stock ? PINNED.length + 1 : PINNED.length;
   };
-  return coins.sort((a, b) => rank(a) - rank(b) || displayCoin(a.coin).localeCompare(displayCoin(b.coin)));
+  return coins.sort(
+    (a, b) => PRICE_VENUES.indexOf(a.venue) - PRICE_VENUES.indexOf(b.venue) || rank(a) - rank(b) || displayCoin(a.coin).localeCompare(displayCoin(b.coin)),
+  );
 }
 
 /** Prices by alert name, as the tick checks them. */
