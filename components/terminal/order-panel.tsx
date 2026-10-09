@@ -591,8 +591,9 @@ export function OrderPanel() {
       {activeKind === "spot" && isEvmRef(mint) ? (
         // A Uniswap token on Base, Arbitrum or Ethereum picked in the search.
         <EvmSwapCard tokenRef={mint!} />
-      ) : choices.length === 0 && isLoading ? (
-        // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
+      ) : choices.length === 0 && isLoading && activeKind !== "spot" ? (
+        // Same height as the form (without a wallet) so the order book below doesn't jump when markets load. Not on
+        // /swap: the swap card needs the Jupiter token, not the perp market lists ("Finding X…" covers that wait).
         <div className="relative flex h-[451px] flex-col gap-2.5">
           {["h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (
             <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-lg bg-app-chip/60`} />

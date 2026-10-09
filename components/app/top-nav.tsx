@@ -25,18 +25,18 @@ export function TopNav() {
   return (
     <nav aria-label="Primary" className="app-topnav shrink-0 items-center gap-0.5">
       {marketNav.map(({ href, label: text, title, icon: Icon, soon, isActive }) => (
-        <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={itemClass(isActive(pathname))}>
+        <Link prefetch={false} key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={itemClass(isActive(pathname))}>
           <Icon className={`size-[18px] ${isActive(pathname) ? "text-app-accent" : ""}`} active={isActive(pathname)} />
           <span className={label}>{text}</span>
           {soon && <span className="hidden rounded bg-app-accent/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-app-accent xl:inline">Soon</span>}
         </Link>
       ))}
       <span aria-hidden className="mx-1 h-5 w-px bg-app-hairline" />
-      <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
+      <Link prefetch={false} href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={itemClass(pathname === "/markets")}>
         <MarketsIcon className={`size-[18px] ${pathname === "/markets" ? "text-app-accent" : ""}`} active={pathname === "/markets"} />
         <span className={label}>Markets</span>
       </Link>
-      <Link href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={itemClass(pathname === "/vaults")}>
+      <Link prefetch={false} href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={itemClass(pathname === "/vaults")}>
         <VaultsIcon className={`size-[18px] ${pathname === "/vaults" ? "text-app-accent" : ""}`} active={pathname === "/vaults"} />
         <span className={label}>Vaults</span>
       </Link>

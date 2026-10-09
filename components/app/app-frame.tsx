@@ -38,7 +38,7 @@ function SettingsButton() {
   const pathname = usePathname();
   const active = pathname.startsWith("/settings");
   return (
-    <Link href="/settings" title="Settings" aria-label="Settings" aria-current={active ? "page" : undefined} className={iconButton(active)}>
+    <Link prefetch={false} href="/settings" title="Settings" aria-label="Settings" aria-current={active ? "page" : undefined} className={iconButton(active)}>
       <SettingsIcon className="size-[19px]" active={active} />
     </Link>
   );
@@ -59,7 +59,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
     <div className="flex min-w-0 flex-1 flex-col">
       <header className="app-topbar surface-chrome flex h-14 shrink-0 items-center gap-3 border-b border-app-hairline px-3 sm:px-4">
         {/* The rail carries the logo; the top bar shows it on small screens and in top navigation. */}
-        <Link href="/" aria-label="Angler Terminal" className="flex shrink-0 lg:hidden [html[data-nav=top]_&]:flex">
+        <Link prefetch={false} href="/" aria-label="Angler Terminal" className="flex shrink-0 lg:hidden [html[data-nav=top]_&]:flex">
           <Image src="/blacklogo.png" alt="Angler" width={28} height={28} className="[html[data-tone=dark]_&]:hidden" />
           <Image src="/whitelogo.png" alt="" aria-hidden width={28} height={28} priority className="hidden [html[data-tone=dark]_&]:block" />
         </Link>

@@ -52,6 +52,8 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
  * and a small mark for the news site. It scrolls when a short screen can't fit it. Wallets, the profile and the
  * portfolio sit in the top bar's account menu.
  */
+// The rail's links don't prefetch: each would be a server render of that page on every load (eight of them, racing the
+// page's own requests), and the terminal views share one layout, so switching between them renders almost nothing.
 export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
@@ -61,14 +63,14 @@ export function Sidebar() {
 
   return (
     <aside className="app-sidebar surface-chrome hidden w-[76px] shrink-0 flex-col overflow-x-hidden border-r border-app-hairline px-1.5 pb-8 pt-[clamp(0.5rem,2vh,1rem)] scrollbar-none overflow-y-auto lg:flex [html[data-frame=off]_&]:pb-[clamp(0.5rem,2vh,1rem)]">
-      <Link href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
+      <Link prefetch={false} href="/" className="mb-[clamp(0.5rem,2.5vh,1.5rem)] flex shrink-0 justify-center" aria-label={t("nav.home")}>
         <Image src="/blacklogo.png" alt="Angler" width={30} height={30} className="[html[data-tone=dark]_&]:hidden" />
         <Image src="/whitelogo.png" alt="" aria-hidden width={30} height={30} priority className="hidden [html[data-tone=dark]_&]:block" />
       </Link>
 
       <nav aria-label={t("nav.primary")} className="flex flex-col gap-1">
         {marketNav.map(({ href, label, title, icon: Icon, soon, isActive }) => (
-          <Link key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
+          <Link prefetch={false} key={href} href={href} title={title} aria-current={isActive(pathname) ? "page" : undefined} className={navItemClass(isActive(pathname))}>
             <span className="relative">
               <Icon className={iconClass(isActive(pathname))} active={isActive(pathname)} />
               {soon && (
@@ -81,11 +83,11 @@ export function Sidebar() {
           </Link>
         ))}
         <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
-        <Link href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
+        <Link prefetch={false} href="/markets" title="Markets" aria-current={pathname === "/markets" ? "page" : undefined} className={navItemClass(pathname === "/markets")}>
           <MarketsIcon className={iconClass(pathname === "/markets")} active={pathname === "/markets"} />
           <NavLabel>Markets</NavLabel>
         </Link>
-        <Link href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={navItemClass(pathname === "/vaults")}>
+        <Link prefetch={false} href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={navItemClass(pathname === "/vaults")}>
           <VaultsIcon className={iconClass(pathname === "/vaults")} active={pathname === "/vaults"} />
           <NavLabel>Vaults</NavLabel>
         </Link>
