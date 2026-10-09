@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -258,7 +259,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
                     onOpen={() => openSpot(row)}
                   />
                 ))}
-            {count === 0 && <li className="px-4 py-3 text-[12px] text-app-muted">{loading ? "Loading markets…" : "No market matches."}</li>}
+            {count === 0 && (loading ? <li><LoadingState label="Loading markets…" compact /></li> : <li className="px-4 py-3 text-[12px] text-app-muted">No market matches.</li>)}
           </ul>
         )}
       </div>

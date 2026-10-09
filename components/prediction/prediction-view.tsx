@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PREDICTION_RANGES, type PredictionBook, type PredictionRange } from "@/lib/prediction/market-data";
@@ -79,7 +80,11 @@ function EventList({ browser, selected, onSelect }: { browser: EventBrowser; sel
         )}
       </div>
       <ul className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto">
-        {loading && !data && <li className="p-6 text-center text-[13px] text-app-muted">Loading markets…</li>}
+        {loading && !data && (
+          <li>
+            <LoadingState label="Loading markets…" />
+          </li>
+        )}
         {error && !data && <li className="p-6 text-center text-[13px] text-app-down">{error}</li>}
         {data && events.length === 0 && <li className="p-6 text-center text-[13px] text-app-muted">No markets found.</li>}
         {events.map((event) => {

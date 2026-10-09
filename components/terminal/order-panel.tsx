@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { ArrowRight, ChevronDown, Sparkles } from "lucide-react";
 import { CoinIcon } from "./token-icon";
 import { perpNetwork } from "@/lib/venues/perp-network";
@@ -588,11 +589,16 @@ export function OrderPanel() {
         <EvmSwapCard tokenRef={mint!} />
       ) : choices.length === 0 && isLoading ? (
         // Same height as the form (without a wallet) so the order book below doesn't jump when markets load.
-        <div role="status" aria-label="Loading markets" className="flex h-[451px] flex-col gap-2.5">
+        <div className="relative flex h-[451px] flex-col gap-2.5">
           {["h-9", "h-8", "h-8", "h-10", "h-6", "h-10"].map((height, index) => (
             <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-lg bg-app-chip/60`} />
           ))}
           <span aria-hidden className="mt-1 flex-1 animate-pulse rounded-lg bg-app-chip/40" />
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="rounded-xl bg-app-card/90 px-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)] backdrop-blur-sm">
+              <LoadingState label="Loading markets…" compact />
+            </div>
+          </div>
         </div>
       ) : kindChoices.length === 0 ? (
         <>

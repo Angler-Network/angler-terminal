@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -283,9 +284,8 @@ export function MarketsTable() {
           </tbody>
         </table>
         {settled && limit < shown.length && <div ref={sentinel} aria-hidden className="h-px" />}
-        {(!settled || shown.length === 0) && (
-          <p className="p-6 text-center text-[12px] text-app-muted">{!settled || rows.length === 0 ? "Loading markets…" : "No market matches."}</p>
-        )}
+        {(!settled || shown.length === 0) &&
+          (!settled || rows.length === 0 ? <LoadingState label="Loading markets…" /> : <p className="p-6 text-center text-[12px] text-app-muted">No market matches.</p>)}
       </div>
       {arbRow?.arb && arbRow.venues.hyperliquid && arbRow.venues.lighter && (
         <FundingArbDialog

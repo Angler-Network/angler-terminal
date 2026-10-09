@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MIN_TRADE_USD, readHip4Trades, type Hip4CoinInfo, type PredictionTrade } from "@/lib/prediction/trades";
@@ -361,7 +362,7 @@ export function PredictionHome({
           </nav>
         </header>
         <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-3">
-          {loading && !data && <p className="p-6 text-center text-[13px] text-app-muted">Loading markets…</p>}
+          {loading && !data && <LoadingState label="Loading markets…" />}
           {error && !data && <p className="p-6 text-center text-[13px] text-app-down">{error}</p>}
           {data && events.length === 0 && <p className="p-6 text-center text-[13px] text-app-muted">No markets found.</p>}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3">

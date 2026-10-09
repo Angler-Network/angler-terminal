@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { ArrowDownUp, Search, Star } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -168,7 +169,9 @@ export function WatchlistPanel() {
       </label>
       <ul className="scrollbar-subtle mt-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
         {loading ? (
-          <li className="px-3 py-6 text-center text-[12px] text-app-muted">Loading markets…</li>
+          <li>
+            <LoadingState label="Loading markets…" compact />
+          </li>
         ) : rows.length === 0 ? (
           <li className="px-3 py-6 text-center text-[12px] leading-snug text-app-muted">{empty}</li>
         ) : (

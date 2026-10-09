@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/app/loading-state";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -25,10 +26,15 @@ export function SpotOrderPanel() {
   return (
     <section aria-label="Order entry" className="flex flex-col gap-2.5 p-3">
       {view === undefined ? (
-        <div role="status" aria-label="Loading market" className="flex h-[300px] flex-col gap-2.5">
+        <div className="relative flex h-[300px] flex-col gap-2.5">
           {["h-6", "h-24", "h-24", "h-11"].map((height, index) => (
             <span key={index} aria-hidden className={`${height} shrink-0 animate-pulse rounded-xl bg-app-chip/60`} />
           ))}
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="rounded-xl bg-app-card/90 px-4 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)] backdrop-blur-sm">
+              <LoadingState label="Loading market…" compact />
+            </div>
+          </div>
         </div>
       ) : view === null ? (
         <>
