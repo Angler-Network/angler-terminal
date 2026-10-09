@@ -5,6 +5,7 @@ import type { RevenueReport, RevenueSummary } from "@/lib/analytics/revenue";
 import { shortAddress } from "@/lib/profile/identity";
 import type { Payable } from "@/lib/profile/store";
 import { useOffServices } from "@/components/app/service-status";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 import { useProfile } from "./profile-provider";
 
 const card = "rounded-2xl border border-app-hairline bg-app-card/60";
@@ -332,7 +333,10 @@ export function AdminView({ invites }: { invites: React.ReactNode }) {
           <ul className="mt-2 divide-y divide-app-hairline">
             {venues.map(([venue, value]) => (
               <li key={venue} className="flex items-center justify-between py-2 text-[13px] tabular-nums">
-                <span className="text-app-ink">{VENUE_NAMES[venue] ?? venue}</span>
+                <span className="flex items-center gap-2 text-app-ink">
+                  <VenueLogo name={VENUE_NAMES[venue] ?? venue} size={18} />
+                  {VENUE_NAMES[venue] ?? venue}
+                </span>
                 <span className="text-app-muted">
                   <span className="font-semibold text-app-ink">{money(metric, value[metric])}</span> · {metric === "fee" ? `${compactUsd.format(value.usd)} volume` : `${usd.format(value.fee)} revenue`}
                 </span>

@@ -98,6 +98,7 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
   lighter: { domain: "lighter.xyz" },
   lighterRh: { domain: "lighter.xyz", chain: 4663 },
   aster: { domain: "asterdex.com" },
+  orderly: { domain: "orderly.network" },
   solana: { domain: "jup.ag", chain: "solana" },
   arcus: { domain: "arcus.xyz", chain: 4663 },
 };
