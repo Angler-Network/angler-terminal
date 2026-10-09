@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
+import { anglerConfig, anglerDown, anglerOffResponse, markAnglerDown } from "@/lib/angler/env";
 import { readApiNewsPage } from "@/lib/angler/map";
 import { rateLimited } from "@/lib/rate-limit";
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   const limited = rateLimited(request, "news");
   if (limited) return limited;
   const { apiUrl, key } = anglerConfig();
-  if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
+  if (!key) return anglerOffResponse();
 
   const incoming = request.nextUrl.searchParams;
   const params = new URLSearchParams();
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
   const cursor = incoming.get("cursor");
   if (cursor) params.set("cursor", cursor.slice(0, 500));
 
+  if (anglerDown()) return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
   try {
     const query = params.toString();
     const page = await cachedPage(query, async () => {
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
     const cacheControl = cursor ? "public, s-maxage=60, stale-while-revalidate=60" : "public, s-maxage=5, stale-while-revalidate=10";
     return NextResponse.json(page, { headers: { "cache-control": cacheControl } });
   } catch (caught) {
+    markAnglerDown();
     if (caught instanceof UpstreamError) return NextResponse.json({ error: `Angler API responded ${caught.status}` }, { status: 502 });
     return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
   }

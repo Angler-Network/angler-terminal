@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
+import { anglerConfig, anglerDown, anglerOffResponse, markAnglerDown } from "@/lib/angler/env";
 import type { WsTicketResponse } from "@/lib/angler/types";
 import { rateLimited } from "@/lib/rate-limit";
 
@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
   const limited = rateLimited(request, "ws-ticket");
   if (limited) return limited;
   const { apiUrl, wsUrl, key } = anglerConfig();
-  if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
+  if (!key) return anglerOffResponse();
+  if (anglerDown()) return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
 
   try {
     const response = await fetch(`${apiUrl}/v1/ws/ticket`, {
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!response.ok) {
+      markAnglerDown();
       return NextResponse.json({ error: `Angler API responded ${response.status}` }, { status: 502 });
     }
     const body = (await response.json()) as Record<string, unknown>;
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
     };
     return NextResponse.json(ticket, { headers: { "cache-control": "no-store" } });
   } catch {
+    markAnglerDown();
     return NextResponse.json({ error: "Angler API is unreachable" }, { status: 502 });
   }
 }

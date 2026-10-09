@@ -14,13 +14,28 @@ const LIVE_GRACE_MS = 10_000;
 const POLL_MS = 15_000;
 const POLL_SIZE = 30;
 
-export type FeedStatus = "connecting" | "live" | "reconnecting" | "polling" | "offline" | "unconfigured";
+export type FeedStatus = "connecting" | "live" | "reconnecting" | "polling" | "offline" | "unconfigured" | "paused";
 
-class UnconfiguredError extends Error {}
+/** No key, or the API paused on purpose (`ANGLER_API_PAUSED`): stop asking until the page reloads. */
+class UnconfiguredError extends Error {
+  constructor(readonly paused: boolean) {
+    super(paused ? "Angler news is paused" : "ANGLER_API_KEY is not set");
+  }
+}
+
+/** A 503 from our news routes means off on purpose; its body says whether it's paused or has no key. */
+async function offError(response: Response) {
+  const body = (await response.json().catch(() => null)) as { paused?: unknown } | null;
+  return new UnconfiguredError(body?.paused === true);
+}
+
+/** Ticket retries back off from 5 seconds to 5 minutes while the API is down. */
+const RETRY_MIN_MS = 5_000;
+const RETRY_MAX_MS = 5 * 60_000;
 
 async function fetchTicket(): Promise<WsTicketResponse> {
   const response = await fetch("/api/ws-ticket", { method: "POST", cache: "no-store" });
-  if (response.status === 503) throw new UnconfiguredError("ANGLER_API_KEY is not set");
+  if (response.status === 503) throw await offError(response);
   if (!response.ok) throw new Error(`Ticket request failed (${response.status})`);
   return (await response.json()) as WsTicketResponse;
 }
@@ -73,8 +88,9 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
       if (pageCursor) params.set("cursor", pageCursor);
       const response = await fetch(`/api/news?${params}`, { cache: "no-store" });
       if (response.status === 503) {
-        setStatus("unconfigured");
-        throw new UnconfiguredError("ANGLER_API_KEY is not set");
+        const off = await offError(response);
+        setStatus(off.paused ? "paused" : "unconfigured");
+        throw off;
       }
       if (!response.ok) throw new Error(`News request failed (${response.status})`);
       const page = readNewsPage(await response.json());
@@ -122,6 +138,7 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
     let client: Centrifuge | null = null;
     let isActive = true;
     let retryTimer: number | undefined;
+    let retryMs = RETRY_MIN_MS;
 
     const onPublication = (context: PublicationContext) => {
       const news = readStageMessage(context.data);
@@ -142,11 +159,12 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
         [first, { Centrifuge: Client }] = await Promise.all([fetchTicket(), import("centrifuge")]);
       } catch (error) {
         if (!isActive) return;
-        if (error instanceof UnconfiguredError) setStatus("unconfigured");
+        if (error instanceof UnconfiguredError) setStatus(error.paused ? "paused" : "unconfigured");
         else {
           report(error instanceof Error ? error.message : "Ticket request failed");
           setStatus((current) => (current === "polling" ? current : "offline"));
-          retryTimer = window.setTimeout(() => isActive && void start(), 5000);
+          retryTimer = window.setTimeout(() => isActive && void start(), retryMs);
+          retryMs = Math.min(RETRY_MAX_MS, retryMs * 2);
         }
         return;
       }
@@ -207,7 +225,7 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
 
   // Fallback: while realtime isn't live, poll the latest page so new headlines still arrive.
   useEffect(() => {
-    if (status === "live" || status === "unconfigured") return;
+    if (status === "live" || status === "unconfigured" || status === "paused") return;
     let isActive = true;
     const poll = async () => {
       if (document.visibilityState === "hidden") return;
@@ -215,9 +233,10 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
         const params = new URLSearchParams({ limit: String(POLL_SIZE) });
         if (minImportanceRef.current > 0) params.set("min_importance", String(minImportanceRef.current));
         const response = await fetch(`/api/news?${params}`, { cache: "no-store" });
+        if (isActive && response.status === 503) return setStatus((await offError(response)).paused ? "paused" : "unconfigured");
         if (!isActive || !response.ok) return;
         upsert(readNewsPage(await response.json()).items);
-        setStatus((current) => (current === "live" || current === "unconfigured" ? current : "polling"));
+        setStatus((current) => (current === "live" || current === "unconfigured" || current === "paused" ? current : "polling"));
       } catch {}
     };
     const grace = window.setTimeout(() => {
@@ -230,7 +249,7 @@ export function useNewsFeed({ minImportance = 0, coin, translate = true }: { min
       window.clearTimeout(grace);
       window.clearInterval(timer);
     };
-  }, [status === "live" || status === "unconfigured", upsert]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status === "live" || status === "unconfigured" || status === "paused", upsert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), CLOCK_MS);

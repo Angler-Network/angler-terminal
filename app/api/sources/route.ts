@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
-import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
+import { anglerConfig, anglerOffResponse } from "@/lib/angler/env";
 import { readSources } from "@/lib/angler/map";
 import type { ApiSource } from "@/lib/angler/types";
 
@@ -27,7 +27,7 @@ const listSources = unstable_cache(
  */
 export async function GET() {
   const { apiUrl, key } = anglerConfig();
-  if (!key) return NextResponse.json(missingKeyResponse, { status: 503 });
+  if (!key) return anglerOffResponse();
   try {
     const items = await listSources(apiUrl);
     return NextResponse.json({ items }, { headers: { "cache-control": "public, max-age=300, s-maxage=600" } });

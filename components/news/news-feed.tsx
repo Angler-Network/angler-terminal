@@ -34,6 +34,7 @@ const statusLabels: Record<FeedStatus, { label: string; dot: string; hint: strin
   polling: { label: "Polling", dot: "bg-[#f5c97b]", hint: "Realtime is unavailable, so the feed refreshes every 15 seconds." },
   offline: { label: "Offline", dot: "bg-app-down", hint: "Can't reach the news service." },
   unconfigured: { label: "No API key", dot: "bg-app-down", hint: "Set ANGLER_API_KEY on the server." },
+  paused: { label: "Paused", dot: "bg-app-faint", hint: "The news feed is paused for now. Trading works as usual." },
 };
 
 function FeedStatusBadge({ status, error }: { status: FeedStatus; error: string | null }) {
@@ -276,7 +277,10 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             Set ANGLER_API_KEY in .env.local and restart the server to stream news.
           </p>
         )}
-        {historyError && <p className="py-3 text-center text-[12px] text-app-danger">{historyError}</p>}
+        {status === "paused" && items.length === 0 && (
+          <p className="py-6 text-center text-[12px] text-app-muted">The news feed is paused for now. Trading works as usual.</p>
+        )}
+        {historyError && status !== "paused" && <p className="py-3 text-center text-[12px] text-app-danger">{historyError}</p>}
         {shown.length === 0 && items.length > 0 && (
           <div className="py-6 text-center text-[12px] text-app-muted">
             <p>No news matches {newsFocus ? `${newsFocus} and your filters` : "your filters"} yet.</p>
@@ -289,7 +293,7 @@ export function NewsFeed({ feed }: NewsFeedProps) {
             </button>
           </div>
         )}
-        {items.length === 0 && status !== "unconfigured" && !historyError && (
+        {items.length === 0 && status !== "unconfigured" && status !== "paused" && !historyError && (
           <div className="flex flex-col gap-3 py-3" role="status" aria-label="Loading news">
             {[0, 1, 2].map((index) => (
               <div key={index} className="flex gap-3">

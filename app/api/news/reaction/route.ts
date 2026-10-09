@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { anglerConfig, missingKeyResponse } from "@/lib/angler/env";
+import { anglerConfig, anglerOffResponse } from "@/lib/angler/env";
 import { reactionBucket } from "@/lib/news/reaction";
 import { getNewsReaction } from "@/lib/news/reaction-server";
 import { rateLimited } from "@/lib/rate-limit";
@@ -13,7 +13,7 @@ const SYMBOL_PATTERN = /^[A-Z0-9]{1,20}$/;
 export async function GET(request: NextRequest) {
   const limited = rateLimited(request, "news-reaction");
   if (limited) return limited;
-  if (!anglerConfig().key) return NextResponse.json(missingKeyResponse, { status: 503 });
+  if (!anglerConfig().key) return anglerOffResponse();
   const symbol = request.nextUrl.searchParams.get("coin")?.toUpperCase() ?? "";
   if (!SYMBOL_PATTERN.test(symbol)) return NextResponse.json({ error: "Invalid coin" }, { status: 400 });
   const minImpact = reactionBucket(Number(request.nextUrl.searchParams.get("min")) || 0);

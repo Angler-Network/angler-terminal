@@ -56,6 +56,10 @@ dependency versions and design are free to diverge from angler-news.
     untranslated, `translations: null` for English items, and a deprecated `title_en`). `map.ts` keeps only the
     title (bodies are dropped like `content`) as `FeedNews.titleEn`; `toNewsItem` shows it as the headline with the
     original as `originalHeadline` (tooltip + "zh → EN" tag) unless `newsTranslate` is off (Settings → News filters).
+  - Pause: `ANGLER_API_PAUSED=1` (server env, redeploy) turns the news API off on purpose: `anglerConfig()` reports
+    no key, so nothing calls it (feed, sources, reaction, alerts news); the routes answer 503 `{ paused: true }` and
+    the feed shows "Paused" and stops asking (no ticket retries, no polling). Unpaused but failing, the routes answer
+    502 at once for 30s after a failure (`anglerDown`) and ticket retries back off from 5s to 5 min.
   - `GET /api/sources` proxies `/v1/sources` (cached 10 min) to name sources: REST items by `source_id`, realtime
     items by slug (`external_id`).
   - `POST /api/ws-ticket` calls `/v1/ws/ticket` with `Authorization: Bearer <key>` and returns
