@@ -39,8 +39,9 @@ function useSymbols() {
     () => ({
       hl: (coin: string) => splitCoin(coin).symbol,
       lighter: (marketId: number) => marketsByVenue.lighter?.find((market) => market.assetId === marketId)?.symbol ?? null,
+      lighterRh: (marketId: number) => marketsByVenue.lighterRh?.find((market) => market.assetId === marketId)?.symbol ?? null,
     }),
-    [marketsByVenue.lighter],
+    [marketsByVenue.lighter, marketsByVenue.lighterRh],
   );
 }
 
@@ -64,10 +65,13 @@ function useOrderHistory() {
     if (!address) return;
     let cancelled = false;
     const load = async () => {
-      const [hl, lighter] = await Promise.allSettled([
+      const [hl, lighter, rh] = await Promise.allSettled([
         perpOrder.includes("hyperliquid") ? import("@/lib/venues/hyperliquid/history").then((module) => module.hlOrderHistory(address)) : Promise.resolve([]),
         perpOrder.includes("lighter")
           ? Promise.all([import("@/lib/venues/lighter/history"), import("@/lib/venues/lighter/config")]).then(([module, { lighterConfig }]) => module.lighterOrderHistory(lighterConfig, address))
+          : Promise.resolve([]),
+        perpOrder.includes("lighterRh")
+          ? Promise.all([import("@/lib/venues/lighter/history"), import("@/lib/venues/lighter/config")]).then(([module, { lighterRhConfig }]) => module.lighterOrderHistory(lighterRhConfig, address))
           : Promise.resolve([]),
       ]);
       if (cancelled) return;
@@ -75,10 +79,13 @@ function useOrderHistory() {
       if (hl.status === "rejected") notes.push("Hyperliquid's order history didn't load.");
       if (lighter.status === "rejected") notes.push("Lighter's order history didn't load.");
       if (lighter.status === "fulfilled" && lighter.value === null) notes.push("Lighter orders show once this browser has its trading key.");
+      if (rh.status === "rejected") notes.push("Lighter RH's order history didn't load.");
+      if (rh.status === "fulfilled" && rh.value === null) notes.push("Lighter RH orders show once this browser has its trading key.");
       // Hyperliquid lists open orders too; they have their own tab.
       const rows = [
         ...(hl.status === "fulfilled" ? hl.value.map((entry) => fromHlHistoricalOrder(entry, symbols.hl)).filter((row) => row.outcome !== "open") : []),
         ...(lighter.status === "fulfilled" && lighter.value ? lighter.value.flatMap((order) => fromLighterOrder(order, symbols.lighter) ?? []) : []),
+        ...(rh.status === "fulfilled" && rh.value ? rh.value.flatMap((order) => fromLighterOrder(order, symbols.lighterRh, "lighterRh") ?? []) : []),
       ];
       setState({ rows: byTimeDesc(rows), loading: false, notes });
     };
@@ -159,7 +166,7 @@ function duration(from: number | null, to: number) {
 /** Positions closed in the last 30 days, rebuilt from fills (`lib/trading/position-history.ts`). */
 export function PositionHistoryTable() {
   const history = usePortfolioHistory();
-  const { account, lighter } = useTrading();
+  const { account, lighter, lighterStates } = useTrading();
   const symbols = useSymbols();
   const time = useTimeFormat();
   const closed = useMemo(() => {
@@ -169,14 +176,19 @@ export function PositionHistoryTable() {
       lighterIndex != null
         ? (history.lighter?.trades ?? []).map((trade) => fromLighterTrade(trade, lighterIndex, (marketId) => symbols.lighter(marketId) ?? `#${marketId}`))
         : [];
+    const rhIndex = lighterStates.lighterRh?.accountIndex;
+    const rhFills =
+      rhIndex != null
+        ? (history.lighterRh?.trades ?? []).map((trade) => fromLighterTrade(trade, rhIndex, (marketId) => symbols.lighterRh(marketId) ?? `#${marketId}`, "lighterRh"))
+        : [];
     const current = (account?.positions ?? []).map((position) => ({ venue: position.venue as PerpVenueId, symbol: position.symbol, size: position.size }));
-    return positionHistory([...hlFills, ...lighterFills], current);
-  }, [history, account?.positions, lighter?.accountIndex, symbols]);
+    return positionHistory([...hlFills, ...lighterFills, ...rhFills], current);
+  }, [history, account?.positions, lighter?.accountIndex, lighterStates.lighterRh?.accountIndex, symbols]);
 
   if (history.loading) return <Message>Loading position history…</Message>;
   const notes = [
     ...history.failed.map((venue) => `${PERP_VENUE_NAMES[venue]}'s history didn't load.`),
-    ...(history.hyperliquid?.truncated || history.lighter?.truncated ? ["Older trades in the window were cut off by the venue."] : []),
+    ...(history.hyperliquid?.truncated || history.lighter?.truncated || history.lighterRh?.truncated ? ["Older trades in the window were cut off by the venue."] : []),
   ];
   if (closed.length === 0)
     return (

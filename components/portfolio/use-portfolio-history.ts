@@ -5,7 +5,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { hlHistory, type HlHistory } from "@/lib/venues/hyperliquid/history";
 import { lighterHistory, type LighterHistory } from "@/lib/venues/lighter/history";
-import { lighterConfig } from "@/lib/venues/lighter/config";
+import { lighterConfig, lighterRhConfig } from "@/lib/venues/lighter/config";
 
 export const HISTORY_DAYS = 30;
 const REFRESH_MS = 60_000;
@@ -14,8 +14,10 @@ export interface PortfolioHistory {
   loading: boolean;
   hyperliquid: HlHistory | null;
   lighter: LighterHistory | null;
+  /** Lighter on Robinhood Chain: same API, its own account. */
+  lighterRh: LighterHistory | null;
   /** Venues whose history couldn't be read this time. */
-  failed: Array<"hyperliquid" | "lighter">;
+  failed: Array<"hyperliquid" | "lighter" | "lighterRh">;
   /** Start of the fetched window (ms). */
   since: number;
 }
@@ -23,20 +25,22 @@ export interface PortfolioHistory {
 /** 30 days of PnL, fills and funding for the connected wallet on each enabled perp venue, refreshed every minute. */
 export function usePortfolioHistory(): PortfolioHistory {
   const { address } = useWallet();
-  const { lighter, perpOrder } = useTrading();
+  const { lighter, lighterStates, perpOrder } = useTrading();
   const hlOn = perpOrder.includes("hyperliquid");
   const lighterIndex = perpOrder.includes("lighter") ? (lighter?.accountIndex ?? null) : null;
-  const [history, setHistory] = useState<PortfolioHistory>({ loading: true, hyperliquid: null, lighter: null, failed: [], since: 0 });
+  const rhIndex = perpOrder.includes("lighterRh") ? (lighterStates.lighterRh?.accountIndex ?? null) : null;
+  const [history, setHistory] = useState<PortfolioHistory>({ loading: true, hyperliquid: null, lighter: null, lighterRh: null, failed: [], since: 0 });
 
   useEffect(() => {
     // No EVM wallet: nothing to load (the page shows "connect" instead of a spinner).
-    if (!address) return setHistory({ loading: false, hyperliquid: null, lighter: null, failed: [], since: 0 });
+    if (!address) return setHistory({ loading: false, hyperliquid: null, lighter: null, lighterRh: null, failed: [], since: 0 });
     let cancelled = false;
     const load = async () => {
       const since = Date.now() - HISTORY_DAYS * 86_400_000;
-      const [hl, lt] = await Promise.allSettled([
+      const [hl, lt, rh] = await Promise.allSettled([
         hlOn ? hlHistory(address, since) : Promise.resolve(null),
         lighterIndex !== null ? lighterHistory(lighterConfig, lighterIndex, since) : Promise.resolve(null),
+        rhIndex !== null ? lighterHistory(lighterRhConfig, rhIndex, since) : Promise.resolve(null),
       ]);
       if (cancelled) return;
       setHistory((previous) => ({
@@ -44,18 +48,23 @@ export function usePortfolioHistory(): PortfolioHistory {
         // A failed refresh keeps the last good data on screen.
         hyperliquid: hl.status === "fulfilled" ? hl.value : previous.hyperliquid,
         lighter: lt.status === "fulfilled" ? lt.value : previous.lighter,
-        failed: [...(hl.status === "rejected" ? (["hyperliquid"] as const) : []), ...(lt.status === "rejected" ? (["lighter"] as const) : [])],
+        lighterRh: rh.status === "fulfilled" ? rh.value : previous.lighterRh,
+        failed: [
+          ...(hl.status === "rejected" ? (["hyperliquid"] as const) : []),
+          ...(lt.status === "rejected" ? (["lighter"] as const) : []),
+          ...(rh.status === "rejected" ? (["lighterRh"] as const) : []),
+        ],
         since,
       }));
     };
-    setHistory({ loading: true, hyperliquid: null, lighter: null, failed: [], since: 0 });
+    setHistory({ loading: true, hyperliquid: null, lighter: null, lighterRh: null, failed: [], since: 0 });
     void load();
     const timer = window.setInterval(load, REFRESH_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [address, hlOn, lighterIndex]);
+  }, [address, hlOn, lighterIndex, rhIndex]);
 
   return history;
 }

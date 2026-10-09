@@ -145,10 +145,15 @@ export interface LighterTrade {
 }
 
 /** Lighter trade → history row from `accountIndex`'s side. Lighter reports no per-trade fee or realized PnL. */
-export function fromLighterTrade(trade: LighterTrade, accountIndex: number, symbolOf: (marketId: number) => string): HistoryFill {
+export function fromLighterTrade(
+  trade: LighterTrade,
+  accountIndex: number,
+  symbolOf: (marketId: number) => string,
+  venue: "lighter" | "lighterRh" = "lighter",
+): HistoryFill {
   return {
-    id: `lighter:${trade.trade_id}`,
-    venue: "lighter",
+    id: `${venue}:${trade.trade_id}`,
+    venue,
     time: trade.timestamp,
     symbol: symbolOf(trade.market_id),
     side: trade.bid_account_id === accountIndex ? "buy" : "sell",

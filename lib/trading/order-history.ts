@@ -118,7 +118,11 @@ export function lighterOutcome(status: string, filled: number): { outcome: Order
 }
 
 /** Lighter `Order` from `accountInactiveOrders` (amounts are decimal strings; times are seconds or ms). */
-export function fromLighterOrder(order: Record<string, unknown>, symbolOf: (marketId: number) => string | null): OrderHistoryRow | null {
+export function fromLighterOrder(
+  order: Record<string, unknown>,
+  symbolOf: (marketId: number) => string | null,
+  venue: "lighter" | "lighterRh" = "lighter",
+): OrderHistoryRow | null {
   const marketId = toNumber(order.market_index);
   const symbol = symbolOf(marketId);
   if (!symbol || !Number.isSafeInteger(order.order_index)) return null;
@@ -128,8 +132,8 @@ export function fromLighterOrder(order: Record<string, unknown>, symbolOf: (mark
   const raw = toNumber(order.updated_at) || toNumber(order.timestamp) || toNumber(order.created_at);
   const isMarket = type === "market" || type === "stop-loss" || type === "take-profit" || type === "liquidation";
   return {
-    id: `lighter:${order.order_index}`,
-    venue: "lighter",
+    id: `${venue}:${order.order_index}`,
+    venue,
     time: raw > 0 && raw < 1e12 ? raw * 1000 : raw,
     symbol,
     side: order.is_ask === true ? "sell" : "buy",
