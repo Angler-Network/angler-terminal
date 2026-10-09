@@ -8,12 +8,13 @@ import { readOrderlyBook, readOrderlyTrade } from "./markets";
  * Orderly's public market data over one shared WebSocket (its REST order book needs a signed account): the
  * `{symbol}@orderbook` stream (a full depth-100 snapshot every second) and `{symbol}@trade`. Topics are subscribed while
  * someone listens and dropped a minute after the last one leaves; the socket answers Orderly's pings and reconnects.
- * Public streams take any id in the URL path.
+ * The URL path takes an account id, and Orderly now closes the socket (1000) on any id it doesn't know ("angler-public"
+ * worked until October 2026), so it's the example id from Orderly's own WebSocket docs, accepted on mainnet and testnet.
  */
 
 type Listener = { book?: (book: BookSide) => void; trade?: (trade: TapeTrade) => void };
 
-const STREAM_ID = "angler-public";
+const STREAM_ID = "OqdphuyCtYWxwzhxyLLjOWNdFP7sQt8RPWzmb5xY";
 const RETRY_MS = 3_000;
 const IDLE_UNSUBSCRIBE_MS = 60_000;
 
