@@ -812,6 +812,13 @@ dependency versions and design are free to diverge from angler-news.
   candles/trades/search/holders, news, ws-ticket) answers 429 above `RATE_LIMITS` per IP per minute (read 240, send 30,
   heavy 30). In memory per instance (no Redis cost or latency on quotes); the Origin check alone can be faked by a
   script. Add it to any new proxy that carries a key.
+- Load per open tab (checked for ~1k concurrent traders): `/api/news` answers from a 5s per-instance copy and the CDN
+  (`s-maxage=5`, cursor pages 60s), since tabs without a live socket poll it every 15s. The profile syncs (server reads of
+  every venue's fills) once per wallet, after each trade and every 5 min on profile pages only (`profile-provider.tsx`),
+  not on a timer everywhere. Solana balances go through `readSolanaBalances` (`jupiter/balance-cache.ts`: one shared read
+  per owner + mints for 10s, cleared by a trade; `fresh` before trading) and the route keeps a 4s copy (`fresh=1`
+  skips it). Swap quotes (`use-spot-quotes.ts`, the EVM card) pause after 2 min without input (`lib/activity.ts`) and
+  refresh when the user is back. Still to size against the plans: swap quote keys, Solana RPC, Upstash, Vercel.
 - Server-rendered chart price (the mobile LCP element): preferences mirror the chart's asset, market type and price
   source into the `angler_chart` cookie (`CHART_COOKIE`, next to the tape's `angler_tape`). `app/layout.tsx` seeds
   `PreferencesProvider` with it so the server and the first client render show the same asset, and `app/page.tsx`

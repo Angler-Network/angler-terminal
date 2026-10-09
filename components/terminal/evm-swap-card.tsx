@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
+import { onUserBack, userIdle } from "@/lib/activity";
 import { useRouter } from "next/navigation";
 import type { Chain } from "viem";
 import { useEffect, useRef, useState } from "react";
@@ -169,9 +170,12 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
       }
     };
     const debounce = window.setTimeout(load, QUOTE_DEBOUNCE_MS);
-    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), QUOTE_REFRESH_MS);
+    // Paused while the user is away (`lib/activity.ts`), refreshed the moment they're back.
+    const timer = window.setInterval(() => document.visibilityState !== "hidden" && !userIdle() && void load(), QUOTE_REFRESH_MS);
+    const stopWake = onUserBack(() => void load());
     return () => {
       active = false;
+      stopWake();
       window.clearTimeout(debounce);
       window.clearInterval(timer);
     };
@@ -249,9 +253,12 @@ function useDirect(request: DirectSwapRequest | null) {
       }
     };
     const debounce = window.setTimeout(load, QUOTE_DEBOUNCE_MS);
-    const timer = window.setInterval(() => document.visibilityState !== "hidden" && void load(), QUOTE_REFRESH_MS);
+    // Paused while the user is away (`lib/activity.ts`), refreshed the moment they're back.
+    const timer = window.setInterval(() => document.visibilityState !== "hidden" && !userIdle() && void load(), QUOTE_REFRESH_MS);
+    const stopWake = onUserBack(() => void load());
     return () => {
       active = false;
+      stopWake();
       window.clearTimeout(debounce);
       window.clearInterval(timer);
     };

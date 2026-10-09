@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onUserBack, userIdle } from "@/lib/activity";
 import { usdToInputAmount } from "@/lib/venues/jupiter/amounts";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
 import { getTitanQuote } from "@/lib/venues/titan/venue";
@@ -110,11 +111,14 @@ export function useSpotQuotes({
       }
     };
     const debounce = window.setTimeout(load, DEBOUNCE_MS);
+    // Paused while the user is away (`lib/activity.ts`), refreshed the moment they're back.
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== "hidden") void load();
+      if (document.visibilityState !== "hidden" && !userIdle()) void load();
     }, REFRESH_MS);
+    const stopWake = onUserBack(() => void load());
     return () => {
       active = false;
+      stopWake();
       window.clearTimeout(debounce);
       window.clearInterval(timer);
     };
@@ -181,11 +185,14 @@ export function useRobinhoodQuotes({
       }
     };
     const debounce = window.setTimeout(load, DEBOUNCE_MS);
+    // Paused while the user is away (`lib/activity.ts`), refreshed the moment they're back.
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== "hidden") void load();
+      if (document.visibilityState !== "hidden" && !userIdle()) void load();
     }, REFRESH_MS);
+    const stopWake = onUserBack(() => void load());
     return () => {
       active = false;
+      stopWake();
       window.clearTimeout(debounce);
       window.clearInterval(timer);
     };
