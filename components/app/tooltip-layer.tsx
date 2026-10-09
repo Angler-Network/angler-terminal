@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const SHOW_DELAY_MS = 350;
 const GAP = 8;
@@ -9,8 +9,9 @@ const EDGE = 8;
 interface Tip {
   text: string;
   x: number;
-  y: number;
-  below: boolean;
+  /** The element's top and bottom edges; the bubble sits above it unless it doesn't fit there. */
+  top: number;
+  bottom: number;
 }
 
 /**
@@ -69,8 +70,7 @@ export function TooltipLayer() {
       timer = window.setTimeout(() => {
         if (target !== next || !next.isConnected) return;
         const rect = next.getBoundingClientRect();
-        const below = rect.top < 48;
-        setTip({ text, x: rect.left + rect.width / 2, y: below ? rect.bottom + GAP : rect.top - GAP, below });
+        setTip({ text, x: rect.left + rect.width / 2, top: rect.top, bottom: rect.bottom });
       }, SHOW_DELAY_MS);
     };
 
@@ -148,15 +148,23 @@ export function TooltipLayer() {
     };
   }, []);
 
-  // Keep the bubble inside the window once its width is known.
+  // Keep the bubble inside the window once its size is known: shifted sideways, and below the element when a long
+  // (wrapped) text doesn't fit above it.
   const [shift, setShift] = useState(0);
-  useEffect(() => {
+  const [below, setBelow] = useState(false);
+  // Measured before paint, so the bubble never flashes on the wrong side.
+  useLayoutEffect(() => {
     const element = bubble.current;
-    if (!tip || !element) return setShift(0);
+    if (!tip || !element) {
+      setShift(0);
+      setBelow(false);
+      return;
+    }
     const half = element.offsetWidth / 2;
     const left = tip.x - half;
     const right = tip.x + half;
     setShift(left < EDGE ? EDGE - left : right > window.innerWidth - EDGE ? window.innerWidth - EDGE - right : 0);
+    setBelow(tip.top - GAP - element.offsetHeight < EDGE);
   }, [tip]);
 
   if (!tip) return null;
@@ -164,8 +172,8 @@ export function TooltipLayer() {
     <div
       ref={bubble}
       role="tooltip"
-      className="tooltip-in pointer-events-none fixed z-[100] max-w-[280px] rounded-lg border border-app-hairline-strong bg-app-card/95 px-2.5 py-1.5 text-[12px] leading-snug text-app-ink shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md"
-      style={{ left: tip.x + shift, top: tip.y, transform: `translate(-50%, ${tip.below ? "0" : "-100%"})` }}
+      className="tooltip-in pointer-events-none fixed z-[100] w-max max-w-[280px] rounded-lg border border-app-hairline-strong bg-app-card/95 px-2.5 py-1.5 text-[12px] leading-snug text-app-ink shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)] backdrop-blur-md"
+      style={{ left: tip.x + shift, top: below ? tip.bottom + GAP : tip.top - GAP, transform: `translate(-50%, ${below ? "0" : "-100%"})` }}
     >
       {tip.text}
     </div>
