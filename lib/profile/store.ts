@@ -590,7 +590,37 @@ export interface LeaderboardEntry {
   levelName: string;
 }
 
+/**
+ * Bump when the points formula changes: the leaderboard's sorted set only moves when a profile gains volume, so profiles
+ * idle since a change would keep their old score (one showed 207.85 points for 2.07 after 1 point per $100 became 0.01).
+ * The first read after a bump scores every member again from its stored volume.
+ */
+const POINTS_VERSION = "2026-10-10";
+
+async function rescoreLeaderboard() {
+  if ((await getKey(key("points-version"))) === POINTS_VERSION) return;
+  const ids = redisConfig()
+    ? (((await run([["ZRANGE", key("points"), 0, -1]]))[0] as unknown[] | null) ?? []).filter((id): id is string => typeof id === "string")
+    : [...memory.zset.keys()];
+  for (let start = 0; start < ids.length; start += 100) {
+    const batch = ids.slice(start, start + 100);
+    if (!redisConfig()) {
+      for (const id of batch) await setPoints(id, pointsOf(await getHash(id)));
+      continue;
+    }
+    const hashes = (await run(batch.map((id) => ["HGETALL", key("p", id)]))).map(toHash);
+    await run(
+      batch.map((id, index): RedisCommand => {
+        const points = pointsOf(hashes[index]);
+        return points > 0 ? ["ZADD", key("points"), points, id] : ["ZREM", key("points"), id];
+      }),
+    );
+  }
+  await putKey(key("points-version"), POINTS_VERSION);
+}
+
 export async function readLeaderboard(limit = LEADERBOARD_SIZE): Promise<LeaderboardEntry[]> {
+  await rescoreLeaderboard();
   let rows: Array<[string, number]>;
   if (!redisConfig()) {
     rows = [...memory.zset.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
