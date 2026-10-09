@@ -31,6 +31,9 @@ export interface SpotListing {
   price?: number;
   /** 24h change in percent. */
   change24h?: number;
+  /** 1h and 6h change in percent (Jupiter, DexScreener; no source offers 4h). */
+  change1h?: number;
+  change6h?: number;
   volume24h?: number;
   liquidity?: number;
   marketCap?: number;
@@ -58,6 +61,8 @@ export interface JupListingRecord {
   launchpad?: string;
   graduatedPool?: string;
   stats24h?: { priceChange?: number; buyVolume?: number; sellVolume?: number };
+  stats1h?: { priceChange?: number };
+  stats6h?: { priceChange?: number };
 }
 
 /** Jupiter tags stablecoins "stable" and yield-bearing tokens "yb"; a yield-bearing token named after USD is a dollar too. */
@@ -84,6 +89,8 @@ export function fromJupRecord(record: JupListingRecord): SpotListing | null {
     verified: record.isVerified === true || Boolean(record.tags?.includes("verified")),
     price: finite(record.usdPrice),
     change24h: finite(stats?.priceChange),
+    change1h: finite(record.stats1h?.priceChange),
+    change6h: finite(record.stats6h?.priceChange),
     volume24h: stats ? volume : undefined,
     liquidity: finite(record.liquidity),
     marketCap: finite(record.mcap),
@@ -199,6 +206,8 @@ export interface UniswapTokenRecord {
 export interface TokenMarket {
   price?: number;
   change24h?: number;
+  change1h?: number;
+  change6h?: number;
   volume24h?: number;
   liquidity?: number;
   marketCap?: number;
@@ -249,6 +258,8 @@ export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket
     ...(record.pons ? { pons: record.pons } : {}),
     price: market.price,
     change24h: market.change24h,
+    change1h: market.change1h,
+    change6h: market.change6h,
     volume24h: market.volume24h,
     liquidity: market.liquidity,
     marketCap: market.marketCap,

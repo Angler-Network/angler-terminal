@@ -31,6 +31,9 @@ export interface MarketRow {
   category: MarketCategory;
   price?: number;
   change24h?: number;
+  /** Spot rows: 1h and 6h change in percent. */
+  change1h?: number;
+  change6h?: number;
   volume24h?: number;
   liquidity?: number;
   venues: string[];
@@ -219,6 +222,8 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     category: SPOT_CATEGORY[listing.category],
     price: listing.price,
     change24h: listing.change24h,
+    change1h: listing.change1h,
+    change6h: listing.change6h,
     volume24h: listing.volume24h,
     liquidity: listing.liquidity,
     venues: [listing.pons ? (listing.pons === "curve" ? "Pons · On curve" : "Pons") : evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
@@ -247,7 +252,8 @@ export function Change({ value }: { value?: number }) {
   return (
     <span className={value >= 0 ? "text-app-up" : "text-app-down"}>
       {value >= 0 ? "+" : "-"}
-      {formatPercent(value)}
+      {/* A fresh launch's +543654.00% doesn't fit the column: whole percents from 1000% up. */}
+      {Math.abs(value) >= 1000 ? `${Math.round(Math.abs(value)).toLocaleString("en-US")}%` : formatPercent(value)}
     </span>
   );
 }
@@ -277,7 +283,7 @@ export function useSpotRows(enabled: boolean, query = "", only?: SpotListing["ve
  * on hover. One venue also gets a short label (the chain for Uniswap, else the venue). Only rows where no venue has
  * a logo ("Wallet", "Popular") stay text; a venue without one among others shows as its short name.
  */
-export function VenueMarks({ venues }: { venues: string[] }) {
+export function VenueMarks({ venues, iconsOnly }: { venues: string[]; iconsOnly?: boolean }) {
   if (venues.length === 0) return <span className="text-app-faint">—</span>;
   const marks = venues.map((label) => {
     const [name, chainName] = label.split(" · ");
@@ -300,7 +306,7 @@ export function VenueMarks({ venues }: { venues: string[] }) {
           ),
         )}
       </span>
-      {single && <span className="truncate">{single.chainName ?? single.name}</span>}
+      {single && !iconsOnly && <span className="truncate">{single.chainName ?? single.name}</span>}
     </span>
   );
 }

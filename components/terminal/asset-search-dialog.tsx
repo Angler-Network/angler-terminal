@@ -42,11 +42,13 @@ function pinnedRow(token: TokenChoice, venue: string): MarketRow {
 
 type Tab = "favorites" | "all" | "launchpads" | MarketCategory;
 
-type SortKey = "name" | "price" | "change" | "volume" | "liquidity";
+type SortKey = "name" | "price" | "change1h" | "change6h" | "change" | "volume" | "liquidity";
 type SortState = { key: SortKey; dir: "desc" | "asc" } | null;
 
 const sortValue: Record<Exclude<SortKey, "name">, (row: MarketRow) => number | undefined> = {
   price: (row) => row.price,
+  change1h: (row) => row.change1h,
+  change6h: (row) => row.change6h,
   change: (row) => row.change24h,
   volume: (row) => row.volume24h,
   liquidity: (row) => row.liquidity,
@@ -249,7 +251,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
     // Pump.fun, Pons and the other launchpads' tokens (the network picker narrows to one launchpad).
     ...(counts.launchpads ? [{ value: "launchpads" as Tab, label: "Launchpads", count: counts.launchpads }] : []),
   ];
-  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_96px_96px_104px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
+  // Spot: 1h and 6h change next to 24h from md up; the venue column is logos only (names on hover).
+  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_104px_72px_72px_80px_84px_84px_56px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
 
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]" role="presentation" onMouseDown={onClose}>
@@ -352,6 +355,8 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
         <div className={`grid shrink-0 ${columns} gap-3 border-b border-app-hairline px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-app-faint`}>
           <SortHeader label="Name" column="name" sort={sort} onSort={setSort} />
           <SortHeader label="Price" column="price" sort={sort} onSort={setSort} className="text-right" />
+          {isSpot && <SortHeader label="1h" column="change1h" sort={sort} onSort={setSort} className="hidden text-right md:block" />}
+          {isSpot && <SortHeader label="6h" column="change6h" sort={sort} onSort={setSort} className="hidden text-right md:block" />}
           <SortHeader label="24h" column="change" sort={sort} onSort={setSort} className="text-right" />
           <SortHeader label="24h vol." column="volume" sort={sort} onSort={setSort} className="hidden text-right md:block" />
           {isSpot && <SortHeader label="Liquidity" column="liquidity" sort={sort} onSort={setSort} className="hidden text-right md:block" />}
@@ -414,13 +419,23 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
                     </span>
                   </span>
                   <span className="truncate text-right">{row.price !== undefined ? formatPrice(row.price) : "—"}</span>
+                  {isSpot && (
+                    <span className="hidden text-right md:block">
+                      <Change value={row.change1h} />
+                    </span>
+                  )}
+                  {isSpot && (
+                    <span className="hidden text-right md:block">
+                      <Change value={row.change6h} />
+                    </span>
+                  )}
                   <span className="text-right">
                     <Change value={row.change24h} />
                   </span>
                   <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.volume24h)}</span>
                   {isSpot && <span className="hidden text-right text-app-muted md:block">{formatUsdCompact(row.liquidity)}</span>}
                   <span className="hidden min-w-0 text-right text-[11px] text-app-muted md:block">
-                    <VenueMarks venues={row.venues} />
+                    <VenueMarks venues={row.venues} iconsOnly={isSpot} />
                   </span>
                 </div>
               );

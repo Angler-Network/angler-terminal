@@ -11,7 +11,7 @@ export interface DexPair {
   baseToken?: { address?: string; name?: string; symbol?: string };
   priceUsd?: string;
   volume?: { h24?: number };
-  priceChange?: { h24?: number };
+  priceChange?: { h1?: number; h6?: number; h24?: number };
   liquidity?: { usd?: number };
   marketCap?: number;
   fdv?: number;
@@ -42,7 +42,12 @@ export function readDexMarkets(pairs: unknown): Map<string, TokenMarket> {
     const deeper = !current || depth > current.depth;
     markets.set(address, {
       ...(deeper
-        ? { price: finite(pair.priceUsd), change24h: finite(pair.priceChange?.h24), marketCap: finite(pair.marketCap) ?? finite(pair.fdv), depth }
+        ? {
+            price: finite(pair.priceUsd),
+            change24h: finite(pair.priceChange?.h24),
+            change1h: finite(pair.priceChange?.h1),
+            change6h: finite(pair.priceChange?.h6),
+            marketCap: finite(pair.marketCap) ?? finite(pair.fdv), depth }
         : current),
       icon: current?.icon ?? pair.info?.imageUrl,
       volume24h: volume,
