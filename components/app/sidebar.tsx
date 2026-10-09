@@ -11,7 +11,7 @@ import { FitLabel } from "./fit-label";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
 import { SOCIALS, SocialIcon } from "./social-links";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, VaultsIcon, type NavIcon } from "./nav-icons";
+import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -50,14 +50,13 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
 }
 
 /**
- * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, layout, then pro order, bridge,
- * settings and small marks for the news site and the community links. It scrolls when a short screen can't fit it. Wallets, the profile and the
+ * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, layout, then pro order, bridge
+ * and small marks for the news site and the community links. It scrolls when a short screen can't fit it. Wallets, the profile and the
  * portfolio sit in the top bar's account menu.
  */
 export function Sidebar() {
   const t = useT();
   const pathname = usePathname();
-  const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
   const { openDeposit, openProOrder, isProOrderOpen } = useTrading();
@@ -109,10 +108,6 @@ export function Sidebar() {
           <NavLabel>Pro order</NavLabel>
         </button>
         <NavButton label="Bridge" icon={BridgeIcon} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
-        <Link href="/settings" title={t("nav.settings")} aria-current={isSettingsOpen ? "page" : undefined} className={navItemClass(isSettingsOpen)}>
-          <SettingsIcon className={iconClass(isSettingsOpen)} active={isSettingsOpen} />
-          <NavLabel>{t("nav.settings")}</NavLabel>
-        </Link>
         <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
         {/* The news site and the community links as small marks, two a row in the rail's width. */}
         <div className="flex flex-wrap justify-center gap-0.5">

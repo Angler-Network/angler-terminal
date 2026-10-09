@@ -7,7 +7,7 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { LayoutMenu } from "./layout-menu";
 import { marketNav } from "./market-nav";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, SettingsIcon, VaultsIcon } from "./nav-icons";
+import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon } from "./nav-icons";
 
 function itemClass(active: boolean) {
   return `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium transition-colors ${
@@ -20,7 +20,6 @@ const label = "hidden xl:inline";
 /** The sidebar's navigation laid out in the top bar (`navMode: "top"`); shown by CSS when html[data-nav=top]. */
 export function TopNav() {
   const pathname = usePathname();
-  const isSettingsOpen = pathname.startsWith("/settings");
   const wallets = useWalletModal();
   const { address } = useWallet();
   const { openDeposit, openProOrder } = useTrading();
@@ -60,10 +59,6 @@ export function TopNav() {
         <BridgeIcon className="size-[18px]" />
         <span className={label}>Bridge</span>
       </button>
-      <Link href="/settings" title="Settings" aria-current={isSettingsOpen ? "page" : undefined} className={itemClass(isSettingsOpen)}>
-        <SettingsIcon className={`size-[18px] ${isSettingsOpen ? "text-app-accent" : ""}`} active={isSettingsOpen} />
-        <span className={label}>Settings</span>
-      </Link>
     </nav>
   );
 }

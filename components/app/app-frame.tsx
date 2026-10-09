@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ProfileButton } from "@/components/profile/profile-button";
 import { deployment, otherDeploymentUrl } from "@/lib/deployment";
 import { SidebarToggle, TopBarToggle } from "./layout-toggles";
 import { MobileNav } from "./mobile-nav";
 import { MobileViewProvider } from "./mobile-view";
+import { SettingsIcon } from "./nav-icons";
 import { usePreferences } from "./preferences-provider";
 import { TopNav } from "./top-nav";
 
@@ -22,6 +24,25 @@ function TestnetBadge() {
     <span title="Test funds only" className={className}>
       {label}
     </span>
+  );
+}
+
+/** Settings as a gear next to the account control (desktop; phones reach it from the tab bar's More menu). */
+function SettingsButton() {
+  const pathname = usePathname();
+  const active = pathname.startsWith("/settings");
+  return (
+    <Link
+      href="/settings"
+      title="Settings"
+      aria-label="Settings"
+      aria-current={active ? "page" : undefined}
+      className={`max-lg:hidden lg:inline-flex size-9 items-center justify-center rounded-lg transition-colors ${
+        active ? "bg-app-card text-app-accent shadow-[inset_0_0_0_1px_rgb(var(--app-hairline-strong))]" : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
+      }`}
+    >
+      <SettingsIcon className="size-[19px]" active={active} />
+    </Link>
   );
 }
 
@@ -51,6 +72,7 @@ export function AppFrame({ tape, children }: { tape: React.ReactNode; children: 
         {position === "top" ? <div className="app-tape-top flex min-w-0 flex-1">{tape}</div> : <div className="flex-1" />}
         <div className="flex shrink-0 items-center gap-2 lg:border-l lg:border-app-hairline lg:pl-3">
           {deployment === "testnet" && <TestnetBadge />}
+          <SettingsButton />
           <ProfileButton />
           <TopBarToggle />
         </div>
