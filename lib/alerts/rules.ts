@@ -45,6 +45,15 @@ function sideOf(size: number) {
 }
 
 /** Strips the HIP-3 dex prefix for display ("xyz:NVDA" → "NVDA"). */
+/** Price alerts on a coin only Lighter, Lighter RH or Aster lists carry that venue as the prefix ("aster:FOO"). */
+export const PRICE_VENUE_PREFIXES = { lighter: "Lighter", lighterrh: "Lighter RH", aster: "Aster" } as const;
+
+/** The venue a price alert's coin is priced on, when it isn't Hyperliquid. */
+export function priceVenueName(coin: string): string | null {
+  const prefix = coin.includes(":") ? coin.split(":")[0] : "";
+  return prefix in PRICE_VENUE_PREFIXES ? PRICE_VENUE_PREFIXES[prefix as keyof typeof PRICE_VENUE_PREFIXES] : null;
+}
+
 export function displayCoin(coin: string) {
   return coin.includes(":") ? coin.split(":")[1] : coin;
 }
@@ -123,7 +132,8 @@ export function priceMessages(prices: PriceAlert[], mids: Record<string, number>
     const mid = mids[alert.coin];
     if (!(mid > 0)) continue;
     if (alert.direction === "above" ? mid >= alert.price : mid <= alert.price) {
-      messages.push(`🎯 ${displayCoin(alert.coin)} is ${alert.direction} ${formatPrice(alert.price)} (now ${formatPrice(mid)})`);
+      const venue = priceVenueName(alert.coin);
+      messages.push(`🎯 ${displayCoin(alert.coin)}${venue ? ` (${venue})` : ""} is ${alert.direction} ${formatPrice(alert.price)} (now ${formatPrice(mid)})`);
       nextFired.push(alert.id);
     }
   }

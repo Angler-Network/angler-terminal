@@ -7,7 +7,7 @@ import { MarketIcon } from "@/components/app/market-icon";
 import { SearchableSelect } from "@/components/app/searchable-select";
 import { useToast } from "@/components/app/toast-provider";
 import type { AlertCoin } from "@/lib/alerts/coins";
-import { displayCoin } from "@/lib/alerts/rules";
+import { displayCoin, priceVenueName } from "@/lib/alerts/rules";
 import {
   DEFAULT_ALERT_SETTINGS,
   LIQUIDATION_STEPS,
@@ -45,7 +45,7 @@ function useAlertCoins() {
   return coins;
 }
 
-/** Price alert entry: any Hyperliquid coin (main dex and HIP-3 stocks), above/below, price. */
+/** Price alert entry: any Hyperliquid coin (main dex and HIP-3 stocks) or one only Lighter / Lighter RH / Aster lists. */
 function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => void; disabled: boolean }) {
   const coins = useAlertCoins();
   const [coin, setCoin] = useState("BTC");
@@ -73,14 +73,14 @@ function PriceAlertForm({ onAdd, disabled }: { onAdd: (alert: PriceAlert) => voi
           value={coin}
           onChange={setCoin}
           getKey={(entry) => entry.coin}
-          getSearchText={(entry) => `${entry.coin} ${displayCoin(entry.coin)}`}
+          getSearchText={(entry) => `${entry.coin} ${displayCoin(entry.coin)} ${priceVenueName(entry.coin) ?? "hyperliquid"}`}
           getDisplayValue={(entry) => displayCoin(entry.coin)}
-          renderSelectedIcon={(entry) => <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.dex ? "stock" : "crypto"} size={18} />}
+          renderSelectedIcon={(entry) => <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.stock ? "stock" : "crypto"} size={18} />}
           renderOption={(entry) => (
             <>
-              <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.dex ? "stock" : "crypto"} size={20} />
+              <MarketIcon symbol={displayCoin(entry.coin)} kind={entry.stock ? "stock" : "crypto"} size={20} />
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-app-ink">{displayCoin(entry.coin)}</span>
-              {entry.dex && <span className="rounded bg-app-chip px-1 text-[10px] font-semibold uppercase text-app-muted">{entry.dex}</span>}
+              {priceVenueName(entry.coin) && <span className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">{priceVenueName(entry.coin)}</span>}
               <span className="text-[12px] tabular-nums text-app-muted">{formatPrice(entry.mid)}</span>
             </>
           )}
@@ -370,14 +370,15 @@ export function AlertsView() {
 
       <section className={`${card} p-4 sm:p-5`}>
         <h2 className="text-[15px] font-semibold text-app-ink">Price alerts</h2>
-        <p className="mt-1 text-[13px] text-app-muted">Hyperliquid mid price; each alert fires once.</p>
+        <p className="mt-1 text-[13px] text-app-muted">Hyperliquid price, or Lighter / Aster for coins only they list; each alert fires once.</p>
         <div className="mt-3 flex flex-col gap-1.5">
           {draft.prices.map((alert) => {
             const fired = loaded!.fired.includes(alert.id) && saved.prices.some((entry) => entry.id === alert.id);
             return (
               <div key={alert.id} className="flex items-center gap-3 rounded-lg bg-app-chip/50 px-3 py-2 text-[13px]">
                 <span className="min-w-0 flex-1 text-app-ink">
-                  <span className="font-semibold">{displayCoin(alert.coin)}</span> goes {alert.direction} <span className="tabular-nums">{formatPrice(alert.price)}</span>
+                  <span className="font-semibold">{displayCoin(alert.coin)}</span>
+                  {priceVenueName(alert.coin) && <span className="text-app-muted"> · {priceVenueName(alert.coin)}</span>} goes {alert.direction} <span className="tabular-nums">{formatPrice(alert.price)}</span>
                 </span>
                 {fired && <span className="rounded-md bg-app-up/15 px-1.5 py-0.5 text-[11px] font-semibold text-app-up">Triggered</span>}
                 <button

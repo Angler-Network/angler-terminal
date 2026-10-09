@@ -1,8 +1,13 @@
 import "server-only";
 import { anglerConfig } from "@/lib/angler/env";
+import { venueAvailable } from "@/lib/deployment";
+import { getAsterMarkets } from "@/lib/venues/aster/markets-server";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
+import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
+import type { VenueMarket } from "@/lib/venues/types";
+import { getLighterMarkets } from "@/lib/venues/lighter/markets-server";
 import { readAccountIndex, readPosition } from "@/lib/venues/lighter/account";
-import type { LighterConfig } from "@/lib/venues/lighter/config";
+import { mergeAlertCoins, type AlertCoin, type PriceMarket } from "./coins";
 import type { AlertNews, AlertVenue, PositionSnap } from "./rules";
 
 /**
@@ -39,6 +44,31 @@ export async function hlMids(): Promise<Record<string, number>> {
     }
   }
   return mids;
+}
+
+const priceMarkets = (markets: VenueMarket[], prefer: "mid" | "mark"): PriceMarket[] =>
+  markets.map((market) => ({ symbol: market.symbol, price: prefer === "mid" ? (market.midPx ?? market.markPx) : (market.markPx ?? market.midPx), stock: market.kind === "stock" }));
+
+/**
+ * Everything price alerts can watch: Hyperliquid's mids, then the markets only Lighter, Lighter RH or Aster list (each
+ * on the deployment's network; Aster only where it's offered). A venue that fails is skipped for this read; all failing
+ * throws, so a cached list is never replaced by an empty one.
+ */
+export async function alertCoins(): Promise<AlertCoin[]> {
+  const [hl, lighter, lighterRh, aster] = await Promise.allSettled([
+    hlMids(),
+    venueAvailable("lighter") ? getLighterMarkets(lighterConfig.network, "core") : Promise.resolve([]),
+    venueAvailable("lighterRh") ? getLighterMarkets(lighterRhConfig.network, "rh") : Promise.resolve([]),
+    venueAvailable("aster") ? getAsterMarkets() : Promise.resolve([]),
+  ]);
+  const value = <T,>(result: PromiseSettledResult<T>, fallback: T) => (result.status === "fulfilled" ? result.value : fallback);
+  const coins = mergeAlertCoins(value(hl, {}), [
+    { venue: "lighter", markets: priceMarkets(value(lighter, []), "mid") },
+    { venue: "lighterrh", markets: priceMarkets(value(lighterRh, []), "mid") },
+    { venue: "aster", markets: priceMarkets(value(aster, []), "mark") },
+  ]);
+  if (coins.length === 0) throw new Error("No venue sent prices.");
+  return coins;
 }
 
 type HlState = {

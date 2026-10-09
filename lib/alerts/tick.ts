@@ -3,6 +3,7 @@ import { mapLimit } from "@/lib/async";
 import { venueAvailable } from "@/lib/deployment";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { deliver } from "./channels";
+import { alertPrices } from "./coins";
 import {
   liquidationMessages,
   newsMessages,
@@ -15,7 +16,7 @@ import {
   type PositionSnap,
 } from "./rules";
 import { hasChannel, type AlertSettings } from "./settings";
-import { hlMids, hlPositions, latestNews, lighterAccountIndex, lighterPositions } from "./sources";
+import { alertCoins, hlPositions, latestNews, lighterAccountIndex, lighterPositions } from "./sources";
 import { readAll, readNewsCursor, releaseTickLock, saveNewsCursor, saveStates, takeTickLock } from "./store";
 
 /**
@@ -101,7 +102,7 @@ export async function runAlertsTick(now = Date.now()) {
     const impacts = profiles.flatMap((profile) => (profile.settings.newsMinImpact === null ? [] : [profile.settings.newsMinImpact]));
 
     const [mids, items, cursor] = await Promise.all([
-      armed ? hlMids().catch(() => ({})) : Promise.resolve({}),
+      armed ? alertCoins().then(alertPrices).catch(() => ({})) : Promise.resolve({}),
       impacts.length > 0 ? latestNews(Math.min(...impacts)).catch(() => []) : Promise.resolve([]),
       readNewsCursor(),
     ]);

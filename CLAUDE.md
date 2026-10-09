@@ -826,7 +826,10 @@ dependency versions and design are free to diverge from angler-news.
 - Alerts (Profile → Alerts, `components/profile/alerts-view.tsx`; `lib/alerts/settings.ts`, `rules.ts`, `sources.ts`,
   `channels.ts`, `store.ts`, `tick.ts`; routes `app/api/alerts/*`): Telegram and/or Discord messages for positions
   (opened, added, reduced, flipped, closed; TP/SL and liquidations read as closes), liquidation distance (5/10/20%,
-  once, re-armed past 1.5×), price levels (Hyperliquid mids, main + HIP-3 dexes, each fires once) and news at or above
+  once, re-armed past 1.5×), price levels (each fires once; the coin picker is `GET /api/alerts/coins`, `alertCoins` in
+  `sources.ts`: Hyperliquid mids, main + HIP-3 dexes, then the coins only Lighter, Lighter RH or Aster list, named
+  `lighter:` / `lighterrh:` / `aster:` and priced from their market lists; `mergeAlertCoins` keeps one per asset, kPEPE =
+  1000PEPE) and news at or above
   an impact on the positions' coins and a coin list. Settings need the profile session cookie (sign in once); the
   Telegram chat is only set by the bot (`/start <code>` from a t.me link made by `/api/alerts/telegram/link`, `/stop`
   unlinks), never from the page. Discord webhooks are checked against Discord's hosts (the server posts to them),
