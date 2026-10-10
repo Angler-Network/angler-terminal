@@ -55,6 +55,8 @@ export function MarketIcon({ symbol, kind, size = 24 }: MarketIconProps) {
       width={size}
       height={size}
       loading="lazy"
+      // Binance's logo CDN answers 403 to requests that name another site as the referrer.
+      referrerPolicy="no-referrer"
       onError={() => {
         rememberMiss(sources[index]);
         setFailure({ sourceKey, index: index + 1 });

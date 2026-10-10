@@ -4,6 +4,9 @@ const STOCK_LOGOS = "https://financialmodelingprep.com/image-stock";
 const PARQET_LOGOS = "https://assets.parqet.com/logos/symbol";
 /** Lighter's own market icons (lowercase symbol): most of its 200+ perps, including ones no other source has. */
 const LIGHTER_ICONS = "https://assets.lighter.xyz/fe/token";
+/** Broad crypto coverage for listings the venues' own sets lack (JCT, LUMIA…). */
+const TRADINGVIEW_ICONS = "https://s3-symbol-logo.tradingview.com/crypto/XTVC";
+const OKX_ICONS = "https://static.okx.com/cdn/oksupport/asset/currency/icon";
 
 export type MarketIconKind = "crypto" | "stock";
 
@@ -26,5 +29,6 @@ function symbolSources(symbol: string, kind: MarketIconKind | undefined) {
   ];
   const crypto = [`${HYPERLIQUID_ICONS}/${symbol}.svg`, `${BINANCE_ICONS}/${symbol}.png`];
   const lighter = [`${LIGHTER_ICONS}/${symbol.toLowerCase()}.png`];
-  return kind === "stock" ? [...stock, ...lighter, ...crypto] : [...crypto, ...lighter, ...stock];
+  const wide = [`${TRADINGVIEW_ICONS}${symbol}.svg`, `${OKX_ICONS}/${symbol.toLowerCase()}.png`];
+  return kind === "stock" ? [...stock, ...lighter, ...crypto, ...wide] : [...crypto, ...lighter, ...wide, ...stock];
 }

@@ -2,7 +2,8 @@
  * Icon URLs that failed to load, kept for a week in localStorage so the next visit doesn't walk the same failing
  * fallback chain again (assets without a logo anywhere cost 6-9 failed requests each).
  */
-export const ICON_MISSES_KEY = "angler-terminal:icon-misses:v1";
+// v2: Binance logos were all recorded as misses while the referrer made its CDN answer 403.
+export const ICON_MISSES_KEY = "angler-terminal:icon-misses:v2";
 export const ICON_MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_ICON_MISSES = 400;
 
