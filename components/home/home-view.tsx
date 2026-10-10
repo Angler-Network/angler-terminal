@@ -283,10 +283,11 @@ export function HomeView() {
                   href={social.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={`Angler on ${social.label}`}
                   className="inline-flex h-9 items-center gap-2 rounded-xl border border-app-hairline bg-app-card/55 px-3.5 text-[13px] font-semibold text-app-muted transition-colors hover:border-app-hairline-strong hover:text-app-ink"
                 >
                   <SocialIcon id={social.id} />
-                  {social.label}
+                  {social.text}
                 </a>
               ))}
             </div>

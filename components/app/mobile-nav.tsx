@@ -184,10 +184,11 @@ export function MobileNav() {
                     href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label={`Angler on ${social.label}`}
                     className="flex h-11 items-center justify-center gap-2 rounded-xl border border-app-hairline text-[13px] font-semibold text-app-muted hover:bg-app-chip hover:text-app-ink"
                   >
                     <SocialIcon id={social.id} />
-                    {social.label}
+                    {social.text}
                   </a>
                 ))}
               </div>

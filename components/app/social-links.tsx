@@ -8,6 +8,8 @@ type SocialId = "discord" | "telegram" | "x";
 export interface Social {
   id: SocialId;
   label: string;
+  /** Text next to the icon: X's logo already says "X", so its button reads "Follow". */
+  text: string;
   url: string;
 }
 
@@ -19,10 +21,11 @@ const URLS: Record<SocialId, string | undefined> = {
 };
 
 const LABELS: Record<SocialId, string> = { discord: "Discord", telegram: "Telegram", x: "X" };
+const TEXTS: Record<SocialId, string> = { discord: "Discord", telegram: "Telegram", x: "Follow" };
 
 export const SOCIALS: Social[] = (Object.keys(URLS) as SocialId[]).flatMap((id) => {
   const url = URLS[id]?.trim();
-  return url && /^https:\/\//.test(url) ? [{ id, label: LABELS[id], url }] : [];
+  return url && /^https:\/\//.test(url) ? [{ id, label: LABELS[id], text: TEXTS[id], url }] : [];
 });
 
 export const DISCORD = SOCIALS.find((social) => social.id === "discord") ?? null;
