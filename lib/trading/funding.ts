@@ -12,7 +12,7 @@ export function fundingVenueOf(venue: string): FundingVenue | null {
 
 export type FundingVenue = (typeof FUNDING_VENUES)[number];
 /** Venues the terminal can trade, so arbitrage suggestions stay actionable. */
-export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh"];
+export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly"];
 
 export type FundingTable = Record<string, Partial<Record<FundingVenue, number>>>;
 

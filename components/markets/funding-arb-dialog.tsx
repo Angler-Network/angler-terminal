@@ -5,13 +5,12 @@ import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
 import { useTrading } from "@/components/terminal/trading-provider";
-import { takerFeeFor } from "@/components/terminal/use-best-execution";
+import { minOrderUsd, takerFeeFor } from "@/components/terminal/use-best-execution";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
 import { arbLegSize, dailyArbFunding, type FundingArb } from "@/lib/trading/funding";
-import { minimumSize } from "@/lib/venues/lighter/pricing";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -34,7 +33,7 @@ export function FundingArbDialog({
 }: {
   symbol: string;
   arb: FundingArb;
-  /** The two venues the funding feed compares (Lighter RH isn't in it). */
+  /** The asset's markets per venue; the arb's two venues must be among them. */
   markets: Partial<Record<PerpVenueId, VenueMarket>>;
   onClose: () => void;
 }) {
@@ -56,10 +55,9 @@ export function FundingArbDialog({
   const notional = Number(size);
   const price = long.midPx ?? long.markPx ?? short.midPx ?? short.markPx ?? 0;
   const base = arbLegSize(notional, price, [long.szDecimals, short.szDecimals]);
-  const isLighter = (venue: string) => venue === "lighter" || venue === "lighterRh";
-  const lighter = isLighter(long.venue) ? long : isLighter(short.venue) ? short : null;
-  const lighterMinimum = lighter && price ? minimumSize(lighter, price) : 0;
-  const tooSmall = base <= 0 || base < lighterMinimum;
+  // Each leg must clear its venue's minimum order (Lighter's from the market, Aster's and Orderly's in dollars).
+  const strictest = [long, short].map((market) => ({ market, usd: minOrderUsd(market) })).sort((a, b) => b.usd - a.usd)[0];
+  const tooSmall = base <= 0 || base * price < strictest.usd;
   const openingFees = notional * (takerFeeFor(long) + takerFeeFor(short));
   const notReady = [longVenue, shortVenue].find((venue) => !isVenueReady(venue));
 
@@ -149,7 +147,7 @@ export function FundingArbDialog({
         </div>
         {tooSmall && notional > 0 && (
           <p className="text-[11px] text-app-down">
-            Too small{lighterMinimum ? `: Lighter's ${symbol} minimum is about $${Math.ceil(lighterMinimum * price)} per leg` : ""}.
+            Too small{strictest.usd > 0 ? `: ${PERP_VENUE_NAMES[strictest.market.venue]}'s ${symbol} minimum is about $${Math.ceil(strictest.usd)} per leg` : ""}.
           </p>
         )}
         <p className="text-[11px] text-app-faint">Both legs are separate positions: watch margin on each venue.</p>

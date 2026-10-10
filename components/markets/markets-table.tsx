@@ -64,8 +64,8 @@ function Change({ value }: { value: number | undefined }) {
 
 /**
  * Every asset the terminal can trade on every perp venue (venues come from the market lists, so a new one shows up
- * without changes here), with mainnet funding and the funding spread between Hyperliquid and Lighter (long where
- * funding is lowest, short where it's highest).
+ * without changes here), with mainnet funding and the best funding spread among the venues the terminal trades (long
+ * where funding is lowest, short where it's highest).
  */
 /** Rows rendered at first and added per scroll: every market at once (hundreds) cost a second of main thread on phones. */
 const PAGE_ROWS = 60;

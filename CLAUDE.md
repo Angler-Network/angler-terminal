@@ -365,9 +365,10 @@ dependency versions and design are free to diverge from angler-news.
   - Funding (`/api/funding` → Lighter's aggregated mainnet `funding-rates`, 8-hour rates for Hyperliquid, Lighter,
     Binance, Bybit; `lib/trading/funding.ts`): shown in the order panel and on the Markets page (`app/markets`,
     sidebar), which lists every tradable asset with funding per venue and the Hyperliquid–Lighter spread.
-  - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on both venues):
-    market long on the low-funding venue + market short on the high-funding one, same base size (`arbLegSize`,
-    coarser size step), sent together; a half-filled pair is reported so the user can close the unhedged leg.
+  - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on two or more of
+    `TRADABLE_FUNDING_VENUES`: Hyperliquid, Lighter, Lighter RH, Aster, Orderly): market long on the low-funding venue +
+    market short on the high-funding one, same base size (`arbLegSize`, coarser size step), each leg at least its venue's
+    `minOrderUsd`, sent together; a half-filled pair is reported so the user can close the unhedged leg.
   - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
     actually used.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in
