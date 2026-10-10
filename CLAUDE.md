@@ -368,7 +368,9 @@ dependency versions and design are free to diverge from angler-news.
   - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on two or more of
     `TRADABLE_FUNDING_VENUES`: Hyperliquid, Lighter, Lighter RH, Aster, Orderly): market long on the low-funding venue +
     market short on the high-funding one, same base size (`arbLegSize`, coarser size step), each leg at least its venue's
-    `minOrderUsd`, sent together; a half-filled pair is reported so the user can close the unhedged leg.
+    `minOrderUsd`, sent together; a half-filled pair is reported so the user can close the unhedged leg. It opens on the
+    best pair, but each leg has a venue picker (funding APR and free margin per venue, a swap button; `arbBetween` prices
+    any pair, a negative spread is flagged as paying funding) for traders who want volume or margin elsewhere.
   - News perp trades also go to the best quote (`quoteVenues`) when `autoRoute` is on; analytics records the venue
     actually used.
   - Funds (`deposit-dialog.tsx`, "Deposit / Withdraw" in the account panel, "Bridge" in the sidebar/top bar; routes in

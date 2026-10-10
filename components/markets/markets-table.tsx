@@ -349,6 +349,8 @@ export function MarketsTable() {
         <FundingArbDialog
           symbol={arbRow.symbol}
           arb={arbRow.arb}
+          rates={arbRow.rates}
+          venues={arbVenues(arbRow).filter((fundingVenue) => arbRow.rates[fundingVenue] !== undefined)}
           markets={arbRow.venues}
           onClose={() => setArbRow(null)}
         />

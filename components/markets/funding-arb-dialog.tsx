@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ArrowLeftRight, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -10,11 +10,13 @@ import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { trackPerpOrder } from "@/lib/analytics/client";
 import { formatPrice } from "@/lib/format";
-import { arbLegSize, dailyArbFunding, type FundingArb } from "@/lib/trading/funding";
+import { arbBetween, arbLegSize, dailyArbFunding, fundingApr, type FundingArb, type FundingVenue } from "@/lib/trading/funding";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId, VenueMarket } from "@/lib/venues/types";
 import { useModalEnter } from "@/components/app/use-motion";
 import { RangeSlider } from "@/components/app/range-slider";
+import { SelectField } from "@/components/app/select-field";
+import { VenueLogo } from "@/components/terminal/venue-logo";
 
 const ARM_MS = 5_000;
 
@@ -22,18 +24,27 @@ const inputClass =
   "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
 
 /**
- * Opens a delta-neutral funding position in one go: a market long on the low-funding venue and a market short on the
- * high-funding one, same size on both. Both legs are sent together; if only one fills, the user is told to close it.
+ * Opens a delta-neutral funding position in one go: a market long on one venue and a market short on another, same size
+ * on both. It opens on the best pair (long the lowest funding, short the highest); either leg's venue can be changed,
+ * for volume elsewhere or where the money already is, and the spread follows (negative = the pair pays funding). Both
+ * legs are sent together; if only one fills, the user is told to close it.
  */
 export function FundingArbDialog({
   symbol,
-  arb,
+  arb: best,
+  rates,
+  venues,
   markets,
   onClose,
 }: {
   symbol: string;
+  /** The best pair, the starting point. */
   arb: FundingArb;
-  /** The asset's markets per venue; the arb's two venues must be among them. */
+  /** Funding per venue (8-hour rates). */
+  rates: Partial<Record<FundingVenue, number>>;
+  /** Tradable venues that list the asset and have a funding rate: what each leg can pick. */
+  venues: FundingVenue[];
+  /** The asset's markets per venue; every one of `venues` must be among them. */
   markets: Partial<Record<PerpVenueId, VenueMarket>>;
   onClose: () => void;
 }) {
@@ -41,9 +52,26 @@ export function FundingArbDialog({
   const { preferences } = usePreferences();
   const { address } = useWallet();
   const { open: openWallets } = useWalletModal();
-  const { placeOrder, isVenueReady, openSetup } = useTrading();
+  const { placeOrder, isVenueReady, openSetup, accounts } = useTrading();
+  const [longPick, setLongPick] = useState<FundingVenue>(best.longVenue);
+  const [shortPick, setShortPick] = useState<FundingVenue>(best.shortVenue);
+  const arb = arbBetween(rates, longPick, shortPick) ?? best;
   const longVenue = arb.longVenue as PerpVenueId;
   const shortVenue = arb.shortVenue as PerpVenueId;
+  const isBest = arb.longVenue === best.longVenue && arb.shortVenue === best.shortVenue;
+  const venueOptions = (exclude: FundingVenue) =>
+    venues
+      .filter((venue) => venue !== exclude)
+      .map((venue) => {
+        const rate = rates[venue];
+        const free = accounts[venue as PerpVenueId]?.withdrawable;
+        const apr = rate === undefined ? "" : ` · ${fundingApr(rate) >= 0 ? "+" : ""}${fundingApr(rate).toFixed(2)}%`;
+        return {
+          value: venue,
+          label: `${PERP_VENUE_NAMES[venue as PerpVenueId]}${apr}${free !== undefined ? ` · ${formatPrice(free)} free` : ""}`,
+          icon: <VenueLogo name={PERP_VENUE_NAMES[venue as PerpVenueId]} size={16} />,
+        };
+      });
   const long = markets[longVenue]!;
   const short = markets[shortVenue]!;
   const maxLeverage = Math.min(long.maxLeverage, short.maxLeverage);
@@ -61,7 +89,7 @@ export function FundingArbDialog({
   const openingFees = notional * (takerFeeFor(long) + takerFeeFor(short));
   const notReady = [longVenue, shortVenue].find((venue) => !isVenueReady(venue));
 
-  useEffect(() => setArmed(false), [size, leverage]);
+  useEffect(() => setArmed(false), [size, leverage, longPick, shortPick]);
   const backdropRef = useModalEnter(true);
   useEffect(() => {
     if (!armed) return;
@@ -116,14 +144,62 @@ export function FundingArbDialog({
               {symbol} funding position
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
-              Long on {PERP_VENUE_NAMES[longVenue]}, short on {PERP_VENUE_NAMES[shortVenue]}: price moves cancel out and you collect the funding
-              difference (currently {arb.apr.toFixed(2)}% APR, mainnet rates; it can change or flip).
+              A long on one venue and a short on another: price moves cancel out and you collect the funding difference (mainnet
+              rates; it can change or flip). It starts on the best pair; pick other venues if you&apos;d rather trade where your money is.
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-app-faint hover:text-app-ink">
             <X className="size-4" />
           </button>
         </header>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2">
+          <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-up">
+            Long on
+            <SelectField<FundingVenue> size="sm" rootClassName="w-full" className="w-full" label="Long venue" value={longPick} options={venueOptions(shortPick)} onChange={setLongPick} />
+          </label>
+          <button
+            type="button"
+            aria-label="Swap long and short"
+            title="Swap long and short"
+            onClick={() => {
+              setLongPick(shortPick);
+              setShortPick(longPick);
+            }}
+            className="grid size-9 place-items-center rounded-lg text-app-muted hover:bg-app-chip hover:text-app-ink"
+          >
+            <ArrowLeftRight className="size-4" aria-hidden />
+          </button>
+          <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-down">
+            Short on
+            <SelectField<FundingVenue> size="sm" rootClassName="w-full" className="w-full" label="Short venue" value={shortPick} options={venueOptions(longPick)} onChange={setShortPick} />
+          </label>
+        </div>
+        <div className="flex items-center justify-between rounded-lg bg-app-chip/50 px-2.5 py-2 text-[12px] tabular-nums">
+          <span className="text-app-muted">Funding spread</span>
+          <span className="flex items-center gap-2">
+            <span className={`font-semibold ${arb.apr >= 0 ? "text-app-up" : "text-app-down"}`}>
+              {arb.apr >= 0 ? "+" : ""}
+              {arb.apr.toFixed(2)}% APR
+            </span>
+            {isBest ? (
+              <span className="rounded bg-app-up/15 px-1.5 text-[10px] font-semibold uppercase text-app-up">Best</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setLongPick(best.longVenue);
+                  setShortPick(best.shortVenue);
+                }}
+                className="text-[11px] font-semibold text-app-accent hover:underline"
+              >
+                Best: {best.apr.toFixed(2)}%
+              </button>
+            )}
+          </span>
+        </div>
+        {arb.apr < 0 && (
+          <p className="text-[11px] text-[#f5c97b]">This pair pays funding instead of collecting it: swap the legs or pick other venues to earn it.</p>
+        )}
         <label className="flex flex-col gap-1 text-[11px] text-app-muted">
           Size per leg (USD)
           <input className={inputClass} inputMode="decimal" value={size} onChange={(event) => setSize(event.target.value.replace(/[^0-9.]/g, ""))} />
@@ -139,7 +215,7 @@ export function FundingArbDialog({
           <Row label="Each leg">
             {base > 0 ? `${base} ${symbol}` : "—"} · margin {formatPrice(notional / leverage)}
           </Row>
-          <Row label="Est. funding per day">{formatPrice(dailyArbFunding(notional, arb))}</Row>
+          <Row label={dailyArbFunding(notional, arb) >= 0 ? "Est. funding per day" : "Est. funding cost per day"}>{formatPrice(Math.abs(dailyArbFunding(notional, arb)))}</Row>
           <Row label="Opening fees (both legs)">{formatPrice(openingFees)}</Row>
           <Row label="Break-even (open + close fees)">
             {dailyArbFunding(notional, arb) > 0 ? `${Math.ceil((openingFees * 2) / dailyArbFunding(notional, arb))} days` : "—"}

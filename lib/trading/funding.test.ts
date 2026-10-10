@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arbLegSize, bestFundingArb, dailyArbFunding, fundingApr, readFundingRates } from "./funding";
+import { arbBetween, arbLegSize, bestFundingArb, dailyArbFunding, fundingApr, readFundingRates } from "./funding";
 
 // Trimmed from the live mainnet response.
 const body = {
@@ -34,5 +34,17 @@ describe("arb sizing", () => {
     expect(arbLegSize(1000, 2700, [5])).toBe(0.37037);
     expect(arbLegSize(0, 2700, [4])).toBe(0);
     expect(dailyArbFunding(3650, { apr: 10 })).toBeCloseTo(1);
+  });
+});
+
+describe("arbBetween", () => {
+  const rates = { hyperliquid: 0.0001, lighter: -0.0002, aster: 0.0003 };
+  it("prices a picked pair, negative when it pays funding", () => {
+    expect(arbBetween(rates, "lighter", "aster")?.apr).toBeCloseTo(fundingApr(0.0005));
+    expect(arbBetween(rates, "aster", "lighter")?.apr).toBeCloseTo(fundingApr(-0.0005));
+  });
+  it("needs two venues with rates", () => {
+    expect(arbBetween(rates, "lighter", "lighter")).toBeNull();
+    expect(arbBetween(rates, "lighter", "orderly")).toBeNull();
   });
 });

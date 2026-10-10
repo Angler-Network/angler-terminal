@@ -54,6 +54,18 @@ export function bestFundingArb(rates: Partial<Record<FundingVenue, number>>, ven
 }
 
 /**
+ * A pair the user picked: long on one venue, short on another. Unlike `bestFundingArb` the spread can be negative (the
+ * pair pays funding instead of collecting it, e.g. for volume or where the money already is). Null when a rate is missing
+ * or both legs are the same venue.
+ */
+export function arbBetween(rates: Partial<Record<FundingVenue, number>>, longVenue: FundingVenue, shortVenue: FundingVenue): FundingArb | null {
+  const low = rates[longVenue];
+  const high = rates[shortVenue];
+  if (longVenue === shortVenue || low === undefined || high === undefined) return null;
+  return { longVenue, shortVenue, apr: fundingApr(high - low) };
+}
+
+/**
  * Base size for both legs of a delta-neutral position: the same amount on each venue, rounded down to the coarser of
  * the two size steps so neither venue rounds it differently.
  */
