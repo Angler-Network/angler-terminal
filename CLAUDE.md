@@ -264,10 +264,10 @@ dependency versions and design are free to diverge from angler-news.
   news or order book above it, its height handle then on its bottom edge; with both shown, the top one's grip also
   moves the trading column, so the column never shows two grips); Layout menu → Reset arrangement. Phones keep the order book under the order panel.
 - Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
-  desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll`: a fixed 988px
+  desktop scrolls by default inside `.app-main` (not the window, so the scrollbar starts under the top bar on every page,
+  like the list pages), with the terminal grid on `--rows-scroll`: a fixed 988px
   grid (620px chart over 360px positions by default), so dragging the positions edge moves the line between them
-  instead of stretching the side columns; list pages (`.app-main` without `.terminal-grid`) stay one screen tall. Fit screen is
-  the old one-screen layout. CSS in `globals.css` ("Desktop page mode").
+  instead of stretching the side columns. Fit screen is the old one-screen layout. CSS in `globals.css` ("Desktop page mode").
 - Shell chrome (`app-frame.tsx`, client): top bar + page + optional footer. `navMode` ("sidebar" | "top") moves
     navigation into the top bar (`top-nav.tsx`); `tapePosition` ("top" | "bottom" | "off") places the server-rendered
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
