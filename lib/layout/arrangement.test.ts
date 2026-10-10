@@ -34,6 +34,9 @@ describe("arrangement", () => {
     expect(dropOnto(flipped!, { panel: "news" }, { panel: "orderEntry" })?.stackOnTop).toBe(false);
     expect(dropOnto(defaultArrangement, { panel: "orderEntry" }, { column: "rail", panel: "orderbook" })).toBeNull();
     expect(dropOnto(defaultArrangement, { panel: "orderEntry" }, { column: "main" })).toBeNull();
+    // The top panel's grip carries the trading column.
+    expect(dropOnto(defaultArrangement, { column: "trade", panel: "orderEntry" }, { column: "main" })?.columns).toEqual(["watchlist", "trade", "rail", "main"]);
+    expect(dropOnto(defaultArrangement, { column: "trade", panel: "orderEntry" }, { column: "rail", panel: "orderbook" })?.columns).toEqual(["watchlist", "main", "trade", "rail"]);
   });
 
   it("runs the positions under the order book only when it sits next to the chart", () => {

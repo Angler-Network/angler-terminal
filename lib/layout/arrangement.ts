@@ -68,15 +68,15 @@ export interface ArrangeTarget {
 
 /**
  * The arrangement after dropping `source` on `target`: the order panel and the panel stacked with it swap top and
- * bottom; the order book and the news swap places; otherwise two different columns swap. Null when the drop changes
- * nothing (the order panel never leaves its column).
+ * bottom; the order book and the news swap places; otherwise two different columns swap (the panel at the top of the
+ * trading column carries that column, so its grip moves the column too). Null when the drop changes nothing.
  */
 export function dropOnto(arrangement: Arrangement, source: ArrangeTarget, target: ArrangeTarget): Arrangement | null {
-  if (source.panel === "orderEntry" || target.panel === "orderEntry") {
+  const orderEntry = source.panel === "orderEntry" || target.panel === "orderEntry";
+  if (orderEntry) {
     const other = source.panel === "orderEntry" ? target.panel : source.panel;
-    return other === arrangement.stack ? { ...arrangement, stackOnTop: !arrangement.stackOnTop } : null;
-  }
-  if (source.panel && target.panel && source.panel !== target.panel) return swapStack(arrangement);
+    if (other === arrangement.stack) return { ...arrangement, stackOnTop: !arrangement.stackOnTop };
+  } else if (source.panel && target.panel && source.panel !== target.panel) return swapStack(arrangement);
   if (source.column && target.column && source.column !== target.column) return swapColumns(arrangement, source.column, target.column);
   return null;
 }

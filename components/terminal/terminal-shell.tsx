@@ -208,10 +208,9 @@ export function TerminalShell() {
     },
   });
   const dropRing = (target: ArrangeTarget) => (over === keyOf(target) ? "ring-2 ring-app-accent ring-offset-2 ring-offset-transparent rounded-2xl" : "");
-  const handle = (target: ArrangeTarget, label: string, beside = false) =>
+  const handle = (target: ArrangeTarget, label: string) =>
     isMobile ? null : (
       <ArrangeHandle
-        beside={beside}
         label={label}
         onStart={() => setDragging(target)}
         onEnd={() => {
@@ -240,7 +239,7 @@ export function TerminalShell() {
           () => orderBookRef.current?.offsetHeight ?? 400,
           () => (columnRefs.side.current?.clientHeight ?? 800) - MIN_TRADING_HEIGHT - GAP,
         )}
-      {handle({ panel: stackPanel }, `Move the ${panelLabel(stackPanel)}`, stackOnTop)}
+      {handle(stackOnTop ? { panel: stackPanel, column: "trade" } : { panel: stackPanel }, `Move the ${panelLabel(stackPanel)}`)}
       {stackPanel === "news" ? <NewsFeed feed={feed} /> : orderBook}
     </div>
   );
@@ -251,7 +250,7 @@ export function TerminalShell() {
       {...dropZone({ panel: "orderEntry" })}
       className={`group relative flex min-h-0 flex-col max-lg:shrink-0 ${tradingGrow ? "flex-1" : ""} ${dropRing({ panel: "orderEntry" })}`}
     >
-      {showStack && handle({ panel: "orderEntry" }, "Move the order panel", !stackOnTop)}
+      {showStack && handle(stackOnTop ? { panel: "orderEntry" } : { panel: "orderEntry", column: "trade" }, "Move the order panel")}
       <AccountPanel orderEntry={shown.orderEntry} account={shown.account} grow={tradingGrow} />
     </div>
   );
@@ -295,7 +294,8 @@ export function TerminalShell() {
             className={`group relative flex flex-col gap-2 max-lg:overflow-y-auto ${placed} ${mobileView("trade")} ${dropRing({ column: "trade" })}`}
           >
             {!isMobile && columnResizer("side", layout.edge("trade"), "Resize trading column")}
-            {handle({ column: "trade" }, "Move the trading column")}
+            {/* With both panels shown, the top one's grip moves the column too: one grip, not two side by side. */}
+            {!(showStack && showTrading) && handle({ column: "trade" }, "Move the trading column")}
             {stackOnTop && showStack && stackContent}
             {tradingContent}
             {!stackOnTop && showStack && stackContent}
@@ -347,7 +347,7 @@ export function TerminalShell() {
  * A small grip at the top of a column or movable panel, shown on hover. Drag it onto another column (or the order book
  * onto the news, and back) to swap their places.
  */
-function ArrangeHandle({ label, onStart, onEnd, beside = false }: { label: string; onStart: () => void; onEnd: () => void; beside?: boolean }) {
+function ArrangeHandle({ label, onStart, onEnd }: { label: string; onStart: () => void; onEnd: () => void }) {
   return (
     <button
       type="button"
@@ -360,8 +360,7 @@ function ArrangeHandle({ label, onStart, onEnd, beside = false }: { label: strin
         onStart();
       }}
       onDragEnd={onEnd}
-      // `beside`: a panel at the top of its column sits next to the column's own grip instead of on it.
-      className={`absolute left-1/2 top-1 z-20 flex h-4 w-10 ${beside ? "translate-x-[calc(-50%+3rem)]" : "-translate-x-1/2"} cursor-grab items-center justify-center rounded-full bg-app-chip/90 text-app-muted opacity-0 shadow-sm transition-opacity hover:text-app-ink focus-visible:opacity-100 active:cursor-grabbing group-hover:opacity-100 max-lg:hidden`}
+      className="absolute left-1/2 top-1 z-20 flex h-4 w-10 -translate-x-1/2 cursor-grab items-center justify-center rounded-full bg-app-chip/90 text-app-muted opacity-0 shadow-sm transition-opacity hover:text-app-ink focus-visible:opacity-100 active:cursor-grabbing group-hover:opacity-100 max-lg:hidden"
     >
       <GripHorizontal className="size-3.5" aria-hidden />
     </button>

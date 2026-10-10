@@ -261,7 +261,8 @@ dependency versions and design are free to diverge from angler-news.
   positions, rail, trade) and which of the order book / news sits under the order panel (default: news there, order
   book in the rail next to the chart; a saved copy of the old default, rail last, moves to it once via `version`). Hover a panel, drag the grip at its top onto another to swap (`ArrangeHandle`, HTML5 drag and
   drop in `terminal-shell.tsx`); the order panel's own grip swaps it with the panel stacked in its column (`stackOnTop`:
-  news or order book above it, its height handle then on its bottom edge); Layout menu → Reset arrangement. Phones keep the order book under the order panel.
+  news or order book above it, its height handle then on its bottom edge; with both shown, the top one's grip also
+  moves the trading column, so the column never shows two grips); Layout menu → Reset arrangement. Phones keep the order book under the order panel.
 - Page mode (`fitToScreen`, Layout menu and Settings → Layout, `html[data-viewport=fit]` set before hydration):
   desktop scrolls by default, with the top bar and rail sticky and the terminal grid on `--rows-scroll`: a fixed 988px
   grid (620px chart over 360px positions by default), so dragging the positions edge moves the line between them
