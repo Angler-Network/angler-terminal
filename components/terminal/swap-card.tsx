@@ -507,7 +507,7 @@ export function SlippageSettings() {
   const current = preferences.swapSlippageBps;
   const [custom, setCustom] = useState(current !== null && !SLIPPAGE_PRESETS_BPS.includes(current) ? String(current / 100) : "");
   const chip = (active: boolean) =>
-    `h-7 rounded-lg px-2.5 text-[12px] font-semibold ${active ? "bg-app-accent text-app-on-accent" : "bg-app-chip text-app-muted hover:text-app-ink"}`;
+    `h-7 shrink-0 rounded-lg px-2 text-[12px] font-semibold ${active ? "bg-app-accent text-app-on-accent" : "bg-app-chip text-app-muted hover:text-app-ink"}`;
   const warning = slippageWarning(current);
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-app-hairline bg-app-chip/30 p-2.5">
@@ -515,7 +515,8 @@ export function SlippageSettings() {
         <span className="font-semibold text-app-ink">Max slippage</span>
         <span className="text-app-faint">{current === null ? "Auto: estimated per swap" : `Fixed ${bpsToPercent(current)}`}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* One row: the custom field takes what the presets leave. */}
+      <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (setCustom(""), updatePreference("swapSlippageBps", null))} className={chip(current === null)}>
           Auto
         </button>
@@ -524,7 +525,7 @@ export function SlippageSettings() {
             {bpsToPercent(bps)}
           </button>
         ))}
-        <label className={`flex h-7 items-center gap-1 rounded-lg border px-2 text-[12px] ${custom ? "border-app-accent" : "border-app-hairline-strong"}`}>
+        <label className={`flex h-7 min-w-0 flex-1 items-center gap-1 rounded-lg border px-2 text-[12px] ${custom ? "border-app-accent" : "border-app-hairline-strong"}`}>
           <input
             aria-label="Custom slippage in percent"
             inputMode="decimal"
@@ -536,7 +537,7 @@ export function SlippageSettings() {
               const bps = percentToBps(text);
               if (bps !== null) updatePreference("swapSlippageBps", bps);
             }}
-            className="w-14 bg-transparent text-right tabular-nums text-app-ink outline-hidden placeholder:text-app-faint"
+            className="w-full min-w-0 bg-transparent text-right tabular-nums text-app-ink outline-hidden placeholder:text-app-faint"
           />
           <span className="text-app-muted">%</span>
         </label>

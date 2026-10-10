@@ -67,24 +67,28 @@ function Segmented<T extends string>({
   options,
   onChange,
   disabled,
+  tall = false,
 }: {
   label: string;
+  /** As tall as the input boxes (h-10), for a row shared with one. */
+  tall?: boolean;
   value: T;
-  options: Array<{ value: T; label: string; title?: string; disabled?: boolean }>;
+  options: Array<{ value: T; label: React.ReactNode; title?: string; disabled?: boolean }>;
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
   return (
-    <div role="group" aria-label={label} className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+    <div role="group" aria-label={label} className={`flex gap-0.5 rounded-lg bg-app-chip p-0.5 ${tall ? "h-10" : ""}`}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           title={option.title}
+          aria-label={typeof option.label === "string" ? undefined : option.title}
           disabled={disabled || option.disabled}
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`h-7 flex-1 whitespace-nowrap rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
+          className={`${tall ? "h-full" : "h-7"} flex-1 whitespace-nowrap rounded-md text-[12px] font-semibold transition-colors disabled:opacity-50 ${
             value === option.value ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
           }`}
         >
@@ -301,6 +305,17 @@ function OrderTypeTabs({ value, onChange }: { value: PanelKind; onChange: (value
 }
 
 const TWAP_PRESETS = [5, 15, 30, 60, 240];
+
+/** How a scale's sizes run from the From price to the To price, drawn as three bars. */
+function SplitBars({ heights }: { heights: [number, number, number] }) {
+  return (
+    <svg viewBox="0 0 14 10" className="mx-auto h-2.5 w-3.5" aria-hidden>
+      {heights.map((height, index) => (
+        <rect key={index} x={index * 5} y={10 - height} width="4" height={height} rx="0.75" fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
 
 /** A price rounded to five significant figures, as a field value. */
 function priceField(value: number) {
@@ -862,12 +877,13 @@ export function OrderPanel() {
                   />
                 </FieldBox>
                 <Segmented
+                  tall
                   label="Size split"
                   value={scaleSplit}
                   options={[
-                    { value: "even", label: "Even", title: "Every order the same size" },
-                    { value: "down", label: "From ↑", title: "Larger orders near the From price" },
-                    { value: "up", label: "To ↑", title: "Larger orders near the To price" },
+                    { value: "even", label: <SplitBars heights={[6, 6, 6]} />, title: "Every order the same size" },
+                    { value: "down", label: <SplitBars heights={[10, 6, 3]} />, title: "Larger orders near the From price" },
+                    { value: "up", label: <SplitBars heights={[3, 6, 10]} />, title: "Larger orders near the To price" },
                   ]}
                   onChange={setScaleSplit}
                 />
