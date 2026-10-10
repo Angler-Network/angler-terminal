@@ -9,7 +9,7 @@ import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { marketNav } from "./market-nav";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
+import { BridgeIcon, MarketsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -36,8 +36,6 @@ function iconClass(active: boolean) {
   return `size-[22px] transition-colors ${active ? "text-app-accent" : ""}`;
 }
 
-const smallMark = "flex size-6 items-center justify-center rounded-md text-app-faint transition-colors hover:bg-app-card/60 hover:text-app-ink";
-
 function NavButton({ label, icon: Icon, active = false, onClick }: { label: string; icon: NavIcon; active?: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} title={label} aria-haspopup="dialog" aria-expanded={active} className={navItemClass(active)}>
@@ -48,8 +46,8 @@ function NavButton({ label, icon: Icon, active = false, onClick }: { label: stri
 }
 
 /**
- * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, then pro order, bridge
- * and a small mark for the news site. It scrolls when a short screen can't fit it. Wallets, the profile and the
+ * The rail: market views (perp, swap, spot, CEX soon, prediction), markets, vaults, then pro order and bridge
+ * (the news site is in the phone menu). It scrolls when a short screen can't fit it. Wallets, the profile and the
  * portfolio sit in the top bar's account menu.
  */
 // The rail's links don't prefetch: each would be a server render of that page on every load (eight of them, racing the
@@ -107,11 +105,6 @@ export function Sidebar() {
           <NavLabel>Pro order</NavLabel>
         </button>
         <NavButton label="Bridge" icon={BridgeIcon} onClick={() => (address ? openDeposit("lighter", "move") : wallets.open())} />
-        <span aria-hidden className="mx-3 my-1 h-px bg-app-hairline" />
-        {/* The news site as a small mark (the community links live in the account menu, phone menu and home page). */}
-        <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" aria-label="Angler News" className={`${smallMark} mx-auto`}>
-          <NewsIcon className="size-3.5" />
-        </a>
       </nav>
     </aside>
   );

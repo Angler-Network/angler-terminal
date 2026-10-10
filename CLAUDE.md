@@ -708,7 +708,7 @@ dependency versions and design are free to diverge from angler-news.
   `globals.css`, `marks` as breaks in the track).
 - Shell: same layout as news.angler.network. `components/app/sidebar.tsx` (Perp, Swap, Spot, CEX (Soon badge, `/cex` is
   a coming-soon page until the view exists; `soon` in `market-nav.ts`), Prediction, Markets, Vaults, Pro order,
-  Bridge, then a small mark for the news site (community links stay in the account menu, phone menu and home page); the rail scrolls on short screens; Layout and
+  Bridge (no news-site mark; community links stay in the account menu, phone menu and home page); the rail scrolls on short screens; Layout and
   Settings are icons in the top bar next to the account control (`LayoutMenu placement="below-end"`, `SettingsButton` in
   `app-frame.tsx`), desktop only: phones use More; nav links pass `prefetch={false}` (eight prefetches were eight server renders racing every page load); the portfolio is only in the account menu, top right; wallets are only the top bar's Connect button) and the settings
   page `app/settings/[[...section]]` → `components/app/settings-view.tsx` (sections in `lib/settings-sections.ts`, one
