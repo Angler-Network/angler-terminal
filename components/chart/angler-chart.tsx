@@ -129,7 +129,7 @@ async function loadBookCandles(book: BookSpotChart, interval: ChartInterval, sin
 /** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
 function venueOrder(chartSource: ChartSource, tradeVenue: PerpVenueId | null): PerpVenueId[] {
   const first = chartSource === "auto" ? tradeVenue : chartSource === "binance" ? null : chartSource;
-  return [...new Set([first, "hyperliquid", "lighter", "lighterRh"].filter((venue): venue is PerpVenueId => venue !== null))];
+  return [...new Set([first, "hyperliquid", "lighter", "lighterRh", "aster", "orderly"].filter((venue): venue is PerpVenueId => venue !== null))];
 }
 
 interface ChartHandles {
@@ -190,13 +190,21 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   // The Hyperliquid market comes from the panel (it knows the dex); Lighter's from its market list.
   const lighterList = marketsByVenue.lighter;
   const lighterRhList = marketsByVenue.lighterRh;
+  const asterList = marketsByVenue.aster;
+  const orderlyList = marketsByVenue.orderly;
   const venueMarkets = useMemo<Partial<Record<PerpVenueId, VenueMarket | null>>>(
     () => ({
       hyperliquid: venueMarket ?? null,
       lighter: lighterList ? findMarket(lighterList, symbol) : null,
       lighterRh: lighterRhList ? findMarket(lighterRhList, symbol) : null,
+      aster: asterList ? findMarket(asterList, symbol) : null,
+      orderly: orderlyList ? findMarket(orderlyList, symbol) : null,
     }),
-    [venueMarket, lighterList, lighterRhList, symbol],
+    [venueMarket, lighterList, lighterRhList, asterList, orderlyList, symbol],
+  );
+  // The picker offers the venues that list this asset (and the saved pick, so it never shows blank).
+  const sourceChoices = (["auto", "hyperliquid", "lighter", "lighterRh", "aster", "orderly", "binance"] as const).filter(
+    (source) => source === "auto" || source === "binance" || source === preferences.chartSource || venueMarkets[source],
   );
   const venues = venueOrder(preferences.chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
   const venuesRef = useRef({ venues, venueMarkets });
@@ -437,7 +445,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
           label="Chart data source"
           value={preferences.chartSource}
           onChange={(source) => updatePreference("chartSource", source)}
-          options={(["auto", "hyperliquid", "lighter", "binance"] as const).map((source) => ({
+          options={sourceChoices.map((source) => ({
             value: source,
             label:
               source === "auto"

@@ -48,7 +48,7 @@ export const toastPositions: { value: ToastPosition; label: string }[] = [
 ];
 
 /** Where the Angler chart's candles come from: "auto" follows the venue picked in the order panel. */
-export type ChartSource = "auto" | "hyperliquid" | "lighter" | "binance";
+export type ChartSource = "auto" | "hyperliquid" | "lighter" | "lighterRh" | "aster" | "orderly" | "binance";
 
 export const chartDataSources: { value: ChartDataSource; label: string }[] = [
   { value: "binance", label: "Binance" },
@@ -412,7 +412,7 @@ export function parsePreferences(raw: string | null): Preferences {
           ? chartDataSources.find((source) => source.value !== primary)!.value
           : fallback,
       chartMarket: stored.chartMarket === "spot" ? "spot" : "perp",
-      chartSource: (["hyperliquid", "lighter", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
+      chartSource: (["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
       showChart: readBoolean(stored.showChart, defaultPreferences.showChart),
       chartSymbol:
         typeof stored.chartSymbol === "string" && ASSET_SYMBOL.test(stored.chartSymbol)
