@@ -182,7 +182,7 @@ export function SearchableSelect<T>({
           aria-label={label}
           className={`scrollbar-list max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-app-hairline-strong bg-app-card p-1 ${
             compact
-              ? `surface-menu absolute ${menuAlign === "right" ? "right-0" : "left-0"} top-full z-30 mt-1.5 w-72 shadow-[0_16px_40px_-12px_rgba(19,35,58,0.35)]`
+              ? `surface-menu absolute ${menuAlign === "right" ? "right-0" : "left-0"} top-full z-30 mt-1.5 w-full min-w-48 sm:w-72 shadow-[0_16px_40px_-12px_rgba(19,35,58,0.35)]`
               : "mt-2"
           }`}
         >
