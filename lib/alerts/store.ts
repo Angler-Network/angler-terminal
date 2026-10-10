@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { redisConfig, redisPipeline, toHash } from "@/lib/redis";
+import type { LeaderPosition } from "@/lib/copy/events";
 import { EMPTY_STATE, type AlertState } from "./rules";
 import { parseStoredSettings, type AlertSettings } from "./settings";
 
@@ -14,9 +15,52 @@ const STATE = `${PREFIX}:state`;
 const NEWS_CURSOR = `${PREFIX}:news-cursor`;
 const TELEGRAM_CHATS = `${PREFIX}:telegram-chats`;
 const LOCK = `${PREFIX}:tick-lock`;
+const LEADERS = `${PREFIX}:leaders`;
 const LINK_TTL_SECONDS = 15 * 60;
 
-const memory = { settings: new Map<string, string>(), state: new Map<string, string>(), chats: new Map<string, string>(), links: new Map<string, string>(), cursor: 0 };
+const memory = {
+  settings: new Map<string, string>(),
+  state: new Map<string, string>(),
+  chats: new Map<string, string>(),
+  links: new Map<string, string>(),
+  leaders: new Map<string, string>(),
+  cursor: 0,
+};
+
+/** A followed wallet as the tick last saw it, shared by every profile following it. */
+export interface LeaderState {
+  /** Positions by coin; null until the first look (which only records). */
+  positions: Record<string, LeaderPosition> | null;
+  /** Lighter account index, looked up once (null: none yet, looked up again later). */
+  account?: { index: number | null; at: number };
+}
+
+function parseLeader(raw: unknown): LeaderState {
+  if (typeof raw !== "string") return { positions: null };
+  try {
+    const parsed = JSON.parse(raw) as Partial<LeaderState>;
+    return { positions: parsed.positions && typeof parsed.positions === "object" ? parsed.positions : null, account: parsed.account };
+  } catch {
+    return { positions: null };
+  }
+}
+
+/** The last seen state of these followed wallets (`source:address`), in one command. */
+export async function readLeaders(keys: string[]): Promise<Record<string, LeaderState>> {
+  if (keys.length === 0) return {};
+  const raws = !redisConfig() ? keys.map((key) => memory.leaders.get(key)) : ((await redisPipeline([["HMGET", LEADERS, ...keys]]))[0] as unknown[]);
+  return Object.fromEntries(keys.map((key, index) => [key, parseLeader(Array.isArray(raws) ? raws[index] : undefined)]));
+}
+
+export async function saveLeaders(states: Record<string, LeaderState>) {
+  const entries = Object.entries(states);
+  if (entries.length === 0) return;
+  if (!redisConfig()) {
+    for (const [key, state] of entries) memory.leaders.set(key, JSON.stringify(state));
+    return;
+  }
+  await redisPipeline([["HSET", LEADERS, ...entries.flatMap(([key, state]) => [key, JSON.stringify(state)])]]);
+}
 
 export async function readSettings(id: string): Promise<AlertSettings> {
   if (!redisConfig()) return parseStoredSettings(memory.settings.get(id));

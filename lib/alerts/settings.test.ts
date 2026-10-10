@@ -43,4 +43,15 @@ describe("helpers", () => {
     expect(parseStoredSettings("{oops")).toEqual(DEFAULT_ALERT_SETTINGS);
     expect(parseStoredSettings(JSON.stringify({ telegramChatId: "7", liquidationPct: 3 })).telegramChatId).toBe("7");
   });
+
+  it("keeps followed wallets unless a request sends a new list", () => {
+    const wallet = { source: "hyperliquid", address: "0x" + "a".repeat(40), label: "Whale" };
+    const current = { ...DEFAULT_ALERT_SETTINGS, follows: [wallet as never] };
+    const kept = readAlertSettings({ positions: true, liquidationPct: null, newsMinImpact: null }, current);
+    expect(kept.ok && kept.settings.follows).toEqual([wallet]);
+    const cleared = readAlertSettings({ positions: true, liquidationPct: null, newsMinImpact: null, follows: [] }, current);
+    expect(cleared.ok && cleared.settings.follows).toEqual([]);
+    expect(readAlertSettings({ liquidationPct: null, newsMinImpact: null, follows: [{ source: "aster", address: wallet.address }] }).ok).toBe(false);
+    expect(parseStoredSettings(JSON.stringify({ follows: [wallet] })).follows).toEqual([wallet]);
+  });
 });

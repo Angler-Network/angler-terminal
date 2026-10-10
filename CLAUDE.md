@@ -623,8 +623,30 @@ dependency versions and design are free to diverge from angler-news.
   demand; amounts checked in `lib/vaults/transfer.ts`): HL `vaultTransfer` (L1 action, signed by the agent key, micro-dollars
   from/to the perp margin; a withdrawal near the whole stake takes all of it, `hlWithdrawUsd`), Lighter `SignMintShares` /
   `SignBurnShares` (tx 18/19, trading key, shares = USD / (pool value / total shares), `lighterShares`; a burn needs the
-  shares in the trading key's own account, `VaultStake.shares` per account). Orderly's Deposit still opens its page. No fee
-  rides on vault transfers, so no points. Not yet tried with real funds: check the first HL and Lighter deposit.
+  shares in the trading key's own account, `VaultStake.shares` per account). Lighter pools take at least $5 per deposit
+  and per withdrawal (`LIGHTER_MIN_POOL_USD`, from Lighter's own app; the sequencer answers "invalid burn share amount" to
+  a smaller partial burn): with less than $5 in, the window only offers Withdraw all (`onlyWithdrawAll`). Share price =
+  (perps + spot value) / total shares (LLP holds spot; `total_asset_value` is the perps part). Orderly's Deposit still
+  opens its page. No fee rides on vault transfers, so no points. A first real Lighter deposit ($1) went through; the
+  partial withdrawal of it failed before the $5 rule.
+- Copy trading (`/copy`, sidebar/top bar/phone menu; `lib/copy/*`, `components/copy/*`): follow Hyperliquid, Lighter and
+  Lighter RH wallets (their positions are public by address; Aster and Orderly need the account's own key, so they can't be
+  followed), copy them on any perp venue. The list (`Follow`: source, address, label, notify, copy settings; max
+  `MAX_FOLLOWS` 20, `MAX_COPYING` 5) lives per wallet in localStorage (`follow-store.ts`, with the copy book: what each copy
+  holds per leader coin, and the activity log). Cards read positions from the browser (`leader-client.ts`: HL
+  `clearinghouseState` per dex + `userFills`, Lighter `account`; every 15s). Copying (`copy-runner.tsx`, started by
+  `CopyGate` inside the trading provider only while a copy is on, loaded on demand) runs while a tab is open: one tab per
+  wallet (Web Lock `angler:copy:<address>`) polls each copying leader every 5s, `leaderEvents` turns snapshot changes into
+  open / add / reduce / close / flip, `copyPlan` sizes them (opens: fixed USD or a % of the leader's size, capped; adds,
+  reductions and closes in proportion to what the copy holds; positions held before copying started are never touched; a
+  coin list filters opens), and orders go through the provider's `placeOrder` (our fee, points) on the copy's venue, else
+  the target ("same", "best" via `quoteVenues`, or a fixed venue); reductions are capped at the open position. Alerts
+  (Telegram / Discord, with the browser closed): the card's Alerts switch keeps the wallet in `AlertSettings.follows`
+  (`PUT /api/alerts/follows`, profile session; Profile → Alerts saves leave it alone) and the alerts tick reads each followed
+  wallet once however many follow it (`readLeaderEvents`, Redis hash `…:leaders`, first look only records, an unreadable
+  venue keeps its last positions, at most `MAX_LEADERS` 300 a tick) and messages each follower (`leaderMessage`) with a
+  `/copy?follow=&coin=&side=` link: the page's `TradeOffer` card copies that trade by hand at the follower's size. The
+  server never trades: the trading keys stay in the browser. Not yet tried with real orders.
 - Hyperliquid and Lighter spot (`lib/spot/book-spot.ts`, `lib/venues/hyperliquid/spot.ts`, `lib/venues/lighter/spot.ts`,
   `components/terminal/book-spot-card.tsx`, the /spot view): order-book spot markets against USDC on both networks. /spot
   (`spot-order-panel.tsx`, `use-book-spot.ts`: `useBookSpotRef` = the picked `book:` market, else the asset's busiest

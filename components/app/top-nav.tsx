@@ -6,7 +6,7 @@ import { useTrading } from "@/components/terminal/trading-provider";
 import { useWalletModal } from "@/components/terminal/wallet-modal";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { marketNav } from "./market-nav";
-import { BridgeIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon } from "./nav-icons";
+import { BridgeIcon, CopyIcon, MarketsIcon, NewsIcon, ProOrderIcon, VaultsIcon } from "./nav-icons";
 
 function itemClass(active: boolean) {
   return `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium transition-colors ${
@@ -39,6 +39,10 @@ export function TopNav() {
       <Link prefetch={false} href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={itemClass(pathname === "/vaults")}>
         <VaultsIcon className={`size-[18px] ${pathname === "/vaults" ? "text-app-accent" : ""}`} active={pathname === "/vaults"} />
         <span className={label}>Vaults</span>
+      </Link>
+      <Link prefetch={false} href="/copy" title="Follow and copy wallets" aria-current={pathname === "/copy" ? "page" : undefined} className={itemClass(pathname === "/copy")}>
+        <CopyIcon className={`size-[18px] ${pathname === "/copy" ? "text-app-accent" : ""}`} active={pathname === "/copy"} />
+        <span className={label}>Copy</span>
       </Link>
       <a href="https://news.angler.network" target="_blank" rel="noopener noreferrer" title="Angler News" className={itemClass(false)}>
         <NewsIcon className="size-[18px]" />

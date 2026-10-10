@@ -9,7 +9,7 @@ import { useWallet } from "@/components/terminal/wallet-provider";
 import { useT } from "@/lib/i18n/client";
 import { FitLabel } from "./fit-label";
 import { marketNav } from "./market-nav";
-import { BridgeIcon, MarketsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
+import { BridgeIcon, CopyIcon, MarketsIcon, ProOrderIcon, VaultsIcon, type NavIcon } from "./nav-icons";
 
 function NavLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -88,6 +88,10 @@ export function Sidebar() {
         <Link prefetch={false} href="/vaults" title="Vaults across the perp venues" aria-current={pathname === "/vaults" ? "page" : undefined} className={navItemClass(pathname === "/vaults")}>
           <VaultsIcon className={iconClass(pathname === "/vaults")} active={pathname === "/vaults"} />
           <NavLabel>Vaults</NavLabel>
+        </Link>
+        <Link prefetch={false} href="/copy" title="Follow and copy wallets" aria-current={pathname === "/copy" ? "page" : undefined} className={navItemClass(pathname === "/copy")}>
+          <CopyIcon className={iconClass(pathname === "/copy")} active={pathname === "/copy"} />
+          <NavLabel>Copy</NavLabel>
         </Link>
       </nav>
 

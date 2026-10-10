@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyGate } from "@/components/copy/copy-gate";
 import { AlgoOrdersProvider } from "./algo-orders";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -763,6 +764,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       <AlgoOrdersProvider address={address} venues={venues} isVenueReady={isVenueReady} onSetup={setSetupVenue} errorMessage={venueErrorMessage}>
         {children}
       </AlgoOrdersProvider>
+      <CopyGate address={address} />
     </TradingContext.Provider>
   );
 }

@@ -1,3 +1,5 @@
+import { readWatchedWallets, type WatchedWallet } from "@/lib/copy/follows";
+
 /**
  * Alert settings a profile keeps on the server (Profile → Alerts): where to send (Discord webhook, Telegram chat) and
  * what to watch (positions, liquidation distance, news, price levels). Pure: shared by the page and the API routes.
@@ -26,6 +28,8 @@ export interface AlertSettings {
   /** More coins to watch for news. */
   newsCoins: string[];
   prices: PriceAlert[];
+  /** Followed wallets to message about (the /copy page's "Alerts" switch; positions read the same way as the profile's). */
+  follows: WatchedWallet[];
 }
 
 export const MAX_PRICE_ALERTS = 20;
@@ -42,6 +46,7 @@ export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
   newsHeld: true,
   newsCoins: [],
   prices: [],
+  follows: [],
 };
 
 // Discord's own hosts only: the server posts to this URL, so anything else would let a profile make it call any host.
@@ -105,6 +110,10 @@ export function readAlertSettings(value: unknown, current: AlertSettings = DEFAU
     prices.push({ id: alert.id, coin, direction: alert.direction, price });
   }
 
+  // The /copy page saves these on their own: a request without them (Profile → Alerts) keeps the stored list.
+  const follows = input.follows === undefined ? current.follows : readWatchedWallets(input.follows);
+  if (!follows) return { ok: false, error: "Invalid followed wallets." };
+
   return {
     ok: true,
     settings: {
@@ -116,6 +125,7 @@ export function readAlertSettings(value: unknown, current: AlertSettings = DEFAU
       newsHeld: Boolean(input.newsHeld),
       newsCoins,
       prices,
+      follows,
     },
   };
 }
@@ -126,8 +136,9 @@ export function parseStoredSettings(raw: string | undefined | null): AlertSettin
   try {
     const parsed = JSON.parse(raw) as Partial<AlertSettings>;
     const chat = typeof parsed.telegramChatId === "string" ? parsed.telegramChatId : null;
-    const result = readAlertSettings(parsed, { ...DEFAULT_ALERT_SETTINGS, telegramChatId: chat });
-    return result.ok ? result.settings : { ...DEFAULT_ALERT_SETTINGS, telegramChatId: chat };
+    const follows = readWatchedWallets(parsed.follows) ?? [];
+    const result = readAlertSettings({ ...parsed, follows }, { ...DEFAULT_ALERT_SETTINGS, telegramChatId: chat });
+    return result.ok ? result.settings : { ...DEFAULT_ALERT_SETTINGS, telegramChatId: chat, follows };
   } catch {
     return DEFAULT_ALERT_SETTINGS;
   }

@@ -44,6 +44,9 @@ export const PredictionIcon = solar("prediction");
 /** Vaults (a safe in Solar's style; see the sprite). */
 export const VaultsIcon = solar("vaults");
 
+/** Copy trading (solar:copy). */
+export const CopyIcon = solar("copy");
+
 /** Markets (solar:chart-2). */
 export const MarketsIcon = solar("markets");
 
