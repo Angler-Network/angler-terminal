@@ -58,7 +58,7 @@ function PairDrift({ rows }: { rows: AssetRow[] }) {
   const half = Math.ceil(pairs.length / 2);
   const lanes = [pairs.slice(0, half), pairs.slice(half)];
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-2xl [mask-image:linear-gradient(to_right,transparent_30%,black_75%)] sm:block">
+    <div aria-hidden className="pointer-events-none absolute inset-0 hidden overflow-hidden rounded-2xl [mask-image:linear-gradient(to_right,transparent_52%,black_85%)] sm:block">
       <div className="absolute -right-24 top-1/2 flex w-[150%] -translate-y-1/2 -rotate-6 flex-col gap-3 opacity-40">
         {lanes.map((lane, index) => (
           <div key={index} className={`pair-drift flex w-max gap-3 ${index === 1 ? "pair-drift-reverse" : ""}`}>
@@ -106,6 +106,13 @@ function MoverCard({ title, icon: Icon, tone, rows, loaded, onOpen }: { title: s
       <h2 className="flex items-center gap-2 px-4 pb-1.5 pt-3.5 text-[13px] font-semibold text-app-ink">
         <Icon className={`size-4 ${tone}`} aria-hidden />
         {title}
+        {/* The ticker tape has its own price source, so its numbers can differ a little: say where these come from. */}
+        <span
+          className="ml-auto text-[10px] font-medium uppercase tracking-wide text-app-faint"
+          title="Perp mark price and 24h change on the venue that trades each asset most. The ticker tape uses its own price source, so the two can differ slightly."
+        >
+          Perp · 24h
+        </span>
       </h2>
       <ul className="pb-2">
         {rows.map((row) => (
@@ -185,16 +192,14 @@ function ReferralBanner() {
   return (
     <Link
       href="/profile#referrals"
-      className="group flex flex-wrap items-center gap-x-3 gap-y-3 rounded-2xl border border-app-accent/30 bg-app-accent/[0.07] px-4 py-3 transition-colors hover:bg-app-accent/[0.12] sm:gap-x-4"
+      className="group flex items-center gap-3 rounded-xl border border-app-hairline px-3.5 py-2.5 transition-colors hover:border-app-hairline-strong hover:bg-app-card/40"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-app-accent/15 text-app-accent">
-        <Gift className="size-[18px]" aria-hidden />
+      <Gift className="size-4 shrink-0 text-app-accent" aria-hidden />
+      <span className="min-w-0 flex-1 text-[13px] text-app-muted">
+        <span className="font-semibold text-app-ink">Invite traders, earn 10% of their fees.</span>
+        <span className="hidden sm:inline"> Every $10K you trade earns an invite.</span>
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold text-app-ink">Trade to earn invites, keep 10% of their fees</span>
-        <span className="hidden text-[12px] text-app-muted sm:block">Every $10K you trade on perps and spot earns a single-use invite. Each trader you bring in pays you 10% of their Angler fees, for good.</span>
-      </span>
-      <span className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-app-accent px-3 text-[13px] font-semibold text-app-on-accent sm:h-8 sm:w-auto sm:text-[12px]">
+      <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-app-accent">
         My invites
         <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
       </span>
@@ -230,10 +235,8 @@ export function HomeView() {
                 <h1 className="text-[30px] font-semibold leading-[1.1] tracking-tight text-app-ink sm:text-[38px]">
                   Every perp DEX, one screen.
                 </h1>
-                <p className="mt-2 max-w-[520px] text-[14px] text-app-muted">
-                  Best execution across {venueIds.length > 0 ? venueIds.map((id) => PERP_VENUE_NAMES[id]).join(", ") : "every venue"}, swaps on Solana and
-                  Robinhood Chain, and AI-scored news you can trade in two taps.
-                </p>
+                {/* The venues show as logos under the search, so the line doesn't list them. */}
+                <p className="mt-2 max-w-[460px] text-[14px] text-app-muted">Perps, spot and swaps across every venue, with AI-scored news you can trade in two taps.</p>
               </div>
               <HomeSearch rows={rows} venueIds={venueIds} />
             </div>

@@ -26,7 +26,7 @@ function NavLabel({ children }: { children: React.ReactNode }) {
 function navItemClass(active: boolean) {
   return `relative flex flex-col items-center gap-[clamp(0.125rem,0.7vh,0.375rem)] rounded-xl px-1 py-[clamp(0.25rem,1vh,0.625rem)] text-[11px] transition-colors ${
     active
-      ? "bg-app-card text-app-ink shadow-[inset_0_0_0_1px_rgb(var(--app-hairline-strong)),0_2px_8px_rgba(19,35,58,0.08)] before:absolute before:-left-1.5 before:top-1/4 before:bottom-1/4 before:w-[3px] before:rounded-r-full before:bg-app-accent"
+      ? "bg-app-accent/15 text-app-ink shadow-[inset_0_0_0_1px_rgb(var(--app-accent)/0.35)] before:absolute before:-left-1.5 before:top-1/4 before:bottom-1/4 before:w-[3px] before:rounded-r-full before:bg-app-accent"
       : "text-app-muted hover:bg-app-card/60 hover:text-app-ink"
   }`;
 }
