@@ -7,12 +7,16 @@ export const COLUMN_IDS = ["watchlist", "main", "trade", "rail"] as const;
 export type ColumnId = (typeof COLUMN_IDS)[number];
 
 export type StackPanel = "orderbook" | "news";
+/** The order panel (with the account card): it only moves up or down within the trading column. */
+export type MovablePanel = StackPanel | "orderEntry";
 
 export interface Arrangement {
   /** Left to right; `main` is the chart with the positions under it. */
   columns: ColumnId[];
   /** The panel under the order panel and account card; the other one fills the rail column. */
   stack: StackPanel;
+  /** The stacked panel sits above the order panel instead of under it. */
+  stackOnTop?: boolean;
   /** Set once read under the current default, so a layout the user keeps on purpose isn't migrated again. */
   version?: number;
 }
@@ -32,6 +36,7 @@ export function readArrangement(value: unknown): Arrangement {
   const arrangement: Arrangement = {
     columns: valid ? [...columns] : [...defaultArrangement.columns],
     stack: stored.stack === "orderbook" || stored.stack === "news" ? stored.stack : defaultArrangement.stack,
+    ...(stored.stackOnTop === true ? { stackOnTop: true } : {}),
   };
   const untouched = stored.version !== ARRANGEMENT_VERSION && `${arrangement.columns.join(",")}:${arrangement.stack}` === PREVIOUS_DEFAULT;
   return untouched ? { ...defaultArrangement, columns: [...defaultArrangement.columns] } : { ...arrangement, version: ARRANGEMENT_VERSION };
@@ -58,14 +63,19 @@ export function swapStack(arrangement: Arrangement): Arrangement {
 /** What a drag handle or a drop zone stands for: a column, a movable panel, or both (the rail is both). */
 export interface ArrangeTarget {
   column?: ColumnId;
-  panel?: StackPanel;
+  panel?: MovablePanel;
 }
 
 /**
- * The arrangement after dropping `source` on `target`: two different movable panels swap places; otherwise two
- * different columns swap. Null when the drop changes nothing.
+ * The arrangement after dropping `source` on `target`: the order panel and the panel stacked with it swap top and
+ * bottom; the order book and the news swap places; otherwise two different columns swap. Null when the drop changes
+ * nothing (the order panel never leaves its column).
  */
 export function dropOnto(arrangement: Arrangement, source: ArrangeTarget, target: ArrangeTarget): Arrangement | null {
+  if (source.panel === "orderEntry" || target.panel === "orderEntry") {
+    const other = source.panel === "orderEntry" ? target.panel : source.panel;
+    return other === arrangement.stack ? { ...arrangement, stackOnTop: !arrangement.stackOnTop } : null;
+  }
   if (source.panel && target.panel && source.panel !== target.panel) return swapStack(arrangement);
   if (source.column && target.column && source.column !== target.column) return swapColumns(arrangement, source.column, target.column);
   return null;

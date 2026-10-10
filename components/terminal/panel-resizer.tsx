@@ -5,19 +5,21 @@ import { useRef } from "react";
 const KEY_STEP = 24;
 
 /** The panel edge the handle sits on; dragging away from the panel makes it bigger. */
-export type ResizeEdge = "top" | "left" | "right";
+export type ResizeEdge = "top" | "bottom" | "left" | "right";
 
 const edgeClass: Record<ResizeEdge, string> = {
   top: "inset-x-0 -top-2 h-2 cursor-row-resize",
+  bottom: "inset-x-0 -bottom-2 h-2 cursor-row-resize",
   left: "inset-y-0 -left-2 w-2 cursor-col-resize",
   right: "inset-y-0 -right-2 w-2 cursor-col-resize",
 };
 
-const gripClass: Record<ResizeEdge, string> = { top: "h-1 w-12", left: "h-12 w-1", right: "h-12 w-1" };
+const gripClass: Record<ResizeEdge, string> = { top: "h-1 w-12", bottom: "h-1 w-12", left: "h-12 w-1", right: "h-12 w-1" };
 
 /** Keys that grow the panel, per edge (the opposite arrow shrinks it). */
 const growKey: Record<ResizeEdge, [grow: string, shrink: string]> = {
   top: ["ArrowUp", "ArrowDown"],
+  bottom: ["ArrowDown", "ArrowUp"],
   left: ["ArrowLeft", "ArrowRight"],
   right: ["ArrowRight", "ArrowLeft"],
 };
@@ -49,9 +51,9 @@ export function PanelResizer({
 }) {
   const drag = useRef<{ start: number; startSize: number; max: number; last: number } | null>(null);
   const clamp = (value: number, upper: number) => Math.round(Math.min(Math.max(value, min), Math.max(min, upper)));
-  const position = (event: React.PointerEvent) => (edge === "top" ? event.clientY : event.clientX);
+  const position = (event: React.PointerEvent) => (edge === "top" || edge === "bottom" ? event.clientY : event.clientX);
   // Pixels moved away from the panel.
-  const moved = (from: number, to: number) => (edge === "right" ? to - from : from - to);
+  const moved = (from: number, to: number) => (edge === "right" || edge === "bottom" ? to - from : from - to);
   const finish = () => {
     const state = drag.current;
     drag.current = null;
@@ -61,7 +63,7 @@ export function PanelResizer({
   return (
     <div
       role="separator"
-      aria-orientation={edge === "top" ? "horizontal" : "vertical"}
+      aria-orientation={edge === "top" || edge === "bottom" ? "horizontal" : "vertical"}
       aria-label={label}
       aria-valuemin={min}
       tabIndex={0}
@@ -94,7 +96,7 @@ export function PanelResizer({
     >
       <span
         // Side grips only show on hover: three always-on bars beside the columns would be noise.
-        className={`rounded-full bg-app-ink/25 transition group-hover:bg-app-accent group-hover:opacity-100 group-focus-visible:bg-app-accent group-focus-visible:opacity-100 group-active:bg-app-accent group-active:opacity-100 ${gripClass[edge]} ${edge === "top" ? "" : "opacity-0"}`}
+        className={`rounded-full bg-app-ink/25 transition group-hover:bg-app-accent group-hover:opacity-100 group-focus-visible:bg-app-accent group-focus-visible:opacity-100 group-active:bg-app-accent group-active:opacity-100 ${gripClass[edge]} ${edge === "top" || edge === "bottom" ? "" : "opacity-0"}`}
       />
     </div>
   );

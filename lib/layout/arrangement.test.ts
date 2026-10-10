@@ -4,6 +4,8 @@ import { defaultArrangement, dropOnto, positionsSpanRail, readArrangement } from
 describe("arrangement", () => {
   it("reads only complete column orders and known stack panels", () => {
     expect(readArrangement(null)).toEqual(defaultArrangement);
+    expect(readArrangement({ ...defaultArrangement, stackOnTop: true }).stackOnTop).toBe(true);
+    expect(readArrangement({ ...defaultArrangement, stackOnTop: "yes" }).stackOnTop).toBeUndefined();
     expect(readArrangement({ columns: ["main", "trade"], stack: "chart" })).toEqual(defaultArrangement);
     expect(readArrangement({ columns: ["rail", "main", "trade", "watchlist"], stack: "orderbook" })).toEqual({
       columns: ["rail", "main", "trade", "watchlist"],
@@ -25,6 +27,13 @@ describe("arrangement", () => {
     // The rail is both a column and a panel: onto a column it moves as a column.
     expect(dropOnto(defaultArrangement, { column: "rail", panel: "orderbook" }, { column: "watchlist" })?.columns).toEqual(["rail", "main", "watchlist", "trade"]);
     expect(dropOnto(defaultArrangement, { column: "main" }, { column: "main" })).toBeNull();
+    // The order panel swaps top and bottom with the panel stacked under it, and never leaves its column.
+    const flipped = dropOnto(defaultArrangement, { panel: "orderEntry" }, { panel: "news" });
+    expect(flipped?.stackOnTop).toBe(true);
+    expect(flipped?.stack).toBe("news");
+    expect(dropOnto(flipped!, { panel: "news" }, { panel: "orderEntry" })?.stackOnTop).toBe(false);
+    expect(dropOnto(defaultArrangement, { panel: "orderEntry" }, { column: "rail", panel: "orderbook" })).toBeNull();
+    expect(dropOnto(defaultArrangement, { panel: "orderEntry" }, { column: "main" })).toBeNull();
   });
 
   it("runs the positions under the order book only when it sits next to the chart", () => {
