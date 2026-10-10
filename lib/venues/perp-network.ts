@@ -1,4 +1,5 @@
 import { asterConfig } from "./aster/config";
+import { extendedConfig } from "./extended/config";
 import { hlConfig } from "./hyperliquid/config";
 import { lighterConfigs } from "./lighter/config";
 import { orderlyConfig } from "./orderly/config";
@@ -9,5 +10,6 @@ export function perpNetwork(venue: PerpVenueId): "mainnet" | "testnet" {
   if (venue === "hyperliquid") return hlConfig.network;
   if (venue === "aster") return asterConfig.network;
   if (venue === "orderly") return orderlyConfig.network;
+  if (venue === "extended") return extendedConfig.network;
   return lighterConfigs[venue].network;
 }

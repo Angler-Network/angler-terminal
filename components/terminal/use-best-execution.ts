@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { HL_BASE_TAKER_FEE, compareExecution, readLighterRestBook, splitExecution, type SplitPlan, type VenueQuote } from "@/lib/trading/execution";
-import { readAsterBook, readHlBook, type BookSide } from "@/lib/trading/orderbook";
+import { readAsterBook, readExtendedBook, readHlBook, type BookSide } from "@/lib/trading/orderbook";
+import { extendedConfig } from "@/lib/venues/extended/config";
 import { asterConfig } from "@/lib/venues/aster/config";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
@@ -14,6 +15,8 @@ const DEBOUNCE_MS = 400;
 /** Hyperliquid rejects orders under $10 of notional. */
 const HL_MIN_ORDER_USD = 10;
 const REFRESH_MS = 5_000;
+/** Extended's taker fee (2.5 bps; its 24/5 stock markets 1 bp). */
+const EXTENDED_BASE_TAKER_FEE = 0.00025;
 /** Aster's base-tier taker fee (accounts with volume pay less), plus our builder fee on top. */
 const ASTER_BASE_TAKER_FEE = 0.00035;
 
@@ -23,6 +26,8 @@ export function takerFeeFor(market: VenueMarket) {
   if (market.venue === "aster") return ASTER_BASE_TAKER_FEE + (asterConfig.builder?.feeRate ?? 0);
   // Orderly: the broker's rate (Orderly's base plus our part), as set in its admin.
   if (market.venue === "orderly") return orderlyConfig.takerFee;
+  // Extended: its base taker fee plus our builder fee (mainnet).
+  if (market.venue === "extended") return EXTENDED_BASE_TAKER_FEE + (extendedConfig.builderId ? extendedConfig.builderFee : 0);
   return (market.takerFee ?? 0) + (lighterConfigs[market.venue].integrator?.takerFee ?? 0) / 1_000_000;
 }
 
@@ -44,6 +49,11 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
     const { orderlyBookSnapshot } = await import("@/lib/venues/orderly/stream");
     return orderlyBookSnapshot(market.coin);
   }
+  if (market.venue === "extended") {
+    // Extended's REST API has no CORS: through our proxy (cached 2s at the edge).
+    const response = await fetch(`${extendedConfig.proxy}/${extendedConfig.network}/api/v1/info/markets/${encodeURIComponent(market.coin)}/orderbook`);
+    return response.ok ? readExtendedBook(((await response.json()) as { data?: unknown }).data) : null;
+  }
   // Each Lighter exchange (core, Robinhood) has its own books.
   const response = await fetch(`${lighterConfigs[market.venue].apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
   return response.ok ? readLighterRestBook(await response.json()) : null;
@@ -54,6 +64,7 @@ export function minOrderUsd(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_MIN_ORDER_USD;
   if (market.venue === "aster") return market.minQuoteAmount ?? 5;
   if (market.venue === "orderly") return market.minQuoteAmount ?? 10;
+  if (market.venue === "extended") return (market.minBaseAmount ?? 0) * (market.midPx ?? market.markPx ?? 0);
   const price = market.midPx ?? market.markPx;
   return price ? minimumSize(market, price) * price : 0;
 }

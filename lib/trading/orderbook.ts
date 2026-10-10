@@ -43,6 +43,14 @@ export function readAsterBook(data: unknown): BookSide | null {
   return { bids: read(body.bids), asks: read(body.asks) };
 }
 
+/** Extended `/info/markets/{market}/orderbook`: { bid: [{ qty, price }], ask: [...] } (best first). */
+export function readExtendedBook(data: unknown): BookSide | null {
+  const body = data as { bid?: unknown; ask?: unknown } | null;
+  if (!body || !Array.isArray(body.bid) || !Array.isArray(body.ask)) return null;
+  const read = (rows: unknown[]) => rows.flatMap((row) => [level((row as { price?: unknown })?.price, (row as { qty?: unknown })?.qty)].filter((entry): entry is BookLevel => entry !== null));
+  return { bids: read(body.bid), asks: read(body.ask) };
+}
+
 /** Aster `trades`: { id, price, qty, time, isBuyerMaker }, oldest first; the taker sold when the buyer was the maker. */
 export function readAsterTrades(data: unknown): TapeTrade[] {
   return (Array.isArray(data) ? data : [])
@@ -52,6 +60,15 @@ export function readAsterTrades(data: unknown): TapeTrade[] {
       return Number.isFinite(price) && price > 0 && size > 0 ? [{ id: String(row.id), price, size, side: row.isBuyerMaker ? ("sell" as const) : ("buy" as const), time: Number(row.time) }] : [];
     })
     .reverse();
+}
+
+/** Extended `/info/markets/{market}/trades`: { i, S: "BUY" | "SELL", p, q, T }, newest first (S is the taker's side). */
+export function readExtendedTrades(data: unknown): TapeTrade[] {
+  return (Array.isArray(data) ? data : []).flatMap((row: Record<string, unknown>) => {
+    const price = Number(row.p);
+    const size = Number(row.q);
+    return Number.isFinite(price) && price > 0 && size > 0 ? [{ id: String(row.i), price, size, side: row.S === "SELL" ? ("sell" as const) : ("buy" as const), time: Number(row.T) }] : [];
+  });
 }
 
 /** Hyperliquid `l2Book` data (REST or WebSocket): `levels` is [bids, asks] of { px, sz, n }. */

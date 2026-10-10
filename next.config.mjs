@@ -36,6 +36,8 @@ function readConfiguredVenues(env) {
     aster: true,
     // Orderly needs our broker id on mainnet (fees go to the broker); testnet falls back to Orderly's demo broker.
     orderly: set(env.NEXT_PUBLIC_ORDERLY_BROKER_ID) || env.NEXT_PUBLIC_DEPLOYMENT === "testnet",
+    // Extended pays our builder fee to the account NEXT_PUBLIC_EXTENDED_BUILDER_ID names (mainnet); testnet needs none.
+    extended: set(env.NEXT_PUBLIC_EXTENDED_BUILDER_ID) || env.NEXT_PUBLIC_DEPLOYMENT === "testnet",
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])

@@ -178,6 +178,38 @@ dependency versions and design are free to diverge from angler-news.
   (`/v1/broker/leaderboard/daily?broker_id&address`, perp volume and broker fee per closed UTC day; only with our own
   broker id, never the demo one).
   Checked end to end on testnet with a throwaway wallet (register, key, signed GET/POST).
+- Extended (`lib/venues/extended/`, a `PerpVenue`; API docs api.docs.extended.exchange, product docs
+  docs.extended.exchange/llms.txt, official SDK `x10-python-trading-starknet`): a Starknet perp order book (moving to
+  Circle's Arc on 22 Oct 2026: re-check hosts, the Stark/EIP-712 domains and deposits after it). Builder codes: every
+  mainnet order carries `builderId` (`NEXT_PUBLIC_EXTENDED_BUILDER_ID`, our Extended clientId 300382) and `builderFee`
+  (`NEXT_PUBLIC_EXTENDED_BUILDER_FEE`, default 0.00035, capped at `/user/fees?builderId` `builderFeeRate`), paid to that
+  account daily; the fee is inside the Stark-signed max fee. Testnet orders carry none (the id is a mainnet account).
+  Setup (`onboarding.ts`, checked end to end on testnet in the browser): EIP-712 `AccountCreation` on domain
+  `{ name: signingDomain }` → Stark key via the WASM's `generate_private_key_from_eth_signature` (deterministic: an
+  existing Extended account comes back), EIP-712 `AccountRegistration` + a Stark signature over pedersen(wallet, key)
+  → `POST /auth/onboard` (idempotent), then `personal_sign("<path>@<time>")` → `POST /api/v1/user/account/api-key`
+  (headers L1_SIGNATURE, L1_MESSAGE_TIME, X-X10-ACTIVE-ACCOUNT). Stark key and API key AES-GCM encrypted with the device
+  key (`store.ts`); never log or send the Stark key. Signer: Extended's WASM `@x10xchange/stark-crypto-wrapper-wasm`
+  (pinned; .wasm copied to `public/extended/`, rename with the version), `@scure/starknet` for the public key and
+  pedersen; both load with the first signature. Orders (`venue.ts`, amounts in `amounts.ts` with BigInt decimals,
+  pinned against the SDK's Decimal results): synthetic = qty × resolution, collateral = qty × price × resolution (buy
+  rounds up, sell down; buyer's collateral and seller's synthetic negative), max fee = (taker + builder) × notional,
+  rounded up, settlement expiry = expiry + 14 days; the order id is the hash as a decimal string (the external id).
+  Market = IOC at the touch ± 1.5% inside the mark's band; limits GTT 28 days. TP/SL on entries ride on the order
+  (`tpSlType: "ORDER"`); on positions a standalone `TPSL` order (`POSITION`, legs signed for max position value × 50 /
+  price, or `ORDER` for part). Extended's ids pass 2^53: the terminal's `oid` hashes the external id (`oidOf`) and
+  cancels go by `externalId`. No CORS on its REST API: the browser goes through `app/api/extended/[network]/[...path]`
+  (Tokyo, `preferredRegion = "hnd1"`, next to Extended; paths allowlisted in `proxy.ts`; account and order paths refuse
+  Extended's restricted countries by Vercel's `x-vercel-ip-country`/`-region`, `geo.ts`, an unknown country counting as
+  restricted on Vercel: orders reach Extended from our IP, so this is what keeps restricted visitors out; never relax it)
+  and `/api/extended/markets` (trimmed list, cached 30s, `markets-server.ts`, also feeding `/api/funding`: hourly × 8).
+  Account: the v2 JSON-RPC WebSocket (`scope: "account"`, API key in the subscribe message, merged by
+  `account-stream.ts`), REST polling every 10s through the proxy when it can't open (not verified live: this cloud
+  sandbox passes no WebSockets). Book and trades: REST through the proxy every second (edge-cached 2s). Deposits: not in
+  the funds window yet (`openDeposit("extended")` opens Extended's app; its bridge API is `/user/bridge/*` + Rhino.fi's
+  `depositWithId`, wait for Arc). Testnet faucet `POST /api/v1/user/claim` ($1,000/hour; its first claims answered
+  SYSTEM_ERROR in October 2026, so a testnet fill hasn't been seen yet). Not yet: profile points (`/api/v1/builder/trades`
+  with our builder account's key) and the VIP discount on its builder fee.
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
   github.com/jup-ag/docs (mirrors developers.jup.ag).

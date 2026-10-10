@@ -23,7 +23,7 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "lifi", "aster", "orderly"] as const;
+export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "lifi", "aster", "orderly", "extended"] as const;
 export type VenueKey = (typeof VENUE_KEYS)[number];
 
 /** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */

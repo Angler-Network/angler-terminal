@@ -33,6 +33,9 @@ import { asterOnboarding, forgetAsterAgent, type AsterOnboarding } from "@/lib/v
 import { asterVenue } from "@/lib/venues/aster/venue";
 import { forgetOrderlyKey, type OrderlyOnboarding } from "@/lib/venues/orderly/store";
 import { orderlyVenue } from "@/lib/venues/orderly/venue";
+import { forgetExtendedKey, readExtendedRecord, type ExtendedOnboarding } from "@/lib/venues/extended/store";
+import { extendedVenue } from "@/lib/venues/extended/venue";
+import { extendedConfig } from "@/lib/venues/extended/config";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
@@ -51,7 +54,7 @@ import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue, orderly: orderlyVenue };
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue, orderly: orderlyVenue, extended: extendedVenue };
 
 interface TradingContextValue {
   /** Hyperliquid network (the chart and the EVM wallet group follow it). */
@@ -97,6 +100,11 @@ interface TradingContextValue {
   revokeAster: () => void;
   /** Orderly setup: the account registered under our broker, then a browser trading key, both signed by the wallet. */
   orderly: OrderlyOnboarding | null;
+  /** Extended setup: the Stark key from a wallet signature, the account registered, an API key; all kept in this browser. */
+  extended: ExtendedOnboarding | null;
+  /** Runs Extended's setup (two wallet signatures and a message); with `referral`, registers with our code (first time only). */
+  approveExtended: (options?: { referral?: boolean }) => Promise<boolean>;
+  revokeExtended: () => void;
   approveOrderly: (step: "register" | "key") => Promise<boolean>;
   revokeOrderly: () => void;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
@@ -130,7 +138,7 @@ export function useTrading() {
 }
 
 function venueError(venue: PerpVenueId, error: unknown) {
-  if (venue === "aster" || venue === "orderly") return error instanceof Error ? error : new Error(String(error));
+  if (venue === "aster" || venue === "orderly" || venue === "extended") return error instanceof Error ? error : new Error(String(error));
   return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
 
@@ -381,6 +389,60 @@ function useOrderlyInstance(enabled: boolean, address: `0x${string}` | null, get
   return { markets, state, account, approve, revoke, ready };
 }
 
+/**
+ * Extended for the connected wallet: markets, setup state (kept in this browser, encrypted), the streamed account once
+ * set up, and the setup itself (two wallet signatures and one signed message).
+ */
+function useExtendedInstance(enabled: boolean, address: `0x${string}` | null, getWalletClient: (() => Promise<import("viem").WalletClient>) | null | undefined, toast: Toast) {
+  const markets = useVenueMarkets(extendedVenue, enabled);
+  const [state, setState] = useState<ExtendedOnboarding | null>(null);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const refresh = useCallback(() => {
+    if (!address || !enabled) return setState(null);
+    const record = readExtendedRecord(address);
+    setState({ ready: Boolean(record), accountId: record?.accountId ?? null });
+  }, [address, enabled]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const ready = Boolean(state?.ready);
+  useEffect(() => {
+    setAccount(null);
+    if (!address || !enabled) return;
+    return extendedVenue.subscribeAccount(address, {
+      onSnapshot: setAccount,
+      onError: (error) => console.warn(`[extended] account: ${error instanceof Error ? error.message : String(error)}`),
+    });
+  }, [address, enabled, ready]);
+
+  const approve = useCallback(
+    async (options?: { referral?: boolean }) => {
+      if (!address || !getWalletClient) return false;
+      try {
+        const [wallet, { setupExtended }] = await Promise.all([getWalletClient(), import("@/lib/venues/extended/onboarding")]);
+        await setupExtended(wallet, address, options);
+        refresh();
+        toast({ tone: "success", title: "Extended trading ready", message: "Extended orders now sign in the browser without a wallet popup." });
+        return true;
+      } catch (error) {
+        toast({ tone: "error", title: "Extended setup failed", message: error instanceof Error ? error.message : String(error) });
+        return false;
+      }
+    },
+    [address, getWalletClient, refresh, toast],
+  );
+
+  const revoke = useCallback(() => {
+    if (!address) return;
+    forgetExtendedKey(address);
+    refresh();
+    toast({ tone: "info", title: "Extended keys removed from this browser" });
+  }, [address, refresh, toast]);
+
+  return { markets, state, account, approve, revoke, ready };
+}
+
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
@@ -390,6 +452,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const lighterRhEnabled = preferences.venueLighterRh;
   const asterEnabled = preferences.venueAster;
   const orderlyEnabled = preferences.venueOrderly;
+  const extendedEnabled = preferences.venueExtended;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
   const markets = useVenueMarkets(hyperliquidVenue, true);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -398,6 +461,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [depositVenue, setDepositVenue] = useState<PerpVenueId | null>(null);
   const [depositMode, setDepositMode] = useState<FundsMode>("deposit");
   const openDeposit = useCallback((venue: PerpVenueId, mode: FundsMode = "deposit") => {
+    // Extended's deposits (Rhino.fi behind its own API) aren't in the funds window yet: its app handles them.
+    if (venue === "extended") {
+      window.open(extendedConfig.app, "_blank", "noopener,noreferrer");
+      return;
+    }
     setDepositVenue(venue);
     setDepositMode(mode);
   }, []);
@@ -431,6 +499,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const lighterByVenue = useMemo(() => ({ lighter: lighterCore, lighterRh }), [lighterCore, lighterRh]);
   const aster = useAsterInstance(asterEnabled, address, getWalletClient, toast);
   const orderly = useOrderlyInstance(orderlyEnabled, address, getWalletClient, toast);
+  const extended = useExtendedInstance(extendedEnabled, address, getWalletClient, toast);
   const lighter = lighterCore.state;
   const lighterStates = useMemo(() => ({ lighter: lighterCore.state, lighterRh: lighterRh.state }), [lighterCore.state, lighterRh.state]);
 
@@ -441,8 +510,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       lighterRh: lighterRhEnabled ? (lighterRh.markets ?? undefined) : [],
       aster: asterEnabled ? (aster.markets ?? undefined) : [],
       orderly: orderlyEnabled ? (orderly.markets ?? undefined) : [],
+      extended: extendedEnabled ? (extended.markets ?? undefined) : [],
     }),
-    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets, orderlyEnabled, orderly.markets],
+    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets, orderlyEnabled, orderly.markets, extendedEnabled, extended.markets],
   );
 
   const perpOrder = useMemo(
@@ -453,8 +523,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         lighterRh: lighterRhEnabled,
         aster: asterEnabled,
         orderly: orderlyEnabled,
+        extended: extendedEnabled,
       }),
-    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled, orderlyEnabled],
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled, orderlyEnabled, extendedEnabled],
   );
 
   const refreshOnboarding = useCallback(async () => {
@@ -482,8 +553,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
   const isVenueReady = useCallback(
-    (venue: PerpVenueId) => (venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : venue === "orderly" ? orderly.ready : lighterByVenue[venue].ready),
-    [isReady, lighterByVenue, aster.ready, orderly.ready],
+    (venue: PerpVenueId) =>
+      venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : venue === "orderly" ? orderly.ready : venue === "extended" ? extended.ready : lighterByVenue[venue].ready,
+    [isReady, lighterByVenue, aster.ready, orderly.ready, extended.ready],
   );
 
   const approveBuilder = useCallback(async () => {
@@ -656,8 +728,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       ...(lighterRhEnabled ? { lighterRh: lighterRh.account } : {}),
       ...(asterEnabled ? { aster: aster.account } : {}),
       ...(orderlyEnabled ? { orderly: orderly.account } : {}),
+      ...(extendedEnabled ? { extended: extended.account } : {}),
     }),
-    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account, orderlyEnabled, orderly.account],
+    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account, orderlyEnabled, orderly.account, extendedEnabled, extended.account],
   );
 
   const account = useMemo<AccountSnapshot | null>(() => {
@@ -704,6 +777,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       orderly: orderly.state,
       approveOrderly: orderly.approve,
       revokeOrderly: orderly.revoke,
+      extended: extended.state,
+      approveExtended: extended.approve,
+      revokeExtended: extended.revoke,
       placeOrder,
       cancelOrder,
       closePosition,
@@ -744,6 +820,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       orderly.state,
       orderly.approve,
       orderly.revoke,
+      extended.state,
+      extended.approve,
+      extended.revoke,
       placeOrder,
       cancelOrder,
       closePosition,

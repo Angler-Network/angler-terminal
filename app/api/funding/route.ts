@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { ASTER_API_URL, asterFundingRows, type AsterFundingInfo, type AsterPremium } from "@/lib/venues/aster/funding";
 import { ORDERLY_MAINNET_API, orderlyFundingRows } from "@/lib/venues/orderly/funding";
+import { extendedFundingRows } from "@/lib/venues/extended/markets-server";
 
 /**
  * Funding across venues, always mainnet (testnet funding means nothing): Lighter's aggregated feed (Hyperliquid,
- * Lighter, Binance, Bybit) plus Aster's and Orderly's own rates, merged as one `funding_rates` list. Either failing
+ * Lighter, Binance, Bybit) plus Aster's, Orderly's and Extended's own rates, merged as one `funding_rates` list. Either failing
  * leaves the rest.
  */
 const FUNDING_URL = "https://mainnet.zklighter.elliot.ai/api/v1/funding-rates";
@@ -54,10 +55,16 @@ async function orderlyRows() {
 
 export async function GET() {
   try {
-    const [response, aster, orderly, rh] = await Promise.all([fetch(FUNDING_URL, { next: { revalidate: 60 }, signal: AbortSignal.timeout(8000) }), asterRows(), orderlyRows(), lighterRhRows()]);
+    const [response, aster, orderly, rh, extended] = await Promise.all([
+      fetch(FUNDING_URL, { next: { revalidate: 60 }, signal: AbortSignal.timeout(8000) }),
+      asterRows(),
+      orderlyRows(),
+      lighterRhRows(),
+      extendedFundingRows().catch(() => []),
+    ]);
     if (!response.ok) return NextResponse.json({ error: `Funding source answered ${response.status}` }, { status: 502 });
     const body = (await response.json()) as { funding_rates?: unknown[] };
-    const rows = [...(Array.isArray(body.funding_rates) ? body.funding_rates : []), ...aster, ...orderly, ...rh];
+    const rows = [...(Array.isArray(body.funding_rates) ? body.funding_rates : []), ...aster, ...orderly, ...rh, ...extended];
     return NextResponse.json({ ...body, funding_rates: rows }, { headers: { "cache-control": "public, max-age=30, stale-while-revalidate=60" } });
   } catch {
     return NextResponse.json({ error: "Funding rates are unavailable right now." }, { status: 502 });

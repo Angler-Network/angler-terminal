@@ -6,6 +6,7 @@ import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { isLighterVenue, lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config";
 import { ASTER_APP_URL, asterConfig } from "@/lib/venues/aster/config";
 import { orderlyConfig } from "@/lib/venues/orderly/config";
+import { extendedConfig } from "@/lib/venues/extended/config";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -240,6 +241,56 @@ function OrderlySteps() {
   );
 }
 
+/**
+ * Extended: one step with the wallet: a signature that derives this account's Stark key (the same signature always gives
+ * the same key, so an existing Extended account comes back), one that registers it, and a signed message for its API
+ * key. Orders then sign in this browser.
+ */
+function ExtendedSteps() {
+  const { extended, approveExtended } = useTrading();
+  const [busy, setBusy] = useState(false);
+  const referralCode = extendedConfig.referralCode;
+  const [useReferral, setUseReferral] = useState(true);
+  const done = Boolean(extended?.ready);
+  return (
+    <ol className="mt-4 flex flex-col gap-2">
+      <Step
+        index={1}
+        Icon={KeyRound}
+        title="Connect your Extended account"
+        description="Three wallet prompts, no gas: one derives your Extended trading key, one registers the account (an existing Extended account is reused), one creates its API key. Both keys stay encrypted in this browser."
+        done={done}
+        active={!done}
+        busy={busy}
+        action="Connect"
+        onRun={async () => {
+          setBusy(true);
+          try {
+            await approveExtended({ referral: Boolean(referralCode) && useReferral });
+          } finally {
+            setBusy(false);
+          }
+        }}
+        extra={
+          referralCode && !done ? (
+            <label className="flex items-center gap-2 text-[12px] text-app-muted">
+              <input type="checkbox" checked={useReferral} onChange={(event) => setUseReferral(event.target.checked)} />
+              Use Angler&apos;s Extended referral code (new accounts only)
+            </label>
+          ) : undefined
+        }
+      />
+      <li className="rounded-lg bg-app-chip/40 px-3 py-2 text-[12px] text-app-muted">
+        Deposits happen on{" "}
+        <a href={extendedConfig.app} target="_blank" rel="noopener noreferrer" className="font-semibold text-app-ink hover:underline">
+          Extended&apos;s app
+        </a>{" "}
+        for now. Not available in the US, the UK, Canada and Extended&apos;s other restricted countries.
+      </li>
+    </ol>
+  );
+}
+
 /** Setup of one Lighter exchange: core Lighter, or Lighter on Robinhood Chain (same steps, its own account and key). */
 function LighterSteps({ venue }: { venue: LighterVenueId }) {
   const { lighterStates, refreshLighter, registerLighter, approveLighter, openDeposit } = useTrading();
@@ -357,7 +408,7 @@ function LighterSteps({ venue }: { venue: LighterVenueId }) {
  * (agent wallet). Lighter: deposit check, register a browser API key, approve the integrator when configured.
  */
 export function TradingSetupDialog() {
-  const { setupVenue, closeSetup, onboarding, lighterStates, aster, orderly, isVenueReady, network } = useTrading();
+  const { setupVenue, closeSetup, onboarding, lighterStates, aster, orderly, extended, isVenueReady, network } = useTrading();
   const isDone = setupVenue !== null && isVenueReady(setupVenue);
 
   useEffect(() => {
@@ -365,7 +416,7 @@ export function TradingSetupDialog() {
       const timer = window.setTimeout(closeSetup, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [isDone, closeSetup, onboarding, lighterStates, aster, orderly]);
+  }, [isDone, closeSetup, onboarding, lighterStates, aster, orderly, extended]);
 
   const backdropRef = useModalEnter(setupVenue !== null);
 
@@ -373,7 +424,12 @@ export function TradingSetupDialog() {
   const lighterVenue = isLighterVenue(setupVenue) ? setupVenue : null;
   const isAster = setupVenue === "aster";
   const isOrderly = setupVenue === "orderly";
-  const isTestnet = isOrderly ? orderlyConfig.network === "testnet" : !isAster && (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
+  const isExtended = setupVenue === "extended";
+  const isTestnet = isExtended
+    ? extendedConfig.network === "testnet"
+    : isOrderly
+      ? orderlyConfig.network === "testnet"
+      : !isAster && (lighterVenue ? lighterConfigs[lighterVenue].network : network) === "testnet";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={closeSetup}>
@@ -387,10 +443,10 @@ export function TradingSetupDialog() {
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="trading-setup-title" className="text-[16px] font-semibold text-app-ink">
-              Set up trading on {isAster ? "Aster" : isOrderly ? "Orderly" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
+              Set up trading on {isAster ? "Aster" : isOrderly ? "Orderly" : isExtended ? "Extended" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
-              {lighterVenue || isAster ? "One-time setup" : "Two one-time signatures"}
+              {lighterVenue || isAster || isExtended ? "One-time setup" : "Two one-time signatures"}
               {isTestnet ? " on testnet" : ""}. No funds move.
             </p>
           </div>
@@ -398,7 +454,7 @@ export function TradingSetupDialog() {
             <X className="size-4" />
           </button>
         </header>
-        {isAster ? <AsterSteps /> : isOrderly ? <OrderlySteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
+        {isAster ? <AsterSteps /> : isOrderly ? <OrderlySteps /> : isExtended ? <ExtendedSteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
       </div>
     </div>
   );

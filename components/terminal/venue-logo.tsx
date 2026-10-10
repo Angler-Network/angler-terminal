@@ -12,6 +12,7 @@ export const VENUE_MARKS: Record<string, { domain: string; chain?: number | stri
   Uniswap: { domain: "uniswap.org" },
   Aster: { domain: "asterdex.com" },
   Orderly: { domain: "orderly.network" },
+  Extended: { domain: "extended.exchange" },
   Titan: { domain: "titan.exchange", chain: "solana" },
   "0x": { domain: "0x.org" },
   KyberSwap: { domain: "kyberswap.com" },

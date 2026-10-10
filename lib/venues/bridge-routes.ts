@@ -77,7 +77,7 @@ export type FundsRoute =
 
 const PERP_VENUES = new Set<string>(["hyperliquid", "lighter", "lighterRh", "aster", "orderly"]);
 
-export function isPerpEndpoint(endpoint: FundsEndpoint): endpoint is PerpVenueId {
+export function isPerpEndpoint(endpoint: FundsEndpoint): endpoint is BridgeVenueId {
   return PERP_VENUES.has(endpoint);
 }
 
@@ -220,7 +220,7 @@ export function stepsError(steps: FundsStep[], amount: number, withdrawable: num
  * The route a shortcut tab (or `openDeposit(venue, mode)`) starts on: deposits keep the venue the user is looking
  * at, from the chain it takes directly; withdrawals and the bridge start where they work today (Hyperliquid).
  */
-export function presetRoute(kind: FundsKind, venue: PerpVenueId): { from: FundsEndpoint; to: FundsEndpoint; chains: { from: WalletChain; to: WalletChain } } {
+export function presetRoute(kind: FundsKind, venue: BridgeVenueId): { from: FundsEndpoint; to: FundsEndpoint; chains: { from: WalletChain; to: WalletChain } } {
   if (kind === "deposit") return { from: "wallet", to: venue, chains: { from: venue === "lighterRh" ? "robinhood" : "arbitrum", to: "arbitrum" } };
   if (kind === "withdraw") return { from: "hyperliquid", to: "wallet", chains: { from: "arbitrum", to: "arbitrum" } };
   return { from: "hyperliquid", to: venue === "lighterRh" ? "lighterRh" : "lighter", chains: { from: "arbitrum", to: "arbitrum" } };

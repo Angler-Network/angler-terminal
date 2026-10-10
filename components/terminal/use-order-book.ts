@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { ASTER_API_URL } from "@/lib/venues/aster/config";
+import { extendedConfig } from "@/lib/venues/extended/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { VenueMarket } from "@/lib/venues/types";
 import {
+  readExtendedBook,
+  readExtendedTrades,
   applyLevels,
   readAsterBook,
   readAsterTrades,
@@ -55,6 +58,31 @@ export function useOrderBook(market: VenueMarket | null) {
           if (parsed) setBook(parsed);
           setTrades(readAsterTrades(recent).slice(0, MAX_TRADES));
           setStatus("live");
+        } catch {
+          if (live) setStatus("offline");
+        }
+      };
+      void poll();
+      const timer = window.setInterval(() => document.visibilityState !== "hidden" && void poll(), ASTER_POLL_MS);
+      return () => {
+        live = false;
+        window.clearInterval(timer);
+      };
+    }
+    if (market.venue === "extended") {
+      // Extended: its REST book and trades through our proxy (no CORS there), cached 2s at the edge so every visitor
+      // watching a market costs Extended one read.
+      let live = true;
+      const base = `${extendedConfig.proxy}/${extendedConfig.network}/api/v1/info/markets/${encodeURIComponent(market.coin)}`;
+      const read = (path: string) => fetch(`${base}/${path}`).then(async (response) => (response.ok ? ((await response.json()) as { data?: unknown }).data : null));
+      const poll = async () => {
+        try {
+          const [depth, recent] = await Promise.all([read("orderbook"), read("trades")]);
+          if (!live) return;
+          const parsed = readExtendedBook(depth);
+          if (parsed) setBook(parsed);
+          setTrades(readExtendedTrades(recent).slice(0, MAX_TRADES));
+          setStatus(parsed ? "live" : "offline");
         } catch {
           if (live) setStatus("offline");
         }

@@ -10,7 +10,7 @@ export type OrderSide = "buy" | "sell";
 
 export type OrderKind = "market" | "limit";
 
-export type PerpVenueId = "hyperliquid" | "lighter" | "lighterRh" | "aster" | "orderly";
+export type PerpVenueId = "hyperliquid" | "lighter" | "lighterRh" | "aster" | "orderly" | "extended";
 
 /** Spot venues: Jupiter (Solana tokens) and Arcus (stock tokens on Robinhood Chain). */
 export type SpotVenueId = "jupiter" | "arcus";

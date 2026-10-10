@@ -29,6 +29,7 @@ import {
   type FundsKind,
   type FundsStep,
   type FundsChain,
+  type BridgeVenueId,
 } from "@/lib/venues/bridge-routes";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
@@ -113,6 +114,11 @@ const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withd
  * and this window runs them in order: every step is one wallet signature, waits (the withdrawal landing, the relayer
  * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
  */
+/** The funds window's venue: Extended isn't one yet (its deposits open its own app instead, `openDeposit`). */
+function fundsVenue(venue: PerpVenueId | null): BridgeVenueId {
+  return !venue || venue === "extended" ? "hyperliquid" : venue;
+}
+
 export function DepositDialog() {
   const { depositVenue, depositMode, closeDeposit, openDeposit, network, accounts } = useTrading();
   const { preferences } = usePreferences();
@@ -179,7 +185,7 @@ export function DepositDialog() {
   // Opening (or reopening on another venue) starts on the route the caller asked for, unless a run is under way.
   useEffect(() => {
     if (!depositVenue || locked) return;
-    const preset = presetRoute(depositMode, depositVenue);
+    const preset = presetRoute(depositMode, fundsVenue(depositVenue));
     setFrom(preset.from);
     setTo(preset.to);
     setChains(preset.chains);
@@ -256,7 +262,7 @@ export function DepositDialog() {
     setTo(endpoint);
   };
   const pickKind = (next: FundsKind) => {
-    const preset = presetRoute(next, venueSide ?? depositVenue);
+    const preset = presetRoute(next, venueSide ?? fundsVenue(depositVenue));
     setFrom(preset.from);
     setTo(preset.to);
     setChains(preset.chains);

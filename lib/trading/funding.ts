@@ -1,18 +1,18 @@
 /**
- * Funding rates across venues from Lighter's aggregated `funding-rates` endpoint plus Aster's and Orderly's own (mainnet, merged by
+ * Funding rates across venues from Lighter's aggregated `funding-rates` endpoint plus Aster's, Orderly's and Extended's own (mainnet, merged by
  * /api/funding): one rate per venue and
  * symbol, normalized to 8 hours (Hyperliquid's hourly 0.0000125 shows as 0.0001). Pure, unit-tested.
  */
 
-export const FUNDING_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "binance", "bybit"] as const;
+export const FUNDING_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "binance", "bybit"] as const;
 /** The funding feed's venue for a perp venue (Lighter RH's rates come from its own feed, `/api/funding`). */
 export function fundingVenueOf(venue: string): FundingVenue | null {
-  return venue === "hyperliquid" || venue === "lighter" || venue === "lighterRh" || venue === "aster" || venue === "orderly" ? venue : null;
+  return venue === "hyperliquid" || venue === "lighter" || venue === "lighterRh" || venue === "aster" || venue === "orderly" || venue === "extended" ? venue : null;
 }
 
 export type FundingVenue = (typeof FUNDING_VENUES)[number];
 /** Venues the terminal can trade, so arbitrage suggestions stay actionable. */
-export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly"];
+export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
 
 export type FundingTable = Record<string, Partial<Record<FundingVenue, number>>>;
 

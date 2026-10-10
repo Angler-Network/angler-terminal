@@ -23,9 +23,9 @@ import { FundingArbDialog } from "./funding-arb-dialog";
 /** The tradable venues listing a row's asset: an arb needs two of them. */
 const arbVenues = (row: { venues: Partial<Record<PerpVenueId, unknown>> }) => TRADABLE_FUNDING_VENUES.filter((venue) => Boolean(row.venues[venue as PerpVenueId]));
 
-const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
+const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", binance: "Binance", bybit: "Bybit" };
 /** Under each funding column's logo: the Lighter logos look alike, so every column names its venue. */
-const VENUE_SHORT: Record<FundingVenue, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
+const VENUE_SHORT: Record<FundingVenue, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", binance: "Binance", bybit: "Bybit" };
 
 type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | FundingVenue;
 
