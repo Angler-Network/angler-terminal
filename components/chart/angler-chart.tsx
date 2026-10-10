@@ -126,10 +126,12 @@ async function loadBookCandles(book: BookSpotChart, interval: ChartInterval, sin
   return result && { ...result, origin: "book" as const };
 }
 
+const CHART_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly"];
+
 /** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
 function venueOrder(chartSource: ChartSource, tradeVenue: PerpVenueId | null): PerpVenueId[] {
   const first = chartSource === "auto" ? tradeVenue : chartSource === "binance" ? null : chartSource;
-  return [...new Set([first, "hyperliquid", "lighter", "lighterRh", "aster", "orderly"].filter((venue): venue is PerpVenueId => venue !== null))];
+  return [...new Set([first, ...CHART_VENUES].filter((venue): venue is PerpVenueId => venue !== null))];
 }
 
 interface ChartHandles {
@@ -202,24 +204,29 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
     }),
     [venueMarket, lighterList, lighterRhList, asterList, orderlyList, symbol],
   );
-  // The picker offers the venues that list this asset (and the saved pick, so it never shows blank).
-  const sourceChoices = (["auto", "hyperliquid", "lighter", "lighterRh", "aster", "orderly", "binance"] as const).filter(
-    (source) => source === "auto" || source === "binance" || source === preferences.chartSource || venueMarkets[source],
-  );
-  const venues = venueOrder(preferences.chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
+  // The picker offers only the venues that list this asset; Binance's public feed only when none does (news-only
+  // assets). A saved pick that doesn't list it charts as Auto, but is kept while its market list is still loading.
+  const listedVenues = CHART_VENUES.filter((venue) => venueMarkets[venue]);
+  const sourceChoices: ChartSource[] = ["auto", ...listedVenues, ...(listedVenues.length === 0 ? (["binance"] as const) : [])];
+  const savedSource = preferences.chartSource;
+  const chartSource: ChartSource =
+    sourceChoices.includes(savedSource) || (savedSource !== "auto" && savedSource !== "binance" && marketsByVenue[savedSource] === undefined)
+      ? savedSource
+      : "auto";
+  const venues = venueOrder(chartSource, tradeVenue).filter((venue) => venueMarkets[venue]);
   const venuesRef = useRef({ venues, venueMarkets });
   venuesRef.current = { venues, venueMarkets };
   // Only the first venue decides the candles: a fallback venue whose market list arrives later (Lighter's, a moment
   // after Hyperliquid's) must not clear the chart and download the same candles again.
   const venueKey = venues[0] ? `${venues[0]}:${venueMarkets[venues[0]]!.coin}` : "";
   // On /swap with "Auto", the token's own pool comes first.
-  const pool = preferences.chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
+  const pool = chartSource === "auto" && spotToken?.network ? { network: spotToken.network, address: spotToken.address } : null;
   // A Hyperliquid or Lighter spot market is charted from its own book, whatever the chart source.
   const book = spotToken?.book ?? null;
   const bookKey = book ? `${book.venue}:${book.coin}:${book.id}` : "";
   const bookRef = useRef(book);
   bookRef.current = book;
-  const key = [symbol, interval, isStock, preferences.chartMarket, preferences.chartSource, sources.join(), venueKey, pool?.address ?? "", bookKey].join("|");
+  const key = [symbol, interval, isStock, preferences.chartMarket, chartSource, sources.join(), venueKey, pool?.address ?? "", bookKey].join("|");
   // Pool candles are refetched every few minutes (they cost API credits); the token's live price moves the last one.
   const livePrice = spotToken?.price;
   const livePriceRef = useRef(livePrice);
@@ -328,7 +335,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
         }
         return null;
       };
-      const feeds: ChartDataSource[] = preferences.chartSource === "binance" ? ["binance", "hyperliquid"] : sources;
+      const feeds: ChartDataSource[] = chartSource === "binance" ? ["binance", "hyperliquid"] : sources;
       const fromFeeds = async () => {
         const result = await loadCandles(symbol, interval, { ...options, sources: feeds });
         return result && { origin: "feed" as const, ...result };
@@ -340,7 +347,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       const result =
         (await fromBook()) ??
         (await fromPool()) ??
-        (preferences.chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds())));
+        (chartSource === "binance" ? ((await fromFeeds()) ?? (await fromVenues())) : ((await fromVenues()) ?? (await fromFeeds())));
       if (!isActive) return;
       if (result) setData({ key, ...result });
       else setFailed(true);
@@ -443,7 +450,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
         <SelectField<ChartSource>
           size="ghost"
           label="Chart data source"
-          value={preferences.chartSource}
+          value={sourceChoices.includes(chartSource) ? chartSource : "auto"}
           onChange={(source) => updatePreference("chartSource", source)}
           options={sourceChoices.map((source) => ({
             value: source,
@@ -451,7 +458,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
               source === "auto"
                 ? `Auto${data && candles ? ` · ${data.poolName ?? SOURCE_NAMES[data.source]}` : ""}`
                 : // A pick the chart couldn't serve shows what it fell back to.
-                  `${SOURCE_NAMES[source]}${data && candles && preferences.chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
+                  `${SOURCE_NAMES[source]}${data && candles && chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
           }))}
         />
       </div>
