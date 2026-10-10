@@ -1,7 +1,7 @@
 "use client";
 
 import { LoadingState } from "@/components/app/loading-state";
-import { Layers, Search } from "lucide-react";
+import { Info, Layers, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
@@ -24,6 +24,8 @@ import { FundingArbDialog } from "./funding-arb-dialog";
 const arbVenues = (row: { venues: Partial<Record<PerpVenueId, unknown>> }) => TRADABLE_FUNDING_VENUES.filter((venue) => Boolean(row.venues[venue as PerpVenueId]));
 
 const VENUE_LABELS: Record<FundingVenue, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
+/** Under each funding column's logo: the Lighter logos look alike, so every column names its venue. */
+const VENUE_SHORT: Record<FundingVenue, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", binance: "Binance", bybit: "Bybit" };
 
 type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | FundingVenue;
 
@@ -172,9 +174,16 @@ export function MarketsTable() {
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-app-hairline px-4 py-3">
         <div>
           <h1 className="text-[16px] font-semibold text-app-ink">Markets</h1>
-          <p className="text-[12px] text-app-muted">
-            Every perp on every venue, with funding (8-hour rates annualized; positive means longs pay shorts) and the
-            Hyperliquid–Lighter spread.
+          <p className="flex items-center gap-1.5 text-[12px] text-app-muted">
+            Every perp on every venue, with funding side by side.
+            <span
+              tabIndex={0}
+              aria-label="How funding is shown"
+              title="Funding is each venue's 8-hour rate, annualized (APR). Positive means longs pay shorts. The spread longs the lowest-funding venue and shorts the highest among the venues you can trade here."
+              className="inline-flex text-app-faint hover:text-app-ink"
+            >
+              <Info className="size-3.5" aria-hidden />
+            </span>
           </p>
         </div>
         <label className="ml-auto flex h-9 items-center gap-2 rounded-xl border border-app-field-border bg-app-field px-3">
@@ -236,27 +245,48 @@ export function MarketsTable() {
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-auto">
         <table className="w-full text-[12px] tabular-nums">
           <thead className="sticky top-0 z-10 bg-app-card">
+            {/* A group header over the funding columns, so seven percentages under logos read as one thing. */}
+            <tr>
+              <th colSpan={5} />
+              <th colSpan={FUNDING_VENUES.length} className="border-b border-app-hairline px-3 pb-1 pt-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-app-faint">
+                Funding · APR
+              </th>
+              <th colSpan={2} />
+            </tr>
             <tr>
               {header("symbol", "Asset")}
               <th className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-[0.06em] text-app-faint">Price</th>
               {header("change", "24h")}
               {header("volume", "24h volume", "Summed over every venue")}
               {header("openInterest", "Open interest", "Summed over every venue")}
-              {FUNDING_VENUES.map((fundingVenue) => header(fundingVenue, <VenueLogo name={VENUE_LABELS[fundingVenue]} size={16} />, `Sort by ${VENUE_LABELS[fundingVenue]} funding`))}
-              {header("arb", "Funding spread", "Long the lowest-funding venue, short the highest (Hyperliquid and Lighter)")}
+              {FUNDING_VENUES.map((fundingVenue) =>
+                header(
+                  fundingVenue,
+                  <span className="flex flex-col items-center gap-0.5">
+                    <VenueLogo name={VENUE_LABELS[fundingVenue]} size={16} />
+                    <span className="whitespace-nowrap text-[9px] normal-case tracking-normal">{VENUE_SHORT[fundingVenue]}</span>
+                  </span>,
+                  `Sort by ${VENUE_LABELS[fundingVenue]} funding`,
+                ),
+              )}
+              {header("arb", "Funding spread", "Long the lowest-funding venue, short the highest, among the venues you can trade here")}
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
             {(settled ? shown.slice(0, limit) : []).map((row) => (
-              <tr key={row.symbol} className="border-t border-app-hairline hover:bg-app-chip/40">
+              // One line per cell and a fixed height, so rows line up whatever they hold.
+              <tr key={row.symbol} className="h-12 whitespace-nowrap border-t border-app-hairline hover:bg-app-chip/40">
                 <td className="px-3 py-1.5">
-                  <button type="button" onClick={() => open(row.symbol)} className="inline-flex items-center gap-2 font-semibold text-app-ink hover:underline">
+                  {/* The venues listing it are in the tooltip: logos here repeated the column headers. */}
+                  <button
+                    type="button"
+                    onClick={() => open(row.symbol)}
+                    title={`Listed on ${venueIds.filter((id) => row.venues[id]).map((id) => PERP_VENUE_NAMES[id]).join(", ")}`}
+                    className="inline-flex items-center gap-2 font-semibold text-app-ink hover:underline"
+                  >
                     <MarketIcon symbol={row.symbol} kind={row.kind} size={20} />
                     {row.symbol}
-                    <span className="flex gap-1">
-                      {venueIds.map((id) => row.venues[id] && <VenueLogo key={id} name={PERP_VENUE_NAMES[id]} size={16} />)}
-                    </span>
                   </button>
                 </td>
                 <td className="px-3 py-1.5 text-right text-app-ink">{row.price ? formatPrice(row.price) : "—"}</td>
@@ -272,34 +302,40 @@ export function MarketsTable() {
                 ))}
                 <td className="px-3 py-1.5 text-right">
                   {row.arb ? (
-                    <span title={`Long on ${VENUE_LABELS[row.arb.longVenue]}, short on ${VENUE_LABELS[row.arb.shortVenue]}`}>
+                    <span className="inline-flex flex-col items-end leading-tight">
                       <span className="font-semibold text-app-ink">{row.arb.apr.toFixed(2)}%</span>
-                      <span className="ml-1.5 text-app-faint">
-                        L {VENUE_LABELS[row.arb.longVenue]} · S {VENUE_LABELS[row.arb.shortVenue]}
+                      <span className="text-[11px] text-app-faint">
+                        <span className="text-app-up">Long</span> {VENUE_LABELS[row.arb.longVenue]} · <span className="text-app-down">Short</span>{" "}
+                        {VENUE_LABELS[row.arb.shortVenue]}
                       </span>
                     </span>
                   ) : (
                     <span className="text-app-faint">—</span>
                   )}
                 </td>
+                {/* Trade is the main action; Arb a lighter text button before it, in a fixed slot so Trade lines up. */}
                 <td className="px-3 py-1.5 text-right">
-                  {row.arb && (
+                  <span className="inline-flex items-center justify-end gap-1">
+                    {row.arb ? (
+                      <button
+                        type="button"
+                        onClick={() => setArbRow(row)}
+                        title="Open a long and a short together to collect the funding spread"
+                        className="h-7 w-11 rounded-md text-[12px] font-semibold text-app-accent hover:bg-app-accent/10"
+                      >
+                        Arb
+                      </button>
+                    ) : (
+                      <span aria-hidden className="w-11" />
+                    )}
                     <button
                       type="button"
-                      onClick={() => setArbRow(row)}
-                      title="Open a long and a short together to collect the funding spread"
-                      className="mr-1.5 h-7 rounded-md border border-app-accent/50 px-2.5 text-[12px] font-semibold text-app-accent hover:bg-app-accent/10"
+                      onClick={() => open(row.symbol)}
+                      className="h-7 rounded-md bg-app-accent px-3 text-[12px] font-semibold text-app-on-accent hover:opacity-90"
                     >
-                      Arb
+                      Trade
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => open(row.symbol)}
-                    className="h-7 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card"
-                  >
-                    Trade
-                  </button>
+                  </span>
                 </td>
               </tr>
             ))}
