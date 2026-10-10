@@ -101,6 +101,7 @@ export const ROW_CHAINS: Array<{ key: RowChain; name: string; logo?: string; gro
 export const LAUNCHPADS: Array<{ key: string; name: string; domain: string; chain: RowChain }> = [
   { key: "pump.fun", name: "Pump.fun", domain: "pump.fun", chain: "solana" },
   { key: "pons", name: "Pons", domain: "poonsfamily.com", chain: "robinhood" },
+  { key: "four.meme", name: "Four.meme", domain: "four.meme", chain: "bsc" },
 ];
 const LAUNCHPAD_KEYS = new Set(LAUNCHPADS.map((pad) => pad.key));
 
@@ -232,6 +233,12 @@ export function usePerpRows(enabled: boolean): MarketRow[] | null {
   }, [enabled, marketsByVenue, perpOrder, quotes, preferences.tapeSource]);
 }
 
+/** The venue column of an EVM launchpad token: "Pons · On curve", "Four.meme"… */
+function launchVenue(listing: SpotListing) {
+  const launch = listing.pons ? { name: "Pons", stage: listing.pons } : listing.fourMeme ? { name: "Four.meme", stage: listing.fourMeme } : null;
+  return launch ? (launch.stage === "curve" ? `${launch.name} · On curve` : launch.name) : null;
+}
+
 export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = {}): MarketRow | null {
   // Tokens that stand for no terminal asset (stablecoins…) are skipped, unless picking a token to pay with.
   const asset = assetSymbolOf(listing) ?? (options.anyToken ? listing.symbol : null);
@@ -256,13 +263,15 @@ export function spotRow(listing: SpotListing, options: { anyToken?: boolean } = 
     change6h: listing.change6h,
     volume24h: listing.volume24h,
     liquidity: listing.liquidity,
-    venues: [listing.pons ? (listing.pons === "curve" ? "Pons · On curve" : "Pons") : evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue]],
+    venues: [launchVenue(listing) ?? (evmChain ? `${SPOT_VENUE_NAMES[listing.venue]} · ${evmChain.name}` : SPOT_VENUE_NAMES[listing.venue])],
     verified: listing.verified,
     stable: listing.stable,
     chain: listing.venue === "jupiter" ? "solana" : listing.venue === "arcus" ? "arcus" : isBook ? (listing.venue as BookSpotVenue) : evmChain?.key,
     ...(listing.pons
       ? { launchpad: "pons", launchStage: listing.pons }
-      : listing.launchpad && LAUNCHPAD_KEYS.has(listing.launchpad)
+      : listing.fourMeme
+        ? { launchpad: "four.meme", launchStage: listing.fourMeme }
+        : listing.launchpad && LAUNCHPAD_KEYS.has(listing.launchpad)
         ? { launchpad: listing.launchpad, launchStage: listing.launchStage }
         : {}),
     watch: { id: listing.id, kind: "spot", symbol: listing.symbol, asset, name: listing.name, icon: listing.icon, mint },

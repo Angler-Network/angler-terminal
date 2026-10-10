@@ -113,8 +113,22 @@ async function zerox(request: AggregatorQuoteRequest, config: Config): Promise<A
   };
 }
 
-/** KyberSwap's DEX ids ("pancake-v3", "uniswap-v4") the way the other sources spell DEXes ("Pancake V3"). */
+/** DEXes whose own name differs from KyberSwap's id: Aerodrome's concentrated pools are Slipstream, Pancake is PancakeSwap. */
+const KYBER_DEX_NAMES: Array<[RegExp, string]> = [
+  [/^aerodrome-cl(?:-\d+)?$/, "Aerodrome Slipstream"],
+  [/^pancake(?=$|-)/, "PancakeSwap"],
+  [/^four-?meme/, "Four.meme"],
+];
+
+/** KyberSwap's DEX ids ("pancake-v3", "uniswap-v4") the way the other sources spell DEXes ("PancakeSwap V3"). */
 export function kyberExchangeName(exchange: string) {
+  const known = KYBER_DEX_NAMES.find(([pattern]) => pattern.test(exchange));
+  if (known) {
+    const [pattern, name] = known;
+    // Keep a version suffix ("pancake-v3" → "PancakeSwap V3"); Slipstream's numbered pools read as one.
+    const rest = exchange.replace(pattern, "").replace(/^-/, "");
+    return /^v\d+$/i.test(rest) ? `${name} ${rest.toUpperCase()}` : name;
+  }
   return exchange
     .replace(/([a-z])(v\d+)$/i, "$1-$2")
     .split(/[-_]/)
@@ -168,7 +182,7 @@ async function kyberswap(request: AggregatorQuoteRequest, config: Config): Promi
   const inUsd = Number(summary.amountInUsd);
   const outUsd = Number(summary.amountOutUsd);
   const hops = Array.isArray(summary.route) ? (summary.route as Array<Array<{ exchange?: unknown }>>).flat() : [];
-  const exchanges = [...new Set(hops.map((hop) => String(hop?.exchange ?? "")).filter(Boolean))].map(kyberExchangeName);
+  const exchanges = [...new Set(hops.map((hop) => String(hop?.exchange ?? "")).filter(Boolean).map(kyberExchangeName))];
   return {
     provider: "kyberswap",
     outAmount: outAmount.toString(),

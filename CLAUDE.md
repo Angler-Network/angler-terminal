@@ -507,6 +507,15 @@ dependency versions and design are free to diverge from angler-news.
     shows them even with "Verified only" on. The EVM swap card asks for "I checked this token" before buying any
     unverified token, like the Solana card. Pons's own factories in its integration guide emit nothing recent;
     don't build on them.
+    Four.meme (BNB Chain's memecoin launchpad, `lib/spot/four-meme.ts`): tokens at vanity addresses ending in 4444 or ffff
+    (`isFourMemeAddress`, checked against GeckoTerminal's live list). `getFourMemeTokens` (GeckoTerminal dex `four-meme`,
+    two pages, cached 30 min, last good list kept like Pons's through `launchTokens`) adds the curve tokens to the BNB list
+    tagged `fourMeme: "curve"`; a Four.meme address among BNB's busiest pools is tagged "graduated" (PancakeSwap). Search
+    filter "Four.meme" under Launchpads, venue "Four.meme · On curve" / "Four.meme". KyberSwap doesn't know curve tokens
+    ("token not found"); LI.FI routes them through OKX's aggregator with our fee, so the EVM card asks LI.FI too whenever
+    a side is a Four.meme address (`lifiHere`). Aerodrome (Base) needs no integration of its own: KyberSwap routes its
+    pools with our fee; Base has `poolTop` so tokens of its busiest pools (mostly Aerodrome) are listed, and
+    `kyberExchangeName` names Aerodrome Slipstream and PancakeSwap in the route line.
   - Route lists (`RouteList` in `swap-card.tsx`, styled like `SpotRoutes`): every swap shows the routes it can take when
     there's more than one, best first, "Best" and the gap on the others; a press pins one (used while it still quotes),
     pressing again goes back to the best; a new pair or side clears it. EVM card: same-chain providers (Uniswap/UniswapX,

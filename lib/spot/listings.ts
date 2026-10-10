@@ -52,6 +52,8 @@ export interface SpotListing {
   stable?: boolean;
   /** A Pons launch on Robinhood Chain: still on its bonding curve, or graduated to its Uniswap v4 pool. */
   pons?: "curve" | "graduated";
+  /** A Four.meme launch on BNB Chain: still on its bonding curve, or graduated to PancakeSwap. */
+  fourMeme?: "curve" | "graduated";
   /** The launchpad a Solana token started on, as Jupiter names it ("pump.fun", "letsbonk.fun", "met-dbc"…). */
   launchpad?: string;
   /** A launchpad token's stage: still on its bonding curve, or graduated to a pool (Jupiter's `graduatedPool`). */
@@ -211,6 +213,8 @@ export interface UniswapTokenRecord {
   extensions?: { safetyInfo?: { safetyLevel?: string; buyFee?: number; sellFee?: number } };
   /** Set for Pons launches (`getPonsTokens`). */
   pons?: "curve" | "graduated";
+  /** Set for Four.meme launches (`getFourMemeTokens`, or a graduated one among BNB Chain's busiest pools). */
+  fourMeme?: "curve" | "graduated";
 }
 
 /** Live market numbers for a token (DexScreener). */
@@ -267,6 +271,7 @@ export function fromUniswapToken(record: UniswapTokenRecord, market: TokenMarket
     category: "crypto",
     verified,
     ...(record.pons ? { pons: record.pons } : {}),
+    ...(record.fourMeme ? { fourMeme: record.fourMeme } : {}),
     price: market.price,
     change24h: market.change24h,
     change1h: market.change1h,

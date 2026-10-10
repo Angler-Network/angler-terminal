@@ -1,5 +1,6 @@
 "use client";
 
+import { isFourMemeAddress } from "@/lib/spot/four-meme";
 import { rememberPay, rememberedPay, type PayChoice } from "./pay-memory";
 import { useSolanaDecimals } from "./use-cross-swap";
 import { ArrowDown, ChevronDown, Settings2 } from "lucide-react";
@@ -152,8 +153,9 @@ function useQuote(input: { chainId: number; tokenIn: string; tokenOut: string; a
   // UniswapX orders are both MEV-protected and gasless.
   const privateOnly = privateSwap || gasless;
   const enabledAggregators = useAggregators();
-  // LI.FI quotes same-chain swaps only where nothing else routes (`lifi` chains), to keep its rate limit for bridging.
-  const lifiHere = Boolean(evmSwapChain(input.chainId)?.lifi);
+  // LI.FI quotes same-chain swaps only where nothing else routes (`lifi` chains, and Four.meme's curve tokens, which
+  // KyberSwap doesn't know), to keep its rate limit for bridging.
+  const lifiHere = Boolean(evmSwapChain(input.chainId)?.lifi) || isFourMemeAddress(input.chainId, input.tokenIn) || isFourMemeAddress(input.chainId, input.tokenOut);
   const aggregators = privateOnly ? [] : enabledAggregators.filter((provider) => provider !== "lifi" || lifiHere);
   // 0x Gasless goes through 0x's relayer, not a protected mempool: only when Private is off.
   const gaslessZerox = gasless && !privateSwap && enabledAggregators.includes("zerox");

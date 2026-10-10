@@ -20,7 +20,11 @@ describe("KyberSwap", () => {
   it("is on with a client id and names DEXes like the other sources", () => {
     expect(aggregatorEnabled("kyberswap", readAggregatorConfig({ KYBERSWAP_CLIENT_ID: "angler" }))).toBe(true);
     expect(aggregatorEnabled("kyberswap", readAggregatorConfig({}))).toBe(false);
-    expect(kyberExchangeName("pancake-v3")).toBe("Pancake V3");
+    expect(kyberExchangeName("pancake-v3")).toBe("PancakeSwap V3");
+    expect(kyberExchangeName("pancake")).toBe("PancakeSwap");
+    expect(kyberExchangeName("aerodrome")).toBe("Aerodrome");
+    expect(kyberExchangeName("aerodrome-cl")).toBe("Aerodrome Slipstream");
+    expect(kyberExchangeName("aerodrome-cl-3")).toBe("Aerodrome Slipstream");
     expect(kyberExchangeName("uniswap_v4")).toBe("Uniswap V4");
     expect(kyberExchangeName("flux-prop")).toBe("Flux Prop");
     expect(kyberExchangeName("uniswapv3")).toBe("Uniswap V3");

@@ -15,7 +15,8 @@ import { DEXSCREENER_BATCH, readDexMarkets, readDexSearch } from "./dexscreener"
 import { LLAMA_BATCH, llamaKey, readLlamaMarkets } from "./llama";
 import { GECKO_TOKENS_BATCH } from "./gecko-tokens";
 import { decodeMarket, encodeMarket, fillMarket, needsStats } from "./market-memory";
-import { getOnchainTokenStats, getPonsTokens, getTopPoolTokens } from "./pool-candles-server";
+import { isFourMemeAddress } from "./four-meme";
+import { getFourMemeTokens, getOnchainTokenStats, getPonsTokens, getTopPoolTokens } from "./pool-candles-server";
 import type { PoolNetwork } from "./pool-candles";
 import { redisConfig, redisPipeline } from "@/lib/redis";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
@@ -219,35 +220,44 @@ async function geckoStats(network: PoolNetwork, addresses: string[]) {
 const statsField = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
 
 /** The last good volume / liquidity per token (Redis, memory without it), younger than `MARKET_MEMORY_TTL_MS`. */
-const PONS_KEY = "angler:spot:pons:v1";
-const PONS_TTL_SECONDS = 24 * 60 * 60;
-let memoryPons: UniswapTokenRecord[] = [];
+const LAUNCH_TTL_SECONDS = 24 * 60 * 60;
+const memoryLaunches = new Map<string, UniswapTokenRecord[]>();
 
 /**
- * Pons launches, else the last good list (this instance's, then Redis, up to a day old). Their GeckoTerminal reads
- * share the free ~10 calls a minute with the pool charts and stats, so a refresh often comes back empty, which used to
- * drop every Pons token from the list until the next one.
+ * A launchpad's tokens (Pons, Four.meme), else the last good list (this instance's, then Redis, up to a day old). Their
+ * GeckoTerminal reads share the free ~10 calls a minute with the pool charts and stats, so a refresh often comes back
+ * empty, which used to drop every launch token from the list until the next one.
  */
-async function ponsTokens(): Promise<UniswapTokenRecord[]> {
-  const fresh = await getPonsTokens().catch((error: unknown) => {
-    console.error("[spot] pons tokens failed:", error);
+async function launchTokens(name: string, load: () => Promise<UniswapTokenRecord[]>, valid: (record: UniswapTokenRecord) => boolean): Promise<UniswapTokenRecord[]> {
+  const key = `angler:spot:${name}:v1`;
+  const fresh = await load().catch((error: unknown) => {
+    console.error(`[spot] ${name} tokens failed:`, error);
     return [];
   });
   if (fresh.length > 0) {
-    memoryPons = fresh;
-    if (redisConfig()) await redisPipeline([["SET", PONS_KEY, JSON.stringify(fresh), "EX", PONS_TTL_SECONDS]]).catch(() => undefined);
+    memoryLaunches.set(name, fresh);
+    if (redisConfig()) await redisPipeline([["SET", key, JSON.stringify(fresh), "EX", LAUNCH_TTL_SECONDS]]).catch(() => undefined);
     return fresh;
   }
-  if (memoryPons.length > 0 || !redisConfig()) return memoryPons;
+  const remembered = memoryLaunches.get(name) ?? [];
+  if (remembered.length > 0 || !redisConfig()) return remembered;
   try {
-    const [stored] = await redisPipeline([["GET", PONS_KEY]]);
+    const [stored] = await redisPipeline([["GET", key]]);
     const parsed: unknown = typeof stored === "string" ? JSON.parse(stored) : null;
-    if (Array.isArray(parsed)) memoryPons = parsed.filter((record): record is UniswapTokenRecord => typeof record?.address === "string" && (record.pons === "curve" || record.pons === "graduated"));
+    if (Array.isArray(parsed)) {
+      const list = parsed.filter((record): record is UniswapTokenRecord => typeof record?.address === "string" && valid(record));
+      memoryLaunches.set(name, list);
+      return list;
+    }
   } catch (error) {
-    console.error("[spot] pons memory read failed:", error);
+    console.error(`[spot] ${name} memory read failed:`, error);
   }
-  return memoryPons;
+  return [];
 }
+
+const stage = (value: unknown) => value === "curve" || value === "graduated";
+const ponsTokens = () => launchTokens("pons", getPonsTokens, (record) => stage(record.pons));
+const fourMemeTokens = () => launchTokens("four-meme", getFourMemeTokens, (record) => stage(record.fourMeme));
 
 async function recallStats(chainId: number, addresses: string[]) {
   const fields = addresses.map((address) => statsField(chainId, address));
@@ -330,15 +340,17 @@ async function uniswapListings(): Promise<SpotListing[]> {
       };
       // Volume first; the deepest pools add established tokens that trade less today. A failed TVL list only drops those.
       // A chain with busiest-pool tokens (Robinhood) keeps going when Uniswap ranks nothing there.
-      const [byVolume, byTvl, byPools, pons] = await Promise.all([
+      const [byVolume, byTvl, byPools, launches] = await Promise.all([
         chain.poolTop ? ranked("volume_24h", UNISWAP_TOP_LIMIT).catch(() => []) : ranked("volume_24h", UNISWAP_TOP_LIMIT),
         ranked("tvl", UNISWAP_TVL_LIMIT).catch(() => []),
         chain.poolTop ? getTopPoolTokens(chain.pool, chain.id).catch(() => []) : [],
-        chain.key === "robinhood" ? ponsTokens() : [],
+        chain.key === "robinhood" ? ponsTokens() : chain.key === "bsc" ? fourMemeTokens() : [],
       ]);
       const seen = new Set<string>();
-      // Pons launches first, so a token another list also has keeps its Pons tag.
-      const records = [...pons, ...byVolume, ...byTvl, ...byPools].filter((record) => {
+      // A Four.meme token among the busiest pools has graduated (its curve tokens come tagged already).
+      const graduated = byPools.filter((record) => isFourMemeAddress(chain.id, record.address)).map((record) => ({ ...record, fourMeme: "graduated" as const }));
+      // Launchpad tokens first, so a token another list also has keeps its launchpad tag.
+      const records = [...launches, ...graduated, ...byVolume, ...byTvl, ...byPools].filter((record) => {
         const key = String(record.address).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);

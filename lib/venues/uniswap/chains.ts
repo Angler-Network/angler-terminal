@@ -71,6 +71,8 @@ export const EVM_SWAP_CHAINS: EvmSwapChain[] = [
     llama: "base",
     explorer: "https://basescan.org",
     rpc: "https://mainnet.base.org",
+    // Most of Base's volume sits on Aerodrome, which Uniswap's /tokens doesn't rank: the busiest pools add its tokens.
+    poolTop: true,
     nativeName: "Ether",
     wrapped: "0x4200000000000000000000000000000000000006",
     gasReserve: 300_000_000_000_000n,

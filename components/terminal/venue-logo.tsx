@@ -19,6 +19,7 @@ export const VENUE_MARKS: Record<string, { domain: string; chain?: number | stri
   Relay: { domain: "relay.link" },
   Polymarket: { domain: "polymarket.com", chain: 137 },
   Pons: { domain: "poonsfamily.com", chain: 4663 },
+  "Four.meme": { domain: "four.meme", chain: 56 },
   Binance: { domain: "binance.com" },
   Bybit: { domain: "bybit.com" },
 };

@@ -112,6 +112,25 @@ export const getTopPoolTokens = unstable_cache(
 );
 
 /**
+ * Four.meme launches still on their bonding curve (BNB Chain, GeckoTerminal dex "four-meme"), busiest first, two pages
+ * every 30 minutes. Graduated ones come with BNB Chain's busiest pools and are tagged there (`isFourMemeAddress`).
+ */
+export const getFourMemeTokens = unstable_cache(
+  async (): Promise<UniswapTokenRecord[]> => {
+    const read = (page: number) => onchainJson(`/networks/bsc/dexes/four-meme/pools?page=${page}&sort=h24_volume_usd_desc&include=base_token,quote_token`).catch(() => null);
+    const pages = await Promise.all([read(1), read(2)]);
+    if (pages.every((page) => page === null)) throw new Error("Four.meme pools are unavailable");
+    const seen = new Set<string>();
+    return pages
+      .flatMap((page) => readGeckoPoolBaseTokens(page, 56))
+      .filter((token) => !seen.has(token.address!.toLowerCase()) && Boolean(seen.add(token.address!.toLowerCase())))
+      .map((token) => ({ ...token, fourMeme: "curve" as const }));
+  },
+  ["spot-four-meme-tokens-v1"],
+  { revalidate: 30 * 60 },
+);
+
+/**
  * Pons launches on Robinhood Chain, busiest first: GeckoTerminal's "Pons V2" pools (tokens still on the bonding curve)
  * and "Pons V2 Dex" pools (graduated to the Uniswap v4 pool with Pons's hook). KyberSwap routes both, so the EVM swap
  * card trades them; this only makes them findable. Two pages of curve pools and one of graduated ones, every 15 minutes.
