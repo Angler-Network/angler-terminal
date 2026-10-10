@@ -13,7 +13,7 @@ import { hlVaultTransfer } from "@/lib/venues/hyperliquid/vaults";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import { lighterPoolTransfer } from "@/lib/venues/lighter/pools";
 import type { VaultStake } from "@/lib/vaults/parse";
-import { hlVaultUsd, hlWithdrawUsd, lighterShares, vaultTransferError, type InAppVaultVenue, type VaultTransferMode } from "@/lib/vaults/transfer";
+import { hlVaultUsd, hlWithdrawUsd, lighterShares, onlyWithdrawAll, vaultTransferError, type InAppVaultVenue, type VaultTransferMode } from "@/lib/vaults/transfer";
 import { VAULT_VENUE_NAMES, type VaultRow } from "@/lib/vaults/types";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -56,6 +56,11 @@ export function VaultTransferDialog({
   const snapshot = accounts[vault.venue];
   const available = snapshot ? snapshot.withdrawable : null;
   const ceiling = mode === "deposit" ? available : (stake?.value ?? null);
+  // Lighter takes no partial withdrawal under $5: with less than that in the pool, withdrawing means all of it.
+  const allOnly = mode === "withdraw" && onlyWithdrawAll(vault, stake?.value ?? null);
+  useEffect(() => {
+    if (allOnly && stake?.value) setAmount(String(floorCents(stake.value)));
+  }, [allOnly, stake?.value]);
   const value = Number(amount);
   const error = vaultTransferError({ mode, amount: value, available, vault, stake, now: Date.now() });
   const ready = address ? isVenueReady(vault.venue) : false;
@@ -98,7 +103,9 @@ export function VaultTransferDialog({
           : "Withdrawing…"
         : mode === "deposit"
           ? "Deposit"
-          : "Withdraw";
+          : allOnly
+            ? "Withdraw all"
+            : "Withdraw";
 
   return createPortal(
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" ref={backdropRef} role="presentation" onClick={() => !busy && onClose()}>
@@ -152,6 +159,7 @@ export function VaultTransferDialog({
             <input
               inputMode="decimal"
               value={amount}
+              readOnly={allOnly}
               onChange={(event) => setAmount(event.target.value.replace(/[^0-9.]/g, ""))}
               placeholder="0.00"
               aria-label="Amount in USD"
@@ -165,7 +173,7 @@ export function VaultTransferDialog({
             <button
               key={stop}
               type="button"
-              disabled={!ceiling}
+              disabled={!ceiling || (allOnly && stop !== 100)}
               onClick={() => ceiling && setAmount(String(floorCents((ceiling * stop) / 100)))}
               className="h-7 rounded-md bg-app-chip text-[12px] font-semibold text-app-muted hover:text-app-ink disabled:opacity-40"
             >
@@ -175,6 +183,7 @@ export function VaultTransferDialog({
         </div>
 
         {error && <p className="text-[12px] text-app-down">{error}</p>}
+        {allOnly && !error && <p className="text-[12px] text-app-muted">Less than $5 is in this pool, and Lighter only lets you withdraw all of it.</p>}
 
         <ul className="flex flex-col gap-1 rounded-lg bg-app-chip/40 px-3 py-2 text-[12px] text-app-muted">
           <li>{mode === "deposit" ? `Comes out of your ${venueName} margin` : `Goes back to your ${venueName} margin`}; no fee from Angler.</li>

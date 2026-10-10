@@ -14,6 +14,11 @@ const CODE_MESSAGES: Record<number, string> = {
   21112: "The account is being liquidated.",
   21120: "Lighter rejected the signature. Set up trading again.",
   21126: "Deposit USDC on Lighter before registering a trading key.",
+  21203: "This pool is frozen: Lighter only allows withdrawals from it.",
+  21207: "Those pool shares aren't available to withdraw yet.",
+  21209: "Lighter refused that deposit amount: pools take at least $5.",
+  21210: "Lighter refused that withdrawal: at least $5 at a time, or the whole amount when less is left.",
+  21211: "The pool doesn't have that much free right now. Try a smaller amount.",
   21301: "Not enough collateral. Deposit more USDC on Lighter.",
   21504: "Lighter didn't accept the wallet signature. Sign with the wallet connected here and try again.",
   21506: "Lighter is busy (too many pending transactions). Wait a moment and try again.",
@@ -56,6 +61,9 @@ const STATUS_MESSAGES: Record<string, string> = {
 };
 
 const TEXT_RULES: Array<[RegExp, string]> = [
+  [/invalid burn share amount/i, "Lighter refused that withdrawal: at least $5 at a time, or the whole amount when less is left."],
+  [/invalid mint share amount/i, "Lighter refused that deposit amount: pools take at least $5."],
+  [/burnt share usdc amount is too high/i, "The pool doesn't have that much free right now. Try a smaller amount."],
   [/user rejected|user denied|rejected the request/i, "Request rejected in the wallet."],
   [/failed to fetch|networkerror|load failed/i, "Can't reach Lighter. Check your connection and try again."],
   [/^http 429|too many requests/i, "Lighter is rate limiting this browser. Wait a moment and try again."],

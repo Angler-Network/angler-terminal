@@ -1,4 +1,4 @@
-import type { VaultStake } from "./parse";
+import { LIGHTER_MIN_POOL_USD, type VaultStake } from "./parse";
 import type { VaultRow } from "./types";
 
 /**
@@ -26,6 +26,19 @@ export function hlVaultUsd(amount: number) {
 /** Withdrawing at least this share of the stake takes all of it (its value moves between reading and sending). */
 const ALL_SHARE = 0.995;
 
+/** Whether `amount` takes the whole stake. */
+export function takesAll(amount: number, stakeValue: number) {
+  return stakeValue > 0 && amount >= stakeValue * ALL_SHARE;
+}
+
+/**
+ * Lighter pools refuse a withdrawal under $5 unless it takes everything ("invalid burn share amount"): with less than $5
+ * in, the only withdrawal is all of it.
+ */
+export function onlyWithdrawAll(vault: Pick<VaultRow, "venue">, stakeValue: number | null) {
+  return vault.venue !== "hyperliquid" && stakeValue !== null && stakeValue > 0 && stakeValue < LIGHTER_MIN_POOL_USD;
+}
+
 /**
  * Pool shares for a Lighter deposit or withdrawal of `amount` dollars at `sharePrice`. A withdrawal near the whole stake
  * burns every share held; nothing is ever asked beyond what's held.
@@ -34,13 +47,13 @@ export function lighterShares(mode: VaultTransferMode, amount: number, sharePric
   if (!(amount > 0) || !(sharePrice > 0)) return 0;
   const shares = Math.floor(amount / sharePrice + 1e-9);
   if (mode === "deposit") return shares;
-  if (held > 0 && amount >= held * sharePrice * ALL_SHARE) return held;
+  if (held > 0 && takesAll(amount, held * sharePrice)) return held;
   return Math.min(shares, held);
 }
 
 /** Hyperliquid withdrawal in micro-dollars: the whole stake when the amount is (nearly) all of it. */
 export function hlWithdrawUsd(amount: number, stakeValue: number) {
-  return amount >= stakeValue * ALL_SHARE ? hlVaultUsd(stakeValue) : hlVaultUsd(amount);
+  return takesAll(amount, stakeValue) ? hlVaultUsd(stakeValue) : hlVaultUsd(amount);
 }
 
 /** Why the amount can't go through, or null. `available` is the perp margin free to deposit. */
@@ -62,6 +75,11 @@ export function vaultTransferError(input: {
     if (!stake || !stake.value) return "You have nothing in this vault.";
     if (stake.lockedUntil && stake.lockedUntil > now) return `Locked until ${new Date(stake.lockedUntil).toLocaleString()}.`;
     if (amount > stake.value * 1.0001) return "More than you have in this vault.";
+    if (vault.venue !== "hyperliquid" && amount < LIGHTER_MIN_POOL_USD && !takesAll(amount, stake.value)) {
+      return onlyWithdrawAll(vault, stake.value)
+        ? `Less than $${LIGHTER_MIN_POOL_USD} is in this pool: Lighter only lets you withdraw all of it (Max).`
+        : `Lighter withdrawals start at $${LIGHTER_MIN_POOL_USD}.`;
+    }
   }
   if (vault.venue !== "hyperliquid") {
     if (!vault.sharePrice) return "This pool's share price isn't known yet.";

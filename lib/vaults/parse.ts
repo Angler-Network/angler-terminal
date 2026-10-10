@@ -127,12 +127,16 @@ interface LighterPool {
   status?: unknown;
   operator_fee?: unknown;
   total_asset_value?: unknown;
+  total_perps_value?: unknown;
+  total_spot_value?: unknown;
   total_shares?: unknown;
 }
 
 /** LLP is account type 3 (the protocol's pool); user pools are 2. */
 const LIGHTER_PROTOCOL_POOL = 3;
 const ZERO_ADDRESS = /^0x0{40}$/i;
+/** Lighter's own app asks at least $5 per pool deposit and withdrawal (less only to withdraw everything). */
+export const LIGHTER_MIN_POOL_USD = 5;
 
 /** One page of `publicPoolsMetadata` (`public_pools`), active pools only. */
 export function readLighterPools(raw: unknown, venue: Extract<VaultVenue, "lighter" | "lighterRh">, appUrl: string | null): VaultRow[] {
@@ -140,7 +144,10 @@ export function readLighterPools(raw: unknown, venue: Extract<VaultVenue, "light
   if (!Array.isArray(pools)) return [];
   return pools.flatMap((pool: LighterPool) => {
     const index = num(pool.account_index);
-    const tvl = num(pool.total_asset_value);
+    // Lighter prices shares on perps plus spot value (LLP holds spot too); `total_asset_value` is the perps part alone.
+    const perps = num(pool.total_perps_value);
+    const spot = num(pool.total_spot_value);
+    const tvl = perps !== null ? perps + (spot ?? 0) : num(pool.total_asset_value);
     const shares = num(pool.total_shares);
     if (index === null || tvl === null || tvl < MIN_LISTED_TVL || pool.status !== 0) return [];
     const apy = num(pool.annual_percentage_yield);
@@ -163,6 +170,7 @@ export function readLighterPools(raw: unknown, venue: Extract<VaultVenue, "light
       open: true,
       sharePrice: shares ? tvl / shares : undefined,
       sharpe: num(pool.sharpe_ratio),
+      minDeposit: LIGHTER_MIN_POOL_USD,
       url: appUrl ? `${appUrl}/public-pools/${index}` : "",
     };
     return [row];
