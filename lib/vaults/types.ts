@@ -1,7 +1,7 @@
 /**
  * Vaults across the perp venues in one shape: Hyperliquid vaults (HLP and user vaults), Lighter and Lighter RH public
- * pools (LLP and user pools) and Orderly strategy vaults (OmniVault and community vaults). Read-only: deposits happen on
- * the venue's own page for now.
+ * pools (LLP and user pools) and Orderly strategy vaults (OmniVault and community vaults). Hyperliquid and Lighter
+ * deposits and withdrawals run in the terminal (`transfer.ts`); Orderly's open the venue's own page.
  */
 
 export type VaultVenue = "hyperliquid" | "lighter" | "lighterRh" | "orderly";

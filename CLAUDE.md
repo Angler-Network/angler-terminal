@@ -607,7 +607,7 @@ dependency versions and design are free to diverge from angler-news.
     `bridge.polymarket.com/deposit` gives the account an EVM deposit address; "Deposit from Arbitrum/Base" sends USDC
     there with `sendUsdc` (≥ $2), converted to pUSD. Polymarket volume earns profile points from our builder trades (see Profile).
 - Vaults (`/vaults`, sidebar/top bar/phone menu; `lib/vaults/*`, `components/vaults/vaults-view.tsx`): every perp venue's
-  vaults in one table, read-only (Deposit opens the venue's own page), public like `/` (the invite gate skips it; in the
+  vaults in one table, public like `/` (the invite gate skips it; in the
   sitemap). Sources, all keyless: Hyperliquid `stats-data.hyperliquid.xyz/{Mainnet|Testnet}/vaults` (every vault ever,
   ~14 MB, 10-15s: fetched no-store and only the parsed rows cached) + `vaultDetails`; Lighter and Lighter RH
   `publicPoolsMetadata` (pages of 100 running down from index 281474976710655) + the public `pnl` chart; Orderly
@@ -619,8 +619,12 @@ dependency versions and design are free to diverge from angler-news.
   capital per step (Modified Dietz, all-time steps stitched with the month's and week's). HLP's children are left out;
   HL leaders keep 10% (HLP 0), locks 4 days (HLP) / 1 day. "Established only" (default) = ≥ $10k and 30+ days, venue
   vaults always shown. "Your vaults": HL `userVaultEquities` and Lighter `account?by=l1_address` shares, from the browser.
-  No fee on vault deposits, so no points; in-app deposits (HL vault transfer, Lighter mint/burn shares, Orderly vault
-  deposits) are phase 2.
+  Deposit / Withdraw run in the terminal for Hyperliquid and Lighter (core + RH) (`vault-transfer-dialog.tsx`, loaded on
+  demand; amounts checked in `lib/vaults/transfer.ts`): HL `vaultTransfer` (L1 action, signed by the agent key, micro-dollars
+  from/to the perp margin; a withdrawal near the whole stake takes all of it, `hlWithdrawUsd`), Lighter `SignMintShares` /
+  `SignBurnShares` (tx 18/19, trading key, shares = USD / (pool value / total shares), `lighterShares`; a burn needs the
+  shares in the trading key's own account, `VaultStake.shares` per account). Orderly's Deposit still opens its page. No fee
+  rides on vault transfers, so no points. Not yet tried with real funds: check the first HL and Lighter deposit.
 - Hyperliquid and Lighter spot (`lib/spot/book-spot.ts`, `lib/venues/hyperliquid/spot.ts`, `lib/venues/lighter/spot.ts`,
   `components/terminal/book-spot-card.tsx`, the /spot view): order-book spot markets against USDC on both networks. /spot
   (`spot-order-panel.tsx`, `use-book-spot.ts`: `useBookSpotRef` = the picked `book:` market, else the asset's busiest

@@ -37,6 +37,8 @@ interface SignerGlobals {
   SignUpdateLeverage: (...args: number[]) => Result<SignedTx>;
   SignApproveIntegrator: (...args: number[]) => Result<SignedTx>;
   SignTransfer: (...args: Array<number | string>) => Result<SignedTx>;
+  SignMintShares: (...args: number[]) => Result<SignedTx>;
+  SignBurnShares: (...args: number[]) => Result<SignedTx>;
 }
 
 function check<T>(result: Result<T> | undefined, what: string): T {
@@ -275,6 +277,13 @@ export async function signTransfer(context: SignerContext, transfer: TransferArg
     ),
     "SignTransfer",
   );
+}
+
+/** Buys (mint) or sells (burn) shares of a public pool with the account's perps USDC; tx types 18 / 19. */
+export async function signPoolShares(context: SignerContext, kind: "mint" | "burn", publicPoolIndex: number, shareAmount: number, nonce: number) {
+  const signer = await signerFor(context);
+  const sign = kind === "mint" ? signer.SignMintShares : signer.SignBurnShares;
+  return check(sign(publicPoolIndex, shareAmount, 0, nonce, context.apiKeyIndex, context.accountIndex), kind === "mint" ? "SignMintShares" : "SignBurnShares");
 }
 
 /** Adds the L1 wallet signature to a signed tx (ChangePubKey, ApproveIntegrator with fees). */

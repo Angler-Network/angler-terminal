@@ -302,6 +302,8 @@ export interface VaultStake {
   entry: number | null;
   /** Withdrawals open after this (ms; Hyperliquid). */
   lockedUntil: number | null;
+  /** Lighter: pool shares held per account of the wallet (a burn is signed by the account holding them). */
+  shares?: Record<string, number>;
 }
 
 /** Hyperliquid `userVaultEquities`: [{ vaultAddress, equity, lockedUntilTimestamp }]. */
@@ -322,19 +324,21 @@ export function readHlStakes(raw: unknown): VaultStake[] {
 export function readLighterStakes(raw: unknown, venue: Extract<VaultVenue, "lighter" | "lighterRh">, sharePrice: (id: string) => number | undefined): VaultStake[] {
   const accounts = (raw as { accounts?: unknown })?.accounts;
   if (!Array.isArray(accounts)) return [];
-  const totals = new Map<string, { shares: number; entry: number }>();
+  const totals = new Map<string, { shares: number; entry: number; byAccount: Record<string, number> }>();
   for (const account of accounts) {
+    const owner = num(account?.account_index ?? account?.index);
     for (const share of Array.isArray(account?.shares) ? account.shares : []) {
       const index = num(share?.public_pool_index);
       const amount = num(share?.shares_amount);
       if (index === null || amount === null || amount <= 0) continue;
       const id = String(index);
-      const total = totals.get(id) ?? { shares: 0, entry: 0 };
-      totals.set(id, { shares: total.shares + amount, entry: total.entry + (num(share?.entry_usdc) ?? 0) });
+      const total = totals.get(id) ?? { shares: 0, entry: 0, byAccount: {} };
+      if (owner !== null) total.byAccount[owner] = (total.byAccount[owner] ?? 0) + amount;
+      totals.set(id, { shares: total.shares + amount, entry: total.entry + (num(share?.entry_usdc) ?? 0), byAccount: total.byAccount });
     }
   }
   return [...totals].map(([id, total]) => {
     const price = sharePrice(id);
-    return { venue, id, value: price === undefined ? null : total.shares * price, entry: total.entry || null, lockedUntil: null };
+    return { venue, id, value: price === undefined ? null : total.shares * price, entry: total.entry || null, lockedUntil: null, shares: total.byAccount };
   });
 }

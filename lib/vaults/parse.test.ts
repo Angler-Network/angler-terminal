@@ -144,7 +144,7 @@ describe("wallet stakes", () => {
       ],
     };
     const stakes = readLighterStakes(raw, "lighter", (id) => (id === "281474976710654" ? 0.4 : undefined));
-    expect(stakes).toEqual([{ venue: "lighter", id: "281474976710654", value: 600, entry: 450.5, lockedUntil: null }]);
+    expect(stakes).toEqual([{ venue: "lighter", id: "281474976710654", value: 600, entry: 450.5, lockedUntil: null, shares: { 1: 1000, 2: 500 } }]);
     expect(readLighterStakes({ accounts: [{ shares: [] }] }, "lighter", () => 1)).toEqual([]);
   });
 });

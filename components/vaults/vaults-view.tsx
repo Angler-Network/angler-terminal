@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ExternalLink, Search } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LoadingState } from "@/components/app/loading-state";
 import { VenueLogo } from "@/components/terminal/venue-logo";
@@ -8,7 +9,11 @@ import { useWallet } from "@/components/terminal/wallet-provider";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import { readHlStakes, readLighterStakes, type VaultStake } from "@/lib/vaults/parse";
+import { isInAppVault, type InAppVaultVenue, type VaultTransferMode } from "@/lib/vaults/transfer";
 import { VAULT_VENUE_NAMES, type VaultHistory, type VaultRow, type VaultVenue } from "@/lib/vaults/types";
+
+// The venues' signing code loads with the window, not the page.
+const VaultTransferDialog = dynamic(() => import("./vault-transfer-dialog").then((module) => module.VaultTransferDialog), { ssr: false });
 
 const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -17,6 +22,8 @@ const DAY_MS = 86_400_000;
 const ESTABLISHED_TVL = 10_000;
 const ESTABLISHED_DAYS = 30;
 const PAGE_ROWS = 60;
+const rowButton =
+  "inline-flex h-7 items-center gap-1 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card";
 const VENUES: VaultVenue[] = ["hyperliquid", "lighter", "lighterRh", "orderly"];
 
 type SortKey = "tvl" | "apr" | "age";
@@ -36,7 +43,7 @@ function Signed({ value, digits = 1 }: { value: number | null | undefined; digit
 }
 
 /** The connected EVM wallet's stakes: Hyperliquid vault equities and Lighter (core and RH) pool shares, read from the browser. */
-function useVaultStakes(address: string | null, vaults: VaultRow[] | null) {
+function useVaultStakes(address: string | null, vaults: VaultRow[] | null, version: number) {
   const [stakes, setStakes] = useState<VaultStake[] | null>(null);
   useEffect(() => {
     if (!address || !vaults) return setStakes(null);
@@ -58,7 +65,7 @@ function useVaultStakes(address: string | null, vaults: VaultRow[] | null) {
     return () => {
       active = false;
     };
-  }, [address, vaults]);
+  }, [address, vaults, version]);
   return stakes;
 }
 
@@ -162,7 +169,8 @@ function VaultDetail({ vault }: { vault: VaultRow }) {
 
 /**
  * Every perp venue's vaults in one table (`/vaults`, public): HLP and Hyperliquid user vaults, Lighter's LLP and public
- * pools (core and RH), Orderly's OmniVault and strategy vaults. Read-only: Deposit opens the venue's own page.
+ * pools (core and RH), Orderly's OmniVault and strategy vaults. Hyperliquid and Lighter deposits and withdrawals run here
+ * (`vault-transfer-dialog.tsx`, signed by the venue's trading key); Orderly's Deposit opens its own page.
  */
 export function VaultsView() {
   const { address } = useWallet();
@@ -182,7 +190,15 @@ export function VaultsView() {
       .catch(() => setError(true));
   }, []);
   const vaults = data?.vaults ?? null;
-  const stakes = useVaultStakes(address, vaults);
+  const [stakesVersion, setStakesVersion] = useState(0);
+  const stakes = useVaultStakes(address, vaults, stakesVersion);
+  const [transfer, setTransfer] = useState<{ vault: VaultRow & { venue: InAppVaultVenue }; mode: VaultTransferMode } | null>(null);
+  const stakeOf = (row: VaultRow) => stakes?.find((stake) => stake.venue === row.venue && stake.id === row.id) ?? null;
+  // A venue applies a transfer a moment after accepting it: read the stakes again now and once more shortly after.
+  const afterTransfer = () => {
+    setStakesVersion((value) => value + 1);
+    window.setTimeout(() => setStakesVersion((value) => value + 1), 4000);
+  };
 
   const isEstablished = (row: VaultRow) => row.tvl >= ESTABLISHED_TVL && (row.createdAt === null || Date.now() - row.createdAt >= ESTABLISHED_DAYS * DAY_MS);
   const shown = useMemo(() => {
@@ -291,6 +307,11 @@ export function VaultsView() {
                     </span>
                   )}
                   {stake.lockedUntil !== null && stake.lockedUntil > Date.now() && <span className="text-app-faint">locked until {new Date(stake.lockedUntil).toLocaleDateString()}</span>}
+                  {vault && isInAppVault(vault) && (
+                    <button type="button" onClick={() => setTransfer({ vault, mode: "withdraw" })} className="font-semibold text-app-muted underline-offset-2 hover:text-app-ink hover:underline">
+                      Manage
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -343,17 +364,26 @@ export function VaultsView() {
                     <td className="px-3 py-1.5 text-right text-app-muted">{row.profitShare === null ? "—" : percent(row.profitShare, 0)}</td>
                     <td className="px-3 py-1.5 text-right text-app-muted">{row.lockHours === null ? "—" : row.lockHours >= 48 ? `${Math.round(row.lockHours / 24)}d` : `${row.lockHours}h`}</td>
                     <td className="px-3 py-1.5 text-right">
-                      {row.url && (
-                        <a
-                          href={row.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={`Deposit on ${VAULT_VENUE_NAMES[row.venue]}'s own page`}
-                          className="inline-flex h-7 items-center gap-1 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card"
-                        >
-                          Deposit
-                          <ExternalLink className="size-3" aria-hidden />
-                        </a>
+                      {isInAppVault(row) ? (
+                        <span className="inline-flex gap-1.5">
+                          {stakeOf(row)?.value ? (
+                            <button type="button" onClick={() => setTransfer({ vault: row, mode: "withdraw" })} className={rowButton}>
+                              Withdraw
+                            </button>
+                          ) : null}
+                          {row.open && (
+                            <button type="button" onClick={() => setTransfer({ vault: row, mode: "deposit" })} className={rowButton}>
+                              Deposit
+                            </button>
+                          )}
+                        </span>
+                      ) : (
+                        row.url && (
+                          <a href={row.url} target="_blank" rel="noopener noreferrer" title={`Deposit on ${VAULT_VENUE_NAMES[row.venue]}'s own page`} className={rowButton}>
+                            Deposit
+                            <ExternalLink className="size-3" aria-hidden />
+                          </a>
+                        )
                       )}
                     </td>
                   </tr>
@@ -378,6 +408,16 @@ export function VaultsView() {
         {error && <p className="p-6 text-center text-[12px] text-app-muted">Couldn&apos;t load vaults right now.</p>}
         {vaults && shown.length === 0 && <p className="p-6 text-center text-[12px] text-app-muted">No vault matches.</p>}
       </div>
+      {transfer && (
+        <VaultTransferDialog
+          key={`${transfer.vault.venue}:${transfer.vault.id}`}
+          vault={transfer.vault}
+          stake={stakeOf(transfer.vault)}
+          initialMode={transfer.mode}
+          onClose={() => setTransfer(null)}
+          onDone={afterTransfer}
+        />
+      )}
     </section>
   );
 }
