@@ -28,7 +28,7 @@ const ARM_MS = 5_000;
 const PRO = "rgb(var(--app-accent))";
 
 const field =
-  "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
+  "h-9 w-full min-w-0 rounded-lg border border-app-field-border bg-app-field px-2.5 text-[13px] tabular-nums text-app-ink outline-hidden focus:border-app-ink";
 
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; label: string }) {
   return (
@@ -246,7 +246,7 @@ export function ProOrderDialog() {
         aria-modal="true"
         aria-labelledby="pro-order-title"
         onClick={(event) => event.stopPropagation()}
-        className="surface-menu scrollbar-subtle flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col gap-3 overflow-y-auto rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
+        className="surface-menu scrollbar-subtle flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col gap-3 overflow-x-hidden overflow-y-auto rounded-2xl border border-app-hairline-strong bg-app-card p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
       >
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -277,25 +277,25 @@ export function ProOrderDialog() {
 
         {mode === "hedge" ? (
           <div className="flex flex-col gap-2.5">
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1 text-[11px] text-app-muted">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+              <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-muted">
                 Coin
                 <CoinPicker symbols={symbols} value={hedgeSymbol} onChange={setHedgeSymbol} />
               </label>
-              <label className="flex flex-col gap-1 text-[11px] text-app-muted">
+              <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-muted">
                 Size per leg (USD)
                 <input className={field} inputMode="decimal" value={hedgeUsd} onChange={(event) => setHedgeUsd(event.target.value.replace(/[^0-9.]/g, ""))} />
               </label>
-              <label className="flex flex-col gap-1 text-[11px] text-app-up">
+              <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-up">
                 Long on
                 <VenueSelect label="Long venue" venues={listing.length ? listing : venues} value={longVenue} onChange={setLongVenue} />
               </label>
-              <label className="flex flex-col gap-1 text-[11px] text-app-down">
+              <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-down">
                 Short on
                 <VenueSelect label="Short venue" venues={listing.length ? listing : venues} value={shortVenue} onChange={setShortVenue} />
               </label>
             </div>
-            <label className="flex flex-col gap-1 text-[11px] text-app-muted">
+            <label className="flex min-w-0 flex-col gap-1 text-[11px] text-app-muted">
               <span className="flex items-center justify-between">
                 Leverage on each venue
                 <span className="font-semibold tabular-nums text-app-ink">{Math.min(hedgeLeverage, hedgeMaxLeverage)}x</span>
@@ -318,7 +318,7 @@ export function ProOrderDialog() {
             {legs.map((leg, index) => {
               const plan = plans[index];
               return (
-                <div key={leg.id} className="grid grid-cols-[120px_1fr_auto] gap-2 rounded-xl border border-app-hairline p-2">
+                <div key={leg.id} className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] gap-2 rounded-xl border border-app-hairline p-2">
                   <VenueSelect label="Venue" venues={venues} value={leg.venue} onChange={(venue) => updateLeg(leg.id, { venue })} />
                   <CoinPicker symbols={symbols} value={leg.symbol} onChange={(symbol) => updateLeg(leg.id, { symbol })} />
                   <button
@@ -330,7 +330,7 @@ export function ProOrderDialog() {
                   >
                     <Trash2 className="size-4" />
                   </button>
-                  <div className="col-span-full grid grid-cols-[1fr_1fr_88px] gap-2">
+                  <div className="col-span-full grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
                   <div role="group" aria-label="Side" className="flex gap-0.5 rounded-lg bg-app-chip p-0.5">
                     {(["buy", "sell"] as OrderSide[]).map((side) => (
                       <button
@@ -354,7 +354,7 @@ export function ProOrderDialog() {
                     value={leg.usd || ""}
                     onChange={(event) => updateLeg(leg.id, { usd: Number(event.target.value.replace(/[^0-9.]/g, "")) || 0 })}
                   />
-                  <label className="flex items-center gap-1 text-[12px] text-app-muted">
+                  <label className="flex min-w-0 items-center gap-1 text-[12px] text-app-muted">
                     <input
                       aria-label="Leverage"
                       className={`${field} px-2`}
