@@ -447,20 +447,27 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       <div ref={containerRef} className="absolute inset-0" />
       {/* Where the candles come from. Auto follows the venue in the order panel. */}
       <div className="absolute left-2 top-1.5 z-10">
-        <SelectField<ChartSource>
-          size="ghost"
-          label="Chart data source"
-          value={sourceChoices.includes(chartSource) ? chartSource : "auto"}
-          onChange={(source) => updatePreference("chartSource", source)}
-          options={sourceChoices.map((source) => ({
-            value: source,
-            label:
-              source === "auto"
-                ? `Auto${data && candles ? ` · ${data.poolName ?? SOURCE_NAMES[data.source]}` : ""}`
-                : // A pick the chart couldn't serve shows what it fell back to.
-                  `${SOURCE_NAMES[source]}${data && candles && chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
-          }))}
-        />
+        {sourceChoices.length <= 2 ? (
+          // One source can chart this asset: name it, nothing to pick.
+          <span className="inline-flex h-6 items-center px-1 text-[11px] text-app-faint">
+            {data && candles ? (data.poolName ?? SOURCE_NAMES[data.source]) : listedVenues[0] && SOURCE_NAMES[listedVenues[0]]}
+          </span>
+        ) : (
+          <SelectField<ChartSource>
+            size="ghost"
+            label="Chart data source"
+            value={sourceChoices.includes(chartSource) ? chartSource : "auto"}
+            onChange={(source) => updatePreference("chartSource", source)}
+            options={sourceChoices.map((source) => ({
+              value: source,
+              label:
+                source === "auto"
+                  ? `Auto${data && candles ? ` · ${data.poolName ?? SOURCE_NAMES[data.source]}` : ""}`
+                  : // A pick the chart couldn't serve shows what it fell back to.
+                    `${SOURCE_NAMES[source]}${data && candles && chartSource === source && data.source !== source ? ` → ${SOURCE_NAMES[data.source]}` : ""}`,
+            }))}
+          />
+        )}
       </div>
       {hovered && (
         <div
