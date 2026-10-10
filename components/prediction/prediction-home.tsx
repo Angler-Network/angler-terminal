@@ -7,6 +7,7 @@ import { DEFAULT_MIN_TRADE_USD, readHip4Trades, type Hip4CoinInfo, type Predicti
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { formatChance, PREDICTION_CATEGORIES, type PredictionCategory, type PredictionEvent, type PredictionMarket, type PredictionSource } from "@/lib/prediction/types";
 import { usePredictionEvents, usePredictionTrades } from "./use-prediction";
+import { faviconUrl } from "@/lib/favicon-url";
 
 export type SourceFilter = PredictionSource | "all";
 export type SortKey = "volume" | "ending";
@@ -52,7 +53,7 @@ export type EventBrowser = ReturnType<typeof useEventBrowser>;
 
 export function EventImage({ event, size }: { event: PredictionEvent; size: number }) {
   const [failed, setFailed] = useState(false);
-  const src = event.image && !failed ? event.image : `/api/favicon?domain=${SOURCE_DOMAIN[event.source]}`;
+  const src = event.image && !failed ? event.image : faviconUrl(SOURCE_DOMAIN[event.source]);
   return (
     // Remote images from the sources' CDNs; next/image would need every host configured.
     <img src={src} alt="" aria-hidden width={size} height={size} onError={() => setFailed(true)} className="shrink-0 rounded-lg bg-app-chip object-cover" style={{ width: size, height: size }} />
@@ -62,7 +63,7 @@ export function EventImage({ event, size }: { event: PredictionEvent; size: numb
 export function SourceBadge({ source }: { source: PredictionSource }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">
-      <img src={`/api/favicon?domain=${SOURCE_DOMAIN[source]}`} alt="" aria-hidden width={11} height={11} className="size-[11px] rounded-sm" />
+      <img src={faviconUrl(SOURCE_DOMAIN[source])} alt="" aria-hidden width={11} height={11} className="size-[11px] rounded-sm" />
       {SOURCE_NAME[source]}
     </span>
   );

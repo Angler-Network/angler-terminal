@@ -17,6 +17,7 @@ import { swapViewAvailable } from "@/lib/deployment";
 import { TERMINAL_PATHS } from "@/lib/terminal-kind";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
+import { faviconUrl } from "@/lib/favicon-url";
 
 const RESULTS = 12;
 
@@ -117,7 +118,7 @@ export function HomeSearch({ rows, venueIds }: { rows: AssetRow[]; venueIds: Per
         ? venueIds.map((id) => ({
             id,
             label: PERP_VENUE_NAMES[id],
-            icon: <CoinIcon src={`/api/favicon?domain=${PERP_MARKS[id].domain}`} symbol={PERP_VENUE_NAMES[id]} chain={PERP_MARKS[id].chain} size={16} />,
+            icon: <CoinIcon src={faviconUrl(PERP_MARKS[id].domain)} symbol={PERP_VENUE_NAMES[id]} chain={PERP_MARKS[id].chain} size={16} />,
           }))
         : [],
     [scope, venueIds],

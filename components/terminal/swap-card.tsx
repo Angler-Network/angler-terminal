@@ -42,6 +42,7 @@ import { useNewsTrader } from "./use-news-trader";
 import { useRobinhoodQuotes, useSpotQuotes, type SpotSource, type SpotSourceQuote } from "./use-spot-quotes";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
+import { faviconUrl } from "@/lib/favicon-url";
 
 /** A spot venue that lists the chart's asset: Solana through the aggregators (Jupiter, Titan), or Arcus on Robinhood. */
 export type SpotChoice =
@@ -286,7 +287,7 @@ function SpotRoutes({
             className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${used ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
           >
             <img
-              src={`/api/favicon?domain=${SOURCE_DOMAINS[quote.source]}`}
+              src={faviconUrl(SOURCE_DOMAINS[quote.source])}
               alt=""
               width={16}
               height={16}
@@ -361,7 +362,7 @@ export function RouteList({ options, pick, onPick, loading }: { options: RouteOp
             className={`flex h-8 w-full items-center gap-2 border-t border-app-hairline px-2.5 text-left text-[12px] transition-colors first:border-t-0 ${isUsed ? "bg-app-accent/10" : "hover:bg-app-chip/60"}`}
           >
             <img
-              src={`/api/favicon?domain=${option.domain}`}
+              src={faviconUrl(option.domain)}
               alt=""
               width={16}
               height={16}

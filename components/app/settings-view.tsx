@@ -30,6 +30,7 @@ import { usePreferences } from "./preferences-provider";
 import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { SearchableSelect } from "./searchable-select";
 import { RangeSlider } from "./range-slider";
+import { faviconUrl } from "@/lib/favicon-url";
 
 const DISCLAIMER = "Not financial advice. Scores are model outputs.";
 
@@ -624,7 +625,7 @@ function VenueToggleTile({ tile, checked, locked, onChange }: { tile: VenueTile;
         {locked ? <Lock className="size-2.5 text-app-faint" aria-hidden /> : <Check className="size-2.5" strokeWidth={3} aria-hidden />}
       </span>
       <span className={`transition-[filter,opacity] ${checked ? "" : "opacity-55 grayscale group-hover:opacity-80"}`}>
-        <CoinIcon src={`/api/favicon?domain=${tile.domain}`} symbol={name} chain={tile.chain} size={34} />
+        <CoinIcon src={faviconUrl(tile.domain)} symbol={name} chain={tile.chain} size={34} />
       </span>
       <span className={`max-w-full truncate text-[12px] font-semibold ${checked ? "text-app-ink" : "text-app-muted"}`}>{name}</span>
     </button>
@@ -755,7 +756,7 @@ function VenueSettings() {
                 >
                   {preferred && <span className="absolute right-2 top-2 rounded-full bg-app-accent px-1.5 text-[9px] font-bold uppercase tracking-wide text-app-on-accent">1st</span>}
                   <span className={preferred ? "" : "opacity-60 grayscale"}>
-                    <CoinIcon src={`/api/favicon?domain=${tile.domain}`} symbol={option.label} chain={tile.chain} size={30} />
+                    <CoinIcon src={faviconUrl(tile.domain)} symbol={option.label} chain={tile.chain} size={30} />
                   </span>
                   <span className={`max-w-full truncate text-[12px] font-semibold ${preferred ? "text-app-ink" : "text-app-muted"}`}>{option.label}</span>
                 </button>

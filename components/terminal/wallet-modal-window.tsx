@@ -8,6 +8,7 @@ import { useWallet, type EvmWallet } from "./wallet-provider";
 import { useModalEnter } from "@/components/app/use-motion";
 import type { Wallet as SolanaWallet } from "@wallet-standard/base";
 import { useWalletModal } from "./wallet-modal";
+import { faviconUrl } from "@/lib/favicon-url";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 5)}…${address.slice(-4)}`;
@@ -140,7 +141,7 @@ export function WalletModal() {
               {rows.length === 0
                 ? INSTALL.map((entry) => (
                     <a key={entry.name} href={entry.url} target="_blank" rel="noopener noreferrer" className={`${tileClass} border-app-hairline hover:border-app-hairline-strong hover:bg-app-chip/60`}>
-                      <img src={`/api/favicon?domain=${entry.icon}`} alt="" className="size-11 rounded-xl" />
+                      <img src={faviconUrl(entry.icon)} alt="" className="size-11 rounded-xl" />
                       <span className="text-[12px] font-semibold text-app-ink">{entry.name}</span>
                       <span className="text-[10px] text-app-faint">Install ↗</span>
                     </a>

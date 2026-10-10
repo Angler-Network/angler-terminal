@@ -17,6 +17,7 @@ import type { PerpVenueId } from "@/lib/venues/types";
 import { perpWatchId, type WatchlistEntry } from "@/lib/watchlist";
 import { useTrading } from "./trading-provider";
 import { useSpotListings, useSpotSearch } from "./use-spot-listings";
+import { faviconUrl } from "@/lib/favicon-url";
 
 /** One market row (search modal, watchlist panel), perp or spot. */
 export interface MarketRow {
@@ -125,7 +126,7 @@ export function perpVenueOptions(rows: MarketRow[]): NetworkOption[] {
   for (const row of rows) for (const venue of row.venues) counts.set(venue, (counts.get(venue) ?? 0) + 1);
   return [...counts]
     .sort((a, b) => b[1] - a[1])
-    .map(([name, count]) => ({ key: `pv:${name}` as const, name, logo: VENUE_MARKS[name] ? `/api/favicon?domain=${VENUE_MARKS[name].domain}` : "", group: "venue" as const, count }));
+    .map(([name, count]) => ({ key: `pv:${name}` as const, name, logo: VENUE_MARKS[name] ? faviconUrl(VENUE_MARKS[name].domain) : "", group: "venue" as const, count }));
 }
 
 export function chainLogo(key: RowChain) {
@@ -165,7 +166,7 @@ export function networkOptions(rows: MarketRow[], { verifiedOnly = false }: { ve
   const launchpads: NetworkOption[] = LAUNCHPADS.filter((pad) => counts.has(`lp:${pad.key}`)).map((pad) => ({
     key: `lp:${pad.key}`,
     name: pad.name,
-    logo: `/api/favicon?domain=${pad.domain}`,
+    logo: faviconUrl(pad.domain),
     group: "launchpad",
     chain: pad.chain,
     count: counts.get(`lp:${pad.key}`) ?? 0,
@@ -337,7 +338,7 @@ export function VenueMarks({ venues, iconsOnly }: { venues: string[]; iconsOnly?
       <span className="flex shrink-0 items-center gap-1">
         {marks.map((entry) =>
           entry.mark ? (
-            <CoinIcon key={entry.label} src={`/api/favicon?domain=${entry.mark.domain}`} symbol={entry.name} chain={entry.chain} size={18} />
+            <CoinIcon key={entry.label} src={faviconUrl(entry.mark.domain)} symbol={entry.name} chain={entry.chain} size={18} />
           ) : (
             <span key={entry.label} className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">
               {entry.name}

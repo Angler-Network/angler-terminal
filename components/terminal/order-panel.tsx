@@ -44,6 +44,7 @@ import { useSpotToken } from "./use-spot-token";
 import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
+import { faviconUrl } from "@/lib/favicon-url";
 
 // Shown only once a wallet is connected (the hold-to-place button), so it loads then.
 const HoldButton = dynamic(() => import("@/components/fx/hold-button"), {
@@ -161,7 +162,7 @@ function VenueChips({
               onClick={() => onPick(entry.id)}
               className={`${chip(active)} ${active ? "" : "opacity-60 hover:opacity-100"}`}
             >
-              {icon ? <CoinIcon src={`/api/favicon?domain=${icon.domain}`} symbol={entry.name} chain={icon.chain} size={18} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>}
+              {icon ? <CoinIcon src={faviconUrl(icon.domain)} symbol={entry.name} chain={icon.chain} size={18} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>}
             </button>
           );
         })}

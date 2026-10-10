@@ -19,6 +19,7 @@ import { FUNDING_VENUES, TRADABLE_FUNDING_VENUES, bestFundingArb, fundingApr, ty
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { FundingArbDialog } from "./funding-arb-dialog";
+import { faviconUrl } from "@/lib/favicon-url";
 
 /** The tradable venues listing a row's asset: an arb needs two of them. */
 const arbVenues = (row: { venues: Partial<Record<PerpVenueId, unknown>> }) => TRADABLE_FUNDING_VENUES.filter((venue) => Boolean(row.venues[venue as PerpVenueId]));
@@ -162,7 +163,7 @@ export function MarketsTable() {
         .map((id) => {
           const name = PERP_VENUE_NAMES[id];
           const mark = VENUE_MARKS[name];
-          return { key: `pv:${id}` as NetworkKey, name, logo: mark ? `/api/favicon?domain=${mark.domain}` : "", group: "venue" as const, count: rows.filter((row) => row.venues[id]).length };
+          return { key: `pv:${id}` as NetworkKey, name, logo: mark ? faviconUrl(mark.domain) : "", group: "venue" as const, count: rows.filter((row) => row.venues[id]).length };
         })
         .sort((a, b) => b.count - a.count),
     [venueIds, rows],

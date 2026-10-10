@@ -39,6 +39,7 @@ import { useWalletModal } from "./wallet-modal";
 import { useWallet } from "./wallet-provider";
 import { continueLabel, errorMessage, stepLabel, useFundsRun } from "./use-funds-run";
 import { useModalEnter } from "@/components/app/use-motion";
+import { faviconUrl } from "@/lib/favicon-url";
 
 /** Kept here so the dialog doesn't import the bridge clients up front. */
 const PROVIDER_NAMES: Record<BridgeProvider, string> = { across: "Across", relay: "Relay", lifi: "LI.FI" };
@@ -71,7 +72,7 @@ function EndpointLogo({ endpoint, size = 18 }: { endpoint: FundsEndpoint; size?:
     </span>
   ) : (
     <img
-      src={`/api/favicon?domain=${bridgeVenueDomain(endpoint)}`}
+      src={faviconUrl(bridgeVenueDomain(endpoint))}
       alt=""
       aria-hidden
       width={size}

@@ -9,6 +9,7 @@ import type { Direction, NewsItem, Severity } from "@/lib/types";
 import { MarketReactionButton } from "./market-reaction-button";
 import { SeverityBadge } from "./severity-badge";
 import { SymbolChip } from "./symbol-chip";
+import { faviconUrl } from "@/lib/favicon-url";
 
 const MAX_CHIPS = 4;
 const NEUTRAL_SENTIMENT = 0.15;
@@ -121,7 +122,7 @@ function SentimentPill({ sentiment }: { sentiment: number }) {
 /** Publisher favicon through /api/favicon; null when there's no domain or the icon fails to load. */
 function useFavicon(domain?: string) {
   const [failed, setFailed] = useState<string | null>(null);
-  const src = domain && failed !== domain ? `/api/favicon?domain=${encodeURIComponent(domain)}` : null;
+  const src = domain && failed !== domain ? faviconUrl(domain) : null;
   return { src, onError: () => setFailed(domain ?? null) };
 }
 
