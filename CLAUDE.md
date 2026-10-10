@@ -276,6 +276,16 @@ dependency versions and design are free to diverge from angler-news.
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
     (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Two-press confirm unless
     one-click.
+  - Scale and TWAP (order panel's third tab, "Pro" → Scale / TWAP; logic in `lib/trading/algo-orders.ts`, sending in
+    `components/terminal/algo-orders.tsx`): done by the terminal, not the venues' own algos, so every order carries our
+    fee and earns points (Hyperliquid's `twapOrder` action has no builder field; Aster and Orderly have no TWAP). Scale =
+    2-20 limit orders evenly spaced From → To, sized even or growing toward either end (`scaleLadder`), each at least the
+    venue minimum (`minOrderUsd`), placed one after another; legs past the mid are flagged as fills. TWAP = market
+    slices every 30s (fewer when a slice would fall under the minimum, `twapPlan`), 5 min to 24 h, optional ±20% random
+    timing; a failed slice's share moves to the later ones and three failures in a row stop it. Jobs live in
+    localStorage per wallet (`twap-store.ts`) and one tab per wallet sends slices (Web Lock `angler:twap:<address>`), so a
+    reload carries on and two tabs never double-send; with every tab closed it waits. The positions bar's TWAP tab
+    (shown once a job exists) has progress, average fill, Pause / Resume / Cancel. No TP/SL with either.
   - Swap card (`swap-card.tsx`, the order panel on /swap; math in `lib/trading/swap.ts`): spot is a swap like the
     venues' own screens: Sell box (amount of the sold token, wallet balance, 25/50/75/Max) over Buy box (Jupiter/Titan
     best quote, else the price estimate), a flip arrow, the rate line and, with Titan on, the route list (pin a

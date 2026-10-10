@@ -28,6 +28,8 @@ import type { OrderKind, OrderSide, PerpVenueId, VenueMarket } from "@/lib/venue
 import { useOrderDraft } from "./order-draft";
 import { useSelectedAsset } from "./selected-asset";
 import { useTrading } from "./trading-provider";
+import { useAlgoOrders } from "./algo-orders";
+import { crossingLegs, ladderAverage, scaleLadder, twapPlan, MAX_SCALE_ORDERS, type ScaleDistribution } from "@/lib/trading/algo-orders";
 import { fundingApr, fundingVenueOf } from "@/lib/trading/funding";
 import { formatUsdCompact, hourlyFundingPct, signedPercent, slippagePct } from "@/lib/trading/market-stats";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
@@ -35,7 +37,7 @@ import { robinhoodSources } from "@/lib/venues/robinhood-sources";
 import { isBookSpotRef } from "@/lib/spot/book-spot";
 import { isEvmRef } from "@/lib/venues/uniswap/chains";
 import { useArcusToken } from "./use-arcus-token";
-import { takerFeeFor, useBestExecution } from "./use-best-execution";
+import { minOrderUsd, takerFeeFor, useBestExecution } from "./use-best-execution";
 import { useFunding } from "./use-funding";
 import { useNewsTrader } from "./use-news-trader";
 import { useSpotToken } from "./use-spot-token";
@@ -228,6 +230,83 @@ function PercentSlider({
   );
 }
 
+type PanelKind = OrderKind | "scale" | "twap";
+
+const PRO_KINDS: Array<{ value: "scale" | "twap"; label: string; hint: string }> = [
+  { value: "scale", label: "Scale", hint: "Limit orders spread across a price range" },
+  { value: "twap", label: "TWAP", hint: "A market order sliced over time" },
+];
+
+/** Market and Limit as tabs, Scale and TWAP behind a third "Pro" tab, like the venues' own forms. */
+function OrderTypeTabs({ value, onChange }: { value: PanelKind; onChange: (value: PanelKind) => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEnter(menuRef, riseIn, open);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  const pro = PRO_KINDS.find((entry) => entry.value === value);
+  const tab = (active: boolean) =>
+    `flex h-7 min-w-0 flex-1 items-center justify-center gap-0.5 whitespace-nowrap rounded-md px-1 text-[12px] font-semibold transition-colors ${
+      active ? "bg-app-card text-app-ink shadow-xs" : "text-app-muted hover:text-app-ink"
+    }`;
+  return (
+    <div ref={rootRef} role="group" aria-label="Order type" className="relative flex gap-0.5 rounded-lg bg-app-chip p-0.5">
+      {(["market", "limit"] as const).map((kind) => (
+        <button key={kind} type="button" aria-pressed={value === kind} onClick={() => onChange(kind)} className={tab(value === kind)}>
+          {kind === "market" ? "Market" : "Limit"}
+        </button>
+      ))}
+      <button type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={Boolean(pro)} onClick={() => setOpen((current) => !current)} className={tab(Boolean(pro))}>
+        {pro?.label ?? "Pro"}
+        <ChevronDown className={`size-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="surface-menu absolute right-0 top-9 z-30 flex w-[210px] flex-col gap-0.5 rounded-xl border border-app-hairline-strong bg-app-card p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
+        >
+          {PRO_KINDS.map((entry) => (
+            <button
+              key={entry.value}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === entry.value}
+              onClick={() => {
+                onChange(entry.value);
+                setOpen(false);
+              }}
+              className={`flex flex-col items-start rounded-lg px-2.5 py-1.5 text-left hover:bg-app-chip ${value === entry.value ? "bg-app-chip" : ""}`}
+            >
+              <span className="text-[12px] font-semibold text-app-ink">{entry.label}</span>
+              <span className="text-[11px] text-app-muted">{entry.hint}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TWAP_PRESETS = [5, 15, 30, 60, 240];
+
+/** A price rounded to five significant figures, as a field value. */
+function priceField(value: number) {
+  return String(Number(value.toPrecision(5)));
+}
+
 /** Leverage and margin mode behind one compact button, like the venues' own forms. */
 function LeverageControl({
   leverage,
@@ -384,7 +463,13 @@ export function OrderPanel() {
   // Lighter spot, or Arcus.
   const onBook = useBookSpotFallback(symbol, activeKind === "spot" && !swapMint && spotSettled && kindChoices.length === 0) !== null;
   const onSpot = onBook || (activeKind === "spot" && kindChoices.length === 0 && arcusListed);
-  const [kind, setKind] = useState<OrderKind>("market");
+  const [kind, setKind] = useState<PanelKind>("market");
+  const [scaleFrom, setScaleFrom] = useState("");
+  const [scaleTo, setScaleTo] = useState("");
+  const [scaleCount, setScaleCount] = useState("5");
+  const [scaleSplit, setScaleSplit] = useState<ScaleDistribution>("even");
+  const [twapMinutes, setTwapMinutes] = useState("30");
+  const [twapRandom, setTwapRandom] = useState(true);
   const [side, setSide] = useState<OrderSide>("buy");
   const [size, setSize] = useState("");
   const [limitPx, setLimitPx] = useState("");
@@ -428,11 +513,15 @@ export function OrderPanel() {
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
   useEffect(() => () => setTradeVenue(null), [setTradeVenue]);
   const isPerp = market !== null;
-  const orderKind: OrderKind = isPerp ? kind : "market";
+  const algo = isPerp && (kind === "scale" || kind === "twap") ? kind : null;
+  // Scale orders rest like limits and TWAP slices are market orders, for the estimates below.
+  const orderKind: OrderKind = isPerp && (kind === "limit" || kind === "scale") ? "limit" : "market";
   const maxLeverage = market?.maxLeverage ?? 1;
   const lev = isPerp ? Math.max(1, Math.min(leverage, maxLeverage)) : 1;
   const mid = market ? (market.midPx ?? market.markPx) : undefined;
-  const price = orderKind === "limit" ? Number(limitPx) : mid;
+  const fromPx = Number(scaleFrom);
+  const toPx = Number(scaleTo);
+  const price = algo === "scale" ? (fromPx > 0 && toPx > 0 ? (fromPx + toPx) / 2 : undefined) : orderKind === "limit" ? Number(limitPx) : mid;
   const sizeUsd = sizeValue;
   const fundingVenue = market ? fundingVenueOf(market.venue) : null;
   const fundingRate = market && fundingVenue ? funding?.[market.symbol]?.[fundingVenue] : undefined;
@@ -440,6 +529,14 @@ export function OrderPanel() {
   const crossAllowed = market ? !market.onlyIsolated : false;
   const cross = crossAllowed && isCross;
   const baseSize = market && price ? sizeForNotional(sizeUsd, price, market.szDecimals) : 0;
+  const minUsd = market ? minOrderUsd(market) : 0;
+  const scale =
+    algo === "scale" && market
+      ? scaleLadder({ totalSize: baseSize, from: fromPx, to: toPx, count: Number(scaleCount), distribution: scaleSplit, szDecimals: market.szDecimals, minUsd })
+      : null;
+  const scaleCrossing = scale ? crossingLegs(scale.legs, side, mid) : 0;
+  const twap = algo === "twap" ? twapPlan({ totalUsd: sizeUsd, minutes: Number(twapMinutes), minUsd }) : null;
+  const algoError = scale?.error ?? twap?.error ?? null;
   const liquidation =
     market && price && !cross && !reduceOnly ? estimateLiquidationPrice({ side, entry: price, leverage: lev, maxLeverage }) : null;
   // Funds on the other perp venues, for the "not enough margin here" hint.
@@ -449,7 +546,7 @@ export function OrderPanel() {
     ? perpMarkets.find((other) => other.venue !== market.venue && (accounts[other.venue]?.withdrawable ?? 0) >= marginNeeded)
     : undefined;
   const totalAvailable = perpMarkets.reduce((sum, entry) => sum + (accounts[entry.venue]?.withdrawable ?? 0), 0);
-  const tpslActive = isPerp && withTpsl && !reduceOnly;
+  const tpslActive = isPerp && !algo && withTpsl && !reduceOnly;
   const tp = tpslActive ? optionalPrice(takeProfit) : undefined;
   const sl = tpslActive ? optionalPrice(stopLoss) : undefined;
   const partialTpsl = tpslActive && tpslPercent < 100;
@@ -466,7 +563,13 @@ export function OrderPanel() {
   // Splitting pays off only when it saves more than noise: at least $0.25 and 0.5 bp of the order.
   const splitWorth = split !== null && preferences.autoRoute && routable && !tpslActive && split.savingsUsd >= Math.max(0.25, sizeUsd * 0.00005);
   const splitActive = splitWorth && splitOn && isPerp;
-  const isValid = sizeUsd > 0 && !levelsError && (!isPerp || (Boolean(price && price > 0) && baseSize > 0));
+  const isValid =
+    sizeUsd > 0 &&
+    !levelsError &&
+    !algoError &&
+    (!isPerp || (Boolean(price && price > 0) && baseSize > 0)) &&
+    (algo !== "scale" || (scale?.legs.length ?? 0) > 0) &&
+    (algo !== "twap" || (twap?.slices ?? 0) > 1);
 
   // A price clicked in the order book becomes the limit price.
   useEffect(() => {
@@ -478,13 +581,24 @@ export function OrderPanel() {
   useEffect(() => {
     if (kind === "limit" && !limitPx && mid) setLimitPx(String(mid));
   }, [kind, limitPx, mid]);
+  // A scale starts just inside the mid (0.1%, so rounding never crosses it) and runs 2% away on the side that rests.
+  useEffect(() => {
+    if (kind !== "scale" || !mid || (scaleFrom && scaleTo)) return;
+    setScaleFrom(priceField(side === "buy" ? mid * 0.999 : mid * 1.001));
+    setScaleTo(priceField(side === "buy" ? mid * 0.98 : mid * 1.02));
+  }, [kind, mid, side, scaleFrom, scaleTo]);
   useEffect(() => {
     setLimitPx("");
+    setScaleFrom("");
+    setScaleTo("");
     setReduceOnly(false);
     setTakeProfit("");
     setStopLoss("");
   }, [symbol, choice?.id]);
-  useEffect(() => setArmed(false), [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl, tpslPercent, splitActive]);
+  useEffect(
+    () => setArmed(false),
+    [symbol, choice?.id, side, size, limitPx, kind, lev, cross, reduceOnly, takeProfit, stopLoss, withTpsl, tpslPercent, splitActive, scaleFrom, scaleTo, scaleCount, scaleSplit, twapMinutes, twapRandom],
+  );
   useEffect(() => {
     if (!armed) return;
     const timer = window.setTimeout(() => setArmed(false), ARM_MS);
@@ -521,6 +635,8 @@ export function OrderPanel() {
     }
   };
 
+  const { startTwap, placeScale } = useAlgoOrders();
+
   /** `held`: confirmed by holding the button, so no second click to arm it. */
   const submit = async (held = false) => {
     // "Connect wallet" must work before the form is valid (the size is still empty then).
@@ -530,6 +646,26 @@ export function OrderPanel() {
     setArmed(false);
     setIsPlacing(true);
     try {
+      if (algo === "scale" && scale) {
+        await placeScale({ market: choice.market, side, legs: scale.legs, reduceOnly, leverage: lev, isCross: cross });
+        return;
+      }
+      if (algo === "twap" && twap) {
+        startTwap({
+          venue: choice.market.venue,
+          symbol,
+          side,
+          totalSize: baseSize,
+          szDecimals: choice.market.szDecimals,
+          slices: twap.slices,
+          intervalMs: twap.intervalMs,
+          randomize: twapRandom,
+          reduceOnly,
+          leverage: lev,
+          isCross: cross,
+        });
+        return;
+      }
       if (splitActive && split) {
         await placeSplit(split.legs);
         return;
@@ -565,20 +701,24 @@ export function OrderPanel() {
       ? "Placing…"
       : armed
         ? `Confirm ${verb.toLowerCase()}`
-        : splitActive
+        : algo === "scale"
+          ? `Place ${scale?.legs.length || Number(scaleCount) || 0} ${verb.toLowerCase()} orders`
+          : algo === "twap"
+            ? `Start TWAP: ${verb.toLowerCase()} ${baseSize > 0 ? `${baseSize} ${symbol}` : symbol}`
+            : splitActive
           ? `${verb} $${sizeUsd} ${symbol} on ${split!.legs.length} venues`
           : `${verb} ${isPerp && baseSize > 0 ? `${baseSize} ${symbol}` : `$${sizeUsd > 0 ? sizeUsd : 0} ${symbol}`}`;
   const venueQuote = market ? quotes.find((quote) => quote.venue === market.venue) : undefined;
   // A split fills at the blended price of its legs.
   const splitBase = splitActive && split ? split.legs.reduce((sum, leg) => sum + leg.base, 0) : 0;
   const fillPx = splitActive && split && splitBase > 0 ? split.legs.reduce((sum, leg) => sum + leg.usd, 0) / splitBase : venueQuote?.avgPx;
-  const entryPx = orderKind === "market" ? (fillPx ?? mid) : price;
+  const entryPx = algo === "scale" ? (scale?.legs.length ? ladderAverage(scale.legs) : undefined) : algo === "twap" ? mid : orderKind === "market" ? (fillPx ?? mid) : price;
   // Slippage against the best price of the same books that were walked (the market list's mid can be a minute old).
   const tops = (splitActive && split ? quotes.filter((quote) => split.legs.some((leg) => leg.venue === quote.venue)) : venueQuote ? [venueQuote] : []).map(
     (quote) => quote.topPx,
   );
   const topPx = tops.length ? (side === "buy" ? Math.min(...tops) : Math.max(...tops)) : undefined;
-  const slippage = orderKind === "market" && fillPx && topPx ? slippagePct(side, topPx, fillPx) : undefined;
+  const slippage = !algo && orderKind === "market" && fillPx && topPx ? slippagePct(side, topPx, fillPx) : undefined;
   const feeUsd = splitActive && split && fillPx
     ? Math.abs(split.effectivePx - fillPx) * splitBase
     : market && sizeUsd > 0
@@ -698,18 +838,66 @@ export function OrderPanel() {
                 onLeverage={setLeverage}
                 onCross={setIsCross}
               />
-              <Segmented
-                label="Order type"
-                value={kind}
-                options={[
-                  { value: "market", label: "Market" },
-                  { value: "limit", label: "Limit" },
-                ]}
-                onChange={setKind}
-              />
+              <OrderTypeTabs value={kind} onChange={setKind} />
             </div>
           )}
-          {orderKind === "limit" && (
+          {algo === "scale" && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <FieldBox label="From">
+                  <input aria-label="Scale from price" className={fieldInput} inputMode="decimal" value={scaleFrom} onChange={(event) => setScaleFrom(event.target.value.replace(/[^0-9.]/g, ""))} />
+                </FieldBox>
+                <FieldBox label="To">
+                  <input aria-label="Scale to price" className={fieldInput} inputMode="decimal" value={scaleTo} onChange={(event) => setScaleTo(event.target.value.replace(/[^0-9.]/g, ""))} />
+                </FieldBox>
+              </div>
+              <div className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] gap-2">
+                <FieldBox label="Orders">
+                  <input
+                    aria-label="Number of orders"
+                    className={fieldInput}
+                    inputMode="numeric"
+                    value={scaleCount}
+                    onChange={(event) => setScaleCount(event.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+                  />
+                </FieldBox>
+                <Segmented
+                  label="Size split"
+                  value={scaleSplit}
+                  options={[
+                    { value: "even", label: "Even", title: "Every order the same size" },
+                    { value: "down", label: "From ↑", title: "Larger orders near the From price" },
+                    { value: "up", label: "To ↑", title: "Larger orders near the To price" },
+                  ]}
+                  onChange={setScaleSplit}
+                />
+              </div>
+            </>
+          )}
+          {algo === "twap" && (
+            <div className="flex flex-col gap-1.5">
+              <FieldBox label="Duration">
+                <input aria-label="Duration in minutes" className={fieldInput} inputMode="numeric" value={twapMinutes} onChange={(event) => setTwapMinutes(event.target.value.replace(/[^0-9]/g, "").slice(0, 4))} />
+                <span className="shrink-0 text-[12px] font-semibold text-app-ink">min</span>
+              </FieldBox>
+              <div className="flex items-center gap-1">
+                {TWAP_PRESETS.map((minutes) => (
+                  <button
+                    key={minutes}
+                    type="button"
+                    aria-pressed={Number(twapMinutes) === minutes}
+                    onClick={() => setTwapMinutes(String(minutes))}
+                    className={`h-6 flex-1 rounded-md text-[11px] font-semibold transition-colors ${
+                      Number(twapMinutes) === minutes ? "bg-app-chip text-app-ink" : "text-app-muted hover:bg-app-chip hover:text-app-ink"
+                    }`}
+                  >
+                    {minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {orderKind === "limit" && !algo && (
             <FieldBox label="Price">
               <input
                 aria-label="Limit price"
@@ -754,6 +942,13 @@ export function OrderPanel() {
                   <input type="checkbox" checked={reduceOnly} onChange={(event) => setReduceOnly(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
                   Reduce only
                 </label>
+                {algo === "twap" && (
+                  <label className="flex items-center gap-2 whitespace-nowrap text-[12px] text-app-muted" title="Move each slice up to 20% of the interval either way, so the timing is harder to read">
+                    <input type="checkbox" checked={twapRandom} onChange={(event) => setTwapRandom(event.target.checked)} className="accent-[rgb(var(--app-accent))]" />
+                    Random timing
+                  </label>
+                )}
+                {!algo && (
                 <label className={`flex items-center gap-2 whitespace-nowrap text-[12px] ${reduceOnly ? "text-app-faint" : "text-app-muted"}`}>
                   <input
                     type="checkbox"
@@ -764,7 +959,36 @@ export function OrderPanel() {
                   />
                   TP / SL
                 </label>
+                )}
               </div>
+              {algo && (algoError || scale || twap) && (
+                <div className="flex flex-col gap-1 rounded-lg bg-app-chip/50 px-2.5 py-2 text-[11px] text-app-muted">
+                  {algoError ? (
+                    <span className="text-app-down">{algoError}</span>
+                  ) : scale && scale.legs.length > 0 ? (
+                    <>
+                      <span>
+                        {scale.legs.length} limit orders from {formatPrice(scale.legs[0].price)} to {formatPrice(scale.legs[scale.legs.length - 1].price)}, {formatPrice(scale.legs[0].size * scale.legs[0].price)}
+                        {scaleSplit === "even" ? " each" : ` to ${formatPrice(scale.legs[scale.legs.length - 1].size * scale.legs[scale.legs.length - 1].price)}`}.
+                      </span>
+                      {scaleCrossing > 0 && (
+                        <span className="text-[#f5c97b]">
+                          {scaleCrossing} of them {side === "buy" ? "above" : "below"} the market fill at once as taker orders.
+                        </span>
+                      )}
+                    </>
+                  ) : twap && twap.slices > 1 ? (
+                    <span>
+                      {twap.slices} market orders of ~{formatPrice(twap.sliceUsd)}, one every {twap.intervalMs >= 60_000 ? `${Math.round(twap.intervalMs / 6_000) / 10} min` : `${Math.round(twap.intervalMs / 1000)}s`}. Runs while this site is open in a
+                      tab; a reload carries on.
+                    </span>
+                  ) : (
+                    <span>
+                      {algo === "scale" ? `Up to ${MAX_SCALE_ORDERS} limit orders between two prices.` : "One market order split into slices over the duration."}
+                    </span>
+                  )}
+                </div>
+              )}
               {tpslActive && (
                 <div className="grid grid-cols-2 gap-2">
                   {(
@@ -950,8 +1174,8 @@ export function OrderPanel() {
           )}
           {isPerp && (
             <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">
-              <Summary label={orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>
-              {orderKind === "market" && (
+              <Summary label={algo === "scale" ? "Avg. price" : orderKind === "market" ? "Est. entry price" : "Entry price"}>{entryPx ? formatPrice(entryPx) : "—"}</Summary>
+              {orderKind === "market" && !algo && (
                 <Summary label="Est. slippage" title="Average fill vs the best price in the live order books">
                   {slippage === undefined ? "—" : `${slippage.toFixed(3)}%`}
                 </Summary>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useAlgoOrders } from "./algo-orders";
+import { averageFill, isActive, type TwapJob } from "@/lib/trading/algo-orders";
 import { Share2 } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { MarketIcon } from "@/components/app/market-icon";
@@ -28,7 +30,7 @@ const OrderHistoryTable = dynamic(() => import("./history-tables").then((module)
 const SharePositionDialog = dynamic(() => import("./share-position-dialog").then((module) => module.SharePositionDialog), { ssr: false });
 const PositionHistoryTable = dynamic(() => import("./history-tables").then((module) => module.PositionHistoryTable), { ssr: false });
 
-type Tab = "positions" | "orders" | "orderHistory" | "positionHistory" | "venues";
+type Tab = "positions" | "orders" | "twap" | "orderHistory" | "positionHistory" | "venues";
 
 const ARM_MS = 5_000;
 
@@ -325,6 +327,84 @@ export function OrdersTable({ orders }: { orders: VenueOpenOrder[] }) {
   );
 }
 
+function untilText(ms: number) {
+  if (ms <= 1_000) return "now";
+  return ms < 60_000 ? `${Math.ceil(ms / 1000)}s` : `${Math.ceil(ms / 60_000)} min`;
+}
+
+const TWAP_STATUS: Record<TwapJob["status"], string> = { running: "Running", paused: "Paused", done: "Done", canceled: "Canceled", failed: "Stopped" };
+
+/** TWAP jobs of this wallet: progress, average fill, and pause / resume / cancel. Slices run while a tab is open. */
+export function TwapTable({ jobs }: { jobs: TwapJob[] }) {
+  const { pauseTwap, resumeTwap, cancelTwap } = useAlgoOrders();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const ordered = [...jobs].sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || b.createdAt - a.createdAt);
+  return (
+    <table className="w-full text-[12px]">
+      <thead className="sticky top-0 bg-app-card">
+        <tr>
+          <th className={th}>Asset</th>
+          <th className={th}>Side</th>
+          <th className={th}>Filled</th>
+          <th className={th}>Avg. price</th>
+          <th className={th}>Slices</th>
+          <th className={th}>Status</th>
+          <th className={th} />
+        </tr>
+      </thead>
+      <tbody>
+        {ordered.map((job) => {
+          const share = job.totalSize > 0 ? Math.min(1, job.filledSize / job.totalSize) : 0;
+          return (
+            <tr key={job.id} className="border-t border-app-hairline">
+              <td className={td}>
+                <span className="flex items-center">
+                  <SymbolCell symbol={job.symbol} coin={job.symbol} />
+                  <VenueBadge venue={job.venue} />
+                </span>
+              </td>
+              <td className={`${tdBase} ${job.side === "buy" ? "text-app-up" : "text-app-down"}`}>
+                {job.side === "buy" ? "Buy" : "Sell"}
+                {job.reduceOnly ? <span className="text-app-faint"> · Reduce</span> : null}
+              </td>
+              <td className={td}>
+                <span className="flex items-center gap-2">
+                  <span className="h-1.5 w-16 overflow-hidden rounded-full bg-app-chip">
+                    <span className="block h-full rounded-full bg-app-accent" style={{ width: `${share * 100}%` }} />
+                  </span>
+                  {Number(job.filledSize.toFixed(job.szDecimals))} <span className="text-app-faint">/ {job.totalSize}</span>
+                </span>
+              </td>
+              <td className={td}>{job.filledSize > 0 ? formatPrice(averageFill(job)) : "—"}</td>
+              <td className={td}>
+                {job.done} <span className="text-app-faint">/ {job.slices}</span>
+              </td>
+              <td className={`${td} text-app-muted`} title={job.error}>
+                {job.status === "running" ? `Next in ${untilText(job.nextAt - now)}` : TWAP_STATUS[job.status]}
+                {job.status === "running" && job.failures > 0 && <span className="text-app-down"> · {job.failures} failed</span>}
+              </td>
+              <td className={`${td} text-right`}>
+                {isActive(job) && (
+                  <span className="inline-flex gap-1.5">
+                    <RowButton onClick={async () => (job.status === "paused" ? resumeTwap(job.id) : pauseTwap(job.id))}>
+                      {job.status === "paused" ? "Resume" : "Pause"}
+                    </RowButton>
+                    <RowButton onClick={async () => cancelTwap(job.id)}>Cancel</RowButton>
+                  </span>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 export function VenuesTable({ rows, positions }: { rows: VenueSummary[]; positions: VenuePosition[] }) {
   const { network } = useTrading();
   const closeAll = useCloseAll();
@@ -404,17 +484,21 @@ export function PositionsBar() {
   const total = totalSummary(summaries);
   const positions = account?.positions ?? [];
   const orders = account?.orders ?? [];
+  const { twapJobs } = useAlgoOrders();
+  const activeTwaps = twapJobs.filter(isActive).length;
   const rowsOnScreen: Array<{ venue: PerpVenueId }> = tab === "positions" ? positions : tab === "orders" ? orders : [];
   const multiVenue = new Set(rowsOnScreen.map((row) => row.venue)).size > 1;
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "positions", label: "Positions", count: positions.length },
     { id: "orders", label: "Open orders", count: orders.length },
+    // Only once there's a TWAP to show (running, paused, or finished in the last day).
+    ...(twapJobs.length > 0 ? [{ id: "twap" as const, label: "TWAP", count: activeTwaps }] : []),
     { id: "orderHistory", label: "Order history" },
     { id: "positionHistory", label: "Position history" },
     { id: "venues", label: "Venues", count: summaries.length },
   ];
   const isHistory = tab === "orderHistory" || tab === "positionHistory";
-  const rows = tab === "positions" ? positions.length : tab === "orders" ? orders.length : isHistory ? 1 : summaries.length;
+  const rows = tab === "positions" ? positions.length : tab === "orders" ? orders.length : tab === "twap" ? twapJobs.length : isHistory ? 1 : summaries.length;
 
   return (
     <section
@@ -483,12 +567,14 @@ export function PositionsBar() {
           <p className="flex h-full items-center justify-center text-[12px] text-app-muted">Connecting to live account data…</p>
         ) : rows === 0 ? (
           <p className="flex h-full items-center justify-center text-[12px] text-app-muted">
-            {tab === "positions" ? "No open positions." : tab === "orders" ? "No open orders." : "No venue data yet."}
+            {tab === "positions" ? "No open positions." : tab === "orders" ? "No open orders." : tab === "twap" ? "No TWAP orders." : "No venue data yet."}
           </p>
         ) : tab === "positions" ? (
           <PositionsTable positions={positions} />
         ) : tab === "orders" ? (
           <OrdersTable orders={orders} />
+        ) : tab === "twap" ? (
+          <TwapTable jobs={twapJobs} />
         ) : tab === "orderHistory" ? (
           <OrderHistoryTable />
         ) : tab === "positionHistory" ? (

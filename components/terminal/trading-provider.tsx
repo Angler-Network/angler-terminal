@@ -1,5 +1,6 @@
 "use client";
 
+import { AlgoOrdersProvider } from "./algo-orders";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useToast } from "@/components/app/toast-provider";
@@ -131,6 +132,8 @@ function venueError(venue: PerpVenueId, error: unknown) {
   if (venue === "aster" || venue === "orderly") return error instanceof Error ? error : new Error(String(error));
   return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
+
+const venueErrorMessage = (venue: PerpVenueId, error: unknown) => venueError(venue, error).message;
 
 function useVenueMarkets(venue: PerpVenue, enabled: boolean) {
   const [markets, setMarkets] = useState<VenueMarket[] | null>(null);
@@ -755,5 +758,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  return <TradingContext.Provider value={value}>{children}</TradingContext.Provider>;
+  return (
+    <TradingContext.Provider value={value}>
+      <AlgoOrdersProvider address={address} venues={venues} isVenueReady={isVenueReady} onSetup={setSetupVenue} errorMessage={venueErrorMessage}>
+        {children}
+      </AlgoOrdersProvider>
+    </TradingContext.Provider>
+  );
 }
