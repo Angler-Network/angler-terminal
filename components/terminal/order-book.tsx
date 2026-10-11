@@ -1,6 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown } from "lucide-react";
 import { groupLevels, mergeVenueBooks, ownSizeByLevel, spreadOf, tickOptions, withTotals, type BookLevel, type MergedLevel } from "@/lib/trading/orderbook";
 import { findMarket } from "@/lib/venues/hyperliquid/markets";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
@@ -11,12 +13,14 @@ import { useTrading } from "./trading-provider";
 import { useOrderBook } from "./use-order-book";
 import { VenueLogo } from "@/components/terminal/venue-logo";
 import { SelectField } from "@/components/app/select-field";
+import { bookSources, toggleBookSource, MAX_BOOK_SOURCES } from "@/lib/trading/book-sources";
+import { splitVenues } from "@/lib/venues/venue-overflow";
+import { useAnchoredPopover } from "./anchored-popover";
 
 /** Levels per side; the sides scroll, so more than fit on screen are worth having. */
 const LEVELS = 50;
 
 type Tab = "book" | "trades";
-type VenueView = PerpVenueId | "all";
 /** Both sides of the book, or only the bids (buyers) or only the asks (sellers). */
 type SideView = "both" | "bids" | "asks";
 
@@ -132,6 +136,137 @@ function Levels({
 }
 
 /**
+ * The book's venue menu: "All venues" (the default merge) or any set of venues, each with its color and logo; a row's
+ * box adds or removes it, "Only" shows that one alone. Up to MAX_BOOK_SOURCES at once (each is a live stream).
+ */
+function BookSourcePicker({ listed, shown, isDefault, onPick }: { listed: PerpVenueId[]; shown: PerpVenueId[]; isDefault: boolean; onPick: (venues: PerpVenueId[] | null) => void }) {
+  const { triggerRef, panelRef, anchor, open, toggle } = useAnchoredPopover<HTMLButtonElement>({ height: 60 + listed.length * 30 });
+  const everyOne = shown.length === listed.length;
+  const label = isDefault && everyOne ? "All venues" : shown.length === 1 ? PERP_VENUE_NAMES[shown[0]] : everyOne ? "All venues" : `${shown.length} venues`;
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Venues: ${label}`}
+        onClick={toggle}
+        className={`ml-auto flex h-6 min-w-0 items-center gap-1 rounded-md border pl-1.5 pr-1 text-[11px] text-app-ink ${open ? "border-app-hairline-strong bg-app-field-hover" : "border-app-hairline bg-app-field hover:bg-app-field-hover"}`}
+      >
+        {shown.length === 1 && <VenueLogo name={PERP_VENUE_NAMES[shown[0]]} size={14} />}
+        <span className="truncate">{label}</span>
+        <ChevronDown className="size-3 shrink-0 text-app-muted" aria-hidden />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef as React.RefObject<HTMLDivElement>}
+            role="dialog"
+            aria-label="Order book venues"
+            style={anchor ?? undefined}
+            className="surface-menu scrollbar-subtle fixed z-50 flex max-h-[min(420px,70vh)] w-56 flex-col overflow-y-auto overscroll-contain rounded-xl border border-app-hairline-strong bg-app-dialog p-1 text-[12px] shadow-lg"
+          >
+            <button
+              type="button"
+              onClick={() => onPick(null)}
+              className="flex items-center justify-between rounded-lg px-2 py-1.5 text-left font-semibold text-app-ink hover:bg-app-chip"
+            >
+              All venues
+              {isDefault && <Check className="size-3.5 text-app-accent" aria-hidden />}
+            </button>
+            <span className="mx-2 my-1 h-px shrink-0 bg-app-hairline" aria-hidden />
+            {listed.map((venue) => {
+              const on = shown.includes(venue);
+              const full = !on && shown.length >= MAX_BOOK_SOURCES;
+              return (
+                <div key={venue} className="group flex items-center gap-1 rounded-lg hover:bg-app-chip">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    disabled={full || (on && shown.length === 1)}
+                    title={full ? `Up to ${MAX_BOOK_SOURCES} venues at once` : undefined}
+                    onClick={() => onPick(toggleBookSource(shown, venue))}
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-app-ink disabled:cursor-default disabled:opacity-50"
+                  >
+                    <span
+                      aria-hidden
+                      className="flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border"
+                      style={on ? { background: VENUE_COLORS[venue], borderColor: VENUE_COLORS[venue] } : { borderColor: VENUE_COLORS[venue] }}
+                    >
+                      {on && <Check className="size-2.5 text-black" strokeWidth={3} />}
+                    </span>
+                    <VenueLogo name={PERP_VENUE_NAMES[venue]} size={14} />
+                    <span className="truncate">{PERP_VENUE_NAMES[venue]}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onPick([venue])}
+                    className="mr-1 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-app-muted opacity-0 hover:text-app-ink focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
+                  >
+                    Only
+                  </button>
+                </div>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+/** The merged book's color key: up to three venues by name, past that two and "+N sources", which lists them all. */
+function SourceLegend({ venues }: { venues: PerpVenueId[] }) {
+  const { shown, hidden } = splitVenues(venues, 3);
+  const { triggerRef, panelRef, anchor, open, toggle } = useAnchoredPopover<HTMLButtonElement>({ height: 40 + venues.length * 26 });
+  const swatch = (venue: PerpVenueId) => <span aria-hidden className="size-2 shrink-0 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />;
+  return (
+    <span className="ml-auto flex min-w-0 items-center gap-2.5 pr-0.5 text-[10px] text-app-muted" title="Bars show each level's size by venue">
+      {shown.map((venue) => (
+        <span key={venue} className="flex shrink-0 items-center gap-1">
+          {swatch(venue)}
+          {VENUE_SHORT[venue]}
+        </span>
+      ))}
+      {hidden.length > 0 && (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-expanded={open}
+          title={hidden.map((venue) => PERP_VENUE_NAMES[venue]).join(", ")}
+          onClick={toggle}
+          className={`flex shrink-0 items-center gap-1 rounded px-1 font-semibold ${open ? "bg-app-chip text-app-ink" : "hover:text-app-ink"}`}
+        >
+          <span className="flex -space-x-0.5">{hidden.map((venue) => <span key={venue}>{swatch(venue)}</span>)}</span>+{hidden.length} sources
+        </button>
+      )}
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef as React.RefObject<HTMLDivElement>}
+            role="dialog"
+            aria-label="Order book sources"
+            style={anchor ?? undefined}
+            className="surface-menu fixed z-50 flex w-44 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 text-[12px] shadow-lg"
+          >
+            <span className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">Sources · {venues.length}</span>
+            {venues.map((venue) => (
+              <span key={venue} className="flex items-center gap-2 px-2 py-1 text-app-ink">
+                {swatch(venue)}
+                <VenueLogo name={PERP_VENUE_NAMES[venue]} size={14} />
+                {PERP_VENUE_NAMES[venue]}
+              </span>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </span>
+  );
+}
+
+/**
  * Live order book and trade tape of the chart's asset on a perp venue. Clicking a price fills the order panel.
  * `markets` replaces the perp markets (the Spot view's Hyperliquid or Lighter spot market); `emptyText` says what's
  * missing when there is none.
@@ -139,8 +274,9 @@ function Levels({
 export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | null; emptyText?: string } = {}) {
   const { symbol } = useSelectedAsset();
   const { marketsByVenue, perpOrder, account } = useTrading();
-  const { pickPrice } = useOrderDraft();
-  const [view, setView] = useState<VenueView | null>(null);
+  const { pickPrice, bookVenue } = useOrderDraft();
+  // The venues picked in the venue menu; null = the default "All venues" view.
+  const [picked, setPicked] = useState<PerpVenueId[] | null>(null);
   const [tab, setTab] = useState<Tab>("book");
   const [sideView, setSideView] = useState<SideView>("both");
   const [tickIndex, setTickIndex] = useState(0);
@@ -155,15 +291,24 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
         });
   // Until a venue's market list arrives, the book shows a placeholder rather than "not listed".
   const isLoading = markets !== undefined ? markets === null : choices.length === 0 && perpOrder.some((venue) => marketsByVenue[venue] === undefined);
-  // Several venues list the asset: show them merged unless the user picked one.
-  const isAll = (view ?? "all") === "all" && choices.length > 1;
-  const market: VenueMarket | null = isAll ? choices[0] : (choices.find((entry) => entry.venue === view) ?? choices[0] ?? null);
-  // The merged view streams up to two more venues; single views leave them idle.
-  const other = isAll ? choices[1] : null;
-  const third = isAll ? (choices[2] ?? null) : null;
+  // Several venues list the asset: show them merged (the first three, or the ones picked), or the one picked.
+  const listed = choices.map((entry) => entry.venue);
+  const shownVenues = bookSources(listed, picked);
+  const shown = shownVenues.flatMap((venue) => choices.find((entry) => entry.venue === venue) ?? []);
+  const isAll = shown.length > 1;
+  const market: VenueMarket | null = shown[0] ?? null;
+  // A venue picked by hand in the order panel: show its book, when it has one here.
+  useEffect(() => {
+    if (bookVenue) setPicked([bookVenue.venue as PerpVenueId]);
+  }, [bookVenue]);
+  // The merged view streams up to MAX_BOOK_SOURCES venues; the slots past what's shown stay idle.
+  const other = shown[1] ?? null;
+  const third = shown[2] ?? null;
+  const fourth = shown[3] ?? null;
   const primary = useOrderBook(market);
   const secondary = useOrderBook(other);
   const tertiary = useOrderBook(third);
+  const quaternary = useOrderBook(fourth);
   const { status } = primary;
   const sides = useMemo(
     () =>
@@ -172,9 +317,10 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
             { venue: market.venue, book: primary.book, trades: primary.trades },
             { venue: other.venue, book: secondary.book, trades: secondary.trades },
             ...(third ? [{ venue: third.venue, book: tertiary.book, trades: tertiary.trades }] : []),
+            ...(fourth ? [{ venue: fourth.venue, book: quaternary.book, trades: quaternary.trades }] : []),
           ]
         : null,
-    [isAll, market, other, third, primary.book, primary.trades, secondary.book, secondary.trades, tertiary.book, tertiary.trades],
+    [isAll, market, other, third, fourth, primary.book, primary.trades, secondary.book, secondary.trades, tertiary.book, tertiary.trades, quaternary.book, quaternary.trades],
   );
   const merged = useMemo(() => (sides ? mergeVenueBooks(sides, 0) : null), [sides]);
   const book = merged ?? primary.book;
@@ -193,12 +339,13 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
   const tick = ticks[Math.min(tickIndex, ticks.length - 1)] ?? 0;
   const decimals = tick ? decimalsFor(tick) : 2;
 
+  const shownKey = shown.map((entry) => entry.venue).join(",");
   // The user's open orders on the venues shown, marked on their levels.
   const mine = useMemo(() => {
-    const venues = new Set([market?.venue, other?.venue, third?.venue].filter(Boolean));
+    const venues = new Set(shownKey.split(","));
     const orders = (account?.orders ?? []).filter((order) => venues.has(order.venue) && order.symbol === symbol);
     return { bids: ownSizeByLevel(orders, tick, "bids"), asks: ownSizeByLevel(orders, tick, "asks") };
-  }, [account?.orders, market?.venue, other?.venue, third?.venue, symbol, tick]);
+  }, [account?.orders, shownKey, symbol, tick]);
 
   const { bids, asks, maxTotal, maxSize, crossed } = useMemo(() => {
     if (sides) {
@@ -232,14 +379,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
           </button>
         ))}
         {choices.length > 1 ? (
-          <SelectField<VenueView>
-            size="xs"
-            rootClassName="ml-auto"
-            label="Venue"
-            value={isAll ? "all" : (market?.venue ?? "all")}
-            onChange={setView}
-            options={[{ value: "all", label: "All venues" }, ...choices.map((entry) => ({ value: entry.venue, label: PERP_VENUE_NAMES[entry.venue], icon: <VenueLogo name={PERP_VENUE_NAMES[entry.venue]} size={14} /> }))]}
-          />
+          <BookSourcePicker listed={listed} shown={shownVenues} isDefault={picked === null} onPick={setPicked} />
         ) : (
           market && <span className="ml-auto text-[11px] text-app-faint">{PERP_VENUE_NAMES[market.venue]}</span>
         )}
@@ -281,14 +421,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
               </button>
             ))}
             {sides && (
-              <span className="ml-auto flex items-center gap-2.5 pr-0.5 text-[10px] text-app-muted" title="Bars show each level's size by venue">
-                {sides.map(({ venue }) => (
-                  <span key={venue} className="flex items-center gap-1">
-                    <span className="size-2 rounded-xs" style={{ background: VENUE_COLORS[venue] }} />
-                    {VENUE_SHORT[venue]}
-                  </span>
-                ))}
-              </span>
+              <SourceLegend venues={sides.map(({ venue }) => venue)} />
             )}
           </div>
           <div className="grid shrink-0 grid-cols-3 px-2 pb-1 text-[10px] uppercase tracking-[0.06em] text-app-faint">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -24,6 +24,8 @@ export function Picker<T extends string>({
   label,
   disabled,
   buttonClassName = "inline-flex items-center gap-1.5 rounded-lg bg-app-chip py-0.5 pl-1.5 pr-2 font-semibold text-app-ink hover:bg-app-selected disabled:opacity-60 disabled:hover:bg-app-chip",
+  rootClassName = "relative inline-block",
+  check,
   children,
 }: {
   value: T;
@@ -32,6 +34,10 @@ export function Picker<T extends string>({
   label: string;
   disabled?: boolean;
   buttonClassName?: string;
+  /** The wrapper's classes (a full-width picker needs a block wrapper). */
+  rootClassName?: string;
+  /** Ticks the chosen option, for lists where the highlight alone is easy to miss. */
+  check?: boolean;
   /** Replaces the button's icon and label (the swap card shows the token's symbol and chain). */
   children?: ReactNode;
 }) {
@@ -72,7 +78,7 @@ export function Picker<T extends string>({
     if (open) listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [open]);
   return (
-    <span ref={ref} className="relative inline-block">
+    <span ref={ref} className={rootClassName}>
       <button
         type="button"
         aria-label={label}
@@ -112,7 +118,10 @@ export function Picker<T extends string>({
                   {option.icon}
                   {option.label}
                 </span>
-                {option.note && <span className="text-[10px] font-semibold uppercase tracking-[0.06em]">{option.note}</span>}
+                <span className="flex items-center gap-1.5">
+                  {option.note && <span className="text-[10px] font-semibold uppercase tracking-[0.06em]">{option.note}</span>}
+                  {check && option.value === value && <Check className="size-3.5 text-app-accent" aria-hidden />}
+                </span>
               </button>
             ))}
           </span>,

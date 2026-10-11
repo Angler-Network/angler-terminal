@@ -305,7 +305,8 @@ dependency versions and design are free to diverge from angler-news.
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
     rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in the layout
     menu and Settings → Layout.
-  - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue, a leverage button
+  - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue (`VenuePicker`: an Auto switch beside one dropdown naming the venue, logo + name, every venue listed
+    inside with a tick; it replaced a row of icon chips that grew with each venue), a leverage button
     (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
     (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Two-press confirm unless
@@ -588,7 +589,11 @@ dependency versions and design are free to diverge from angler-news.
     asset without a venue of that kind shows a link to the other view.
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
     (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
-    other's ask; trades merged with venue dots). `useBestExecution` also returns `splitExecution` (cheapest levels of
+    other's ask; trades merged with venue dots). The book's venue menu (`BookSourcePicker`) picks any set of venues
+    (`lib/trading/book-sources.ts`: default = the first three, at most `MAX_BOOK_SOURCES` 4 streams, "Only" for one); its
+    color key names up to three and folds the rest into "+N sources" (a press lists them). A venue picked by hand in the
+    order panel (or the home search) switches the book to it when listed (`showBookVenue` in `order-draft.tsx`); Auto's
+    choices don't move it. `useBestExecution` also returns `splitExecution` (cheapest levels of
     both books after fees); the order panel offers "Split HL $X + Lighter $Y" when it saves ≥ $0.25 and 0.5 bp, every
     leg clears its venue minimum (`minOrderUsd`) and no TP/SL is set, and sends the legs in parallel.
   - Portfolio (`positions-bar.tsx`): positions/orders of every perp venue with a venue filter, liquidation distance

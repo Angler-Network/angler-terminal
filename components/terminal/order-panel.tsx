@@ -3,6 +3,7 @@
 import { LoadingState } from "@/components/app/loading-state";
 import { ArrowRight, ChevronDown, Sparkles } from "lucide-react";
 import { CoinIcon } from "./token-icon";
+import { Picker } from "./inline-picker";
 import { perpNetwork } from "@/lib/venues/perp-network";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -100,7 +101,7 @@ function Segmented<T extends string>({
   );
 }
 
-/** Site icons for the venue chips (Robinhood Chain's badge on Lighter RH). */
+/** Site icons for the venue picker (Robinhood Chain's badge on Lighter RH). */
 const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> = {
   hyperliquid: { domain: "hyperliquid.xyz" },
   lighter: { domain: "lighter.xyz" },
@@ -113,60 +114,65 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
 };
 
 /**
- * The venue picker as icon chips: one small chip per venue (its name in the tooltip) plus "Auto", which routes each
- * market order to the best price. Stays one row however many venues join; no name beside it (the icons say which).
+ * The venue picker: an "Auto" switch (each market order goes to the best price) beside one dropdown that names the venue
+ * the order goes to, logo and name, with every venue listed inside it (scrolling when long). Two controls whatever the
+ * number of venues, and the destination always reads in words.
  */
-function VenueChips({
+function VenuePicker({
   choices,
   value,
+  autoOn,
   auto,
   onPick,
   onAuto,
 }: {
   choices: Array<{ id: string; name: string; network: string }>;
   value: string;
+  /** The Auto setting itself. */
+  autoOn: boolean;
+  /** Auto picked the venue shown (market orders only; limits and reduce-only stay where they are placed). */
   auto: boolean;
   onPick: (id: string) => void;
-  onAuto: () => void;
+  onAuto: (on: boolean) => void;
 }) {
-  const chip = (active: boolean) =>
-    `flex size-8 shrink-0 items-center justify-center rounded-lg border transition-all ${
-      active ? "border-app-accent/70 bg-app-accent/10 shadow-[0_0_0_2px_rgb(var(--app-accent)/0.12)]" : "border-transparent bg-app-chip hover:border-app-field-border"
-    }`;
+  const current = choices.find((entry) => entry.id === value) ?? choices[0];
+  const icon = (entry: { id: string; name: string }, size: number) => {
+    const mark = VENUE_ICONS[entry.id];
+    return mark ? <CoinIcon src={faviconUrl(mark.domain)} symbol={entry.name} chain={mark.chain} size={size} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>;
+  };
   return (
-    <div role="radiogroup" aria-label="Venue" className="flex min-w-0 items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-1.5">
       <button
         type="button"
-        role="radio"
-        aria-checked={auto}
-        title="Auto routing: each market order goes to whichever venue gives the best price right now"
-        onClick={onAuto}
-        className={`${chip(auto)} w-auto gap-1 px-2 text-[11px] font-semibold ${auto ? "text-app-accent" : "text-app-muted"}`}
+        aria-pressed={autoOn}
+        title={
+          autoOn
+            ? `Auto routing is on: each market order goes to whichever venue gives the best price right now${auto ? "" : " (limit and reduce-only orders stay on the venue picked)"}`
+            : "Turn on auto routing: each market order goes to the best price"
+        }
+        onClick={() => onAuto(!autoOn)}
+        className={`flex h-9 shrink-0 items-center gap-1 rounded-lg border px-2.5 text-[12px] font-semibold transition-all ${
+          autoOn
+            ? "border-app-accent/70 bg-app-accent/10 text-app-accent shadow-[0_0_0_2px_rgb(var(--app-accent)/0.12)]"
+            : "border-transparent bg-app-chip text-app-muted hover:border-app-field-border hover:text-app-ink"
+        }`}
       >
         <Sparkles className="size-3.5" aria-hidden />
         Auto
       </button>
-      <span aria-hidden className="h-5 w-px shrink-0 bg-app-hairline" />
-      <div className="scrollbar-none flex min-w-0 gap-1.5 overflow-x-auto">
-        {choices.map((entry) => {
-          const icon = VENUE_ICONS[entry.id];
-          const active = entry.id === value;
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={entry.name}
-              title={`${entry.name} · ${entry.network}${active && auto ? " (picked by Auto)" : ""}`}
-              onClick={() => onPick(entry.id)}
-              className={`${chip(active)} ${active ? "" : "opacity-60 hover:opacity-100"}`}
-            >
-              {icon ? <CoinIcon src={faviconUrl(icon.domain)} symbol={entry.name} chain={icon.chain} size={18} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>}
-            </button>
-          );
-        })}
-      </div>
+      <Picker
+        label="Venue"
+        value={current.id}
+        check
+        rootClassName="relative block min-w-0 flex-1"
+        buttonClassName="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-transparent bg-app-chip pl-2 pr-2 text-left text-[13px] font-semibold text-app-ink hover:border-app-field-border"
+        onChange={onPick}
+        options={choices.map((entry) => ({ value: entry.id, label: entry.name, icon: icon(entry, 18), note: auto && entry.id === current.id ? "Best" : undefined }))}
+      >
+        {icon(current, 18)}
+        <span className="min-w-0 flex-1 truncate">{current.name}</span>
+        {auto && <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-accent">Best</span>}
+      </Picker>
     </div>
   );
 }
@@ -460,7 +466,7 @@ export function OrderPanel() {
   const funding = useFunding();
   const { address } = useWallet();
   const { open: openWallets } = useWalletModal();
-  const { pickedPrice } = useOrderDraft();
+  const { pickedPrice, showBookVenue } = useOrderDraft();
   const trade = useNewsTrader();
   // A Hyperliquid or Lighter market picked on /spot isn't a swap token: the swap looks the asset up afresh.
   const swapMint = isBookSpotRef(mint) ? undefined : mint;
@@ -512,8 +518,11 @@ export function OrderPanel() {
   const choice = routed ?? manual ?? kindChoices[0] ?? null;
   const pickVenue = (id: VenueChoice["id"]) => {
     setVenueId(id);
-    // Picking a perp venue by hand means the user wants that venue, not the router's.
-    if (preferences.autoRoute && choices.find((entry) => entry.id === id)?.kind === "perp") updatePreference("autoRoute", false);
+    // Picking a perp venue by hand means the user wants that venue, not the router's, and its book.
+    if (choices.find((entry) => entry.id === id)?.kind === "perp") {
+      if (preferences.autoRoute) updatePreference("autoRoute", false);
+      showBookVenue(id);
+    }
   };
   // A venue picked in the home search: switch to it once its market is listed here.
   const requestListed = Boolean(perpVenueRequest) && kindChoices.some((entry) => entry.id === perpVenueRequest);
@@ -522,9 +531,10 @@ export function OrderPanel() {
     if (requestListed) {
       setVenueId(perpVenueRequest);
       if (preferences.autoRoute) updatePreference("autoRoute", false);
+      showBookVenue(perpVenueRequest);
     }
     requestPerpVenue(null);
-  }, [perpVenueRequest, requestListed, activeKind, isLoading, preferences.autoRoute, updatePreference, requestPerpVenue]);
+  }, [perpVenueRequest, requestListed, activeKind, isLoading, preferences.autoRoute, updatePreference, requestPerpVenue, showBookVenue]);
   const market = choice?.kind === "perp" ? choice.market : null;
   // The chart's "auto" source follows the venue this panel trades on.
   useEffect(() => setTradeVenue(market?.venue ?? null), [market?.venue, setTradeVenue]);
@@ -837,12 +847,17 @@ export function OrderPanel() {
           </div>
           {/* A venue picker only when there's a choice. No network tag: the top bar already marks testnet. */}
           {kindChoices.length > 1 && (
-            <VenueChips
+            <VenuePicker
               choices={kindChoices}
               value={choice!.id}
+              autoOn={preferences.autoRoute}
               auto={Boolean(routed)}
               onPick={(id) => pickVenue(id as VenueChoice["id"])}
-              onAuto={() => updatePreference("autoRoute", true)}
+              onAuto={(on) => {
+                // Turning Auto off keeps the venue it had picked, so the order doesn't jump elsewhere.
+                if (!on && choice) setVenueId(choice.id);
+                updatePreference("autoRoute", on);
+              }}
             />
           )}
           {isPerp && (
@@ -1086,7 +1101,7 @@ export function OrderPanel() {
             <div className="flex flex-col gap-0.5 rounded-lg border border-app-hairline p-1.5">
               <div className="flex items-center justify-between px-1 text-[11px]">
                 <span className="font-medium text-app-muted">Quotes</span>
-                {/* The venue chips above carry Auto when there's a choice of venue; this toggle only stands in without them. */}
+                {/* The venue picker above carries Auto when there's a choice of venue; this toggle only stands in without them. */}
                 {kindChoices.length <= 1 && (
                   <label className="flex items-center gap-1.5 text-app-muted" title="Send market orders to the venue with the best estimated fill after fees">
                     <input

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
@@ -15,6 +15,7 @@ import { splitVenues } from "@/lib/venues/venue-overflow";
 import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, parseEvmRef, type EvmSwapChainKey } from "@/lib/venues/uniswap/chains";
 import { CoinIcon } from "./token-icon";
 import { VENUE_MARKS } from "./venue-logo";
+import { useAnchoredPopover } from "./anchored-popover";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { perpWatchId, type WatchlistEntry } from "@/lib/watchlist";
 import { useTrading } from "./trading-provider";
@@ -371,42 +372,10 @@ function VenueMarkIcon({ entry, titled = true }: { entry: VenueMarkEntry; titled
  * window's blur would clip it) and stops its clicks from reaching the row, which would pick the market.
  */
 function VenueOverflow({ all, hidden }: { all: VenueMarkEntry[]; hidden: VenueMarkEntry[] }) {
-  const [anchor, setAnchor] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
-  const ref = useRef<HTMLSpanElement>(null);
-  const panelRef = useRef<HTMLSpanElement>(null);
-  const open = anchor !== null;
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: Event) => !ref.current?.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node) && setAnchor(null);
-    const dismiss = () => setAnchor(null);
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      // Close this panel only, not the search window behind it.
-      event.stopPropagation();
-      setAnchor(null);
-    };
-    document.addEventListener("mousedown", outside);
-    document.addEventListener("keydown", escape, true);
-    window.addEventListener("scroll", dismiss, true);
-    window.addEventListener("resize", dismiss);
-    return () => {
-      document.removeEventListener("mousedown", outside);
-      document.removeEventListener("keydown", escape, true);
-      window.removeEventListener("scroll", dismiss, true);
-      window.removeEventListener("resize", dismiss);
-    };
-  }, [open]);
-  const toggle = (event: MouseEvent) => {
-    event.stopPropagation();
-    const rect = ref.current?.getBoundingClientRect();
-    if (open || !rect) return setAnchor(null);
-    const right = Math.max(8, window.innerWidth - rect.right);
-    const up = window.innerHeight - rect.bottom < 40 + all.length * 30 && rect.top > window.innerHeight - rect.bottom;
-    setAnchor(up ? { bottom: window.innerHeight - rect.top + 4, right } : { top: rect.bottom + 4, right });
-  };
+  const { triggerRef, panelRef, anchor, open, toggle } = useAnchoredPopover<HTMLSpanElement>({ height: 40 + all.length * 30 });
   return (
     <span
-      ref={ref}
+      ref={triggerRef}
       title={open ? undefined : hidden.map((entry) => entry.label).join(", ")}
       onClick={toggle}
       className={`inline-flex h-[18px] min-w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
