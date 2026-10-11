@@ -403,7 +403,8 @@ dependency versions and design are free to diverge from angler-news.
     (`fundingCompare`, `FundingVenuePicker`: "Compare venues · N selected", search, Perp DEX / CEX groups only in the
     picker; default HL, Lighter, Aster, Binance, Bybit); a venue added later only shows in the picker, never as a new
     column. The asset column and the spread/actions stay sticky while the venue columns scroll; the spread is among the
-    compared tradable venues.
+    compared tradable venues ("Tradable spread"; CEX rows carry a "Reference" tag in the picker and never count; under two
+    tradable venues compared, "—" says to select two; the picker says the selection also limits spread and arb).
   - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on two or more of
     `TRADABLE_FUNDING_VENUES`: Hyperliquid, Lighter, Lighter RH, Aster, Orderly): market long on the low-funding venue +
     market short on the high-funding one, same base size (`arbLegSize`, coarser size step), each leg at least its venue's

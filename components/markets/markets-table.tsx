@@ -169,6 +169,7 @@ export function MarketsTable() {
   );
   // Funding view: the asset column on the left and the spread + actions on the right stay put while the venue columns
   // scroll between them. Sticky cells need an opaque background.
+  const tradableCompared = compare.filter((fundingVenue) => TRADABLE_FUNDING_VENUES.includes(fundingVenue)).length;
   const stickyLeft = view === "funding" ? "sticky left-0 z-[1] bg-app-card" : "";
   const stickyRight = "sticky right-0 z-[1] bg-app-card shadow-[-12px_0_12px_-12px_rgb(0_0_0/0.6)]";
 
@@ -304,7 +305,7 @@ export function MarketsTable() {
                       `Sort by ${VENUE_LABELS[fundingVenue]} funding`,
                     ),
                   )}
-                  {header("arb", "Funding spread", "Long the lowest-funding venue, short the highest, among the compared venues you can trade here", `w-px ${stickyRight}`)}
+                  {header("arb", "Tradable spread", "Calculated across selected tradable venues: long the lowest funding, short the highest. Reference venues (CEX) don't count.", `w-px ${stickyRight}`)}
                 </tr>
               </>
             ) : (
@@ -374,7 +375,12 @@ export function MarketsTable() {
                             </span>
                           </span>
                         ) : (
-                          <span className="text-app-faint">—</span>
+                          <span
+                            className="text-app-faint"
+                            title={tradableCompared < 2 ? "Select at least two tradable venues." : "Not listed on two of the selected tradable venues."}
+                          >
+                            —
+                          </span>
                         )}
                         {/* Trade is the main action; Arb a lighter text button before it, in a fixed slot so Trade lines up. */}
                         <span className="inline-flex items-center justify-end gap-1">

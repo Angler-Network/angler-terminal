@@ -22,7 +22,7 @@ export const FUNDING_VENUE_LABELS: Record<FundingVenue, string> = {
 
 const GROUPS: Array<{ label: string; venues: FundingVenue[] }> = [
   { label: "Perp DEX", venues: FUNDING_VENUES.filter((venue) => TRADABLE_FUNDING_VENUES.includes(venue)) },
-  { label: "CEX", venues: FUNDING_VENUES.filter((venue) => !TRADABLE_FUNDING_VENUES.includes(venue)) },
+  { label: "CEX · Reference", venues: FUNDING_VENUES.filter((venue) => !TRADABLE_FUNDING_VENUES.includes(venue)) },
 ];
 
 /**
@@ -80,6 +80,7 @@ export function FundingVenuePicker({ value, onChange }: { value: FundingVenue[];
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-app-ink outline-hidden placeholder:text-app-faint"
               />
             </label>
+            <p className="mx-2 mb-1 text-[11px] leading-snug text-app-muted">Selection also limits spread and arbitrage calculations.</p>
             <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {GROUPS.map((group) => {
                 const venues = group.venues.filter((venue) => !needle || FUNDING_VENUE_LABELS[venue].toLowerCase().includes(needle));
@@ -109,6 +110,14 @@ export function FundingVenuePicker({ value, onChange }: { value: FundingVenue[];
                           </span>
                           <VenueLogo name={FUNDING_VENUE_LABELS[venue]} size={16} />
                           <span className="truncate">{FUNDING_VENUE_LABELS[venue]}</span>
+                          {!TRADABLE_FUNDING_VENUES.includes(venue) && (
+                            <span
+                              title="Funding shown for comparison only: not tradable here, so never part of the spread or an arb"
+                              className="ml-auto rounded bg-app-chip px-1.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-app-faint"
+                            >
+                              Reference
+                            </span>
+                          )}
                         </button>
                       );
                     })}
