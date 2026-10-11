@@ -667,7 +667,11 @@ dependency versions and design are free to diverge from angler-news.
   sitemap). Sources, all keyless: Hyperliquid `stats-data.hyperliquid.xyz/{Mainnet|Testnet}/vaults` (every vault ever,
   ~14 MB, 10-15s: fetched no-store and only the parsed rows cached) + `vaultDetails`; Lighter and Lighter RH
   `publicPoolsMetadata` (pages of 100 running down from index 281474976710655) + the public `pnl` chart; Orderly
-  `api-sv.orderly.org/v1/public/strategy_vault/vault/{info,performance}` (no value history). `GET /api/vaults` = open
+  `api-sv.orderly.org/v1/public/strategy_vault/vault/{info,performance}` (no value history); Extended's one vault (XVS,
+  id `xvs`) from `/api/v1/vault/public/summary` (APR comes as a fraction: base + the most extra yield) and
+  `/vault/public/performance?interval=WEEK|MONTH|YEAR|ALL` (PnL and drawdown per period, no value history). Extended's
+  API has no vault deposit, so Deposit opens `app.extended.exchange/vault` (path not checked: the app answers this
+  sandbox 403). `GET /api/vaults` = open
   vaults ≥ $1k, one `unstable_cache` entry per venue (15 min; a failing venue keeps its last list and is named in
   `failed`); `GET /api/vaults/[venue]/[id]` = history (5 min). The list's APR is each venue's own figure (HL APR, Lighter
   APY, Orderly 30-day APY) and says so; the opened row computes 7d/30d/90d/1y returns and max drawdown the same way for
@@ -959,7 +963,7 @@ dependency versions and design are free to diverge from angler-news.
   (opened, added, reduced, flipped, closed; TP/SL and liquidations read as closes), liquidation distance (5/10/20%,
   once, re-armed past 1.5×), price levels (each fires once; the coin picker is `GET /api/alerts/coins`, `alertCoins` in
   `sources.ts`: the form picks a venue first, then its coin: Hyperliquid mids (main + HIP-3 dexes) as named there, and
-  every Lighter / Lighter RH / Aster market as `lighter:` / `lighterrh:` / `aster:` + symbol, priced from their market
+  every Lighter / Lighter RH / Aster / Extended market as `lighter:` / `lighterrh:` / `aster:` / `extended:` + symbol, priced from their market
   lists; `readAlertCoins`) and news at or above
   an impact on the positions' coins and a coin list. Settings need the profile session cookie (sign in once); the
   Telegram chat is only set by the bot (`/start <code>` from a t.me link made by `/api/alerts/telegram/link`, `/stop`

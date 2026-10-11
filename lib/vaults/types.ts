@@ -1,16 +1,18 @@
 /**
  * Vaults across the perp venues in one shape: Hyperliquid vaults (HLP and user vaults), Lighter and Lighter RH public
- * pools (LLP and user pools) and Orderly strategy vaults (OmniVault and community vaults). Hyperliquid and Lighter
- * deposits and withdrawals run in the terminal (`transfer.ts`); Orderly's open the venue's own page.
+ * pools (LLP and user pools), Orderly strategy vaults (OmniVault and community vaults) and the Extended Vault (XVS).
+ * Hyperliquid and Lighter deposits and withdrawals run in the terminal (`transfer.ts`); Orderly's and Extended's open
+ * the venue's own page (Extended's API has no vault deposit).
  */
 
-export type VaultVenue = "hyperliquid" | "lighter" | "lighterRh" | "orderly";
+export type VaultVenue = "hyperliquid" | "lighter" | "lighterRh" | "orderly" | "extended";
 
 export const VAULT_VENUE_NAMES: Record<VaultVenue, string> = {
   hyperliquid: "Hyperliquid",
   lighter: "Lighter",
   lighterRh: "Lighter RH",
   orderly: "Orderly",
+  extended: "Extended",
 };
 
 export interface VaultRow {
@@ -54,6 +56,6 @@ export interface VaultHistory {
   returns: { d7: number | null; d30: number | null; d90: number | null; y1: number | null };
   /** Largest fall from a peak over the points shown (0.12 = -12%). */
   maxDrawdown: number | null;
-  /** Orderly has no public value history: its own PnL and drawdown per period instead. */
+  /** Orderly and Extended have no public value history: their own PnL and drawdown per period instead. */
   periods?: Array<{ range: string; pnl: number; maxDrawdown: number }>;
 }

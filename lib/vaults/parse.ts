@@ -263,6 +263,60 @@ export function orderlyHistory(raw: unknown): VaultHistory {
   return { points: [], returns: { d7: null, d30: null, d90: null, y1: null }, maxDrawdown: allTime?.maxDrawdown ?? null, periods };
 }
 
+// --- Extended
+
+/** Extended's one vault (XVS); its id in our routes. */
+export const EXTENDED_VAULT_ID = "xvs";
+
+/**
+ * The Extended Vault from `/api/v1/vault/public/summary`. Its APR comes as a fraction (0.0916 = 9.16%, unlike the docs'
+ * example) and is base yield plus the most extra yield (extra depends on the depositor's own trading). Deposits lock
+ * for 24 hours, $5 minimum (Extended's docs).
+ */
+export function readExtendedVault(raw: unknown, appUrl: string, now = Date.now()): VaultRow[] {
+  const data = (raw as { data?: Record<string, unknown> })?.data;
+  const tvl = num(data?.equity);
+  if (!data || tvl === null || tvl < MIN_LISTED_TVL) return [];
+  const ageDays = num(data.ageDays);
+  return [
+    {
+      venue: "extended",
+      id: EXTENDED_VAULT_ID,
+      name: "Extended Vault",
+      kind: "protocol",
+      manager: null,
+      tvl,
+      apr: num(data.last30dApr ?? data.lastMonthApr),
+      aprBasis: "Extended's last-30-day APR: base yield plus the most extra yield (extra depends on your own trading on Extended)",
+      createdAt: ageDays === null ? null : now - ageDays * DAY_MS,
+      profitShare: num(data.profitShare),
+      lockHours: 24,
+      open: true,
+      minDeposit: 5,
+      url: `${appUrl}/vault`,
+    },
+  ];
+}
+
+export const EXTENDED_PERIODS = [
+  ["WEEK", "7d"],
+  ["MONTH", "Month"],
+  ["YEAR", "1y"],
+  ["ALL", "all_time"],
+] as const;
+
+/** Extended publishes PnL and drawdown per period (`/vault/public/performance?interval=`), no value history. */
+export function extendedHistory(byInterval: Partial<Record<(typeof EXTENDED_PERIODS)[number][0], unknown>>): VaultHistory {
+  const periods = EXTENDED_PERIODS.flatMap(([interval, range]) => {
+    const data = (byInterval[interval] as { data?: Record<string, unknown> } | undefined)?.data;
+    const pnl = num(data?.totalPnl);
+    const drawdown = num(data?.maxDrawdown);
+    return pnl !== null && drawdown !== null ? [{ range, pnl, maxDrawdown: drawdown }] : [];
+  });
+  const allTime = periods.find((period) => period.range === "all_time") ?? [...periods].sort((a, b) => b.maxDrawdown - a.maxDrawdown)[0];
+  return { points: [], returns: { d7: null, d30: null, d90: null, y1: null }, maxDrawdown: allTime?.maxDrawdown ?? null, periods };
+}
+
 // --- Shared math
 
 /** The index at or before `time`; null when the history starts more than a day after it. */

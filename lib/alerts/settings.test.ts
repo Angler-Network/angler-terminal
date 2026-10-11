@@ -36,6 +36,7 @@ describe("helpers", () => {
     expect(normalizeCoin("XYZ:nvda")).toBe("xyz:NVDA");
     expect(normalizeCoin("not a coin")).toBeNull();
     expect(normalizeCoin("kPEPE")).toBe("kPEPE");
+    expect(normalizeCoin("extended:BTC")).toBe("extended:BTC");
     expect(normalizeCoin("kpepe")).toBe("KPEPE");
   });
 

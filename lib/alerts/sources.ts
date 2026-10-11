@@ -2,6 +2,9 @@ import "server-only";
 import { anglerConfig } from "@/lib/angler/env";
 import { venueAvailable } from "@/lib/deployment";
 import { getAsterMarkets } from "@/lib/venues/aster/markets-server";
+import { extendedConfig } from "@/lib/venues/extended/config";
+import { readExtendedMarkets } from "@/lib/venues/extended/markets";
+import { getExtendedMarkets } from "@/lib/venues/extended/markets-server";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import type { VenueMarket } from "@/lib/venues/types";
@@ -50,22 +53,24 @@ const priceMarkets = (markets: VenueMarket[], prefer: "mid" | "mark"): PriceMark
   markets.map((market) => ({ symbol: market.symbol, price: prefer === "mid" ? (market.midPx ?? market.markPx) : (market.markPx ?? market.midPx), stock: market.kind === "stock" }));
 
 /**
- * Everything price alerts can watch, per venue: Hyperliquid's mids and every Lighter, Lighter RH and Aster market (each
+ * Everything price alerts can watch, per venue: Hyperliquid's mids and every Lighter, Lighter RH, Aster and Extended market (each
  * on the deployment's network; Aster only where it's offered). A venue that fails is skipped for this read; all failing
  * throws, so a cached list is never replaced by an empty one.
  */
 export async function alertCoins(): Promise<AlertCoin[]> {
-  const [hl, lighter, lighterRh, aster] = await Promise.allSettled([
+  const [hl, lighter, lighterRh, aster, extended] = await Promise.allSettled([
     hlMids(),
     venueAvailable("lighter") ? getLighterMarkets(lighterConfig.network, "core") : Promise.resolve([]),
     venueAvailable("lighterRh") ? getLighterMarkets(lighterRhConfig.network, "rh") : Promise.resolve([]),
     venueAvailable("aster") ? getAsterMarkets() : Promise.resolve([]),
+    venueAvailable("extended") ? getExtendedMarkets(extendedConfig.network).then((rows) => readExtendedMarkets(rows).markets) : Promise.resolve([]),
   ]);
   const value = <T,>(result: PromiseSettledResult<T>, fallback: T) => (result.status === "fulfilled" ? result.value : fallback);
   const coins = readAlertCoins(value(hl, {}), [
     { venue: "lighter", markets: priceMarkets(value(lighter, []), "mid") },
     { venue: "lighterrh", markets: priceMarkets(value(lighterRh, []), "mid") },
     { venue: "aster", markets: priceMarkets(value(aster, []), "mark") },
+    { venue: "extended", markets: priceMarkets(value(extended, []), "mark") },
   ]);
   if (coins.length === 0) throw new Error("No venue sent prices.");
   return coins;

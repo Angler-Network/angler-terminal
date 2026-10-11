@@ -24,7 +24,7 @@ const ESTABLISHED_DAYS = 30;
 const PAGE_ROWS = 60;
 const rowButton =
   "inline-flex h-7 items-center gap-1 rounded-md border border-app-hairline-strong bg-app-chip px-2.5 text-[12px] font-semibold text-app-ink hover:bg-app-card";
-const VENUES: VaultVenue[] = ["hyperliquid", "lighter", "lighterRh", "orderly"];
+const VENUES: VaultVenue[] = ["hyperliquid", "lighter", "lighterRh", "orderly", "extended"];
 
 type SortKey = "tvl" | "apr" | "age";
 
@@ -153,7 +153,7 @@ function VaultDetail({ vault }: { vault: VaultRow }) {
               <span className="ml-1.5 text-[11px] font-normal text-app-muted">DD {percent(-period.maxDrawdown)}</span>
             </Stat>
           ))}
-          <p className="col-span-full text-[11px] text-app-faint">Orderly publishes PnL and drawdown per period, not a value history.</p>
+          <p className="col-span-full text-[11px] text-app-faint">{VAULT_VENUE_NAMES[vault.venue]} publishes PnL and drawdown per period, not a value history.</p>
         </div>
       ) : (
         <p className="text-[12px] text-app-muted">Not enough history yet.</p>

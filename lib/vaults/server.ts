@@ -3,7 +3,8 @@ import { unstable_cache } from "next/cache";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfig, lighterRhConfig, type LighterConfig } from "@/lib/venues/lighter/config";
 import { orderlyConfig } from "@/lib/venues/orderly/config";
-import { hlHistory, lighterHistory, lighterNextIndex, orderlyHistory, readHlVaults, readLighterPools, readOrderlyVaults } from "./parse";
+import { extendedConfig } from "@/lib/venues/extended/config";
+import { EXTENDED_PERIODS, EXTENDED_VAULT_ID, extendedHistory, hlHistory, lighterHistory, lighterNextIndex, orderlyHistory, readExtendedVault, readHlVaults, readLighterPools, readOrderlyVaults } from "./parse";
 import type { VaultHistory, VaultRow, VaultVenue } from "./types";
 
 /**
@@ -54,11 +55,21 @@ async function loadOrderly(): Promise<VaultRow[]> {
   return readOrderlyVaults(await json(`${ORDERLY_VAULT_API[orderlyConfig.network]}/v1/public/strategy_vault/vault/info`), ORDERLY_VAULT_APP[orderlyConfig.network]);
 }
 
+const EXTENDED_HEADERS = { "user-agent": "AnglerTerminal/1.0", accept: "application/json" };
+
+async function loadExtended(): Promise<VaultRow[]> {
+  // Extended's API refuses requests without a user agent.
+  const rows = readExtendedVault(await json(`${extendedConfig.host}/api/v1/vault/public/summary`, { headers: EXTENDED_HEADERS }), extendedConfig.app);
+  if (rows.length === 0) throw new Error("Extended sent no vault");
+  return rows;
+}
+
 const keyFor = (venue: string, network: string) => [`vaults-v1-${venue}-${network}`];
 const cachedHl = unstable_cache(loadHl, keyFor("hyperliquid", hlConfig.network), { revalidate: LIST_SECONDS });
 const cachedLighter = unstable_cache(() => loadLighter(lighterConfig, "lighter"), keyFor("lighter", lighterConfig.network), { revalidate: LIST_SECONDS });
 const cachedLighterRh = unstable_cache(() => loadLighter(lighterRhConfig, "lighterRh"), keyFor("lighterRh", lighterRhConfig.network), { revalidate: LIST_SECONDS });
 const cachedOrderly = unstable_cache(loadOrderly, keyFor("orderly", orderlyConfig.network), { revalidate: LIST_SECONDS });
+const cachedExtended = unstable_cache(loadExtended, keyFor("extended", extendedConfig.network), { revalidate: LIST_SECONDS });
 
 /** Every venue's open vaults, biggest first; `failed` names the venues that couldn't be read (with no list cached). */
 export async function getVaults(): Promise<{ vaults: VaultRow[]; failed: VaultVenue[] }> {
@@ -67,6 +78,7 @@ export async function getVaults(): Promise<{ vaults: VaultRow[]; failed: VaultVe
     ["lighter", cachedLighter],
     ["lighterRh", cachedLighterRh],
     ["orderly", cachedOrderly],
+    ["extended", cachedExtended],
   ];
   const results = await Promise.allSettled(sources.map(([, load]) => load()));
   const failed: VaultVenue[] = [];
@@ -79,16 +91,21 @@ export async function getVaults(): Promise<{ vaults: VaultRow[]; failed: VaultVe
   return { vaults: vaults.sort((a, b) => b.tvl - a.tvl), failed };
 }
 
-/** Ids each venue uses: HL address, Lighter account index, Orderly vault id. */
+/** Ids each venue uses: HL address, Lighter account index, Orderly vault id, "xvs" for Extended's one vault. */
 export function validVaultId(venue: VaultVenue, id: string) {
   if (venue === "hyperliquid") return /^0x[0-9a-f]{40}$/.test(id);
   if (venue === "orderly") return /^0x[0-9a-f]{64}$/.test(id);
+  if (venue === "extended") return id === EXTENDED_VAULT_ID;
   return /^\d{1,20}$/.test(id);
 }
 
 async function loadHistory(venue: VaultVenue, id: string): Promise<VaultHistory> {
   if (venue === "hyperliquid") {
     return hlHistory(await json(`${hlConfig.apiUrl}/info`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "vaultDetails", vaultAddress: id }) }));
+  }
+  if (venue === "extended") {
+    const answers = await Promise.all(EXTENDED_PERIODS.map(([interval]) => json(`${extendedConfig.host}/api/v1/vault/public/performance?interval=${interval}`, { headers: EXTENDED_HEADERS })));
+    return extendedHistory(Object.fromEntries(EXTENDED_PERIODS.map(([interval], index) => [interval, answers[index]])));
   }
   if (venue === "orderly") return orderlyHistory(await json(`${ORDERLY_VAULT_API[orderlyConfig.network]}/v1/public/strategy_vault/vault/performance?vault_id=${id}`));
   const config = venue === "lighter" ? lighterConfig : lighterRhConfig;

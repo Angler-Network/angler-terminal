@@ -1,0 +1,66 @@
+{
+ "WEEK": {
+  "status": "OK",
+  "data": {
+   "totalPnl": "49718.450821",
+   "aprPercentage": "0.0713",
+   "maxDrawdown": "0.0002",
+   "profitFactor": "19.281",
+   "winRate": "0.9669",
+   "tradingVolume": "6475621.592935",
+   "sharpeRatio": "1.22",
+   "aprBreakdown": {
+    "baseApr": "0.018",
+    "maxExtraApr": "0.0533"
+   }
+  }
+ },
+ "MONTH": {
+  "status": "OK",
+  "data": {
+   "totalPnl": "287085.142885",
+   "aprPercentage": "0.0916",
+   "maxDrawdown": "0.0011",
+   "profitFactor": "30.9727",
+   "winRate": "0.9762",
+   "tradingVolume": "45477612.8016",
+   "sharpeRatio": "0.77",
+   "aprBreakdown": {
+    "baseApr": "0.0325",
+    "maxExtraApr": "0.0591"
+   }
+  }
+ },
+ "YEAR": {
+  "status": "OK",
+  "data": {
+   "totalPnl": "5066399.950524",
+   "aprPercentage": "0.1001",
+   "maxDrawdown": "0.0093",
+   "profitFactor": "1.5279",
+   "winRate": "0.5097",
+   "tradingVolume": "1145753743.456906",
+   "sharpeRatio": "0.39",
+   "aprBreakdown": {
+    "baseApr": "0.0253",
+    "maxExtraApr": "0.0748"
+   }
+  }
+ },
+ "ALL": {
+  "status": "OK",
+  "data": {
+   "totalPnl": "5940789.704263",
+   "aprPercentage": "0.0942",
+   "maxDrawdown": "0.0268",
+   "profitFactor": "1.5503",
+   "winRate": "0.5029",
+   "tradingVolume": "1539772930.223322",
+   "sharpeRatio": "0.17",
+   "aprBreakdown": {
+    "baseApr": "0.0336",
+    "maxExtraApr": "0.0606"
+   }
+  }
+ }
+}

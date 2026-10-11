@@ -19,12 +19,12 @@ export interface PriceMarket {
 
 const PINNED = ["BTC", "ETH", "SOL", "HYPE", "XRP", "DOGE"];
 const SYMBOL = /^k?[A-Z0-9]{1,20}$/;
-export const PRICE_VENUES: PriceVenue[] = ["hyperliquid", "lighter", "lighterrh", "aster"];
+export const PRICE_VENUES: PriceVenue[] = ["hyperliquid", "lighter", "lighterrh", "aster", "extended"];
 export const PRICE_VENUE_LABELS: Record<PriceVenue, string> = { hyperliquid: "Hyperliquid", ...PRICE_VENUE_PREFIXES };
 
 /**
  * Every coin price alerts can watch, per venue (the alert names its venue): Hyperliquid's mids (main dex and HIP-3
- * dexes) as Hyperliquid names them, and every Lighter, Lighter RH and Aster market with the venue's prefix
+ * dexes) as Hyperliquid names them, and every Lighter, Lighter RH, Aster and Extended market with the venue's prefix
  * ("aster:BTC"). Per venue: majors first, then crypto A-Z, then stocks A-Z.
  */
 export function readAlertCoins(hlMids: Record<string, number>, others: Array<{ venue: Exclude<PriceVenue, "hyperliquid">; markets: PriceMarket[] }>): AlertCoin[] {

@@ -4,8 +4,10 @@ import hlVaults from "./fixtures/hl-vaults.json";
 import lighterPnl from "./fixtures/lighter-pnl.json";
 import lighterPools from "./fixtures/lighter-pools.json";
 import orderlyPerformance from "./fixtures/orderly-performance.json";
+import extendedSummary from "./fixtures/extended-summary.json";
+import extendedPerformance from "./fixtures/extended-performance.json";
 import orderlyVaults from "./fixtures/orderly-vaults.json";
-import { hlHistory, lighterHistory, lighterNextIndex, orderlyHistory, readHlStakes, readHlVaults, readLighterPools, readLighterStakes, readOrderlyVaults, summarize } from "./parse";
+import { extendedHistory, readExtendedVault, hlHistory, lighterHistory, lighterNextIndex, orderlyHistory, readHlStakes, readHlVaults, readLighterPools, readLighterStakes, readOrderlyVaults, summarize } from "./parse";
 
 const DAY = 86_400_000;
 
@@ -146,5 +148,25 @@ describe("wallet stakes", () => {
     const stakes = readLighterStakes(raw, "lighter", (id) => (id === "281474976710654" ? 0.4 : undefined));
     expect(stakes).toEqual([{ venue: "lighter", id: "281474976710654", value: 600, entry: 450.5, lockedUntil: null, shares: { 1: 1000, 2: 500 } }]);
     expect(readLighterStakes({ accounts: [{ shares: [] }] }, "lighter", () => 1)).toEqual([]);
+  });
+});
+
+describe("readExtendedVault / extendedHistory", () => {
+  it("reads the one vault with its 30-day APR as a fraction", () => {
+    const now = Date.UTC(2026, 9, 11);
+    const [row] = readExtendedVault(extendedSummary, "https://app.extended.exchange", now);
+    expect(row).toMatchObject({ venue: "extended", id: "xvs", kind: "protocol", lockHours: 24, minDeposit: 5, url: "https://app.extended.exchange/vault" });
+    expect(row.tvl).toBeGreaterThan(1_000_000);
+    expect(row.apr).toBeGreaterThan(0);
+    expect(row.apr).toBeLessThan(1);
+    expect(row.createdAt).toBeLessThan(now);
+    expect(readExtendedVault({ status: "ERROR" }, "https://x")).toEqual([]);
+  });
+
+  it("lists PnL and drawdown per period", () => {
+    const history = extendedHistory(extendedPerformance);
+    expect(history.periods?.map((period) => period.range)).toEqual(["7d", "Month", "1y", "all_time"]);
+    expect(history.maxDrawdown).toBe(history.periods?.at(-1)?.maxDrawdown);
+    expect(history.points).toEqual([]);
   });
 });

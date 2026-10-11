@@ -18,4 +18,14 @@ describe("readAlertCoins", () => {
     const { messages } = priceMessages([{ id: "a", coin: "aster:BTC", direction: "above", price: 1.5 }], prices, []);
     expect(messages[0]).toBe("🎯 BTC (Aster) is above $1.50 (now $2.00)");
   });
+
+  it("prices Extended markets under their own prefix", () => {
+    const coins = readAlertCoins({}, [
+      { venue: "aster", markets: [{ symbol: "BTC", price: 2, stock: false }] },
+      { venue: "extended", markets: [{ symbol: "BTC", price: 3, stock: false }] },
+    ]);
+    expect(coins.map((entry) => entry.coin)).toEqual(["aster:BTC", "extended:BTC"]);
+    const { messages } = priceMessages([{ id: "a", coin: "extended:BTC", direction: "below", price: 4 }], alertPrices(coins), []);
+    expect(messages[0]).toBe("🎯 BTC (Extended) is below $4.00 (now $3.00)");
+  });
 });
