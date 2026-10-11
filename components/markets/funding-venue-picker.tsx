@@ -16,6 +16,7 @@ export const FUNDING_VENUE_LABELS: Record<FundingVenue, string> = {
   aster: "Aster",
   orderly: "Orderly",
   extended: "Extended",
+  qfex: "QFEX",
   binance: "Binance",
   bybit: "Bybit",
 };

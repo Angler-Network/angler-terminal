@@ -49,7 +49,7 @@ export const toastPositions: { value: ToastPosition; label: string }[] = [
 ];
 
 /** Where the Angler chart's candles come from: "auto" follows the venue picked in the order panel. */
-export type ChartSource = "auto" | "hyperliquid" | "lighter" | "lighterRh" | "aster" | "orderly" | "extended" | "binance";
+export type ChartSource = "auto" | "hyperliquid" | "lighter" | "lighterRh" | "aster" | "orderly" | "extended" | "qfex" | "binance";
 
 export const chartDataSources: { value: ChartDataSource; label: string }[] = [
   { value: "binance", label: "Binance" },
@@ -225,6 +225,8 @@ export interface Preferences extends Appearance {
   /** Orderly perps (our broker on Orderly's shared book), quoted and routed with the other perp venues. */
   venueOrderly: boolean;
   venueExtended: boolean;
+  /** QFEX perps (stocks, indices, commodities), traded with the user's own QFEX API key and our builder code. */
+  venueQfex: boolean;
   venueJupiter: boolean;
   venueArcus: boolean;
   /** Quote Robinhood Chain stock tokens on Uniswap too and swap on the better of Uniswap and Arcus (mainnet). */
@@ -349,6 +351,7 @@ export const defaultPreferences: Preferences = {
   // On by default once our broker id is set; before that (testnet's demo broker), only for those who turn it on.
   venueOrderly: venueAvailable("orderly") && Boolean(process.env.NEXT_PUBLIC_ORDERLY_BROKER_ID?.trim()),
   venueExtended: venueAvailable("extended"),
+  venueQfex: venueAvailable("qfex"),
   venueJupiter: venueAvailable("jupiter"),
   venueArcus: venueAvailable("arcus"),
   venueUniswap: venueAvailable("uniswap"),
@@ -387,7 +390,7 @@ function readSize(value: unknown) {
 
 export type OrderConfirm = "click" | "hold";
 export type VenuePickerStyle = "icons" | "dropdown";
-const PERP_VENUE_IDS: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
+const PERP_VENUE_IDS: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex"];
 
 function readHiddenVenueIcons(value: unknown): PerpVenueId[] {
   if (!Array.isArray(value)) return [];
@@ -449,7 +452,7 @@ export function parsePreferences(raw: string | null): Preferences {
           ? chartDataSources.find((source) => source.value !== primary)!.value
           : fallback,
       chartMarket: stored.chartMarket === "spot" ? "spot" : "perp",
-      chartSource: (["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
+      chartSource: (["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex", "binance"] as const).find((source) => source === stored.chartSource) ?? "auto",
       showChart: readBoolean(stored.showChart, defaultPreferences.showChart),
       chartSymbol:
         typeof stored.chartSymbol === "string" && ASSET_SYMBOL.test(stored.chartSymbol)
@@ -528,6 +531,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueAster: venueSwitch("aster", stored.venueAster, defaultPreferences.venueAster),
       venueOrderly: venueSwitch("orderly", stored.venueOrderly, defaultPreferences.venueOrderly),
       venueExtended: venueSwitch("extended", stored.venueExtended, defaultPreferences.venueExtended),
+      venueQfex: venueSwitch("qfex", stored.venueQfex, defaultPreferences.venueQfex),
       // Venues this site can't run (testnet: Jupiter/Titan; mainnet: anything not configured) stay off.
       venueJupiter: venueSwitch("jupiter", stored.venueJupiter, defaultPreferences.venueJupiter),
       venueArcus: venueSwitch("arcus", stored.venueArcus, defaultPreferences.venueArcus),
@@ -538,7 +542,7 @@ export function parsePreferences(raw: string | null): Preferences {
       venueTitan: venueSwitch("titan", stored.venueTitan, defaultPreferences.venueTitan),
       venueZerox: venueSwitch("zerox", stored.venueZerox, defaultPreferences.venueZerox),
       venueKyberswap: venueSwitch("kyberswap", stored.venueKyberswap, defaultPreferences.venueKyberswap),
-      preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" || stored.preferredPerpVenue === "orderly" || stored.preferredPerpVenue === "extended" ? stored.preferredPerpVenue : "hyperliquid",
+      preferredPerpVenue: stored.preferredPerpVenue === "lighter" || stored.preferredPerpVenue === "lighterRh" || stored.preferredPerpVenue === "aster" || stored.preferredPerpVenue === "orderly" || stored.preferredPerpVenue === "extended" || stored.preferredPerpVenue === "qfex" ? stored.preferredPerpVenue : "hyperliquid",
       bridgeAcross: readBoolean(stored.bridgeAcross, defaultPreferences.bridgeAcross),
       bridgeRelay: readBoolean(stored.bridgeRelay, defaultPreferences.bridgeRelay),
       bridgeLifi: readBoolean(stored.bridgeLifi, defaultPreferences.bridgeLifi),

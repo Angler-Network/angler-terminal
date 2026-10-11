@@ -36,6 +36,10 @@ import { orderlyVenue } from "@/lib/venues/orderly/venue";
 import { forgetExtendedKey, readExtendedRecord, type ExtendedOnboarding } from "@/lib/venues/extended/store";
 import { extendedVenue } from "@/lib/venues/extended/venue";
 import { extendedConfig } from "@/lib/venues/extended/config";
+import { forgetQfexKey, readQfexRecord, writeQfexKey, type QfexOnboarding } from "@/lib/venues/qfex/store";
+import { qfexVenue } from "@/lib/venues/qfex/venue";
+import { qfexConfig } from "@/lib/venues/qfex/config";
+import { dropCryptoClashes } from "@/lib/venues/qfex/markets";
 import { PERP_VENUE_NAMES, perpVenueOrder, type MarketsByVenue } from "@/lib/venues/routing";
 import type {
   AccountSnapshot,
@@ -54,7 +58,7 @@ import { trackPerpOrder } from "@/lib/analytics/client";
 import { useSelectedAsset } from "./selected-asset";
 import { useWallet } from "./wallet-provider";
 
-const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue, orderly: orderlyVenue, extended: extendedVenue };
+const venues: Record<PerpVenueId, PerpVenue> = { hyperliquid: hyperliquidVenue, lighter: lighterVenue, lighterRh: lighterRhVenue, aster: asterVenue, orderly: orderlyVenue, extended: extendedVenue, qfex: qfexVenue };
 
 interface TradingContextValue {
   /** Hyperliquid network (the chart and the EVM wallet group follow it). */
@@ -105,6 +109,11 @@ interface TradingContextValue {
   /** Runs Extended's setup (two wallet signatures and a message); with `referral`, registers with our code (first time only). */
   approveExtended: (options?: { referral?: boolean }) => Promise<boolean>;
   revokeExtended: () => void;
+  /** QFEX setup: the user's own QFEX API key pair, checked against QFEX and kept encrypted in this browser. */
+  qfex: QfexOnboarding | null;
+  /** Checks and stores a QFEX key pair; false (with a toast) when QFEX refuses it. */
+  saveQfexKey: (publicKey: string, secret: string) => Promise<boolean>;
+  revokeQfex: () => void;
   approveOrderly: (step: "register" | "key") => Promise<boolean>;
   revokeOrderly: () => void;
   /** The fill (or resting order), or null when nothing was placed; callers report it to analytics. */
@@ -138,7 +147,7 @@ export function useTrading() {
 }
 
 function venueError(venue: PerpVenueId, error: unknown) {
-  if (venue === "aster" || venue === "orderly" || venue === "extended") return error instanceof Error ? error : new Error(String(error));
+  if (venue === "aster" || venue === "orderly" || venue === "extended" || venue === "qfex") return error instanceof Error ? error : new Error(String(error));
   return isLighterVenue(venue) ? toLighterVenueError(error) : toVenueError(error);
 }
 
@@ -444,6 +453,63 @@ function useExtendedInstance(enabled: boolean, address: `0x${string}` | null, ge
   return { markets, state, account, approve, revoke, ready };
 }
 
+/**
+ * QFEX for the connected wallet: markets, setup state (the user's own API key, encrypted in this browser) and the
+ * account once set up. Setup is pasting a key pair created on qfex.com, checked by authenticating with it.
+ */
+function useQfexInstance(enabled: boolean, address: `0x${string}` | null, toast: Toast) {
+  const markets = useVenueMarkets(qfexVenue, enabled);
+  const [state, setState] = useState<QfexOnboarding | null>(null);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const refresh = useCallback(() => {
+    if (!address || !enabled) return setState(null);
+    const record = readQfexRecord(address);
+    setState({ ready: Boolean(record), publicKey: record?.publicKey ?? null });
+  }, [address, enabled]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const ready = Boolean(state?.ready);
+  useEffect(() => {
+    setAccount(null);
+    if (!address || !enabled || !ready) return;
+    return qfexVenue.subscribeAccount(address, {
+      onSnapshot: setAccount,
+      onError: (error) => console.warn(`[qfex] account: ${error instanceof Error ? error.message : String(error)}`),
+    });
+  }, [address, enabled, ready]);
+
+  const save = useCallback(
+    async (publicKey: string, secret: string) => {
+      if (!address) return false;
+      try {
+        const { verifyQfexKey } = await import("@/lib/venues/qfex/venue");
+        await verifyQfexKey({ publicKey, secret });
+        await writeQfexKey(address, publicKey, secret);
+        refresh();
+        toast({ tone: "success", title: "QFEX trading ready", message: "Orders go to QFEX with your API key; it stays encrypted in this browser." });
+        return true;
+      } catch (error) {
+        toast({ tone: "error", title: "QFEX key not accepted", message: error instanceof Error ? error.message : String(error) });
+        return false;
+      }
+    },
+    [address, refresh, toast],
+  );
+
+  const revoke = useCallback(() => {
+    if (!address) return;
+    const publicKey = readQfexRecord(address)?.publicKey;
+    forgetQfexKey(address);
+    if (publicKey) void import("@/lib/venues/qfex/trade-socket").then(({ dropQfexSocket }) => dropQfexSocket(publicKey));
+    refresh();
+    toast({ tone: "info", title: "QFEX key removed from this browser", message: "Delete it on qfex.com too if you won't use it again." });
+  }, [address, refresh, toast]);
+
+  return { markets, state, account, save, revoke, ready };
+}
+
 export function TradingProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
   const { preferences } = usePreferences();
@@ -454,6 +520,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const asterEnabled = preferences.venueAster;
   const orderlyEnabled = preferences.venueOrderly;
   const extendedEnabled = preferences.venueExtended;
+  const qfexEnabled = preferences.venueQfex;
   // Hyperliquid markets also feed the chart, so they load even when Hyperliquid trading is off.
   const markets = useVenueMarkets(hyperliquidVenue, true);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -463,8 +530,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [depositMode, setDepositMode] = useState<FundsMode>("deposit");
   const openDeposit = useCallback((venue: PerpVenueId, mode: FundsMode = "deposit") => {
     // Extended's deposits (Rhino.fi behind its own API) aren't in the funds window yet: its app handles them.
-    if (venue === "extended") {
-      window.open(extendedConfig.app, "_blank", "noopener,noreferrer");
+    if (venue === "extended" || venue === "qfex") {
+      window.open(venue === "qfex" ? qfexConfig.app : extendedConfig.app, "_blank", "noopener,noreferrer");
       return;
     }
     setDepositVenue(venue);
@@ -501,6 +568,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const aster = useAsterInstance(asterEnabled, address, getWalletClient, toast);
   const orderly = useOrderlyInstance(orderlyEnabled, address, getWalletClient, toast);
   const extended = useExtendedInstance(extendedEnabled, address, getWalletClient, toast);
+  const qfex = useQfexInstance(qfexEnabled, address, toast);
   const lighter = lighterCore.state;
   const lighterStates = useMemo(() => ({ lighter: lighterCore.state, lighterRh: lighterRh.state }), [lighterCore.state, lighterRh.state]);
 
@@ -512,8 +580,25 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       aster: asterEnabled ? (aster.markets ?? undefined) : [],
       orderly: orderlyEnabled ? (orderly.markets ?? undefined) : [],
       extended: extendedEnabled ? (extended.markets ?? undefined) : [],
+      // QFEX lists stocks whose tickers can be crypto tickers elsewhere: held until Hyperliquid's list can be compared.
+      qfex: qfexEnabled ? (qfex.markets && markets ? dropCryptoClashes(qfex.markets, [markets, lighterCore.markets, lighterRh.markets, aster.markets, orderly.markets, extended.markets].flatMap((list) => list ?? [])) : undefined) : [],
     }),
-    [preferences.venueHyperliquid, markets, lighterEnabled, lighterCore.markets, lighterRhEnabled, lighterRh.markets, asterEnabled, aster.markets, orderlyEnabled, orderly.markets, extendedEnabled, extended.markets],
+    [
+      preferences.venueHyperliquid,
+      markets,
+      lighterEnabled,
+      lighterCore.markets,
+      lighterRhEnabled,
+      lighterRh.markets,
+      asterEnabled,
+      aster.markets,
+      orderlyEnabled,
+      orderly.markets,
+      extendedEnabled,
+      extended.markets,
+      qfexEnabled,
+      qfex.markets,
+    ],
   );
 
   const perpOrder = useMemo(
@@ -525,8 +610,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         aster: asterEnabled,
         orderly: orderlyEnabled,
         extended: extendedEnabled,
+        qfex: qfexEnabled,
       }),
-    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled, orderlyEnabled, extendedEnabled],
+    [preferences.preferredPerpVenue, preferences.venueHyperliquid, lighterEnabled, lighterRhEnabled, asterEnabled, orderlyEnabled, extendedEnabled, qfexEnabled],
   );
 
   const refreshOnboarding = useCallback(async () => {
@@ -555,8 +641,12 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const isReady = Boolean(onboarding?.builderApproved && onboarding.agentAddress);
   const isVenueReady = useCallback(
     (venue: PerpVenueId) =>
-      venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : venue === "orderly" ? orderly.ready : venue === "extended" ? extended.ready : lighterByVenue[venue].ready,
-    [isReady, lighterByVenue, aster.ready, orderly.ready, extended.ready],
+      venue === "hyperliquid" ? isReady : venue === "aster" ? aster.ready : venue === "orderly" ? orderly.ready : venue === "extended"
+              ? extended.ready
+              : venue === "qfex"
+                ? qfex.ready
+                : lighterByVenue[venue].ready,
+    [isReady, lighterByVenue, aster.ready, orderly.ready, extended.ready, qfex.ready],
   );
 
   const approveBuilder = useCallback(async () => {
@@ -730,8 +820,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       ...(asterEnabled ? { aster: aster.account } : {}),
       ...(orderlyEnabled ? { orderly: orderly.account } : {}),
       ...(extendedEnabled ? { extended: extended.account } : {}),
+      ...(qfexEnabled ? { qfex: qfex.account } : {}),
     }),
-    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account, orderlyEnabled, orderly.account, extendedEnabled, extended.account],
+    [hlAccount, lighterCore.account, lighterEnabled, lighterRh.account, lighterRhEnabled, asterEnabled, aster.account, orderlyEnabled, orderly.account, extendedEnabled, extended.account, qfexEnabled, qfex.account],
   );
 
   const account = useMemo<AccountSnapshot | null>(() => {
@@ -781,6 +872,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       extended: extended.state,
       approveExtended: extended.approve,
       revokeExtended: extended.revoke,
+      qfex: qfex.state,
+      saveQfexKey: qfex.save,
+      revokeQfex: qfex.revoke,
       placeOrder,
       cancelOrder,
       closePosition,
@@ -824,6 +918,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       extended.state,
       extended.approve,
       extended.revoke,
+      qfex.state,
+      qfex.save,
+      qfex.revoke,
       placeOrder,
       cancelOrder,
       closePosition,

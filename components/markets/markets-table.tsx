@@ -29,7 +29,7 @@ const arbVenues = (row: { venues: Partial<Record<PerpVenueId, unknown>> }) => TR
 
 const VENUE_LABELS = FUNDING_VENUE_LABELS;
 /** Under each funding column's logo: the Lighter logos look alike, so every column names its venue. */
-const VENUE_SHORT: Record<FundingVenue, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", binance: "Binance", bybit: "Bybit" };
+const VENUE_SHORT: Record<FundingVenue, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", qfex: "QFEX", binance: "Binance", bybit: "Bybit" };
 
 type SortKey = "volume" | "openInterest" | "change" | "arb" | "symbol" | FundingVenue;
 

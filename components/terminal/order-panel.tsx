@@ -109,6 +109,7 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
   aster: { domain: "asterdex.com" },
   orderly: { domain: "orderly.network" },
   extended: { domain: "extended.exchange" },
+  qfex: { domain: "qfex.com" },
   solana: { domain: "jup.ag", chain: "solana" },
   arcus: { domain: "arcus.xyz", chain: 4663 },
 };

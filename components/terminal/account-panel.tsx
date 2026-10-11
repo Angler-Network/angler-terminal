@@ -14,6 +14,7 @@ import { lighterConfigs, type LighterVenueId } from "@/lib/venues/lighter/config
 import { ASTER_APP_URL } from "@/lib/venues/aster/config";
 import { orderlyConfig } from "@/lib/venues/orderly/config";
 import { extendedConfig } from "@/lib/venues/extended/config";
+import { qfexConfig } from "@/lib/venues/qfex/config";
 import type { PerpVenueId } from "@/lib/venues/types";
 import { USDC_MINT } from "@/lib/venues/jupiter/config";
 import { jupiterVenue } from "@/lib/venues/jupiter/venue";
@@ -361,6 +362,35 @@ function ExtendedSection() {
   );
 }
 
+function QfexSection() {
+  const { accounts, isVenueReady, openSetup } = useTrading();
+  const account = accounts.qfex ?? null;
+  const ready = isVenueReady("qfex");
+  return (
+    <Section title="QFEX perps" badge="Mainnet">
+      <Row label="Account value">{account ? formatPrice(account.accountValue) : "—"}</Row>
+      <Row label="Available">{account ? formatPrice(account.withdrawable) : "—"}</Row>
+      <div className="flex gap-2">
+        <a
+          href={qfexConfig.app}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Deposits and withdrawals happen on qfex.com"
+          className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-app-hairline-strong text-[12px] font-semibold text-app-ink hover:bg-app-chip"
+        >
+          Deposit on QFEX
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+        {!ready && (
+          <button type="button" onClick={() => openSetup("qfex")} className="h-8 flex-1 rounded-lg bg-app-accent text-[12px] font-semibold text-app-on-accent">
+            Set up trading
+          </button>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function PerpSection({ venue }: { venue: PerpVenueId }) {
   return venue === "hyperliquid" ? (
     <HyperliquidSection />
@@ -370,6 +400,8 @@ function PerpSection({ venue }: { venue: PerpVenueId }) {
     <OrderlySection />
   ) : venue === "extended" ? (
     <ExtendedSection />
+  ) : venue === "qfex" ? (
+    <QfexSection />
   ) : (
     <LighterSection venue={venue} />
   );
@@ -382,7 +414,7 @@ function PerpSection({ venue }: { venue: PerpVenueId }) {
 function PerpAccount() {
   const { preferences } = usePreferences();
   const { tradeVenue } = useSelectedAsset();
-  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh, aster: preferences.venueAster, orderly: preferences.venueOrderly, extended: preferences.venueExtended };
+  const enabled: Record<PerpVenueId, boolean> = { hyperliquid: preferences.venueHyperliquid, lighter: preferences.venueLighter, lighterRh: preferences.venueLighterRh, aster: preferences.venueAster, orderly: preferences.venueOrderly, extended: preferences.venueExtended, qfex: preferences.venueQfex };
   const venue = [tradeVenue, preferences.preferredPerpVenue, ...(Object.keys(enabled) as PerpVenueId[])].find((entry): entry is PerpVenueId => Boolean(entry && enabled[entry]));
   if (!venue) return null;
   return <PerpSection venue={venue} />;

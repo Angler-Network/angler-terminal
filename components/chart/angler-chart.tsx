@@ -68,7 +68,7 @@ interface CandleData {
   poolName?: string;
 }
 
-const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", pool: "DEX pool" };
+const SOURCE_NAMES: Record<CandleSource, string> = { binance: "Binance", hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", qfex: "QFEX", pool: "DEX pool" };
 
 /**
  * A spot token's own candles: from GeckoTerminal in the browser (`pool-direct.ts`, the visitor's own allowance), else
@@ -98,14 +98,16 @@ async function loadPoolCandles(network: PoolNetwork, address: string, interval: 
  * fetches only the latest candles for a refresh.
  */
 async function loadVenueCandles(venue: PerpVenueId, market: VenueMarket, interval: ChartInterval, since?: number) {
-  if (venue === "aster" || venue === "orderly" || venue === "extended") {
+  if (venue === "aster" || venue === "orderly" || venue === "extended" || venue === "qfex") {
     try {
       const own =
         venue === "aster"
           ? (await import("@/lib/venues/aster/venue")).asterVenue
           : venue === "orderly"
             ? (await import("@/lib/venues/orderly/venue")).orderlyVenue
-            : (await import("@/lib/venues/extended/venue")).extendedVenue;
+            : venue === "extended"
+              ? (await import("@/lib/venues/extended/venue")).extendedVenue
+              : (await import("@/lib/venues/qfex/venue")).qfexVenue;
       const candles = await own.loadCandles(market, interval, since ?? Date.now() - intervalDuration(interval) * CANDLE_COUNT);
       return candles.length > 0 ? { origin: "venue" as const, source: venue as CandleSource, candles } : null;
     } catch {
@@ -131,7 +133,7 @@ async function loadBookCandles(book: BookSpotChart, interval: ChartInterval, sin
   return result && { ...result, origin: "book" as const };
 }
 
-const CHART_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
+const CHART_VENUES: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex"];
 
 /** Perp venues to try, in order: the chosen one (or the order panel's on "auto"), then the others. */
 function venueOrder(chartSource: ChartSource, tradeVenue: PerpVenueId | null): PerpVenueId[] {
@@ -200,6 +202,7 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
   const asterList = marketsByVenue.aster;
   const orderlyList = marketsByVenue.orderly;
   const extendedList = marketsByVenue.extended;
+  const qfexList = marketsByVenue.qfex;
   const venueMarkets = useMemo<Partial<Record<PerpVenueId, VenueMarket | null>>>(
     () => ({
       hyperliquid: venueMarket ?? null,
@@ -208,8 +211,9 @@ export function AnglerChart({ symbol, interval, isStock, items, venueMarket, spo
       aster: asterList ? findMarket(asterList, symbol) : null,
       orderly: orderlyList ? findMarket(orderlyList, symbol) : null,
       extended: extendedList ? findMarket(extendedList, symbol) : null,
+      qfex: qfexList ? findMarket(qfexList, symbol) : null,
     }),
-    [venueMarket, lighterList, lighterRhList, asterList, orderlyList, extendedList, symbol],
+    [venueMarket, lighterList, lighterRhList, asterList, orderlyList, extendedList, qfexList, symbol],
   );
   // The picker offers only the venues that list this asset; Binance's public feed only when none does (news-only
   // assets). A saved pick that doesn't list it charts as Auto, but is kept while its market list is still loading.

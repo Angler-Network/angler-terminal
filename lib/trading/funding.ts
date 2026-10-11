@@ -4,15 +4,15 @@
  * symbol, normalized to 8 hours (Hyperliquid's hourly 0.0000125 shows as 0.0001). Pure, unit-tested.
  */
 
-export const FUNDING_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "binance", "bybit"] as const;
+export const FUNDING_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex", "binance", "bybit"] as const;
 /** The funding feed's venue for a perp venue (Lighter RH's rates come from its own feed, `/api/funding`). */
 export function fundingVenueOf(venue: string): FundingVenue | null {
-  return venue === "hyperliquid" || venue === "lighter" || venue === "lighterRh" || venue === "aster" || venue === "orderly" || venue === "extended" ? venue : null;
+  return venue === "hyperliquid" || venue === "lighter" || venue === "lighterRh" || venue === "aster" || venue === "orderly" || venue === "extended" || venue === "qfex" ? venue : null;
 }
 
 export type FundingVenue = (typeof FUNDING_VENUES)[number];
 /** Venues the terminal can trade, so arbitrage suggestions stay actionable. */
-export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
+export const TRADABLE_FUNDING_VENUES: FundingVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex"];
 
 export type FundingTable = Record<string, Partial<Record<FundingVenue, number>>>;
 

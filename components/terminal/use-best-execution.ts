@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { HL_BASE_TAKER_FEE, compareExecution, readLighterRestBook, splitExecution, type SplitPlan, type VenueQuote } from "@/lib/trading/execution";
 import { readAsterBook, readExtendedBook, readHlBook, type BookSide } from "@/lib/trading/orderbook";
 import { extendedConfig } from "@/lib/venues/extended/config";
+import { qfexConfig } from "@/lib/venues/qfex/config";
+import { readQfexBook } from "@/lib/venues/qfex/markets";
 import { asterConfig } from "@/lib/venues/aster/config";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
@@ -28,6 +30,8 @@ export function takerFeeFor(market: VenueMarket) {
   if (market.venue === "orderly") return orderlyConfig.takerFee;
   // Extended: its base taker fee plus our builder fee (mainnet).
   if (market.venue === "extended") return EXTENDED_BASE_TAKER_FEE + (extendedConfig.builderId ? extendedConfig.builderFee : 0);
+  // QFEX: its own fee at the entry tier; our builder share comes out of it, so the trader pays nothing on top.
+  if (market.venue === "qfex") return market.takerFee ?? 0.001;
   return (market.takerFee ?? 0) + (lighterConfigs[market.venue].integrator?.takerFee ?? 0) / 1_000_000;
 }
 
@@ -54,6 +58,11 @@ async function fetchBook(market: VenueMarket): Promise<BookSide | null> {
     const response = await fetch(`${extendedConfig.proxy}/${extendedConfig.network}/api/v1/info/markets/${encodeURIComponent(market.coin)}/orderbook`);
     return response.ok ? readExtendedBook(((await response.json()) as { data?: unknown }).data) : null;
   }
+  if (market.venue === "qfex") {
+    // QFEX's REST API has no CORS: through our proxy (cached 2s at the edge).
+    const response = await fetch(`${qfexConfig.proxy}/md/orderbook/${encodeURIComponent(market.coin)}`);
+    return response.ok ? readQfexBook(await response.json()) : null;
+  }
   // Each Lighter exchange (core, Robinhood) has its own books.
   const response = await fetch(`${lighterConfigs[market.venue].apiUrl}/api/v1/orderBookOrders?market_id=${market.assetId}&limit=100`);
   return response.ok ? readLighterRestBook(await response.json()) : null;
@@ -64,7 +73,7 @@ export function minOrderUsd(market: VenueMarket) {
   if (market.venue === "hyperliquid") return HL_MIN_ORDER_USD;
   if (market.venue === "aster") return market.minQuoteAmount ?? 5;
   if (market.venue === "orderly") return market.minQuoteAmount ?? 10;
-  if (market.venue === "extended") return (market.minBaseAmount ?? 0) * (market.midPx ?? market.markPx ?? 0);
+  if (market.venue === "extended" || market.venue === "qfex") return (market.minBaseAmount ?? 0) * (market.midPx ?? market.markPx ?? 0);
   const price = market.midPx ?? market.markPx;
   return price ? minimumSize(market, price) * price : 0;
 }

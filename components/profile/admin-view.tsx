@@ -19,6 +19,7 @@ const VENUE_NAMES: Record<string, string> = {
   aster: "Aster",
   orderly: "Orderly",
   extended: "Extended",
+  qfex: "QFEX",
   jupiter: "Jupiter",
   titan: "Titan",
   arcus: "Arcus",

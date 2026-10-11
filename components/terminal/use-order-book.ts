@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { hlConfig } from "@/lib/venues/hyperliquid/config";
 import { ASTER_API_URL } from "@/lib/venues/aster/config";
 import { extendedConfig } from "@/lib/venues/extended/config";
+import { qfexConfig } from "@/lib/venues/qfex/config";
+import { readQfexBook } from "@/lib/venues/qfex/markets";
 import { lighterConfigs } from "@/lib/venues/lighter/config";
 import type { VenueMarket } from "@/lib/venues/types";
 import {
@@ -26,6 +28,8 @@ const MAX_TRADES = 60;
 const PING_MS = 45_000;
 const RETRY_MS = 3_000;
 const ASTER_POLL_MS = 1_000;
+/** How long QFEX's market data socket may stay quiet before the REST book stands in. */
+const QFEX_SILENT_MS = 3_000;
 
 export type BookStatus = "connecting" | "live" | "offline";
 
@@ -67,6 +71,53 @@ export function useOrderBook(market: VenueMarket | null) {
       return () => {
         live = false;
         window.clearInterval(timer);
+      };
+    }
+    if (market.venue === "qfex") {
+      // QFEX: its public market data WebSocket (a 20-level book every 500ms, trades as they print), with our proxy's REST
+      // book while the socket is silent (it can't open, or hasn't sent yet).
+      let live = true;
+      let stop = () => {};
+      let lastStream = 0;
+      let pending: TapeTrade[] = [];
+      const flushTrades = window.setInterval(() => {
+        if (pending.length === 0) return;
+        const fresh = pending;
+        pending = [];
+        setTrades((current) => [...fresh, ...current].slice(0, MAX_TRADES));
+      }, FLUSH_MS);
+      const poll = async () => {
+        if (Date.now() - lastStream < QFEX_SILENT_MS || document.visibilityState === "hidden") return;
+        try {
+          const response = await fetch(`${qfexConfig.proxy}/md/orderbook/${encodeURIComponent(market.coin)}`);
+          const parsed = response.ok ? readQfexBook(await response.json()) : null;
+          if (!live || Date.now() - lastStream < QFEX_SILENT_MS) return;
+          if (parsed) setBook(parsed);
+          setStatus(parsed ? "live" : "offline");
+        } catch {
+          if (live) setStatus("offline");
+        }
+      };
+      void poll();
+      const timer = window.setInterval(() => void poll(), ASTER_POLL_MS);
+      void import("@/lib/venues/qfex/stream").then(({ watchQfex }) => {
+        if (!live) return;
+        stop = watchQfex(market.coin, {
+          book: (next) => {
+            lastStream = Date.now();
+            setBook(next);
+            setStatus("live");
+          },
+          trade: (trade) => {
+            pending = [trade, ...pending];
+          },
+        });
+      });
+      return () => {
+        live = false;
+        stop();
+        window.clearInterval(timer);
+        window.clearInterval(flushTrades);
       };
     }
     if (market.venue === "extended") {

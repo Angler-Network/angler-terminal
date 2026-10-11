@@ -23,7 +23,7 @@ export function pinnedNetwork<N extends string>(pinned: Deployment | null, overr
   return pinned ?? override ?? fromEnv;
 }
 
-export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "lifi", "aster", "orderly", "extended"] as const;
+export const VENUE_KEYS = ["hyperliquid", "lighter", "lighterRh", "jupiter", "titan", "arcus", "uniswap", "zerox", "kyberswap", "lifi", "aster", "orderly", "extended", "qfex"] as const;
 export type VenueKey = (typeof VENUE_KEYS)[number];
 
 /** Venues whose required settings this build has (computed in next.config.mjs from env presence, names only). */
@@ -35,9 +35,10 @@ export function readConfiguredVenues(value: string | undefined) {
 
 /**
  * Venues with no testnet: on the testnet site they'd trade real funds on mainnet, so they stay off there. Aster too:
- * its API is mainnet only, so the testnet site offering it meant real-money perps behind a "Testnet" badge.
+ * its API is mainnet only, so the testnet site offering it meant real-money perps behind a "Testnet" badge. QFEX
+ * likewise (its pre-production API needs credentials from QFEX).
  */
-const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap", "lifi", "aster"]);
+const MAINNET_ONLY: ReadonlySet<VenueKey> = new Set(["jupiter", "titan", "uniswap", "zerox", "kyberswap", "lifi", "aster", "qfex"]);
 
 /**
  * Whether a venue can be used on this build. The mainnet site only offers venues whose settings are present (a

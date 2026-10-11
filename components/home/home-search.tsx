@@ -46,6 +46,7 @@ const PERP_MARKS: Record<PerpVenueId, { domain: string; chain?: number }> = {
   lighterRh: { domain: "lighter.xyz", chain: 4663 },
   aster: { domain: "asterdex.com" },
   extended: { domain: "extended.exchange" },
+  qfex: { domain: "qfex.com" },
   orderly: { domain: "orderly.network" },
 };
 

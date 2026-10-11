@@ -43,8 +43,8 @@ function SideGlyph({ view }: { view: SideView }) {
 }
 
 /** Venue colors in the merged book: depth segments, legend and trade dots. */
-const VENUE_COLORS: Record<PerpVenueId, string> = { hyperliquid: "#3fc8b0", lighter: "#8b8ff8", lighterRh: "#d6f24a", aster: "#f0b90b", orderly: "#c084fc", extended: "#7dd3fc" };
-const VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended" };
+const VENUE_COLORS: Record<PerpVenueId, string> = { hyperliquid: "#3fc8b0", lighter: "#8b8ff8", lighterRh: "#d6f24a", aster: "#f0b90b", orderly: "#c084fc", extended: "#7dd3fc", qfex: "#fb923c" };
+const VENUE_SHORT: Record<PerpVenueId, string> = { hyperliquid: "HL", lighter: "Lighter", lighterRh: "Lighter RH", aster: "Aster", orderly: "Orderly", extended: "Extended", qfex: "QFEX" };
 
 function decimalsFor(tick: number) {
   return tick >= 1 ? 0 : Math.min(8, Math.ceil(-Math.log10(tick) - 1e-9));

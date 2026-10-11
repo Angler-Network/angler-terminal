@@ -50,7 +50,7 @@ export const MAX_LABEL = 24;
 export const DEFAULT_COPY: CopySettings = { enabled: false, sizing: "fixed", usd: 100, ratio: 1, maxUsd: 1_000, leverage: 3, target: "same", coins: [] };
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const TARGETS: string[] = ["same", "best", "hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
+const TARGETS: string[] = ["same", "best", "hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "qfex"];
 const SYMBOL = /^[A-Za-z0-9]{1,20}$/;
 
 export function followId(source: FollowSource, address: string) {

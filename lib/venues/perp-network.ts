@@ -11,5 +11,6 @@ export function perpNetwork(venue: PerpVenueId): "mainnet" | "testnet" {
   if (venue === "aster") return asterConfig.network;
   if (venue === "orderly") return orderlyConfig.network;
   if (venue === "extended") return extendedConfig.network;
+  if (venue === "qfex") return "mainnet";
   return lighterConfigs[venue].network;
 }

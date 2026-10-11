@@ -115,9 +115,9 @@ const TITLES: Record<FundsKind, string> = { deposit: "Deposit", withdraw: "Withd
  * and this window runs them in order: every step is one wallet signature, waits (the withdrawal landing, the relayer
  * filling) keep polling with the window closed, and the next step waits for a press. Testnets use faucets.
  */
-/** The funds window's venue: Extended isn't one yet (its deposits open its own app instead, `openDeposit`). */
+/** The funds window's venue: Extended and QFEX aren't ones yet (their deposits open their own apps, `openDeposit`). */
 function fundsVenue(venue: PerpVenueId | null): BridgeVenueId {
-  return !venue || venue === "extended" ? "hyperliquid" : venue;
+  return !venue || venue === "extended" || venue === "qfex" ? "hyperliquid" : venue;
 }
 
 export function DepositDialog() {

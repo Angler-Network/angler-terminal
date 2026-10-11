@@ -552,9 +552,9 @@ const networkOptions: { value: NetworkChoice; label: string }[] = [
   { value: "mainnet", label: "Mainnet" },
 ];
 
-const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI swaps", aster: "Aster", orderly: "Orderly", extended: "Extended" };
+const venueNames: Record<VenueKey, string> = { hyperliquid: "Hyperliquid", lighter: "Lighter", lighterRh: "Lighter RH", jupiter: "Jupiter", titan: "Titan", arcus: "Arcus", uniswap: "Uniswap", zerox: "0x", kyberswap: "KyberSwap", lifi: "LI.FI swaps", aster: "Aster", orderly: "Orderly", extended: "Extended", qfex: "QFEX" };
 
-type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueExtended" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
+type VenuePreference = "venueHyperliquid" | "venueLighter" | "venueLighterRh" | "venueAster" | "venueOrderly" | "venueExtended" | "venueQfex" | "venueJupiter" | "venueTitan" | "venueArcus" | "venueUniswap" | "venueZerox" | "venueKyberswap" | "bridgeAcross" | "bridgeRelay" | "bridgeLifi";
 
 interface VenueTile {
   key: VenueKey | BridgeProvider;
@@ -588,6 +588,7 @@ const VENUE_GROUPS: Array<{ title: string; tiles: VenueTile[] }> = [
       { key: "aster", preference: "venueAster", domain: "asterdex.com", description: "Aster perps: crypto, stocks and commodities. Orders sign with a browser trading key that can never withdraw." },
       { key: "orderly", preference: "venueOrderly", domain: "orderly.network", description: "Orderly perps on its shared omnichain order book. Register once through Angler, then a browser trading key that can never withdraw." },
       { key: "extended", preference: "venueExtended", domain: "extended.exchange", description: "Extended perps: crypto plus stock, index and commodity markets. Set up once with your wallet; orders sign in the browser. Not offered in restricted countries (US, UK, Canada and others)." },
+      { key: "qfex", preference: "venueQfex", domain: "qfex.com", description: "QFEX perps on US stocks, indices and commodities, 24/7. Trade with an API key you create on qfex.com; it stays encrypted in this browser. QFEX doesn't onboard US, UK and some other residents." },
     ],
   },
   {
@@ -687,6 +688,7 @@ function VenueSettings() {
       preferences.venueAster && { value: "aster", label: "Aster" },
       preferences.venueOrderly && { value: "orderly", label: "Orderly" },
       preferences.venueExtended && { value: "extended", label: "Extended" },
+      preferences.venueQfex && { value: "qfex", label: "QFEX" },
     ] as Array<false | { value: PerpVenueId; label: string }>
   ).filter((option): option is { value: PerpVenueId; label: string } => Boolean(option));
 

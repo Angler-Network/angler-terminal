@@ -38,6 +38,8 @@ function readConfiguredVenues(env) {
     orderly: set(env.NEXT_PUBLIC_ORDERLY_BROKER_ID) || env.NEXT_PUBLIC_DEPLOYMENT === "testnet",
     // Extended pays our builder fee to the account NEXT_PUBLIC_EXTENDED_BUILDER_ID names (mainnet); testnet needs none.
     extended: set(env.NEXT_PUBLIC_EXTENDED_BUILDER_ID) || env.NEXT_PUBLIC_DEPLOYMENT === "testnet",
+    // QFEX shares its fee with the builder code NEXT_PUBLIC_QFEX_BUILDER_CODE names (mainnet only).
+    qfex: set(env.NEXT_PUBLIC_QFEX_BUILDER_CODE),
   };
   return Object.keys(venues)
     .filter((venue) => venues[venue])

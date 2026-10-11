@@ -7,6 +7,8 @@ import { isLighterVenue, lighterConfigs, type LighterVenueId } from "@/lib/venue
 import { ASTER_APP_URL, asterConfig } from "@/lib/venues/aster/config";
 import { orderlyConfig } from "@/lib/venues/orderly/config";
 import { extendedConfig } from "@/lib/venues/extended/config";
+import { qfexConfig } from "@/lib/venues/qfex/config";
+import { QFEX_PUBLIC_KEY, QFEX_SECRET_KEY } from "@/lib/venues/qfex/store";
 import { LighterFaucetButton } from "./lighter-faucet-button";
 import { useTrading } from "./trading-provider";
 import { useModalEnter } from "@/components/app/use-motion";
@@ -291,6 +293,86 @@ function ExtendedSteps() {
   );
 }
 
+/**
+ * QFEX: the user creates an API key on qfex.com (main account; execute orders and the three view permissions, never
+ * deposit/withdraw) and pastes the pair here. It's checked by authenticating with QFEX, then kept encrypted in this
+ * browser; our builder code rides on every trading connection made with it.
+ */
+function QfexSteps() {
+  const { qfex, saveQfexKey, revokeQfex } = useTrading();
+  const [publicKey, setPublicKey] = useState("");
+  const [secret, setSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const done = Boolean(qfex?.ready);
+  const valid = QFEX_PUBLIC_KEY.test(publicKey.trim()) && QFEX_SECRET_KEY.test(secret.trim());
+  const field = "h-9 w-full rounded-lg border border-app-field-border bg-app-field px-2.5 font-mono text-[12px] text-app-ink outline-hidden placeholder:font-sans placeholder:text-app-faint focus:border-app-focus";
+  return (
+    <ol className="mt-4 flex flex-col gap-2">
+      <li className="rounded-xl border border-app-hairline p-3 text-[12px] leading-relaxed text-app-muted">
+        <p className="font-semibold text-app-ink">1. Create an API key on QFEX</p>
+        <p className="mt-1">
+          On{" "}
+          <a href={qfexConfig.keysUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-app-ink hover:underline">
+            qfex.com
+          </a>
+          : profile → Developer Settings → Generate API keys (2FA needed). Account scope: your <b className="text-app-ink">main account</b>. Permissions:{" "}
+          <b className="text-app-ink">Execute orders, View orders, View positions, View balance</b>. Leave <b className="text-app-ink">Deposit and withdraw off</b>: Angler never needs it.
+        </p>
+      </li>
+      <li className={`flex flex-col gap-2 rounded-xl border p-3 ${done ? "border-app-hairline" : "border-app-hairline-strong bg-app-chip/60"}`}>
+        <p className="text-[12px] font-semibold text-app-ink">2. Paste it here</p>
+        {done ? (
+          <div className="flex items-center justify-between gap-2 text-[12px]">
+            <span className="flex min-w-0 items-center gap-1.5 text-app-up">
+              <Check className="size-4 shrink-0" aria-hidden />
+              <span className="truncate font-mono">{qfex?.publicKey}</span>
+            </span>
+            <button type="button" onClick={revokeQfex} className="shrink-0 font-semibold text-app-muted hover:text-app-ink">
+              Remove
+            </button>
+          </div>
+        ) : (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!valid || busy) return;
+              setBusy(true);
+              try {
+                if (await saveQfexKey(publicKey.trim(), secret.trim())) setSecret("");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <input value={publicKey} onChange={(event) => setPublicKey(event.target.value)} placeholder="Public key (qfex_pub_…)" aria-label="QFEX public key" autoComplete="off" spellCheck={false} className={field} />
+            <input
+              type="password"
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
+              placeholder="Secret key (qfex_secret_…)"
+              aria-label="QFEX secret key"
+              autoComplete="off"
+              spellCheck={false}
+              className={field}
+            />
+            <button type="submit" disabled={!valid || busy} className="flex h-9 items-center justify-center gap-2 rounded-lg bg-app-accent text-[13px] font-semibold text-app-on-accent disabled:opacity-50">
+              {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              {busy ? "Checking with QFEX…" : "Connect"}
+            </button>
+            <p className="text-[11px] leading-relaxed text-app-faint">
+              The secret is encrypted in this browser and only signs requests here; it&apos;s never sent to Angler. Deposits and withdrawals stay on qfex.com.
+            </p>
+          </form>
+        )}
+      </li>
+      <li className="rounded-lg bg-app-chip/40 px-3 py-2 text-[12px] text-app-muted">
+        QFEX doesn&apos;t onboard residents of the US, the UK, Spain and some other countries.
+      </li>
+    </ol>
+  );
+}
+
 /** Setup of one Lighter exchange: core Lighter, or Lighter on Robinhood Chain (same steps, its own account and key). */
 function LighterSteps({ venue }: { venue: LighterVenueId }) {
   const { lighterStates, refreshLighter, registerLighter, approveLighter, openDeposit } = useTrading();
@@ -409,7 +491,7 @@ function LighterSteps({ venue }: { venue: LighterVenueId }) {
  * (agent wallet). Lighter: deposit check, register a browser API key, approve the integrator when configured.
  */
 export function TradingSetupDialog() {
-  const { setupVenue, closeSetup, onboarding, lighterStates, aster, orderly, extended, isVenueReady, network } = useTrading();
+  const { setupVenue, closeSetup, onboarding, lighterStates, aster, orderly, extended, qfex, isVenueReady, network } = useTrading();
   const isDone = setupVenue !== null && isVenueReady(setupVenue);
 
   useEffect(() => {
@@ -417,7 +499,7 @@ export function TradingSetupDialog() {
       const timer = window.setTimeout(closeSetup, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [isDone, closeSetup, onboarding, lighterStates, aster, orderly, extended]);
+  }, [isDone, closeSetup, onboarding, lighterStates, aster, orderly, extended, qfex]);
 
   const backdropRef = useModalEnter(setupVenue !== null);
 
@@ -426,6 +508,7 @@ export function TradingSetupDialog() {
   const isAster = setupVenue === "aster";
   const isOrderly = setupVenue === "orderly";
   const isExtended = setupVenue === "extended";
+  const isQfex = setupVenue === "qfex";
   const isTestnet = isExtended
     ? extendedConfig.network === "testnet"
     : isOrderly
@@ -444,18 +527,17 @@ export function TradingSetupDialog() {
         <header className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="trading-setup-title" className="text-[16px] font-semibold text-app-ink">
-              Set up trading on {isAster ? "Aster" : isOrderly ? "Orderly" : isExtended ? "Extended" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
+              Set up trading on {isAster ? "Aster" : isOrderly ? "Orderly" : isExtended ? "Extended" : isQfex ? "QFEX" : lighterVenue ? lighterConfigs[lighterVenue].name : "Hyperliquid"}
             </h2>
             <p className="mt-1 text-[12px] text-app-muted">
-              {lighterVenue || isAster || isExtended ? "One-time setup" : "Two one-time signatures"}
-              {isTestnet ? " on testnet" : ""}. No funds move.
+              {isQfex ? "Connect your QFEX account with an API key. No funds move." : `${lighterVenue || isAster || isExtended ? "One-time setup" : "Two one-time signatures"}${isTestnet ? " on testnet" : ""}. No funds move.`}
             </p>
           </div>
           <button type="button" onClick={closeSetup} aria-label="Close" className="text-app-faint hover:text-app-ink">
             <X className="size-4" />
           </button>
         </header>
-        {isAster ? <AsterSteps /> : isOrderly ? <OrderlySteps /> : isExtended ? <ExtendedSteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
+        {isAster ? <AsterSteps /> : isOrderly ? <OrderlySteps /> : isExtended ? <ExtendedSteps /> : isQfex ? <QfexSteps /> : lighterVenue ? <LighterSteps venue={lighterVenue} /> : <HyperliquidSteps />}
       </div>
     </div>
   );

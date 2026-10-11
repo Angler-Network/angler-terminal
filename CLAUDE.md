@@ -219,6 +219,33 @@ dependency versions and design are free to diverge from angler-news.
   account (`linkExtendedPoints`, after setup and before each profile sync): `POST /api/profile/extended` with the
   account's API key in `x-extended-api-key`, read once for `/user/account/info` and never stored; one profile per account
   (`extended:{account}`). Not yet: the VIP discount on its builder fee.
+- QFEX (`lib/venues/qfex/`, a `PerpVenue`; docs docs.qfex.com, index /llms.txt): a 24/7 order book for USDC-margined
+  perps on US stocks, indices, commodities and FX. Mainnet only (pre-production needs credentials from QFEX), so it's in
+  `MAINNET_ONLY` and the mainnet site offers it once `NEXT_PUBLIC_QFEX_BUILDER_CODE` (our builder code UUID) is set.
+  Builder code: on the Trade WebSocket's auth message (`qfexAuthMessage`), so every order on that connection earns us
+  `NEXT_PUBLIC_QFEX_BUILDER_SHARE_BPS` (default 5000) of QFEX's own fee; the trader pays nothing extra. Users connect with
+  an API key they create on qfex.com (main account; execute orders + view orders/positions/balance, never deposit/
+  withdraw), pasted in the setup window, checked by authenticating (`verifyQfexKey`) and stored with the secret AES-GCM
+  encrypted by the device key (`store.ts`); the secret only signs HMACs here (HMAC-SHA256 of `nonce:unixSeconds`, hex,
+  `sign.ts`), never leaves the browser. The one-click wallet flow (`/builder/web3/api-key`) needs QFEX to enable
+  `register_user` on our builder key: not built yet. REST has no CORS: `app/api/qfex/[...path]` (Frankfurt, GET only,
+  allowlist in `proxy.ts`: refdata, contracts, orderbook, candles public; `/user/positions|fees|historic-orders|trade|
+  volume` with the browser's HMAC headers passed through) and `/api/qfex/markets` (refdata + contracts trimmed, cached
+  30s, `markets-server.ts`, also feeding `/api/funding`: QFEX's rate is percent per hour, so /100 × 8; 0 outside each
+  market's funding hours). Only active USD-quoted markets are listed (KRW/JPY… ones would show as dollars); every market
+  is `kind: "stock"`. QFEX tickers can be crypto tickers elsewhere (PURR, QNT, B): `dropCryptoClashes` drops one when
+  another venue lists the symbol as crypto more than 30% away, and the provider holds QFEX's list until Hyperliquid's
+  can be compared, so a crypto order never routes to a stock. Trading (`venue.ts`, `trade-socket.ts`: one shared
+  authenticated socket per key, subscribed to order_responses/positions/balances/fills): market = MARKET IOC, limit =
+  LIMIT GTC, `reduce_only` 0/1, TP/SL on the entry as `take_profit`/`stop_loss` (whole entry), on a position as
+  TAKE_PROFIT/STOP_LOSS stop orders (cancel with `cancel_stop_order`; stop orders placed from the tab are kept locally in
+  case `get_user_orders` doesn't list them), leverage `set_user_leverage`; fills read from the `fills` stream (avg price).
+  Account: signed REST `/user/positions` (positions + balance) at start and every 15s, the streams between, open orders
+  from `get_user_orders`. Book: the public `wss://mds.qfex.com` `level2` + `trade` (`stream.ts`), with the proxy's REST
+  book while the socket is silent for 3s; candles `/candles/{symbol}?resolution=1MIN|5MINS|…|1DAY&fromISO&toISO` (newest
+  first). Deposits and withdrawals open qfex.com. No profile points: QFEX's trade records don't say which builder code a
+  trade came through, and builder rewards are one balance. Not yet checked with a real key or order (this sandbox's proxy
+  blocks QFEX's WebSockets): check the first real order, its fill read-back and a TP/SL.
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
   github.com/jup-ag/docs (mirrors developers.jup.ag).
