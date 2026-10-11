@@ -3,7 +3,7 @@
 import { VenueError } from "../types";
 import { changeAccountTier, getAccountIndex, lighterGet, lighterPostForm, nextNonce, registeredPublicKey, sendTx, userTier } from "./api";
 import type { LighterConfig } from "./config";
-import { toLighterVenueError } from "./errors";
+import { LighterApiError, isMissingAccountCode, toLighterVenueError } from "./errors";
 import { encryptSecret, getDeviceKey } from "./key-crypto";
 import { samePublicKey } from "./key-store";
 import { authToken, forgetSessionCaches, readRecord, requireSession, signAndSend, updateRecord, waitForTx } from "./session";
@@ -17,7 +17,7 @@ export interface LighterOnboarding {
   accountIndex: number | null;
   /** A key stored in this browser that Lighter has registered at our key index. */
   keyReady: boolean;
-  /** "none" when no integrator is configured. */
+  /** "none" when no integrator is configured, or its account doesn't exist on this network (a mainnet index on testnet). */
   integrator: "none" | "needed" | "approved";
   /** The account type ("std", "plus", "premium") once this browser holds a key to ask with; null before. */
   tier: string | null;
@@ -28,6 +28,32 @@ const KEY_WAIT_MS = 30_000;
 const TIER_WAIT_MS = 20_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Whether the configured integrator account exists on this instance and network, asked once per page. A deployment
+ * whose integrator index belongs to another network (the mainnet account on the testnet site) can't be approved: the
+ * approval failed with "account not found" and, since trading waits for it, locked trading. Unknown errors count as
+ * existing, so a timeout never hides the step on the network it belongs to.
+ */
+const integratorChecks = new Map<string, Promise<boolean>>();
+function integratorExists(config: LighterConfig): Promise<boolean> {
+  const integrator = config.integrator;
+  if (!integrator) return Promise.resolve(false);
+  const key = `${config.apiUrl}:${integrator.accountIndex}`;
+  let check = integratorChecks.get(key);
+  if (!check) {
+    check = lighterGet(config, "account", { by: "index", value: integrator.accountIndex }).then(
+      (body) => Array.isArray(body.accounts) && body.accounts.length > 0,
+      (error) => {
+        if (error instanceof LighterApiError && isMissingAccountCode(error.code)) return false;
+        integratorChecks.delete(key);
+        return true;
+      },
+    );
+    integratorChecks.set(key, check);
+  }
+  return check;
+}
 
 function integratorState(config: LighterConfig, accountIndex: number, l1Address: string, tier: string | null): LighterOnboarding["integrator"] {
   const integrator = config.integrator;
@@ -50,7 +76,8 @@ async function readTier(config: LighterConfig, l1Address: string) {
  */
 export async function getLighterOnboarding(config: LighterConfig, l1Address: string): Promise<LighterOnboarding> {
   const accountIndex = await getAccountIndex(config, l1Address, { fresh: true });
-  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: config.integrator ? "needed" : "none", tier: null };
+  const hasIntegrator = config.integrator !== null && (await integratorExists(config));
+  if (accountIndex === null) return { accountIndex: null, keyReady: false, integrator: hasIntegrator ? "needed" : "none", tier: null };
   const record = readRecord(config, l1Address, accountIndex);
   let keyReady = false;
   if (record.key) {
@@ -62,7 +89,7 @@ export async function getLighterOnboarding(config: LighterConfig, l1Address: str
     }
   }
   const tier = keyReady ? await readTier(config, l1Address).catch(() => null) : null;
-  return { accountIndex, keyReady, tier, integrator: integratorState(config, accountIndex, l1Address, tier) };
+  return { accountIndex, keyReady, tier, integrator: hasIntegrator ? integratorState(config, accountIndex, l1Address, tier) : "none" };
 }
 
 async function waitForApiKey(config: LighterConfig, accountIndex: number, apiKeyIndex: number, publicKey: string) {
@@ -134,7 +161,7 @@ async function ownerOf(config: LighterConfig, accountIndex: number) {
  */
 export async function approveLighterIntegrator(config: LighterConfig, signMessage: SignL1Message, l1Address: string) {
   const integrator = config.integrator;
-  if (!integrator) return;
+  if (!integrator || !(await integratorExists(config))) return;
   try {
     const session = await requireSession(config, l1Address);
     const tier = await userTier(config, session.accountIndex, await authToken(session));

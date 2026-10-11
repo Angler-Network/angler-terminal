@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { VenueError } from "../types";
-import { LighterApiError, humanizeLighterError, humanizeLighterStatus, toLighterVenueError } from "./errors";
+import { LighterApiError, humanizeLighterError, humanizeLighterStatus, toLighterVenueError, isMissingAccountCode } from "./errors";
 
 describe("Lighter errors", () => {
   it("maps API codes to readable messages", () => {
@@ -31,5 +31,13 @@ describe("Lighter errors", () => {
     expect(error.raw).toBe("21104: invalid nonce");
     expect(toLighterVenueError(error)).toBe(error);
     expect(toLighterVenueError(new Error("Failed to fetch")).message).toMatch(/Can't reach Lighter/);
+  });
+});
+
+describe("isMissingAccountCode", () => {
+  it("knows Lighter's two not-found answers", () => {
+    expect(isMissingAccountCode(21100)).toBe(true);
+    expect(isMissingAccountCode(29404)).toBe(true);
+    expect(isMissingAccountCode(21104)).toBe(false);
   });
 });

@@ -135,7 +135,10 @@ dependency versions and design are free to diverge from angler-news.
     `NEXT_PUBLIC_LIGHTER_API_KEY_INDEX` (default 61). The private key is stored AES-GCM encrypted with a
     non-extractable WebCrypto key kept in IndexedDB (`key-crypto.ts`), per network + L1 address + account index
     (`key-store.ts`); never log or send it. Revoke = register a throwaway key at the same slot. Optional integrator
-    approval (`NEXT_PUBLIC_LIGHTER_INTEGRATOR_*`; zero fee on Standard accounts). With
+    approval (`NEXT_PUBLIC_LIGHTER_INTEGRATOR_*`; zero fee on Standard accounts). Trading waits for that approval, so
+    `integratorExists` first checks the integrator account exists on the instance's network (once per page; Lighter
+    answers 21100 / 29404 for a missing one): a mainnet index on the testnet site once failed every approval with "no
+    Lighter account yet" and locked trading; now the step is skipped (`integrator: "none"`). With
     `NEXT_PUBLIC_LIGHTER_REFERRAL_CODE` the approve step offers an opt-in checkbox (on by default, says it replaces
     the account's current code) that calls `referral/use` with the key's auth token (`applyLighterReferral`, no
     wallet signature); a failure only shows an info toast. Titan's API has no referral system (fee only).

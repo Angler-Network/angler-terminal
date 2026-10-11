@@ -428,7 +428,14 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
             <span className="text-right">Total</span>
           </div>
           {book.bids.length === 0 && book.asks.length === 0 ? (
-            <p className="p-3 text-[12px] text-app-faint">{status === "offline" ? "Order book unavailable. Reconnecting…" : "Loading order book…"}</p>
+            <p className="p-3 text-[12px] text-app-faint">
+              {status === "offline"
+                ? "Order book unavailable. Reconnecting…"
+                : status === "live"
+                  ? // Read fine but empty: a venue with no makers on this market (Extended's testnet often has none).
+                    `No resting orders on ${isAll ? "these venues" : (PERP_VENUE_NAMES[market.venue as PerpVenueId] ?? "this venue")} right now.`
+                  : "Loading order book…"}
+            </p>
           ) : (
             <>
               {sideView !== "bids" && <Levels rows={asks} side="asks" maxTotal={maxTotal} maxSize={maxSize} decimals={decimals} onPick={pickPrice} mine={mine.asks} />}

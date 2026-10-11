@@ -80,6 +80,11 @@ export function humanizeLighterError(code: number | undefined, message: string) 
   return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
 }
 
+/** Lighter's "no such account" answers: 21100 (account not found) and 29404 (`account?by=index` for an unknown index). */
+export function isMissingAccountCode(code: number) {
+  return code === 21100 || code === 29404;
+}
+
 /** An error answer from the Lighter API (code ≠ 200). */
 export class LighterApiError extends VenueError {
   constructor(

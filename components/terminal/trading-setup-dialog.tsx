@@ -369,7 +369,8 @@ function LighterSteps({ venue }: { venue: LighterVenueId }) {
         action="Register key"
         onRun={() => void run(2)}
       />
-      {integrator && (
+      {/* Hidden where the integrator account doesn't exist (a mainnet index on the testnet site): nothing to approve. */}
+      {integrator && lighter?.integrator !== "none" && (
         <Step
           index={3}
           Icon={ReceiptText}
