@@ -165,6 +165,12 @@ export interface Preferences extends Appearance {
   oneClickTrading: boolean;
   /** Market perp orders go to the venue with the best estimated fill after fees. */
   autoRoute: boolean;
+  /** How the order panel's button confirms an order (without one-click): press then "Confirm", or a short hold. */
+  orderConfirm: OrderConfirm;
+  /** The order panel's venue picker: a row of icon buttons (default) or one dropdown naming the venue. */
+  venuePicker: VenuePickerStyle;
+  /** Perp venues left out of the icon row (the venue in use always shows). New venues show until hidden. */
+  hiddenVenueIcons: PerpVenueId[];
   /** Which terminal panels are shown; the chart is always on. */
   panels: TerminalPanels;
   /** Impact score (0-100) at which an arriving news item is highlighted. */
@@ -302,6 +308,9 @@ export const defaultPreferences: Preferences = {
   newsSoundSentimentThreshold: 0.3,
   oneClickTrading: false,
   autoRoute: true,
+  orderConfirm: "click",
+  venuePicker: "icons",
+  hiddenVenueIcons: [],
   panels: defaultPanels,
   highImpactThreshold: 80,
   highImpactSound: false,
@@ -363,6 +372,15 @@ function readDataSource(value: unknown): ChartDataSource | null {
 function readSize(value: unknown) {
   const number = Number(value);
   return value !== null && value !== undefined && Number.isFinite(number) && number > 0 ? Math.min(1_000_000, number) : null;
+}
+
+export type OrderConfirm = "click" | "hold";
+export type VenuePickerStyle = "icons" | "dropdown";
+const PERP_VENUE_IDS: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
+
+function readHiddenVenueIcons(value: unknown): PerpVenueId[] {
+  if (!Array.isArray(value)) return [];
+  return PERP_VENUE_IDS.filter((venue) => value.includes(venue));
 }
 
 function readBoolean(value: unknown, fallback: boolean) {
@@ -463,6 +481,9 @@ export function parsePreferences(raw: string | null): Preferences {
       ),
       oneClickTrading: readBoolean(stored.oneClickTrading, defaultPreferences.oneClickTrading),
       autoRoute: readBoolean(stored.autoRoute, defaultPreferences.autoRoute),
+      orderConfirm: stored.orderConfirm === "hold" ? "hold" : "click",
+      venuePicker: stored.venuePicker === "dropdown" ? "dropdown" : "icons",
+      hiddenVenueIcons: readHiddenVenueIcons(stored.hiddenVenueIcons),
       panels: readPanels(stored.panels),
       highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),

@@ -47,7 +47,7 @@ import { useWallet } from "./wallet-provider";
 import { RangeSlider } from "@/components/app/range-slider";
 import { faviconUrl } from "@/lib/favicon-url";
 
-// Shown only once a wallet is connected (the hold-to-place button), so it loads then.
+// The hold-to-place button: only with a wallet and "Confirm orders by: hold" in Settings, so it loads then.
 const HoldButton = dynamic(() => import("@/components/fx/hold-button"), {
   ssr: false,
   loading: () => <div aria-hidden className="h-10 w-full rounded-lg bg-app-chip/40" />,
@@ -112,6 +112,65 @@ const VENUE_ICONS: Record<string, { domain: string; chain?: number | string }> =
   solana: { domain: "jup.ag", chain: "solana" },
   arcus: { domain: "arcus.xyz", chain: 4663 },
 };
+
+/**
+ * The venue picker as icon chips: one small chip per venue (its name in the tooltip) plus "Auto", which routes each
+ * market order to the best price. Stays one row however many venues join; no name beside it (the icons say which).
+ */
+function VenueChips({
+  choices,
+  value,
+  auto,
+  onPick,
+  onAuto,
+}: {
+  choices: Array<{ id: string; name: string; network: string }>;
+  value: string;
+  auto: boolean;
+  onPick: (id: string) => void;
+  onAuto: () => void;
+}) {
+  const chip = (active: boolean) =>
+    `flex size-8 shrink-0 items-center justify-center rounded-lg border transition-all ${
+      active ? "border-app-accent/70 bg-app-accent/10 shadow-[0_0_0_2px_rgb(var(--app-accent)/0.12)]" : "border-transparent bg-app-chip hover:border-app-field-border"
+    }`;
+  return (
+    <div role="radiogroup" aria-label="Venue" className="flex min-w-0 items-center gap-1.5">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={auto}
+        title="Auto routing: each market order goes to whichever venue gives the best price right now"
+        onClick={onAuto}
+        className={`${chip(auto)} w-auto gap-1 px-2 text-[11px] font-semibold ${auto ? "text-app-accent" : "text-app-muted"}`}
+      >
+        <Sparkles className="size-3.5" aria-hidden />
+        Auto
+      </button>
+      <span aria-hidden className="h-5 w-px shrink-0 bg-app-hairline" />
+      <div className="scrollbar-none flex min-w-0 gap-1.5 overflow-x-auto">
+        {choices.map((entry) => {
+          const icon = VENUE_ICONS[entry.id];
+          const active = entry.id === value;
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={entry.name}
+              title={`${entry.name} · ${entry.network}${active && auto ? " (picked by Auto)" : ""}`}
+              onClick={() => onPick(entry.id)}
+              className={`${chip(active)} ${active ? "" : "opacity-60 hover:opacity-100"}`}
+            >
+              {icon ? <CoinIcon src={faviconUrl(icon.domain)} symbol={entry.name} chain={icon.chain} size={18} /> : <span className="text-[10px] font-bold">{entry.name.slice(0, 2)}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /**
  * The venue picker: an "Auto" switch (each market order goes to the best price) beside one dropdown that names the venue
@@ -846,20 +905,30 @@ export function OrderPanel() {
             ))}
           </div>
           {/* A venue picker only when there's a choice. No network tag: the top bar already marks testnet. */}
-          {kindChoices.length > 1 && (
-            <VenuePicker
-              choices={kindChoices}
-              value={choice!.id}
-              autoOn={preferences.autoRoute}
-              auto={Boolean(routed)}
-              onPick={(id) => pickVenue(id as VenueChoice["id"])}
-              onAuto={(on) => {
-                // Turning Auto off keeps the venue it had picked, so the order doesn't jump elsewhere.
-                if (!on && choice) setVenueId(choice.id);
-                updatePreference("autoRoute", on);
-              }}
-            />
-          )}
+          {kindChoices.length > 1 &&
+            (preferences.venuePicker === "dropdown" ? (
+              <VenuePicker
+                choices={kindChoices}
+                value={choice!.id}
+                autoOn={preferences.autoRoute}
+                auto={Boolean(routed)}
+                onPick={(id) => pickVenue(id as VenueChoice["id"])}
+                onAuto={(on) => {
+                  // Turning Auto off keeps the venue it had picked, so the order doesn't jump elsewhere.
+                  if (!on && choice) setVenueId(choice.id);
+                  updatePreference("autoRoute", on);
+                }}
+              />
+            ) : (
+              <VenueChips
+                // Venues hidden in Settings stay off the row, except the one the order goes to.
+                choices={kindChoices.filter((entry) => entry.id === choice!.id || !(preferences.hiddenVenueIcons as string[]).includes(entry.id))}
+                value={choice!.id}
+                auto={Boolean(routed)}
+                onPick={(id) => pickVenue(id as VenueChoice["id"])}
+                onAuto={() => updatePreference("autoRoute", true)}
+              />
+            ))}
           {isPerp && (
             <div className="grid grid-cols-2 gap-2">
               <LeverageControl
@@ -1149,8 +1218,8 @@ export function OrderPanel() {
               )}
             </div>
           )}
-          {address && !preferences.oneClickTrading ? (
-            // Hold to place: a short hold replaces the arm-then-confirm double click (one-click trading skips it).
+          {address && !preferences.oneClickTrading && preferences.orderConfirm === "hold" ? (
+            // Hold to place (Settings → Trading): a short hold replaces the arm-then-confirm double click.
             <HoldButton
               key={`${side}-${choice?.id ?? ""}`}
               disabled={!isValid || isPlacing}
@@ -1185,25 +1254,6 @@ export function OrderPanel() {
             >
               {buttonText}
             </button>
-          )}
-          {address && (
-            // Hold to place (the default) or one click, right where the trader feels it; the same switch as in Settings.
-            <div role="group" aria-label="How orders are confirmed" className="-mt-1 flex items-center justify-center gap-1 text-[11px] text-app-faint">
-              <span>Confirm by</span>
-              {([false, true] as const).map((oneClick) => (
-                <button
-                  key={String(oneClick)}
-                  type="button"
-                  aria-pressed={preferences.oneClickTrading === oneClick}
-                  onClick={() => updatePreference("oneClickTrading", oneClick)}
-                  className={`rounded-md px-1.5 py-0.5 font-semibold transition-colors ${
-                    preferences.oneClickTrading === oneClick ? "bg-app-chip text-app-ink" : "hover:text-app-ink"
-                  }`}
-                >
-                  {oneClick ? "click" : "hold"}
-                </button>
-              ))}
-            </div>
           )}
           {isPerp && (
             <div className="flex flex-col gap-1.5 border-t border-app-hairline pt-2.5">

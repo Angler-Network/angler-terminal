@@ -358,6 +358,20 @@ function TradingSettings() {
       <SettingRow title="One-click trading" description="A single press on a news size button or the order panel's button places the order right away, without the confirm press. Off by default.">
         <Toggle label="One-click trading" checked={preferences.oneClickTrading} onChange={(checked) => updatePreference("oneClickTrading", checked)} />
       </SettingRow>
+      <SettingRow
+        title="Confirm orders by"
+        description="Click: the order panel's button arms on the first press and places the order on the second. Hold: press and hold it for a moment. One-click trading skips both."
+      >
+        <SelectField
+          label="Confirm orders by"
+          value={preferences.orderConfirm}
+          options={[
+            { value: "click", label: "Click" },
+            { value: "hold", label: "Hold" },
+          ]}
+          onChange={(value) => updatePreference("orderConfirm", value === "hold" ? "hold" : "click")}
+        />
+      </SettingRow>
       <SettingRow title="Trade buttons from impact" description="News below this impact score shows no size buttons.">
         <ImpactStepper label="Trade buttons from impact" value={preferences.tradeMinImpact} onChange={(value) => updatePreference("tradeMinImpact", value)} />
       </SettingRow>
@@ -763,6 +777,62 @@ function VenueSettings() {
               );
             })}
           </div>
+        </section>
+      )}
+      {perpChoices.length > 1 && (
+        <section className="border-b border-app-line py-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0 flex-1 basis-[180px]">
+              <h3 className="text-[15px] font-semibold text-app-ink">Order panel venue picker</h3>
+              <p className="mt-1 text-[13px] text-app-muted">
+                {preferences.venuePicker === "icons"
+                  ? "A row of venue icons next to Auto. Pick which perp venues get an icon; the venue an order goes to always shows."
+                  : "Auto next to one dropdown that names the venue, every enabled venue listed inside."}
+              </p>
+            </div>
+            <SelectField
+              label="Order panel venue picker"
+              value={preferences.venuePicker}
+              options={[
+                { value: "icons", label: "Icon buttons" },
+                { value: "dropdown", label: "Dropdown" },
+              ]}
+              onChange={(value) => updatePreference("venuePicker", value === "dropdown" ? "dropdown" : "icons")}
+            />
+          </div>
+          {preferences.venuePicker === "icons" && (
+            <div role="group" aria-label="Venues shown as icons" className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+              {perpChoices.map((option) => {
+                const tile = VENUE_GROUPS[0].tiles.find((entry) => entry.key === option.value)!;
+                const shown = !preferences.hiddenVenueIcons.includes(option.value);
+                const lastShown = shown && perpChoices.every((other) => other.value === option.value || preferences.hiddenVenueIcons.includes(other.value));
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={shown}
+                    disabled={lastShown}
+                    title={lastShown ? "At least one venue keeps its icon" : undefined}
+                    onClick={() =>
+                      updatePreference(
+                        "hiddenVenueIcons",
+                        shown ? [...preferences.hiddenVenueIcons, option.value] : preferences.hiddenVenueIcons.filter((venue) => venue !== option.value),
+                      )
+                    }
+                    className={`relative flex flex-col items-center gap-2 rounded-2xl border px-2 pb-2.5 pt-3.5 transition-all disabled:cursor-default ${
+                      shown ? "border-app-accent/60 bg-app-accent/[0.07]" : "border-app-line bg-app-chip/30 hover:border-app-field-border"
+                    }`}
+                  >
+                    <span className={shown ? "" : "opacity-60 grayscale"}>
+                      <CoinIcon src={faviconUrl(tile.domain)} symbol={option.label} chain={tile.chain} size={30} />
+                    </span>
+                    <span className={`max-w-full truncate text-[12px] font-semibold ${shown ? "text-app-ink" : "text-app-muted"}`}>{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
       {/* Local builds only: switch a venue between testnet and mainnet. */}

@@ -31,6 +31,25 @@ describe("perp venue preferences", () => {
   });
 });
 
+describe("order panel preferences", () => {
+  it("defaults to icon buttons for every venue and confirming by click", () => {
+    expect(parsePreferences(null)).toMatchObject({ venuePicker: "icons", hiddenVenueIcons: [], orderConfirm: "click" });
+  });
+
+  it("reads stored choices and drops unknown values", () => {
+    expect(parsePreferences(JSON.stringify({ venuePicker: "dropdown", hiddenVenueIcons: ["aster", "binance", "orderly"], orderConfirm: "hold" }))).toMatchObject({
+      venuePicker: "dropdown",
+      hiddenVenueIcons: ["aster", "orderly"],
+      orderConfirm: "hold",
+    });
+    expect(parsePreferences(JSON.stringify({ venuePicker: "grid", hiddenVenueIcons: "aster", orderConfirm: "double" }))).toMatchObject({
+      venuePicker: "icons",
+      hiddenVenueIcons: [],
+      orderConfirm: "click",
+    });
+  });
+});
+
 describe("panel preferences", () => {
   it("shows every panel but the optional watchlist by default and keeps the stored choices", () => {
     expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true, watchlist: false });

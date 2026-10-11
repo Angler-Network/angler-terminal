@@ -305,12 +305,13 @@ dependency versions and design are free to diverge from angler-news.
     tape (`ticker-bar.tsx` → `ServerTape`) once. `html[data-nav]` / `html[data-tape]` are set before hydration so the
     rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in the layout
     menu and Settings → Layout.
-  - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue (`VenuePicker`: an Auto switch beside one dropdown naming the venue, logo + name, every venue listed
-    inside with a tick; it replaced a row of icon chips that grew with each venue), a leverage button
+  - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue (`venuePicker` preference, Settings → Venues: "icons" by default = `VenueChips`, Auto + one icon per venue,
+    `hiddenVenueIcons` leaves venues off the row (the venue in use always shows); "dropdown" = `VenuePicker`, an Auto
+    switch beside one dropdown naming the venue, every venue listed inside with a tick), a leverage button
     (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
     (`lib/trading/order-math.ts`), hourly funding). Perps call `placeOrder` directly. Two-press confirm unless
-    one-click.
+    one-click; `orderConfirm` (Settings → Trading, "click" by default) swaps it for the hold-to-place button.
   - Scale and TWAP (order panel's third tab, "Pro" → Scale / TWAP; logic in `lib/trading/algo-orders.ts`, sending in
     `components/terminal/algo-orders.tsx`): done by the terminal, not the venues' own algos, so every order carries our
     fee and earns points (Hyperliquid's `twapOrder` action has no builder field; Aster and Orderly have no TWAP). Scale =
