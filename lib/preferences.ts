@@ -32,6 +32,7 @@ import { VENUE_KEYS, venueAvailable, type VenueKey } from "./deployment";
 import { defaultPanelSizes, readPanelSizes, type PanelSizes } from "./layout/panel-sizes";
 import { defaultArrangement, readArrangement, type Arrangement } from "./layout/arrangement";
 import { readSlippageBps } from "./trading/slippage";
+import { FUNDING_VENUES, type FundingVenue } from "./trading/funding";
 
 export type ChartProvider = "tradingview" | "angler";
 
@@ -171,6 +172,10 @@ export interface Preferences extends Appearance {
   venuePicker: VenuePickerStyle;
   /** Perp venues left out of the icon row (the venue in use always shows). New venues show until hidden. */
   hiddenVenueIcons: PerpVenueId[];
+  /** The Markets page's view: prices and volume, or funding compared across venues. */
+  marketsView: MarketsView;
+  /** The funding columns compared on the Markets page, in the venue order. A venue added later never joins on its own. */
+  fundingCompare: FundingVenue[];
   /** Which terminal panels are shown; the chart is always on. */
   panels: TerminalPanels;
   /** Impact score (0-100) at which an arriving news item is highlighted. */
@@ -268,6 +273,10 @@ function offeredVenues(): VenueKey[] {
 }
 const RESET_VENUES = ["venueAster", "venueArcus"] as const;
 
+export type MarketsView = "overview" | "funding";
+/** Funding columns before the user picks: three DEXes we trade and both CEX references. */
+export const DEFAULT_FUNDING_COMPARE: FundingVenue[] = ["hyperliquid", "lighter", "aster", "binance", "bybit"];
+
 export const defaultPreferences: Preferences = {
   chart: "angler",
   chartPrimarySource: "binance",
@@ -311,6 +320,8 @@ export const defaultPreferences: Preferences = {
   orderConfirm: "click",
   venuePicker: "icons",
   hiddenVenueIcons: [],
+  marketsView: "funding",
+  fundingCompare: DEFAULT_FUNDING_COMPARE,
   panels: defaultPanels,
   highImpactThreshold: 80,
   highImpactSound: false,
@@ -381,6 +392,12 @@ const PERP_VENUE_IDS: PerpVenueId[] = ["hyperliquid", "lighter", "lighterRh", "a
 function readHiddenVenueIcons(value: unknown): PerpVenueId[] {
   if (!Array.isArray(value)) return [];
   return PERP_VENUE_IDS.filter((venue) => value.includes(venue));
+}
+
+function readFundingCompare(value: unknown): FundingVenue[] {
+  if (!Array.isArray(value)) return DEFAULT_FUNDING_COMPARE;
+  const venues = FUNDING_VENUES.filter((venue) => value.includes(venue));
+  return venues.length > 0 ? venues : DEFAULT_FUNDING_COMPARE;
 }
 
 function readBoolean(value: unknown, fallback: boolean) {
@@ -484,6 +501,8 @@ export function parsePreferences(raw: string | null): Preferences {
       orderConfirm: stored.orderConfirm === "hold" ? "hold" : "click",
       venuePicker: stored.venuePicker === "dropdown" ? "dropdown" : "icons",
       hiddenVenueIcons: readHiddenVenueIcons(stored.hiddenVenueIcons),
+      marketsView: stored.marketsView === "overview" ? "overview" : "funding",
+      fundingCompare: readFundingCompare(stored.fundingCompare),
       panels: readPanels(stored.panels),
       highImpactThreshold: readRange(stored.highImpactThreshold, 0, 100, 1, defaultPreferences.highImpactThreshold),
       highImpactSound: readBoolean(stored.highImpactSound, defaultPreferences.highImpactSound),

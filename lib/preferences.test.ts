@@ -50,6 +50,20 @@ describe("order panel preferences", () => {
   });
 });
 
+describe("markets preferences", () => {
+  it("defaults to the funding view with five venues", () => {
+    expect(parsePreferences(null)).toMatchObject({ marketsView: "funding", fundingCompare: ["hyperliquid", "lighter", "aster", "binance", "bybit"] });
+  });
+
+  it("keeps a saved selection in venue order and never adds venues to it", () => {
+    expect(parsePreferences(JSON.stringify({ marketsView: "overview", fundingCompare: ["bybit", "orderly", "ftx"] }))).toMatchObject({
+      marketsView: "overview",
+      fundingCompare: ["orderly", "bybit"],
+    });
+    expect(parsePreferences(JSON.stringify({ fundingCompare: [] })).fundingCompare).toEqual(["hyperliquid", "lighter", "aster", "binance", "bybit"]);
+  });
+});
+
 describe("panel preferences", () => {
   it("shows every panel but the optional watchlist by default and keeps the stored choices", () => {
     expect(parsePreferences(null).panels).toEqual({ orderbook: true, orderEntry: true, positions: true, news: true, account: true, watchlist: false });

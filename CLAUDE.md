@@ -398,7 +398,12 @@ dependency versions and design are free to diverge from angler-news.
     `autoRoute` (default on) the order goes to the best venue; picking a perp venue by hand turns it off.
   - Funding (`/api/funding` → Lighter's aggregated mainnet `funding-rates`, 8-hour rates for Hyperliquid, Lighter,
     Binance, Bybit; `lib/trading/funding.ts`): shown in the order panel and on the Markets page (`app/markets`,
-    sidebar), which lists every tradable asset with funding per venue and the Hyperliquid–Lighter spread.
+    sidebar). Markets has two views (`marketsView`, saved): Overview (price, 24h, volume, OI, venue logos via `VenueMarks`,
+    Trade) and Funding (asset, the compared venues' funding, spread + Arb/Trade). Funding columns are the user's pick
+    (`fundingCompare`, `FundingVenuePicker`: "Compare venues · N selected", search, Perp DEX / CEX groups only in the
+    picker; default HL, Lighter, Aster, Binance, Bybit); a venue added later only shows in the picker, never as a new
+    column. The asset column and the spread/actions stay sticky while the venue columns scroll; the spread is among the
+    compared tradable venues.
   - Funding arb (`components/markets/funding-arb-dialog.tsx`, Arb button on Markets rows listed on two or more of
     `TRADABLE_FUNDING_VENUES`: Hyperliquid, Lighter, Lighter RH, Aster, Orderly): market long on the low-funding venue +
     market short on the high-funding one, same base size (`arbLegSize`, coarser size step), each leg at least its venue's
