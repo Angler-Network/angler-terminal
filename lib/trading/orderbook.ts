@@ -181,13 +181,25 @@ export interface MergedLevel extends BookLevel {
 
 /**
  * Several venues' books as one: each side grouped by `tick`, then levels at the same price summed, keeping each
- * venue's share for coloring. `crossed` is true when one venue's best bid is above another's best ask.
+ * venue's share for coloring. Venues trade at slightly different prices (Extended 0.08% under Hyperliquid is common),
+ * so laid together raw, one venue's asks fall under another's bids and the ladder stops reading as a book. Each venue's
+ * levels are cut at the middle venue's mid (`reference`, the median of the venues' mids): asks above it, bids below it.
+ * `crossed` still tells when one venue's best bid is above another's best ask, and `offsets` how far each venue's mid
+ * sits from the reference (`apart` = highest minus lowest, in %).
  */
 export function mergeVenueBooks(books: Array<{ venue: string; book: BookSide }>, tick: number) {
+  const mids = books.flatMap(({ venue, book }) => {
+    const spread = spreadOf(book);
+    return spread ? [{ venue, mid: spread.mid }] : [];
+  });
+  const sorted = mids.map((entry) => entry.mid).sort((a, b) => a - b);
+  const half = Math.floor(sorted.length / 2);
+  const reference = sorted.length === 0 ? null : sorted.length % 2 ? sorted[half] : (sorted[half - 1] + sorted[half]) / 2;
   const merge = (side: "bids" | "asks") => {
     const byPrice = new Map<number, MergedLevel>();
     for (const { venue, book } of books) {
-      for (const row of groupLevels(book[side], tick, side)) {
+      const rows = reference === null ? book[side] : book[side].filter((row) => (side === "asks" ? row.price >= reference : row.price <= reference));
+      for (const row of groupLevels(rows, tick, side)) {
         const level = byPrice.get(row.price) ?? { price: row.price, size: 0, byVenue: {} };
         level.size += row.size;
         level.byVenue[venue] = (level.byVenue[venue] ?? 0) + row.size;
@@ -200,5 +212,7 @@ export function mergeVenueBooks(books: Array<{ venue: string; book: BookSide }>,
   const asks = merge("asks");
   const bestBid = Math.max(...books.map(({ book }) => book.bids[0]?.price ?? -Infinity));
   const bestAsk = Math.min(...books.map(({ book }) => book.asks[0]?.price ?? Infinity));
-  return { bids, asks, crossed: Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid >= bestAsk };
+  const offsets = reference === null ? [] : mids.map(({ venue, mid }) => ({ venue, pct: ((mid - reference) / reference) * 100 }));
+  const apart = offsets.length > 1 ? Math.max(...offsets.map((entry) => entry.pct)) - Math.min(...offsets.map((entry) => entry.pct)) : 0;
+  return { bids, asks, crossed: Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid >= bestAsk, offsets, apart };
 }

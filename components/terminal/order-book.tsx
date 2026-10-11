@@ -436,9 +436,14 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
                 <span className="font-semibold text-app-ink">
                   {spread ? spread.mid.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals + 1 }) : "—"}
                 </span>
-                {crossed ? (
-                  <span className="font-semibold text-[#f5c97b]" title="One venue's best bid is above the other's best ask">
-                    Crossed {spread ? `${Math.abs(spread.pct).toFixed(3)}%` : ""}
+                {crossed && merged ? (
+                  <span
+                    className="font-semibold text-[#f5c97b]"
+                    title={`The venues trade at different prices: one's best bid is above another's best ask. Each venue's mid vs the middle one: ${merged.offsets
+                      .map(({ venue, pct }) => `${PERP_VENUE_NAMES[venue as PerpVenueId] ?? venue} ${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(3)}%`)
+                      .join(", ")}. Here each venue's levels stop at the middle price; pick one venue to see its whole book.`}
+                  >
+                    Venues {merged.apart.toFixed(3)}% apart
                   </span>
                 ) : (
                   <span className="text-app-faint">Spread {spread ? `${spread.pct.toFixed(3)}%` : "—"}</span>

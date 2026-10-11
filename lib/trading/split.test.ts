@@ -62,6 +62,25 @@ describe("mergeVenueBooks", () => {
     expect(merged.crossed).toBe(false);
   });
 
+  it("cuts each venue at the middle mid so asks stay above bids", () => {
+    // Extended trades under Hyperliquid and Aster: its asks would land under their bids.
+    const merged = mergeVenueBooks(
+      [
+        { venue: "hl", book: book([[100.1, 1], [100.2, 1]], [[100, 1], [99.9, 1]]) },
+        { venue: "aster", book: book([[100.15, 1]], [[100.05, 1]]) },
+        { venue: "extended", book: book([[99.95, 2], [100.3, 2]], [[99.85, 2]]) },
+      ],
+      0,
+    );
+    // Mids 100.05 (hl), 100.1 (aster), 99.9 (extended): the reference is 100.05.
+    expect(merged.asks.map((level) => level.price)).toEqual([100.1, 100.15, 100.2, 100.3]);
+    expect(merged.bids.map((level) => level.price)).toEqual([100.05, 100, 99.9, 99.85]);
+    expect(merged.asks[0].price).toBeGreaterThan(merged.bids[0].price);
+    expect(merged.crossed).toBe(true);
+    expect(merged.offsets.find((entry) => entry.venue === "extended")!.pct).toBeCloseTo(-0.1499, 3);
+    expect(merged.apart).toBeCloseTo(0.1999, 3);
+  });
+
   it("flags crossed books across venues", () => {
     const merged = mergeVenueBooks([{ venue: "hl", book: book([[101, 1]], [[100.5, 1]]) }, { venue: "lighter", book: book([[100.4, 1]], [[100, 1]]) }], 0.1);
     expect(merged.crossed).toBe(true);

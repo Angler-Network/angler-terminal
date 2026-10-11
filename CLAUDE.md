@@ -588,8 +588,10 @@ dependency versions and design are free to diverge from angler-news.
     The market type comes from the route (`/perp`, `/swap`, `lib/terminal-kind.ts`), not a switch in the panel: an
     asset without a venue of that kind shows a link to the other view.
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
-    (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
-    other's ask; trades merged with venue dots). The book's venue menu (`BookSourcePicker`) picks any set of venues
+    (`mergeVenueBooks`: levels summed per price, bars split by venue color; trades merged with venue dots). Venues trade
+    apart (Orderly and Extended often 0.06-0.09% under Hyperliquid/Aster), so laid together raw one venue's asks fell
+    under another's bids and the merged ladder read as broken: each venue's levels are cut at the median of the venues'
+    mids (asks above, bids below), and the middle row says "Venues X% apart" (hover: each venue's offset) when crossed. The book's venue menu (`BookSourcePicker`) picks any set of venues
     (`lib/trading/book-sources.ts`: default = the first three, "All venues" = every venue listing the asset, up to
     `MAX_BOOK_SOURCES` 6 streams, one `useOrderBook` slot per perp venue; "Only" for one); its
     color key names up to three and folds the rest into "+N sources" (a press lists them). A venue picked by hand in the
