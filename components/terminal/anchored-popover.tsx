@@ -13,7 +13,7 @@ export interface PopoverAnchor {
  * A small panel opened from a trigger and portaled to the body, fixed to the viewport (a dialog's blur or a panel's
  * overflow would clip it otherwise). It opens below the trigger, or above when there's more room there, aligned to the
  * trigger's left or right edge, and closes on a press outside, Escape (which goes no further: the window behind stays
- * open), scroll or resize. `height` is the panel's expected height, to choose the side.
+ * open), a scroll that moves the trigger, or resize. `height` is the panel's expected height, to choose the side.
  */
 export function useAnchoredPopover<T extends HTMLElement = HTMLElement>({ align = "right", height = 200 }: { align?: "left" | "right"; height?: number } = {}) {
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
@@ -29,8 +29,12 @@ export function useAnchoredPopover<T extends HTMLElement = HTMLElement>({ align 
       event.stopPropagation();
       setAnchor(null);
     };
-    // A scroll inside the panel itself (a long list) keeps it open.
-    const scroll = (event: Event) => !(event.target instanceof Node && panelRef.current?.contains(event.target)) && setAnchor(null);
+    // Only a scroll that moves the trigger (its panel or the page under it) closes it: the terminal's own panels (order
+    // book, ticker tape) scroll by themselves all the time.
+    const scroll = (event: Event) => {
+      const target = event.target;
+      if (target === document || (target instanceof Node && triggerRef.current && target.contains(triggerRef.current))) setAnchor(null);
+    };
     document.addEventListener("mousedown", outside);
     document.addEventListener("keydown", escape, true);
     window.addEventListener("scroll", scroll, true);

@@ -1,7 +1,9 @@
 "use client";
 
 import { LoadingState } from "@/components/app/loading-state";
-import { ArrowRight, ChevronDown, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, SlidersHorizontal, Sparkles } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useAnchoredPopover } from "./anchored-popover";
 import { CoinIcon } from "./token-icon";
 import { Picker } from "./inline-picker";
 import { perpNetwork } from "@/lib/venues/perp-network";
@@ -169,7 +171,85 @@ function VenueChips({
           );
         })}
       </div>
+      <VenueIconsMenu />
     </div>
+  );
+}
+
+/**
+ * The last button of the icon row: which perp venues get an icon, the same switches as Settings → Venues (the
+ * `hiddenVenueIcons` preference). The venue an order goes to always shows whatever is ticked, and one stays ticked.
+ */
+function VenueIconsMenu() {
+  const { preferences, updatePreference, openSettings } = usePreferences();
+  const { perpOrder } = useTrading();
+  const { triggerRef, panelRef, anchor, open, toggle } = useAnchoredPopover<HTMLButtonElement>({ height: 80 + perpOrder.length * 32 });
+  const hidden = preferences.hiddenVenueIcons;
+  const shownCount = perpOrder.filter((venue) => !hidden.includes(venue)).length;
+  const flip = (venue: PerpVenueId) => updatePreference("hiddenVenueIcons", hidden.includes(venue) ? hidden.filter((entry) => entry !== venue) : [...hidden, venue]);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label="Choose venue icons"
+        title="Choose which venues show here"
+        onClick={toggle}
+        className={`ml-auto flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+          open ? "border-app-field-border bg-app-chip text-app-ink" : "border-transparent text-app-muted hover:bg-app-chip hover:text-app-ink"
+        }`}
+      >
+        <SlidersHorizontal className="size-3.5" aria-hidden />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef as React.RefObject<HTMLDivElement>}
+            role="dialog"
+            aria-label="Venue icons"
+            style={anchor ?? undefined}
+            className="surface-menu fixed z-50 flex w-56 flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 text-[12px] shadow-lg"
+          >
+            <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">Show in the order panel</p>
+            {perpOrder.map((venue) => {
+              const on = !hidden.includes(venue);
+              const last = on && shownCount === 1;
+              const icon = VENUE_ICONS[venue];
+              return (
+                <button
+                  key={venue}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  disabled={last}
+                  title={last ? "At least one venue keeps its icon" : undefined}
+                  onClick={() => flip(venue)}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-app-ink hover:bg-app-chip disabled:cursor-default"
+                >
+                  <span
+                    aria-hidden
+                    className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border ${on ? "border-app-accent bg-app-accent text-app-on-accent" : "border-app-field-border"}`}
+                  >
+                    {on && <Check className="size-2.5" strokeWidth={3} />}
+                  </span>
+                  {icon && <CoinIcon src={faviconUrl(icon.domain)} symbol={PERP_VENUE_NAMES[venue]} chain={icon.chain} size={16} />}
+                  <span className="truncate">{PERP_VENUE_NAMES[venue]}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => openSettings("venues")}
+              className="mt-1 border-t border-app-hairline px-2 pb-1 pt-2 text-left text-[11px] font-semibold text-app-muted hover:text-app-ink"
+            >
+              Turn venues on or off in Settings
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 

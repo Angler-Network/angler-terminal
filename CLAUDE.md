@@ -342,7 +342,8 @@ dependency versions and design are free to diverge from angler-news.
     rail doesn't flash; choosing top navigation drops the tape to the footer (`navModeChange`). Offered in the layout
     menu and Settings → Layout.
   - Order panel (`order-panel.tsx`, laid out like the venues' own forms): Long/Short tabs, venue (`venuePicker` preference, Settings → Venues: "icons" by default = `VenueChips`, Auto + one icon per venue,
-    `hiddenVenueIcons` leaves venues off the row (the venue in use always shows); "dropdown" = `VenuePicker`, an Auto
+    `hiddenVenueIcons` leaves venues off the row (the venue in use always shows), also switched from the row's last button
+    (`VenueIconsMenu`, a checklist of the enabled perp venues); "dropdown" = `VenuePicker`, an Auto
     switch beside one dropdown naming the venue, every venue listed inside with a tick), a leverage button
     (popover: slider, presets, cross/isolated) next to Market/Limit, inline-labelled inputs, a 0-100% slider of
     available margin, then a summary (est. entry from the book walk, slippage, fees, margin, liquidation
