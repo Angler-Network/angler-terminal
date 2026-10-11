@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { MarketIcon } from "@/components/app/market-icon";
 import { usePreferences } from "@/components/app/preferences-provider";
 import { useMarketList } from "@/components/app/use-market-list";
@@ -10,6 +11,7 @@ import { pickQuote } from "@/lib/markets/model";
 import { parseBookSpotRef, type BookSpotVenue } from "@/lib/spot/book-spot";
 import { assetSymbolOf, mergeListings, type SpotCategory, type SpotListing } from "@/lib/spot/listings";
 import { PERP_VENUE_NAMES } from "@/lib/venues/routing";
+import { splitVenues } from "@/lib/venues/venue-overflow";
 import { EVM_SWAP_CHAINS, evmRef, evmSwapChain, parseEvmRef, type EvmSwapChainKey } from "@/lib/venues/uniswap/chains";
 import { CoinIcon } from "./token-icon";
 import { VENUE_MARKS } from "./venue-logo";
@@ -319,34 +321,117 @@ export function useSpotRows(enabled: boolean, query = "", only?: SpotListing["ve
 }
 
 /**
- * A row's venues as logos with the chain in the corner ("Uniswap · Base" = Uniswap's logo, Base badge), the full names
- * on hover. One venue also gets a short label (the chain for Uniswap, else the venue). Only rows where no venue has
- * a logo ("Wallet", "Popular") stay text; a venue without one among others shows as its short name.
+ * A row's venues as logos with the chain in the corner ("Uniswap · Base" = Uniswap's logo, Base badge), each name on
+ * hover. Past four venues the first three show and the rest fold into a "+N" chip (hover lists them, a press opens every
+ * venue with its name), so the column keeps one width however many venues list the asset. Venues keep the order they
+ * come in, the same on every row. One venue also gets a short label (the chain for Uniswap, else the venue). Only rows
+ * where no venue has a logo ("Wallet", "Popular") stay text; a venue without one among others shows as its short name.
  */
 export function VenueMarks({ venues, iconsOnly }: { venues: string[]; iconsOnly?: boolean }) {
   if (venues.length === 0) return <span className="text-app-faint">—</span>;
-  const marks = venues.map((label) => {
-    const [name, chainName] = label.split(" · ");
-    const mark = VENUE_MARKS[name];
-    const chain = chainName ? EVM_SWAP_CHAINS.find((entry) => entry.name === chainName)?.id : mark?.chain;
-    return { label, name, chainName, mark, chain };
-  });
+  const marks = venues.map(venueMark);
   if (marks.every((entry) => !entry.mark)) return <span className="truncate">{venues.join(" · ")}</span>;
   const single = marks.length === 1 ? marks[0] : null;
+  const { shown, hidden } = splitVenues(marks);
   return (
-    <span className="flex min-w-0 items-center justify-end gap-1.5" title={venues.join(", ")}>
-      <span className="flex shrink-0 items-center gap-1">
-        {marks.map((entry) =>
-          entry.mark ? (
-            <CoinIcon key={entry.label} src={faviconUrl(entry.mark.domain)} symbol={entry.name} chain={entry.chain} size={18} />
-          ) : (
-            <span key={entry.label} className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">
-              {entry.name}
-            </span>
-          ),
-        )}
+    <span className="flex min-w-0 items-center justify-end gap-1.5">
+      <span className="sr-only">{venues.join(", ")}</span>
+      <span aria-hidden className="flex shrink-0 items-center gap-1">
+        {shown.map((entry) => (
+          <VenueMarkIcon key={entry.label} entry={entry} />
+        ))}
+        {hidden.length > 0 && <VenueOverflow all={marks} hidden={hidden} />}
       </span>
       {single && !iconsOnly && <span className="truncate">{single.chainName ?? single.name}</span>}
+    </span>
+  );
+}
+
+type VenueMarkEntry = ReturnType<typeof venueMark>;
+
+function venueMark(label: string) {
+  const [name, chainName] = label.split(" · ");
+  const mark = VENUE_MARKS[name];
+  const chain = chainName ? EVM_SWAP_CHAINS.find((entry) => entry.name === chainName)?.id : mark?.chain;
+  return { label, name, chainName, mark, chain };
+}
+
+function VenueMarkIcon({ entry, titled = true }: { entry: VenueMarkEntry; titled?: boolean }) {
+  if (!entry.mark) return <span className="rounded bg-app-chip px-1 text-[10px] font-semibold text-app-muted">{entry.name}</span>;
+  return (
+    <span title={titled ? entry.label : undefined} className="inline-flex shrink-0">
+      <CoinIcon src={faviconUrl(entry.mark.domain)} symbol={entry.name} chain={entry.chain} size={18} />
+    </span>
+  );
+}
+
+/**
+ * The "+N" chip and, on a press, every venue of the row with its logo and name (phones have no hover). The row is a
+ * listbox option, so the chip is a plain span like the favorite star; the panel is portaled to the body (the search
+ * window's blur would clip it) and stops its clicks from reaching the row, which would pick the market.
+ */
+function VenueOverflow({ all, hidden }: { all: VenueMarkEntry[]; hidden: VenueMarkEntry[] }) {
+  const [anchor, setAnchor] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+  const panelRef = useRef<HTMLSpanElement>(null);
+  const open = anchor !== null;
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: Event) => !ref.current?.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node) && setAnchor(null);
+    const dismiss = () => setAnchor(null);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      // Close this panel only, not the search window behind it.
+      event.stopPropagation();
+      setAnchor(null);
+    };
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", escape, true);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", escape, true);
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+    };
+  }, [open]);
+  const toggle = (event: MouseEvent) => {
+    event.stopPropagation();
+    const rect = ref.current?.getBoundingClientRect();
+    if (open || !rect) return setAnchor(null);
+    const right = Math.max(8, window.innerWidth - rect.right);
+    const up = window.innerHeight - rect.bottom < 40 + all.length * 30 && rect.top > window.innerHeight - rect.bottom;
+    setAnchor(up ? { bottom: window.innerHeight - rect.top + 4, right } : { top: rect.bottom + 4, right });
+  };
+  return (
+    <span
+      ref={ref}
+      title={open ? undefined : hidden.map((entry) => entry.label).join(", ")}
+      onClick={toggle}
+      className={`inline-flex h-[18px] min-w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+        open ? "bg-app-selected text-app-ink" : "bg-app-chip text-app-muted hover:text-app-ink"
+      }`}
+    >
+      +{hidden.length}
+      {open &&
+        createPortal(
+          <span
+            ref={panelRef}
+            style={anchor ?? undefined}
+            onClick={(event) => event.stopPropagation()}
+            className="surface-menu fixed z-50 flex w-48 cursor-default flex-col rounded-xl border border-app-hairline-strong bg-app-dialog p-1 text-left shadow-lg"
+          >
+            <span className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-app-faint">Venues · {all.length}</span>
+            {all.map((entry) => (
+              <span key={entry.label} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-normal text-app-ink">
+                <VenueMarkIcon entry={entry} titled={false} />
+                <span className="truncate">{entry.label}</span>
+              </span>
+            ))}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

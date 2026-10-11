@@ -265,7 +265,7 @@ export function AssetSearchDialog({ kind, pick, onClose }: { kind: TerminalKind;
     ...(counts.launchpads ? [{ value: "launchpads" as Tab, label: "Launchpads", count: counts.launchpads }] : []),
   ];
   // Spot: 1h and 6h change next to 24h from md up; the venue column is logos only (names on hover).
-  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_104px_72px_72px_80px_84px_84px_56px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_130px]";
+  const columns = isSpot ? "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_104px_72px_72px_80px_84px_84px_56px]" : "grid-cols-[minmax(0,1fr)_96px_80px] md:grid-cols-[minmax(0,1fr)_110px_86px_100px_96px]";
 
   return (
     <div ref={backdropRef} className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-[8vh] sm:p-6 sm:pt-[10vh]" role="presentation" onMouseDown={onClose}>

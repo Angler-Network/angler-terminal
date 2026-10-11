@@ -753,7 +753,7 @@ dependency versions and design are free to diverge from angler-news.
   Robinhood; its last good list kept in Redis, `ponsTokens`). Launchpad tokens are all unverified, so in a launchpad view
   ("Launchpads" tab or a launchpad filter) "Verified only" becomes All / On curve / Graduated (`launchStage`: Jupiter's
   `graduatedPool`, Pons's `pons`) and rows are tagged by stage. The list renders 50 rows and adds 50 as it scrolls (`PAGE_ROWS`).
-  Symbols may be any script (`ASSET_SYMBOL`, so 龙虾 can be picked); tiny prices print as "$0.0₁₃246" (`formatPrice`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
+  Symbols may be any script (`ASSET_SYMBOL`, so 龙虾 can be picked); tiny prices print as "$0.0₁₃246" (`formatPrice`), sortable columns, the venue column as logos with a chain badge (`VenueMarks`: up to four logos, past that three and a "+N" chip whose press lists every venue with its name, `splitVenues`; same venue order on every row), ★ favorites (Ctrl+S) stored as the `watchlist` preference (`lib/watchlist.ts`, validated on read). Rows come from
   `market-rows.tsx`, shared with the optional Watchlist panel (`panels.watchlist`, off by default, on in the Pro
   preset): a column left of the chart with All / Yours (perp positions or Solana tokens) / Starred.
 - History (positions bar tabs, loaded on demand from `history-tables.tsx`): Order history = Hyperliquid
