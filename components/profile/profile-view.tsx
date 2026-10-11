@@ -37,6 +37,7 @@ const VENUES: Array<{ id: ProfileVenue; name: string; kind: string }> = [
   { id: "lighterRh", name: "Lighter RH", kind: "Stock perps" },
   { id: "aster", name: "Aster", kind: "Perps" },
   { id: "orderly", name: "Orderly", kind: "Perps" },
+  { id: "extended", name: "Extended", kind: "Perps" },
   { id: "jupiter", name: "Jupiter", kind: "Swap" },
   { id: "titan", name: "Titan", kind: "Swap" },
   { id: "uniswap", name: "Uniswap", kind: "Swap" },

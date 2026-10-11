@@ -423,6 +423,7 @@ function useExtendedInstance(enabled: boolean, address: `0x${string}` | null, ge
         const [wallet, { setupExtended }] = await Promise.all([getWalletClient(), import("@/lib/venues/extended/onboarding")]);
         await setupExtended(wallet, address, options);
         refresh();
+        void import("@/lib/profile/client").then(({ linkExtendedPoints }) => linkExtendedPoints(address));
         toast({ tone: "success", title: "Extended trading ready", message: "Extended orders now sign in the browser without a wallet popup." });
         return true;
       } catch (error) {

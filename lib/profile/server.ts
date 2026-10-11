@@ -11,13 +11,14 @@ import { readTitanFeeConfig } from "@/lib/venues/titan/fees";
 import { readBetaWindow } from "@/lib/ops/beta";
 import { dayInBeta, inBeta, type BetaWindow } from "./beta-points";
 import { isFresh, profileIdOf, readProfileMessage, type ProfileAction } from "./identity";
-import { claimTransaction, creditTarget, creditVolume, readCursors, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
+import { claimTransaction, creditTarget, creditVolume, readCursors, readExtendedAccounts, releaseTransaction, saveCursors, takeSyncSlot, volume30d } from "./store";
 import { hlAnglerVolume, lighterAnglerVolume, readAnglerSwap, type HlFill, type LighterTrade, type ParsedSolanaTx } from "./volume";
 import { tierFee, tierFees, vipFor } from "./vip";
 import { pointsShareFor } from "./levels";
 import { syncAster } from "./aster-volume";
 import { syncOrderly } from "./orderly-volume";
 import { syncPolymarket } from "./polymarket-volume";
+import { syncExtended } from "./extended-volume";
 
 const TIMEOUT_MS = 10_000;
 const HL_PAGE = 2000;
@@ -92,7 +93,7 @@ async function syncLighter(config: LighterConfig, l1Address: string, cursor: num
 }
 
 /**
- * Pulls new Angler volume for an EVM profile from Hyperliquid, both Lighter exchanges, Aster and Orderly, at most once a minute. Errors leave the
+ * Pulls new Angler volume for an EVM profile from Hyperliquid, both Lighter exchanges, Aster, Orderly, Polymarket and Extended, at most once a minute. Errors leave the
  * cursors where they were, so the next sync retries.
  */
 export async function syncProfile(id: string) {
@@ -103,13 +104,14 @@ export async function syncProfile(id: string) {
   // Trades placed while the closed beta was on earn bonus points, whenever they're synced.
   const beta = await readBetaWindow();
   const lighterFee = (config: LighterConfig, usd: number) => (usd * tierFee(config.integrator?.takerFee ?? 0, rate)) / 1_000_000;
-  const [hl, lighter, lighterRh, aster, orderly, polymarket] = await Promise.allSettled([
+  const [hl, lighter, lighterRh, aster, orderly, polymarket, extended] = await Promise.allSettled([
     syncHyperliquid(id, cursors.hl, beta),
     syncLighter(lighterConfig, id, cursors.lighter, beta),
     syncLighter(lighterRhConfig, id, cursors.lighterRh, beta),
     syncAster(id, cursors.aster, (time) => inBeta(beta, time)),
     syncOrderly(id, cursors.orderly, Date.now(), (day) => dayInBeta(beta, day)),
     syncPolymarket(id, cursors.polymarket, (time) => inBeta(beta, time)),
+    readExtendedAccounts(id).then((accounts) => syncExtended(accounts, cursors.extended, (time) => inBeta(beta, time))),
   ]);
   if (hl.status === "fulfilled" && hl.value) {
     await creditVolume(id, "hyperliquid", hl.value.usd, hl.value.fee, 0, { betaUsd: hl.value.betaUsd });
@@ -145,6 +147,11 @@ export async function syncProfile(id: string) {
     await creditVolume(id, "polymarket", polymarket.value.usd, polymarket.value.fee, 0, { betaUsd: polymarket.value.betaUsd, pointsShare: pointsShareFor(polymarket.value.bps) });
     await saveCursors(id, { polymarket: polymarket.value.lastTime });
   } else if (polymarket.status === "rejected") console.warn(`[profile] Polymarket sync failed: ${String(polymarket.reason)}`);
+  if (extended.status === "fulfilled" && extended.value) {
+    // Extended reports the builder fee each trade paid: our exact revenue on it.
+    await creditVolume(id, "extended", extended.value.usd, extended.value.fee, 0, { betaUsd: extended.value.betaUsd });
+    await saveCursors(id, { extended: extended.value.cursor });
+  } else if (extended.status === "rejected") console.warn(`[profile] Extended sync failed: ${String(extended.reason)}`);
 }
 
 async function referralAccounts(referral: string, mints: string[]) {

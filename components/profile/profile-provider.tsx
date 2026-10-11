@@ -6,7 +6,7 @@ import { useSolanaWallet } from "@/components/terminal/solana-wallet-provider";
 import { useWallet } from "@/components/terminal/wallet-provider";
 import { base58 } from "@/lib/profile/base58";
 import { profileMessage, REFERRAL_CODE, type ProfileAction } from "@/lib/profile/identity";
-import { TRADE_EVENT } from "@/lib/profile/client";
+import { TRADE_EVENT, linkExtendedPoints } from "@/lib/profile/client";
 import type { ProfileView } from "@/lib/profile/store";
 import { setVipRate, vipFor } from "@/lib/profile/vip";
 
@@ -101,6 +101,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     lastLoad.current = Date.now();
     setLoading(true);
     try {
+      // An Extended account set up in this browser counts once it's linked; linked before the sync, so its trades show now.
+      if (evmAddress) await linkExtendedPoints(evmAddress);
       const response = await fetch(`/api/profile/${encodeURIComponent(id)}?sync=1`, { cache: "no-store" });
       if (!response.ok) throw new Error(await readError(response));
       const next = (await response.json()) as ProfileView;

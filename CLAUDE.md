@@ -211,8 +211,14 @@ dependency versions and design are free to diverge from angler-news.
   sandbox passes no WebSockets). Book and trades: REST through the proxy every second (edge-cached 2s). Deposits: not in
   the funds window yet (`openDeposit("extended")` opens Extended's app; its bridge API is `/user/bridge/*` + Rhino.fi's
   `depositWithId`, wait for Arc). Testnet faucet `POST /api/v1/user/claim` ($1,000/hour; its first claims answered
-  SYSTEM_ERROR in October 2026, so a testnet fill hasn't been seen yet). Not yet: profile points (`/api/v1/builder/trades`
-  with our builder account's key) and the VIP discount on its builder fee.
+  SYSTEM_ERROR in October 2026, so a testnet fill hasn't been seen yet). Profile points (`lib/profile/extended-volume.ts`): our
+  builder trades (`/api/v1/builder/trades`, `EXTENDED_BUILDER_API_KEY`, server only; read once a minute per instance, 90
+  days / 10,000 trades at most; trade ids pass 2^53, so the page cursor is read from the raw text and the profile cursor
+  is the trade time) counted for the Extended accounts linked to the profile: `takerId`/`makerId` are account ids (the
+  docs' example shows one trade as account 3017 in `/user/trades` and `makerId` 3017 here). The browser links its
+  account (`linkExtendedPoints`, after setup and before each profile sync): `POST /api/profile/extended` with the
+  account's API key in `x-extended-api-key`, read once for `/user/account/info` and never stored; one profile per account
+  (`extended:{account}`). Not yet: the VIP discount on its builder fee.
 - Jupiter (`lib/venues/jupiter/`, a `SpotVenue`): Swap V2 Meta-Aggregator only (`GET /swap/v2/order` +
   `POST /swap/v2/execute` on api.jup.ag). Ultra and Metis are unmaintained: don't use them. Docs source:
   github.com/jup-ag/docs (mirrors developers.jup.ag).

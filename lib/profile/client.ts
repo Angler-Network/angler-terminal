@@ -29,6 +29,45 @@ export function claimEvmSwapPoints(chainId: number, hash: string, provider: "uni
     .catch(() => {});
 }
 
+const extendedLinks = new Map<string, Promise<void>>();
+
+/**
+ * Links this browser's Extended account (set up for `wallet`) to the wallet's profile, so its trades through our builder
+ * code count there. The account's API key goes to our server for one read of the account id (the proxy already relays it
+ * on every Extended call); the Stark key never leaves the browser. Once per wallet and account in this browser.
+ */
+export function linkExtendedPoints(wallet: string): Promise<void> {
+  const id = wallet.toLowerCase();
+  const pending = extendedLinks.get(id);
+  if (pending) return pending;
+  const run = (async () => {
+    const [{ extendedSession, readExtendedRecord }, { extendedConfig }] = await Promise.all([import("@/lib/venues/extended/store"), import("@/lib/venues/extended/config")]);
+    const record = readExtendedRecord(id);
+    if (!record || !extendedConfig.builderId) return;
+    const flag = `angler:extended-points:${extendedConfig.network}:${id}:${record.accountId}`;
+    try {
+      if (window.localStorage.getItem(flag)) return;
+    } catch {}
+    const session = await extendedSession(id);
+    if (!session) return;
+    const response = await fetch("/api/profile/extended", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-extended-api-key": session.apiKey },
+      body: JSON.stringify({ id }),
+    });
+    // Linked, or linked elsewhere for good: either way, asking again won't change it.
+    if (response.ok || response.status === 409) {
+      try {
+        window.localStorage.setItem(flag, "1");
+      } catch {}
+    }
+  })().catch(() => {});
+  extendedLinks.set(id, run);
+  // A failure can be retried on the next profile load.
+  void run.then(() => extendedLinks.delete(id));
+  return run;
+}
+
 const claimedRoutes = new Set<string>();
 
 /**

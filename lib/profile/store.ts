@@ -24,16 +24,17 @@ import { profileIdOf, type ProfileChain } from "./identity";
  *   points          sorted set: id → points (the leaderboard)
  *   name:{lower}    the id holding a username
  *   claim:{tx}      a Solana swap already credited
+ *   extended:{acct} the profile an Extended account is linked to (one profile per account)
  *   sync:{id}       a short lock so venue syncs run at most once a minute per profile
  * The one place the terminal keeps wallet addresses: a profile exists once the wallet trades or signs a change.
  */
 const PREFIX = `angler:profile:${process.env.NEXT_PUBLIC_DEPLOYMENT || "dev"}`;
 
-export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "jupiter", "titan", "uniswap", "zerox", "kyberswap", "arcus", "polymarket", "relay", "lifi", "across"] as const;
+export const PROFILE_VENUES = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended", "jupiter", "titan", "uniswap", "zerox", "kyberswap", "arcus", "polymarket", "relay", "lifi", "across"] as const;
 export type ProfileVenue = (typeof PROFILE_VENUES)[number];
 
 /** Perp and order-book spot venues: only their volume earns invites and referral rewards (not swaps or bridges). */
-const TRADING_VENUES: ProfileVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly"];
+const TRADING_VENUES: ProfileVenue[] = ["hyperliquid", "lighter", "lighterRh", "aster", "orderly", "extended"];
 
 /** A referrer's cash share of the Angler fees its referrals pay on perp and spot trades. */
 export const REFERRAL_FEE_SHARE = 0.1;
@@ -316,10 +317,18 @@ export async function readCursors(id: string) {
     const value = Number(hash[field]);
     return Number.isFinite(value) ? value : null;
   };
-  return { hl: number("hlCursor"), lighter: number("lighterCursor"), lighterRh: number("lighterRhCursor"), aster: number("asterCursor"), orderly: number("orderlyCursor"), polymarket: number("polymarketCursor") };
+  return {
+    hl: number("hlCursor"),
+    lighter: number("lighterCursor"),
+    lighterRh: number("lighterRhCursor"),
+    aster: number("asterCursor"),
+    orderly: number("orderlyCursor"),
+    polymarket: number("polymarketCursor"),
+    extended: number("extendedCursor"),
+  };
 }
 
-export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number; orderly?: number; polymarket?: number }) {
+export async function saveCursors(id: string, cursors: { hl?: number; lighter?: number; lighterRh?: number; aster?: number; orderly?: number; polymarket?: number; extended?: number }) {
   const fields: Record<string, string> = {};
   if (cursors.hl !== undefined) fields.hlCursor = String(cursors.hl);
   if (cursors.lighter !== undefined) fields.lighterCursor = String(cursors.lighter);
@@ -327,6 +336,7 @@ export async function saveCursors(id: string, cursors: { hl?: number; lighter?: 
   if (cursors.aster !== undefined) fields.asterCursor = String(cursors.aster);
   if (cursors.orderly !== undefined) fields.orderlyCursor = String(cursors.orderly);
   if (cursors.polymarket !== undefined) fields.polymarketCursor = String(cursors.polymarket);
+  if (cursors.extended !== undefined) fields.extendedCursor = String(cursors.extended);
   if (Object.keys(fields).length) await setFields(id, fields);
 }
 
@@ -528,6 +538,28 @@ export function claimTransaction(signature: string) {
 
 export function releaseTransaction(signature: string) {
   return dropKey(key("claim", signature));
+}
+
+/** The Extended account ids linked to a profile (their builder trades count there). */
+export async function readExtendedAccounts(id: string): Promise<number[]> {
+  const raw = (await getHash(id)).extendedAccounts ?? "";
+  return raw.split(",").map(Number).filter((value) => Number.isSafeInteger(value) && value > 0);
+}
+
+export type ExtendedLinkResult = { ok: true; accountId: number } | { ok: false; error: string };
+
+/**
+ * Links an Extended account to a profile, proved by the caller holding the account's API key (`extendedAccountOf`). One
+ * profile per account: only its own key could link it, so a link can't be taken from its owner.
+ */
+export async function linkExtendedAccount(id: string, accountId: number): Promise<ExtendedLinkResult> {
+  const name = key("extended", String(accountId));
+  if (!(await takeKey(name, 10 * 365 * 86_400, id)) && (await getKey(name)) !== id) {
+    return { ok: false, error: "That Extended account already counts for another profile." };
+  }
+  const accounts = await readExtendedAccounts(id);
+  if (!accounts.includes(accountId)) await setFields(id, { extendedAccounts: [...accounts, accountId].join(",") });
+  return { ok: true, accountId };
 }
 
 export type UsernameResult = { ok: true } | { ok: false; error: string };

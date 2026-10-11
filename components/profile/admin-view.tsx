@@ -18,6 +18,7 @@ const VENUE_NAMES: Record<string, string> = {
   lighterRh: "Lighter RH",
   aster: "Aster",
   orderly: "Orderly",
+  extended: "Extended",
   jupiter: "Jupiter",
   titan: "Titan",
   arcus: "Arcus",
