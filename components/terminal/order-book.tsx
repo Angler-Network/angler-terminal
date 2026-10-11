@@ -135,14 +135,18 @@ function Levels({
   );
 }
 
+function shownKeyOf(markets: VenueMarket[]) {
+  return markets.map((entry) => `${entry.venue}:${entry.coin}`).join(",");
+}
+
 /**
- * The book's venue menu: "All venues" (the default merge) or any set of venues, each with its color and logo; a row's
- * box adds or removes it, "Only" shows that one alone. Up to MAX_BOOK_SOURCES at once (each is a live stream).
+ * The book's venue menu: "All venues" (every venue listing the asset) or any set of them, each with its color and logo;
+ * a row's box adds or removes it, "Only" shows that one alone.
  */
-function BookSourcePicker({ listed, shown, isDefault, onPick }: { listed: PerpVenueId[]; shown: PerpVenueId[]; isDefault: boolean; onPick: (venues: PerpVenueId[] | null) => void }) {
+function BookSourcePicker({ listed, shown, onPick }: { listed: PerpVenueId[]; shown: PerpVenueId[]; onPick: (venues: PerpVenueId[]) => void }) {
   const { triggerRef, panelRef, anchor, open, toggle } = useAnchoredPopover<HTMLButtonElement>({ height: 60 + listed.length * 30 });
   const everyOne = shown.length === listed.length;
-  const label = isDefault && everyOne ? "All venues" : shown.length === 1 ? PERP_VENUE_NAMES[shown[0]] : everyOne ? "All venues" : `${shown.length} venues`;
+  const label = shown.length === 1 ? PERP_VENUE_NAMES[shown[0]] : everyOne ? "All venues" : `${shown.length} venues`;
   return (
     <>
       <button
@@ -169,11 +173,11 @@ function BookSourcePicker({ listed, shown, isDefault, onPick }: { listed: PerpVe
           >
             <button
               type="button"
-              onClick={() => onPick(null)}
+              onClick={() => onPick(listed)}
               className="flex items-center justify-between rounded-lg px-2 py-1.5 text-left font-semibold text-app-ink hover:bg-app-chip"
             >
               All venues
-              {isDefault && <Check className="size-3.5 text-app-accent" aria-hidden />}
+              {everyOne && <Check className="size-3.5 text-app-accent" aria-hidden />}
             </button>
             <span className="mx-2 my-1 h-px shrink-0 bg-app-hairline" aria-hidden />
             {listed.map((venue) => {
@@ -301,26 +305,20 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
   useEffect(() => {
     if (bookVenue) setPicked([bookVenue.venue as PerpVenueId]);
   }, [bookVenue]);
-  // The merged view streams up to MAX_BOOK_SOURCES venues; the slots past what's shown stay idle.
-  const other = shown[1] ?? null;
-  const third = shown[2] ?? null;
-  const fourth = shown[3] ?? null;
+  // One stream per venue shown (MAX_BOOK_SOURCES slots, one per perp venue); the slots past what's shown stay idle.
   const primary = useOrderBook(market);
-  const secondary = useOrderBook(other);
-  const tertiary = useOrderBook(third);
-  const quaternary = useOrderBook(fourth);
+  const stream2 = useOrderBook(shown[1] ?? null);
+  const stream3 = useOrderBook(shown[2] ?? null);
+  const stream4 = useOrderBook(shown[3] ?? null);
+  const stream5 = useOrderBook(shown[4] ?? null);
+  const stream6 = useOrderBook(shown[5] ?? null);
   const { status } = primary;
+  const streams = [primary, stream2, stream3, stream4, stream5, stream6];
   const sides = useMemo(
-    () =>
-      isAll && market && other
-        ? [
-            { venue: market.venue, book: primary.book, trades: primary.trades },
-            { venue: other.venue, book: secondary.book, trades: secondary.trades },
-            ...(third ? [{ venue: third.venue, book: tertiary.book, trades: tertiary.trades }] : []),
-            ...(fourth ? [{ venue: fourth.venue, book: quaternary.book, trades: quaternary.trades }] : []),
-          ]
-        : null,
-    [isAll, market, other, third, fourth, primary.book, primary.trades, secondary.book, secondary.trades, tertiary.book, tertiary.trades, quaternary.book, quaternary.trades],
+    () => (isAll ? shown.map((entry, index) => ({ venue: entry.venue, book: streams[index].book, trades: streams[index].trades })) : null),
+    // The books and trades themselves are the inputs; `shown` and `streams` are new arrays every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAll, shownKeyOf(shown), ...streams.flatMap((stream) => [stream.book, stream.trades])],
   );
   const merged = useMemo(() => (sides ? mergeVenueBooks(sides, 0) : null), [sides]);
   const book = merged ?? primary.book;
@@ -379,7 +377,7 @@ export function OrderBook({ markets, emptyText }: { markets?: VenueMarket[] | nu
           </button>
         ))}
         {choices.length > 1 ? (
-          <BookSourcePicker listed={listed} shown={shownVenues} isDefault={picked === null} onPick={setPicked} />
+          <BookSourcePicker listed={listed} shown={shownVenues} onPick={setPicked} />
         ) : (
           market && <span className="ml-auto text-[11px] text-app-faint">{PERP_VENUE_NAMES[market.venue]}</span>
         )}

@@ -1,5 +1,5 @@
-/** How many venues the merged order book streams at most (one socket or poller each). */
-export const MAX_BOOK_SOURCES = 4;
+/** How many venues the merged order book can stream at once (one socket or poller each): every perp venue. */
+export const MAX_BOOK_SOURCES = 6;
 /** How many the default "All venues" view merges, in the venue order. */
 export const DEFAULT_BOOK_SOURCES = 3;
 

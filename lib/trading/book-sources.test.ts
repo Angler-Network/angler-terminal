@@ -18,8 +18,9 @@ describe("bookSources", () => {
     expect(bookSources(["hl", "lighter", "aster"], ["aster", "orderly"])).toEqual(["aster"]);
   });
 
-  it("caps the picked venues", () => {
-    expect(bookSources(listed, listed)).toEqual(["hl", "lighter", "rh", "aster"]);
+  it("shows every venue when all are picked", () => {
+    expect(bookSources(listed, listed)).toEqual(listed);
+    expect(bookSources([...listed, "seventh"], [...listed, "seventh"])).toEqual(listed);
   });
 });
 
@@ -31,6 +32,7 @@ describe("toggleBookSource", () => {
 
   it("keeps the last venue and the cap", () => {
     expect(toggleBookSource(["hl"], "hl")).toEqual(["hl"]);
-    expect(toggleBookSource(["a", "b", "c", "d"], "e")).toEqual(["a", "b", "c", "d"]);
+    expect(toggleBookSource(["a", "b", "c", "d", "e"], "f")).toEqual(["a", "b", "c", "d", "e", "f"]);
+    expect(toggleBookSource(["a", "b", "c", "d", "e", "f"], "g")).toEqual(["a", "b", "c", "d", "e", "f"]);
   });
 });

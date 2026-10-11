@@ -590,7 +590,8 @@ dependency versions and design are free to diverge from angler-news.
   - Merged book and split orders: with two venues listing the asset the order book defaults to "All venues"
     (`mergeVenueBooks`: levels summed per price, bars split by venue color, "Crossed" when one venue's bid tops the
     other's ask; trades merged with venue dots). The book's venue menu (`BookSourcePicker`) picks any set of venues
-    (`lib/trading/book-sources.ts`: default = the first three, at most `MAX_BOOK_SOURCES` 4 streams, "Only" for one); its
+    (`lib/trading/book-sources.ts`: default = the first three, "All venues" = every venue listing the asset, up to
+    `MAX_BOOK_SOURCES` 6 streams, one `useOrderBook` slot per perp venue; "Only" for one); its
     color key names up to three and folds the rest into "+N sources" (a press lists them). A venue picked by hand in the
     order panel (or the home search) switches the book to it when listed (`showBookVenue` in `order-draft.tsx`); Auto's
     choices don't move it. `useBestExecution` also returns `splitExecution` (cheapest levels of
